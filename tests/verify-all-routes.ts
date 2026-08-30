@@ -30,7 +30,13 @@ async function runTests() {
     { url: '/api/v4/0/0/encyclopedia/ranking/0/0/', method: 'GET', expectStatus: 200 },
     { url: '/api/v4/0/0/encyclopedia/eva-ranking/0/0/', method: 'GET', expectStatus: 200 },
     { url: '/api/v1/sales-orders/', method: 'GET', expectStatus: 200 },
-    { url: '/api/v2/companies/buildings/restaurant-properties/', method: 'GET', expectStatus: 200 }
+    { url: '/api/v2/companies/buildings/restaurant-properties/', method: 'GET', expectStatus: 200 },
+    { url: '/api/v2/weather/0/', method: 'GET', expectStatus: 200 },
+    { url: '/api/v3/contracts-outgoing/me/', method: 'GET', expectStatus: 200 },
+    { url: '/api/v3/contracts-incoming/me/', method: 'GET', expectStatus: 200 },
+    { url: '/api/v2/companies/me/past-finances-overview/', method: 'GET', expectStatus: 200 },
+    { url: '/api/v2/companies/me/game-notifications/', method: 'GET', expectStatus: 200 },
+    { url: '/api/v2/zh-cn/0/articles/top-by-reaction/1/', method: 'GET', expectStatus: 200 }
   ];
 
   let passed = 0;

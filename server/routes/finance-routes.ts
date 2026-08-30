@@ -150,20 +150,32 @@ export async function handleFinanceRoutes(
     return true;
   }
 
-  // 9. Past Finances / Financial History: /api/v2/companies/:id/past-finances/
-  if (pathname.includes('/past-finances/')) {
+  // 9. Past Finances & Overview: /api/v2/companies/:id/past-finances/, /api/v2/companies/:id/past-finances-overview/
+  if (pathname.includes('/past-finances/') || pathname.includes('/past-finances-overview/')) {
     const comp = getCompanyById(effectiveCompanyId);
     const money = comp ? Number(comp.money) || 0 : 100000;
     const days = [];
     const now = Date.now();
     for (let i = 0; i < 14; i++) {
       const date = new Date(now - i * 86400 * 1000).toISOString().split('T')[0];
+      const currentAssets = Math.round(money * (0.85 + i * 0.01)) + 28000;
+      const nonCurrentAssets = 45000;
+      const liabilities = 0;
+      const total = currentAssets + nonCurrentAssets - liabilities;
       days.push({
         date,
-        money: Math.round(money * (0.85 + (i * 0.01))),
-        buildings: 45000,
+        money: Math.round(money * (0.85 + i * 0.01)),
+        buildings: nonCurrentAssets,
         inventory: 28000,
-        equity: Math.round(money * (0.85 + (i * 0.01))) + 73000
+        equity: total,
+        currentAssets,
+        nonCurrentAssets,
+        liabilities,
+        total,
+        economicValueAdded: 9000,
+        evaProfit: 21000,
+        evaRank: 0,
+        rank: 1
       });
     }
     sendJson(res, days);

@@ -18,19 +18,19 @@ export async function handleContractRoutes(
 ): Promise<boolean> {
   const effectiveCompanyId = currentCompanyId || 4259175;
 
-  // 1. Incoming contracts (v2 & v3)
+  // 1. Incoming contracts (v2 & v3: /api/v2/contracts-incoming/, /api/v3/contracts-incoming/me/, /api/v3/contracts-incoming/:realm/:id/)
   if (
     pathname === '/api/v2/contracts-incoming/' ||
-    pathname.match(/^\/api\/v3\/contracts-incoming\/(\d+)\/(\d+|me)\/$/)
+    pathname.match(/^\/api\/v3\/contracts-incoming\/(?:(?:\d+\/)?(?:\d+|me)|me)\/$/)
   ) {
     sendJson(res, getIncomingContracts(effectiveCompanyId));
     return true;
   }
 
-  // 2. Outgoing contracts (v2 & v3)
+  // 2. Outgoing contracts (v2 & v3: /api/v2/contracts-outgoing/, /api/v3/contracts-outgoing/me/, /api/v3/contracts-outgoing/:realm/:id/)
   if (
     pathname === '/api/v2/contracts-outgoing/' ||
-    pathname.match(/^\/api\/v3\/contracts-outgoing\/(\d+)\/(\d+|me)\/$/)
+    pathname.match(/^\/api\/v3\/contracts-outgoing\/(?:(?:\d+\/)?(?:\d+|me)|me)\/$/)
   ) {
     sendJson(res, getOutgoingContracts(effectiveCompanyId));
     return true;

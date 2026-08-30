@@ -30,17 +30,25 @@ export async function handleSocialRoutes(
     return true;
   }
 
-  // 2. Game Notifications: /api/v2/game-notifications/
-  if (pathname === '/api/v2/game-notifications/' || pathname === '/api/v2/game-notifications') {
+  // 2. Game Notifications: /api/v2/game-notifications/, /api/v2/companies/:id/game-notifications/
+  const gameNotificationsMatch =
+    pathname === '/api/v2/game-notifications/' ||
+    pathname === '/api/v2/game-notifications' ||
+    pathname.match(/^\/api\/v2\/companies\/(\d+|me)\/game-notifications\/(?:\d+\/)?$/);
+  if (gameNotificationsMatch) {
+    if (method === 'DELETE') {
+      sendJson(res, { success: true });
+      return true;
+    }
     sendJson(res, {
       notifications: [
         {
           id: 1,
-          title: "欢迎来到 Sim Companies 私人服务器",
-          body: "生产加速 10x，全功能子系统已完整就绪！",
+          title: '欢迎来到 Sim Companies 私人服务器',
+          body: '生产加速 10x，全功能子系统已完整就绪！',
           date: new Date().toISOString(),
           read: true,
-          type: "system"
+          type: 'system'
         }
       ],
       unreadCount: 0
@@ -191,6 +199,24 @@ export async function handleSocialRoutes(
         ]
       }
     ]);
+    return true;
+  }
+
+  // 10b. Newspaper Top Articles by Reaction: /api/v2/:locale/:realm/articles/top-by-reaction/:reaction/
+  const topArticlesMatch = pathname.match(/^\/api\/v2\/[^/]+\/(\d+)\/articles\/top-by-reaction\/(\d+)\/$/);
+  if (topArticlesMatch) {
+    const realmId = Number(topArticlesMatch[1]);
+    sendJson(res, {
+      topArticles: [
+        {
+          id: 1,
+          title: '私人服务器经济模型平稳运行',
+          author: { id: 999901, company: 'Sim Companies Times' },
+          reactions: [{ reaction: 1, count: 28 }],
+          newspaper: { realmId, issueId: 1 }
+        }
+      ]
+    });
     return true;
   }
 

@@ -38,6 +38,20 @@ export async function handleEncyclopediaRoutes(
     return true;
   }
 
+  // 1b. Weather: /api/v2/weather/:realmId/
+  const weatherMatch = pathname.match(/^\/api\/v2\/weather\/(\d+)\/$/);
+  if (weatherMatch) {
+    const realmId = Number(weatherMatch[1]);
+    sendJson(res, {
+      id: 1,
+      realm: realmId,
+      sellingSpeedMultiplier: 1.0,
+      since: '2026-01-01T00:00:00.000Z',
+      until: '2030-01-01T00:00:00.000Z'
+    });
+    return true;
+  }
+
   // 2. Production Modifiers & Industry/Realm Modifiers
   if (
     pathname.includes('/production-modifiers/') ||
