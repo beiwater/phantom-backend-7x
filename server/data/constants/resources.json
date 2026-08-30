@@ -14,7 +14,8 @@
     "unitsSoldAnHour": 0,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "2": {
     "dbLetter": 2,
@@ -33,7 +34,8 @@
     "unitsSoldAnHour": 0,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "3": {
     "dbLetter": 3,
@@ -53,7 +55,8 @@
     "unitsSoldAnHour": 110,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "4": {
     "dbLetter": 4,
@@ -73,7 +76,8 @@
     "unitsSoldAnHour": 90,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "5": {
     "dbLetter": 5,
@@ -93,7 +97,8 @@
     "unitsSoldAnHour": 80,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "6": {
     "dbLetter": 6,
@@ -113,7 +118,8 @@
     "unitsSoldAnHour": 0,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "7": {
     "dbLetter": 7,
@@ -132,7 +138,8 @@
     "unitsSoldAnHour": 35,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "8": {
     "dbLetter": 8,
@@ -151,7 +158,8 @@
     "unitsSoldAnHour": 110,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "9": {
     "dbLetter": 9,
@@ -171,7 +179,8 @@
     "unitsSoldAnHour": 340,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "10": {
     "dbLetter": 10,
@@ -190,7 +199,8 @@
     "unitsSoldAnHour": 0,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "11": {
     "dbLetter": 11,
@@ -211,7 +221,8 @@
     "unitsSoldAnHour": 103,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "12": {
     "dbLetter": 12,
@@ -232,7 +243,8 @@
     "unitsSoldAnHour": 105,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "13": {
     "dbLetter": 13,
@@ -252,7 +264,8 @@
     "unitsSoldAnHour": 0,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "14": {
     "dbLetter": 14,
@@ -272,7 +285,8 @@
     "unitsSoldAnHour": 0,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "15": {
     "dbLetter": 15,
@@ -292,7 +306,8 @@
     "unitsSoldAnHour": 0,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "16": {
     "dbLetter": 16,
@@ -312,7 +327,8 @@
     "unitsSoldAnHour": 0,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "17": {
     "dbLetter": 17,
@@ -332,7 +348,8 @@
     "unitsSoldAnHour": 0,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "18": {
     "dbLetter": 18,
@@ -352,7 +369,8 @@
     "unitsSoldAnHour": 0,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "19": {
     "dbLetter": 19,
@@ -372,7 +390,8 @@
     "unitsSoldAnHour": 0,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "20": {
     "dbLetter": 20,
@@ -392,7 +411,8 @@
     "unitsSoldAnHour": 0,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "21": {
     "dbLetter": 21,
@@ -412,7 +432,8 @@
     "unitsSoldAnHour": 0,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "22": {
     "dbLetter": 22,
@@ -431,7 +452,8 @@
     "unitsSoldAnHour": 0,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "23": {
     "dbLetter": 23,
@@ -451,7 +473,8 @@
     "unitsSoldAnHour": 0,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "24": {
     "dbLetter": 24,
@@ -474,7 +497,8 @@
     "unitsSoldAnHour": 2,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "25": {
     "dbLetter": 25,
@@ -497,7 +521,8 @@
     "unitsSoldAnHour": 0.8,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "26": {
     "dbLetter": 26,
@@ -520,7 +545,8 @@
     "unitsSoldAnHour": 1.2,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "27": {
     "dbLetter": 27,
@@ -541,7 +567,8 @@
     "unitsSoldAnHour": 2,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "28": {
     "dbLetter": 28,
@@ -563,7 +590,8 @@
     "unitsSoldAnHour": 1.8,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "29": {
     "dbLetter": 29,
@@ -786,7 +814,8 @@
     "unitsSoldAnHour": 0,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "41": {
     "dbLetter": 41,
@@ -806,7 +835,8 @@
     "unitsSoldAnHour": 0,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "42": {
     "dbLetter": 42,
@@ -826,7 +856,8 @@
     "unitsSoldAnHour": 0,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "43": {
     "dbLetter": 43,
@@ -847,7 +878,8 @@
     "unitsSoldAnHour": 0,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "44": {
     "dbLetter": 44,
@@ -866,7 +898,8 @@
     "unitsSoldAnHour": 0,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "45": {
     "dbLetter": 45,
@@ -886,7 +919,8 @@
     "unitsSoldAnHour": 0,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "46": {
     "dbLetter": 46,
@@ -905,7 +939,8 @@
     "unitsSoldAnHour": 0,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "47": {
     "dbLetter": 47,
@@ -925,7 +960,8 @@
     "unitsSoldAnHour": 0,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "48": {
     "dbLetter": 48,
@@ -945,7 +981,8 @@
     "unitsSoldAnHour": 0,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "49": {
     "dbLetter": 49,
@@ -966,7 +1003,8 @@
     "unitsSoldAnHour": 0,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "50": {
     "dbLetter": 50,
@@ -987,7 +1025,8 @@
     "unitsSoldAnHour": 0,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "51": {
     "dbLetter": 51,
@@ -1008,7 +1047,8 @@
     "unitsSoldAnHour": 0,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "52": {
     "dbLetter": 52,
@@ -1029,7 +1069,8 @@
     "unitsSoldAnHour": 0,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "53": {
     "dbLetter": 53,
@@ -1052,7 +1093,8 @@
     "unitsSoldAnHour": 2,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "54": {
     "dbLetter": 54,
@@ -1075,7 +1117,8 @@
     "unitsSoldAnHour": 0.5,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "55": {
     "dbLetter": 55,
@@ -1097,7 +1140,8 @@
     "unitsSoldAnHour": 2,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "56": {
     "dbLetter": 56,
@@ -1119,7 +1163,8 @@
     "unitsSoldAnHour": 0.5,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "57": {
     "dbLetter": 57,
@@ -1142,7 +1187,8 @@
     "unitsSoldAnHour": 1,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "58": {
     "dbLetter": 58,
@@ -1218,7 +1264,8 @@
     "unitsSoldAnHour": 25,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "61": {
     "dbLetter": 61,
@@ -1238,7 +1285,8 @@
     "unitsSoldAnHour": 20,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "62": {
     "dbLetter": 62,
@@ -1258,7 +1306,8 @@
     "unitsSoldAnHour": 45,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "63": {
     "dbLetter": 63,
@@ -1278,7 +1327,8 @@
     "unitsSoldAnHour": 30,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "64": {
     "dbLetter": 64,
@@ -1297,7 +1347,8 @@
     "unitsSoldAnHour": 20,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "65": {
     "dbLetter": 65,
@@ -1316,7 +1367,8 @@
     "unitsSoldAnHour": 30,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "66": {
     "dbLetter": 66,
@@ -1335,7 +1387,8 @@
     "unitsSoldAnHour": 0,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "67": {
     "dbLetter": 67,
@@ -1355,7 +1408,8 @@
     "unitsSoldAnHour": 400,
     "productionSeason": null,
     "retailSeason": "Xmas",
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "68": {
     "dbLetter": 68,
@@ -1375,7 +1429,8 @@
     "unitsSoldAnHour": 0,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "69": {
     "dbLetter": 69,
@@ -1395,7 +1450,8 @@
     "unitsSoldAnHour": 0,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "70": {
     "dbLetter": 70,
@@ -1416,7 +1472,8 @@
     "unitsSoldAnHour": 3,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "71": {
     "dbLetter": 71,
@@ -1435,7 +1492,8 @@
     "unitsSoldAnHour": 2,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "72": {
     "dbLetter": 72,
@@ -1455,7 +1513,8 @@
     "unitsSoldAnHour": 0,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "73": {
     "dbLetter": 73,
@@ -1475,7 +1534,8 @@
     "unitsSoldAnHour": 0,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "74": {
     "dbLetter": 74,
@@ -1494,7 +1554,8 @@
     "unitsSoldAnHour": 0,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "75": {
     "dbLetter": 75,
@@ -1514,7 +1575,8 @@
     "unitsSoldAnHour": 0,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "76": {
     "dbLetter": 76,
@@ -1533,7 +1595,8 @@
     "unitsSoldAnHour": 0,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "77": {
     "dbLetter": 77,
@@ -1552,7 +1615,8 @@
     "unitsSoldAnHour": 0,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "78": {
     "dbLetter": 78,
@@ -1572,7 +1636,8 @@
     "unitsSoldAnHour": 0,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "79": {
     "dbLetter": 79,
@@ -1593,7 +1658,8 @@
     "unitsSoldAnHour": 0,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "80": {
     "dbLetter": 80,
@@ -1613,7 +1679,8 @@
     "unitsSoldAnHour": 0,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "81": {
     "dbLetter": 81,
@@ -1634,7 +1701,8 @@
     "unitsSoldAnHour": 0,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "82": {
     "dbLetter": 82,
@@ -1655,7 +1723,8 @@
     "unitsSoldAnHour": 0,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "83": {
     "dbLetter": 83,
@@ -1675,7 +1744,8 @@
     "unitsSoldAnHour": 0,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "84": {
     "dbLetter": 84,
@@ -1695,7 +1765,8 @@
     "unitsSoldAnHour": 0,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "85": {
     "dbLetter": 85,
@@ -1716,7 +1787,8 @@
     "unitsSoldAnHour": 0,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "86": {
     "dbLetter": 86,
@@ -1737,7 +1809,8 @@
     "unitsSoldAnHour": 0,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "87": {
     "dbLetter": 87,
@@ -1757,7 +1830,8 @@
     "unitsSoldAnHour": 0,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "88": {
     "dbLetter": 88,
@@ -1778,7 +1852,8 @@
     "unitsSoldAnHour": 0,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "89": {
     "dbLetter": 89,
@@ -1798,7 +1873,8 @@
     "unitsSoldAnHour": 0,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "90": {
     "dbLetter": 90,
@@ -1821,7 +1897,8 @@
     "unitsSoldAnHour": 0,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "91": {
     "dbLetter": 91,
@@ -1841,7 +1918,8 @@
     "unitsSoldAnHour": 1,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "92": {
     "dbLetter": 92,
@@ -1862,7 +1940,8 @@
     "unitsSoldAnHour": 0,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "93": {
     "dbLetter": 93,
@@ -1885,7 +1964,8 @@
     "unitsSoldAnHour": 0,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "94": {
     "dbLetter": 94,
@@ -1905,7 +1985,8 @@
     "unitsSoldAnHour": 1,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "95": {
     "dbLetter": 95,
@@ -1928,7 +2009,8 @@
     "unitsSoldAnHour": 1,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "96": {
     "dbLetter": 96,
@@ -1951,7 +2033,8 @@
     "unitsSoldAnHour": 1,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "97": {
     "dbLetter": 97,
@@ -1973,7 +2056,8 @@
     "unitsSoldAnHour": 1,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "98": {
     "dbLetter": 98,
@@ -1995,7 +2079,8 @@
     "unitsSoldAnHour": 1,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "99": {
     "dbLetter": 99,
@@ -2017,7 +2102,8 @@
     "unitsSoldAnHour": 1,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "100": {
     "dbLetter": 100,
@@ -2073,7 +2159,8 @@
     "unitsSoldAnHour": 0,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "102": {
     "dbLetter": 102,
@@ -2092,7 +2179,8 @@
     "unitsSoldAnHour": 80,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "103": {
     "dbLetter": 103,
@@ -2111,7 +2199,8 @@
     "unitsSoldAnHour": 60,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "104": {
     "dbLetter": 104,
@@ -2130,7 +2219,8 @@
     "unitsSoldAnHour": 0,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "105": {
     "dbLetter": 105,
@@ -2149,7 +2239,8 @@
     "unitsSoldAnHour": 0,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "106": {
     "dbLetter": 106,
@@ -2169,7 +2260,8 @@
     "unitsSoldAnHour": 0,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "107": {
     "dbLetter": 107,
@@ -2189,7 +2281,8 @@
     "unitsSoldAnHour": 0,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "108": {
     "dbLetter": 108,
@@ -2208,7 +2301,8 @@
     "unitsSoldAnHour": 120,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "109": {
     "dbLetter": 109,
@@ -2228,7 +2322,8 @@
     "unitsSoldAnHour": 30,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "110": {
     "dbLetter": 110,
@@ -2250,7 +2345,8 @@
     "unitsSoldAnHour": 40,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "111": {
     "dbLetter": 111,
@@ -2273,7 +2369,8 @@
     "unitsSoldAnHour": 0,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "112": {
     "dbLetter": 112,
@@ -2294,7 +2391,8 @@
     "unitsSoldAnHour": 0,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "113": {
     "dbLetter": 113,
@@ -2342,7 +2440,8 @@
     "unitsSoldAnHour": 0,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "115": {
     "dbLetter": 115,
@@ -2362,7 +2461,8 @@
     "unitsSoldAnHour": 0,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "116": {
     "dbLetter": 116,
@@ -2382,7 +2482,8 @@
     "unitsSoldAnHour": 0,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "117": {
     "dbLetter": 117,
@@ -2402,7 +2503,8 @@
     "unitsSoldAnHour": 0,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "118": {
     "dbLetter": 118,
@@ -2422,7 +2524,8 @@
     "unitsSoldAnHour": 0,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "119": {
     "dbLetter": 119,
@@ -2441,7 +2544,8 @@
     "unitsSoldAnHour": 100,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "120": {
     "dbLetter": 120,
@@ -2461,7 +2565,8 @@
     "unitsSoldAnHour": 0,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "121": {
     "dbLetter": 121,
@@ -2480,7 +2585,8 @@
     "unitsSoldAnHour": 0,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "122": {
     "dbLetter": 122,
@@ -2499,7 +2605,8 @@
     "unitsSoldAnHour": 30,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "123": {
     "dbLetter": 123,
@@ -2520,7 +2627,8 @@
     "unitsSoldAnHour": 10,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "124": {
     "dbLetter": 124,
@@ -2540,7 +2648,8 @@
     "unitsSoldAnHour": 15,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "125": {
     "dbLetter": 125,
@@ -2559,7 +2668,8 @@
     "unitsSoldAnHour": 15,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "126": {
     "dbLetter": 126,
@@ -2580,7 +2690,8 @@
     "unitsSoldAnHour": 10,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "127": {
     "dbLetter": 127,
@@ -2602,7 +2713,8 @@
     "unitsSoldAnHour": 10,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "128": {
     "dbLetter": 128,
@@ -2622,7 +2734,8 @@
     "unitsSoldAnHour": 0,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "129": {
     "dbLetter": 129,
@@ -2645,7 +2758,8 @@
     "unitsSoldAnHour": 0,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "130": {
     "dbLetter": 130,
@@ -2667,7 +2781,8 @@
     "unitsSoldAnHour": 0,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "131": {
     "dbLetter": 131,
@@ -2689,7 +2804,8 @@
     "unitsSoldAnHour": 0,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "132": {
     "dbLetter": 132,
@@ -2711,7 +2827,8 @@
     "unitsSoldAnHour": 0,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "133": {
     "dbLetter": 133,
@@ -2730,7 +2847,8 @@
     "unitsSoldAnHour": 0,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "134": {
     "dbLetter": 134,
@@ -2749,7 +2867,8 @@
     "unitsSoldAnHour": 0,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "135": {
     "dbLetter": 135,
@@ -2769,7 +2888,8 @@
     "unitsSoldAnHour": 0,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "136": {
     "dbLetter": 136,
@@ -2789,7 +2909,8 @@
     "unitsSoldAnHour": 0,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "137": {
     "dbLetter": 137,
@@ -2810,7 +2931,8 @@
     "unitsSoldAnHour": 0,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "138": {
     "dbLetter": 138,
@@ -2831,7 +2953,8 @@
     "unitsSoldAnHour": 0,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "139": {
     "dbLetter": 139,
@@ -2851,7 +2974,8 @@
     "unitsSoldAnHour": 0,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "140": {
     "dbLetter": 140,
@@ -2872,7 +2996,8 @@
     "unitsSoldAnHour": 15,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "141": {
     "dbLetter": 141,
@@ -2892,7 +3017,8 @@
     "unitsSoldAnHour": 0,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "142": {
     "dbLetter": 142,
@@ -2913,7 +3039,8 @@
     "unitsSoldAnHour": 0,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "143": {
     "dbLetter": 143,
@@ -2934,7 +3061,8 @@
     "unitsSoldAnHour": 0,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "144": {
     "dbLetter": 144,
@@ -2955,7 +3083,8 @@
     "unitsSoldAnHour": 70,
     "productionSeason": null,
     "retailSeason": "Xmas",
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "145": {
     "dbLetter": 145,
@@ -3022,7 +3151,8 @@
     "unitsSoldAnHour": 50,
     "productionSeason": "AutumnHarvest",
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "147": {
     "dbLetter": 147,
@@ -3042,7 +3172,8 @@
     "unitsSoldAnHour": 40,
     "productionSeason": null,
     "retailSeason": "Halloween",
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "148": {
     "dbLetter": 148,
@@ -3062,7 +3193,8 @@
     "unitsSoldAnHour": 12,
     "productionSeason": null,
     "retailSeason": "Halloween",
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "149": {
     "dbLetter": 149,
@@ -3083,7 +3215,8 @@
     "unitsSoldAnHour": 0,
     "productionSeason": null,
     "retailSeason": null,
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "150": {
     "dbLetter": 150,
@@ -3111,7 +3244,8 @@
         "bonusPerQuality": 4
       }
     },
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "151": {
     "dbLetter": 151,
@@ -3133,7 +3267,8 @@
     "unitsSoldAnHour": 30,
     "productionSeason": null,
     "retailSeason": "Easter",
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   },
   "152": {
     "dbLetter": 152,
@@ -3155,7 +3290,8 @@
     "transportation": 1,
     "unitsSoldAnHour": 40,
     "productionSeason": null,
-    "retailSeason": "Ramadan"
+    "retailSeason": "Ramadan",
+    "improvesQualityOf": []
   },
   "153": {
     "dbLetter": 153,
@@ -3176,7 +3312,8 @@
     "unitsSoldAnHour": 22,
     "productionSeason": null,
     "retailSeason": "Summer",
-    "decay": 0.05
+    "decay": 0.05,
+    "improvesQualityOf": []
   },
   "154": {
     "dbLetter": 154,
@@ -3197,7 +3334,8 @@
     "unitsSoldAnHour": 18,
     "productionSeason": null,
     "retailSeason": "Summer",
-    "decay": 0.05
+    "decay": 0.05,
+    "improvesQualityOf": []
   },
   "155": {
     "dbLetter": 155,
@@ -3218,6 +3356,7 @@
     "unitsSoldAnHour": 70,
     "productionSeason": null,
     "retailSeason": "Easter",
-    "decay": 0
+    "decay": 0,
+    "improvesQualityOf": []
   }
 }

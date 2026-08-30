@@ -10,7 +10,7 @@ export async function handleSocialRoutes(
   method: string,
   currentCompanyId: number | null
 ): Promise<boolean> {
-  // Contacts & Default Chatrooms
+  // Contacts & Default Chatrooms (Must include unreadMessages: [])
   if (pathname === '/api/v2/contacts/') {
     sendJson(res, {
       chatrooms: [
@@ -21,6 +21,7 @@ export async function handleSocialRoutes(
         { name: '[EN] Sales', language: 'en', category: 'sales', icon: 'chat-23488b.png', db_letter: 'S', realmsShared: false, protectedForCountry: 'None', show_rules: false, unread: 0, date: new Date().toISOString() }
       ],
       contacts: [],
+      unreadMessages: [],
       unreadMessagesOtherRealms: [],
       invisible: false,
       ignoringCompanies: [],
@@ -94,7 +95,7 @@ export async function handleSocialRoutes(
   }
 
   if (pathname === '/api/messages/' || pathname === '/api/messages_by_company/') {
-    sendJson(res, { messages: [], contacts: [] });
+    sendJson(res, { messages: [], contacts: [], unreadMessages: [] });
     return true;
   }
 

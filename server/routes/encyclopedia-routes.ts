@@ -44,23 +44,69 @@ export async function handleEncyclopediaRoutes(
     return true;
   }
 
+  // Resources Retail Info MUST be an ARRAY of objects with dbLetter and retailData array!
+  if (pathname.includes('/resources-retail-info/')) {
+    const today = new Date().toISOString().split('T')[0];
+    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+
+    const retailArray: Array<{
+      dbLetter: number;
+      retailData: Array<{ date: string; saturation: number; averagePrice: number }>;
+    }> = [];
+
+    for (const [k, def] of Object.entries(CONSTANTS_RESOURCES)) {
+      const kind = Number(k);
+      retailArray.push({
+        dbLetter: kind,
+        retailData: [
+          { date: yesterday, saturation: 0.5, averagePrice: def.unitsSoldAnHour ? 2.5 : 0 },
+          { date: today, saturation: 0.5, averagePrice: def.unitsSoldAnHour ? 2.5 : 0 }
+        ]
+      });
+    }
+    sendJson(res, retailArray);
+    return true;
+  }
+
   // Encyclopedia Resource Detail
   const encResMatch = pathname.match(/^\/api\/v4\/[^/]+\/\d+\/encyclopedia\/resources\/(\d+)\/(\d+)\/$/) ||
                       pathname.match(/^\/api\/v4\/[^/]+\/\d+\/encyclopedia\/resources\/(\d+)\/$/);
   if (encResMatch) {
     const kind = Number(encResMatch[1]);
+    const quality = encResMatch[2] ? Number(encResMatch[2]) : 0;
     const resDef = getResourceDef(kind);
+    const today = new Date().toISOString().split('T')[0];
+    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+
     sendJson(res, {
       dbLetter: kind,
+      name: resDef?.name || `Resource #${kind}`,
       producedAt: resDef?.producedAt || 'P',
       producedFrom: resDef?.producedFrom || {},
-      producedPerHourRaw: resDef?.producedPerHourRaw || 800,
-      image: resDef?.image || '',
+      producedPerHourRaw: resDef?.producedPerHourRaw || 200,
+      image: resDef?.image || 'images/resources/apples.png',
       transportation: resDef?.transportation || 1,
       isExchangeTradable: resDef?.isExchangeTradable ?? true,
       unitsSoldAnHour: resDef?.unitsSoldAnHour || 0,
-      retailModel: { saturation: 0.5, averagePrice: 2.5 }
+      decay: resDef?.decay || 0,
+      quality,
+      retailModel: { saturation: 0.5, averagePrice: 2.5 },
+      retailData: [
+        { date: yesterday, saturation: 0.5, averagePrice: 2.5 },
+        { date: today, saturation: 0.5, averagePrice: 2.5 }
+      ],
+      market: { price: 1.0 + quality, quality }
     });
+    return true;
+  }
+
+  // Existing resource quality
+  if (pathname.includes('/encyclopedia/existing-resource-quality/')) {
+    const qualityMap: Record<string, number> = {};
+    for (const k of Object.keys(CONSTANTS_RESOURCES)) {
+      qualityMap[k] = 0;
+    }
+    sendJson(res, qualityMap);
     return true;
   }
 
@@ -75,7 +121,7 @@ export async function handleEncyclopediaRoutes(
   }
 
   // EVA Rankings
-  if (pathname.includes('/encyclopedia/eva-ranking/')) {
+  if (pathname.includes('/encyclopedia/eva-ranking/') || pathname.includes('/encyclopedia/ranking/')) {
     return sendJson(res, []);
   }
 
@@ -84,9 +130,9 @@ export async function handleEncyclopediaRoutes(
     return sendJson(res, { events: [] });
   }
 
-  if (pathname.includes('/resources-retail-info/')) {
-    sendJson(res, { 1: { saturation: 0.5 }, 2: { saturation: 0.5 }, 3: { saturation: 0.5 } });
-    return true;
+  // Encyclopedia Supporters
+  if (pathname.includes('/encyclopedia/supporters/')) {
+    return sendJson(res, { supporters: [] });
   }
 
   // Stats / Leaderboard

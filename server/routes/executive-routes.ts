@@ -16,19 +16,37 @@ export async function handleExecutiveRoutes(
   method: string,
   currentCompanyId: number | null
 ): Promise<boolean> {
-  // Current executives list
-  if (pathname === '/api/v4/executives/' || pathname.match(/^\/api\/v4\/executives\/company\/(\d+|me)\/$/)) {
-    const effectiveCompanyId = currentCompanyId || 4259175;
+  const effectiveCompanyId = currentCompanyId || 4259175;
+
+  // Current executives list (v3 & v4)
+  if (
+    pathname === '/api/v4/executives/' ||
+    pathname.match(/^\/api\/v4\/executives\/company\/(\d+|me)\/$/) ||
+    pathname.match(/^\/api\/v3\/companies\/(\d+|me)\/executives\/$/)
+  ) {
     sendJson(res, {
       executives: getCompanyExecutives(effectiveCompanyId),
-      candidates: getExecutiveCandidates(effectiveCompanyId)
+      candidates: getExecutiveCandidates(effectiveCompanyId),
+      offers: [],
+      achievements: []
     });
+    return true;
+  }
+
+  // Offers & Hostile offers
+  if (pathname.includes('/executives/my-offers/') || pathname.includes('/executives/hostile-offers/')) {
+    sendJson(res, { offers: [] });
+    return true;
+  }
+
+  // Former executives
+  if (pathname.includes('/former-executives/')) {
+    sendJson(res, { executives: [] });
     return true;
   }
 
   // Candidates list
   if (pathname === '/api/v4/executives/candidates/') {
-    const effectiveCompanyId = currentCompanyId || 4259175;
     sendJson(res, getExecutiveCandidates(effectiveCompanyId));
     return true;
   }
@@ -42,7 +60,7 @@ export async function handleExecutiveRoutes(
     const body = await readJsonBody<{ candidateId: number; position?: string }>(req);
     try {
       const exec = hireExecutive(currentCompanyId, body.candidateId, body.position || 'unassigned');
-      sendJson(res, exec);
+      sendJson(res, { executive: exec });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       sendJson(res, { error: msg }, 400);
@@ -79,7 +97,7 @@ export async function handleExecutiveRoutes(
     const body = await readJsonBody<{ position: string }>(req);
     try {
       const exec = assignExecutive(currentCompanyId, execId, body.position);
-      sendJson(res, exec);
+      sendJson(res, { executive: exec });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       sendJson(res, { error: msg }, 400);

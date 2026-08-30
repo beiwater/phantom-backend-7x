@@ -18,21 +18,26 @@ export interface ExecutiveRow {
 }
 
 export function formatExecutive(e: ExecutiveRow) {
+  const pos = (e.position || 'unassigned').toLowerCase();
   return {
     id: e.id,
     name: e.name,
     avatar: e.avatar || 'images/avatars/male_01.png',
-    position: e.position,
+    position: e.position || 'unassigned',
     skills: {
-      management: e.skill_management,
-      accounting: e.skill_accounting,
-      science: e.skill_science,
-      communication: e.skill_communication
+      management: Number(e.skill_management) || 5,
+      accounting: Number(e.skill_accounting) || 5,
+      science: Number(e.skill_science) || 5,
+      communication: Number(e.skill_communication) || 5
     },
-    salary: e.salary,
-    status: e.status,
+    currentWorkHistory: {
+      position: pos === 'unassigned' ? 'none' : pos,
+      start: e.created_at || new Date(Date.now() - 86400000).toISOString()
+    },
+    salary: Number(e.salary) || 250,
+    status: e.status || 'employed',
     trainingFinishAt: e.training_finish_at,
-    totalSkill: e.skill_management + e.skill_accounting + e.skill_science + e.skill_communication
+    totalSkill: (Number(e.skill_management) || 5) + (Number(e.skill_accounting) || 5) + (Number(e.skill_science) || 5) + (Number(e.skill_communication) || 5)
   };
 }
 
@@ -46,9 +51,9 @@ export function getCompanyExecutives(companyId: number) {
   if (rows.length === 0) {
     const now = new Date().toISOString();
     const defaults = [
-      { name: 'Alexander Wright', pos: 'COO', mgmt: 12, acc: 4, sci: 3, comm: 6, sal: 450 },
-      { name: 'Elena Rostova', pos: 'CFO', mgmt: 4, acc: 14, sci: 2, comm: 5, sal: 480 },
-      { name: 'David Chen', pos: 'CTO', mgmt: 5, acc: 3, sci: 15, comm: 4, sal: 500 }
+      { name: 'Alexander Wright', pos: 'coo', mgmt: 12, acc: 4, sci: 3, comm: 6, sal: 450 },
+      { name: 'Elena Rostova', pos: 'cfo', mgmt: 4, acc: 14, sci: 2, comm: 5, sal: 480 },
+      { name: 'David Chen', pos: 'cto', mgmt: 5, acc: 3, sci: 15, comm: 4, sal: 500 }
     ];
     for (const d of defaults) {
       db.prepare(`
