@@ -2,6 +2,38 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { readJsonBody, sendJson } from './utils.ts';
 import { db } from '../db/database.ts';
 import { getCompanyById } from '../game/company.ts';
+import { unlockTagSlot } from '../game/simboosts.ts';
+import {
+  getNewspaperIssues,
+  getNewspaperIssue,
+  getArticleById,
+  createArticle,
+  updateArticle,
+  deleteArticle,
+  getTopArticlesByReaction,
+  getArticlesByAuthor,
+  getArticlesBySubstring,
+  getCompanyReactionsForNewspaper,
+  addArticleReaction,
+  removeArticleReaction,
+  getSponsorParams,
+  getSponsorsForNewspaper,
+  buyNewspaperSponsor,
+  updateNewspaperSponsorText
+} from '../game/newspaper.ts';
+import {
+  getLatestCertificates,
+  getRarestCertificates,
+  getCertificateDetail,
+  getCompanyCertificates
+} from '../game/certificates.ts';
+import {
+  getCompanyTags,
+  addCompanyTag,
+  deleteCompanyTag,
+  searchCompaniesByTags,
+  lookupCompany
+} from '../game/tags.ts';
 
 export async function handleSocialRoutes(
   req: IncomingMessage,
@@ -10,7 +42,10 @@ export async function handleSocialRoutes(
   method: string,
   currentCompanyId: number | null
 ): Promise<boolean> {
-  // Contacts & Default Chatrooms (Must include unreadMessages: [])
+  const parsedUrl = new URL(req.url || '/', 'http://localhost');
+  const searchParams = parsedUrl.searchParams;
+
+  // 1. Contacts & Default Chatrooms
   if (pathname === '/api/v2/contacts/') {
     sendJson(res, {
       chatrooms: [
@@ -30,18 +65,18 @@ export async function handleSocialRoutes(
     return true;
   }
 
-  // Chatroom show rules
+  // 2. Chatroom Show Rules
   const chatRulesMatch = pathname.match(/^\/api\/v2\/chatroom\/([^/]+)\/show-rules\/$/);
   if (chatRulesMatch) {
     sendJson(res, { success: true });
     return true;
   }
 
-  // Chatroom Messages
+  // 3. Chatroom Messages
   const chatroomMatch = pathname.match(/^\/api\/v2\/chatroom\/([^/]+)\/$/);
-  if (chatroomMatch) {
+  if (chatroomMatch && method === 'GET') {
     const room = decodeURIComponent(chatroomMatch[1]);
-    const messages = db.prepare(`
+    let messages = db.prepare(`
       SELECT * FROM chat_messages WHERE room = ? OR room = 'N' OR room = '1' ORDER BY id DESC LIMIT 50
     `).all(room) as Array<{ id: number; room: string; sender_id: number; sender_company: string; text: string; sent_at: string }>;
 
@@ -57,13 +92,12 @@ export async function handleSocialRoutes(
           VALUES (?, ?, ?, ?, ?)
         `).run(room, sm.sender_id, sm.sender_company, sm.text, now);
       }
+      messages = db.prepare(`
+        SELECT * FROM chat_messages WHERE room = ? OR room = 'N' OR room = '1' ORDER BY id DESC LIMIT 50
+      `).all(room) as Array<{ id: number; room: string; sender_id: number; sender_company: string; text: string; sent_at: string }>;
     }
 
-    const currentMsgs = db.prepare(`
-      SELECT * FROM chat_messages WHERE room = ? OR room = 'N' OR room = '1' ORDER BY id DESC LIMIT 50
-    `).all(room) as Array<{ id: number; room: string; sender_id: number; sender_company: string; text: string; sent_at: string }>;
-
-    sendJson(res, currentMsgs.reverse().map(m => ({
+    sendJson(res, messages.reverse().map(m => ({
       id: m.id,
       chatroom: m.room,
       sender: { id: m.sender_id, company: m.sender_company, logo: '', certificates: 0, supporter: false },
@@ -74,7 +108,7 @@ export async function handleSocialRoutes(
     return true;
   }
 
-  // Send Message
+  // 4. Send Message
   if ((pathname === '/api/v2/message/' || pathname === '/api/v2/messages/') && method === 'POST') {
     const body = await readJsonBody<{ chatroom?: string; text?: string; recipient?: number }>(req);
     const comp = currentCompanyId ? getCompanyById(currentCompanyId) : null;
@@ -99,78 +133,325 @@ export async function handleSocialRoutes(
     return true;
   }
 
-  // Newspaper single issue
+  // 5. Newspaper Issue List
+  const newspaperListMatch = pathname.match(/^\/api\/v3\/[^/]+\/(\d+)\/newspaper\/$/);
+  if (newspaperListMatch || pathname === '/api/v2/newspaper/issues/' || pathname === '/api/v2/newspaper/') {
+    const realmId = newspaperListMatch ? Number(newspaperListMatch[1]) : 0;
+    const belowIdParam = searchParams.get('below_id');
+    const belowId = belowIdParam ? Number(belowIdParam) : undefined;
+    const issues = getNewspaperIssues(realmId, belowId);
+    sendJson(res, issues);
+    return true;
+  }
+
+  // 6. Newspaper Single Issue
   const newspaperIssueMatch = pathname.match(/^\/api\/v3\/[^/]+\/(\d+)\/newspaper\/(\d+)\/$/);
   if (newspaperIssueMatch) {
     const realmId = Number(newspaperIssueMatch[1]);
     const issueId = Number(newspaperIssueMatch[2]);
-    const now = new Date().toISOString();
-
-    return sendJson(res, {
-      id: issueId,
-      issueId,
-      realmId,
-      published: now,
-      articles: [
-        {
-          id: 1,
-          position: 1,
-          title: '私人服务器经济模型平稳运行',
-          body: '基于 SQLite 高性能存储与全自研 Node.js/TypeScript 兼容后端的 SimCompanies 私人服务器版本正式上线运行。全品类 Q0-Q12 市场现货已全面铺满，欢迎各家公司开展自由生产与跨行业贸易。',
-          author: { id: 999901, company: 'Sim Companies Times' },
-          newspaper: { realmId, issueId },
-          reactions: [],
-          reactionCount: 12
-        },
-        {
-          id: 2,
-          position: 2,
-          title: '新手创业指南：从农场到高科技帝国',
-          body: '建议新手公司首先在土地 B0 上兴建 Farm（农场），采购充足的电力与水资源排产苹果与种子，随后建造生鲜超市（Grocery store）赚取第一桶金，稳步扩大产业版图。',
-          author: { id: 999902, company: 'Economic Review' },
-          newspaper: { realmId, issueId },
-          reactions: [],
-          reactionCount: 8
-        }
-      ]
-    });
+    const issue = getNewspaperIssue(issueId, realmId);
+    sendJson(res, issue);
+    return true;
+  }
+  const newspaperIssueV2Match = pathname.match(/^\/api\/v2\/newspaper\/issues\/(\d+)\/$/) || pathname.match(/^\/api\/v2\/newspaper\/(\d+)\/$/);
+  if (newspaperIssueV2Match) {
+    const issueId = Number(newspaperIssueV2Match[1]);
+    const issue = getNewspaperIssue(issueId, 0);
+    sendJson(res, issue);
+    return true;
   }
 
-  // Newspaper issue list
-  const newspaperListMatch = pathname.match(/^\/api\/v3\/[^/]+\/(\d+)\/newspaper\/$/);
-  if (newspaperListMatch) {
-    const realmId = Number(newspaperListMatch[1]);
-    const now = new Date().toISOString();
-    return sendJson(res, [
-      {
-        id: 1,
-        issueId: 1,
-        realmId,
-        published: now,
-        articles: [
-          { id: 1, title: '私人服务器经济模型平稳运行', position: 1 },
-          { id: 2, title: '新手创业指南：从农场到高科技帝国', position: 2 }
-        ]
+  // 7. Newspaper Articles Detail & Management
+  const articleGetMatch = pathname.match(/^\/api\/v3\/[^/]+\/newspaper\/(\d+)\/article\/(\d+)\/$/);
+  if (articleGetMatch) {
+    const articleId = Number(articleGetMatch[2]);
+    if (method === 'GET') {
+      const article = getArticleById(articleId);
+      sendJson(res, article || {});
+      return true;
+    }
+    if (method === 'PATCH') {
+      const body = await readJsonBody<Record<string, unknown>>(req);
+      const updated = updateArticle(articleId, body);
+      sendJson(res, updated);
+      return true;
+    }
+    if (method === 'DELETE') {
+      const deleted = deleteArticle(articleId);
+      sendJson(res, deleted);
+      return true;
+    }
+  }
+
+  const articleCreateMatch = pathname.match(/^\/api\/v3\/[^/]+\/newspaper\/(\d+)\/article\/$/);
+  if (articleCreateMatch && method === 'POST') {
+    const newspaperId = Number(articleCreateMatch[1]);
+    const body = await readJsonBody<{ type?: string }>(req);
+    const created = createArticle(newspaperId, body.type || '1', currentCompanyId || undefined);
+    sendJson(res, created);
+    return true;
+  }
+
+  const articleDetailV2Match = pathname.match(/^\/api\/v2\/newspaper\/articles\/(\d+)\/$/);
+  if (articleDetailV2Match) {
+    const articleId = Number(articleDetailV2Match[1]);
+    const article = getArticleById(articleId);
+    sendJson(res, article || {});
+    return true;
+  }
+
+  if (pathname === '/de/articles/api/' || pathname === '/articles/api/') {
+    const article = getArticleById(1);
+    sendJson(res, article || { id: 1, title: 'SimCompanies Times API' });
+    return true;
+  }
+
+  // 8. Article Top Rankings & Search
+  const topArticlesMatch = pathname.match(/^\/api\/v2\/[^/]+\/(\d+)\/articles\/top-by-reaction\/([^/]+)\/$/);
+  if (topArticlesMatch) {
+    const realmId = Number(topArticlesMatch[1]);
+    const reaction = topArticlesMatch[2];
+    const top = getTopArticlesByReaction(realmId, reaction);
+    sendJson(res, top);
+    return true;
+  }
+  if (pathname === '/api/v2/newspaper/top-articles/') {
+    const top = getTopArticlesByReaction(0, 'THUMBS_UP');
+    sendJson(res, top);
+    return true;
+  }
+
+  const articlesByAuthorMatch = pathname.match(/^\/api\/v2\/newspaper\/articles-by-author\/(\d+)\/$/) || pathname.match(/^\/api\/v2\/articles\/by-author\/(\d+)\/$/);
+  if (articlesByAuthorMatch) {
+    const authorCompanyId = Number(articlesByAuthorMatch[1]);
+    const articles = getArticlesByAuthor(authorCompanyId);
+    sendJson(res, articles);
+    return true;
+  }
+
+  const articlesBySubstrMatch = pathname.match(/^\/api\/v2\/newspaper\/articles-by-substring\/(\d+)\/([^/]+)\/$/);
+  if (articlesBySubstrMatch) {
+    const realmId = Number(articlesBySubstrMatch[1]);
+    const query = decodeURIComponent(articlesBySubstrMatch[2]);
+    const articles = getArticlesBySubstring(realmId, query);
+    sendJson(res, articles);
+    return true;
+  }
+
+  // 9. Article Reactions
+  const reactionMatch = pathname.match(/^\/api\/v1\/article\/(\d+)\/reaction\/([^/]+)$/);
+  if (reactionMatch) {
+    const articleId = Number(reactionMatch[1]);
+    const reaction = reactionMatch[2];
+    const compId = currentCompanyId || 1;
+    if (method === 'PATCH') {
+      try {
+        const result = addArticleReaction(articleId, compId, reaction);
+        sendJson(res, result);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'Reaction failed';
+        sendJson(res, { error: msg }, 400);
       }
-    ]);
+      return true;
+    }
+    if (method === 'DELETE') {
+      const result = removeArticleReaction(articleId, compId, reaction);
+      sendJson(res, result);
+      return true;
+    }
   }
 
-  // Newspaper Sponsor Params
+  const ownReactionsMatch = pathname.match(/^\/api\/v1\/newspaper\/(\d+)\/reaction$/);
+  if (ownReactionsMatch && method === 'GET') {
+    const newspaperId = Number(ownReactionsMatch[1]);
+    const compId = currentCompanyId || 1;
+    const reactions = getCompanyReactionsForNewspaper(newspaperId, compId);
+    sendJson(res, reactions);
+    return true;
+  }
+
+  const reactPostMatch = pathname.match(/^\/api\/v2\/newspaper\/articles\/(\d+)\/react\/$/) || pathname.match(/^\/api\/v2\/articles\/(\d+)\/react\/$/);
+  if (reactPostMatch && method === 'POST') {
+    const articleId = Number(reactPostMatch[1]);
+    const body = await readJsonBody<{ reaction?: string }>(req);
+    const compId = currentCompanyId || 1;
+    try {
+      const result = addArticleReaction(articleId, compId, body.reaction || 'THUMBS_UP');
+      sendJson(res, result);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Reaction failed';
+      sendJson(res, { error: msg }, 400);
+    }
+    return true;
+  }
+
+  // 10. Newspaper Sponsors & Ads
   if (pathname === '/api/v2/newspaper/sponsor-params/') {
-    return sendJson(res, {
-      sponsorCost: 500,
-      sponsorBonus: 100,
-      sponsorMinValuation: 100000
-    });
+    sendJson(res, getSponsorParams());
+    return true;
   }
 
-  // Polls
+  const sponsorListMatch = pathname.match(/^\/api\/v3\/newspaper\/(\d+)\/sponsor\/$/) || pathname.match(/^\/api\/v2\/newspaper\/(\d+)\/sponsor\/$/);
+  if (sponsorListMatch && method === 'GET') {
+    const newspaperId = Number(sponsorListMatch[1]);
+    const data = getSponsorsForNewspaper(newspaperId);
+    sendJson(res, data);
+    return true;
+  }
+
+  const sponsorPosMatch = pathname.match(/^\/api\/v2\/newspaper\/(\d+)\/sponsor\/(\d+)\/$/);
+  if (sponsorPosMatch) {
+    const newspaperId = Number(sponsorPosMatch[1]);
+    const position = Number(sponsorPosMatch[2]);
+    const compId = currentCompanyId || 1;
+    if (method === 'POST') {
+      const body = await readJsonBody<{ text?: string }>(req);
+      try {
+        const ad = buyNewspaperSponsor(newspaperId, position, compId, body.text);
+        sendJson(res, ad);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'Failed to buy sponsor ad';
+        sendJson(res, { error: msg }, 400);
+      }
+      return true;
+    }
+    if (method === 'PATCH') {
+      const body = await readJsonBody<{ text?: string }>(req);
+      try {
+        const updated = updateNewspaperSponsorText(newspaperId, position, compId, body.text || '');
+        sendJson(res, updated);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'Failed to update sponsor text';
+        sendJson(res, { error: msg }, 400);
+      }
+      return true;
+    }
+  }
+
+  if (pathname === '/api/v2/newspaper/ads/' && method === 'POST') {
+    const body = await readJsonBody<{ newspaperId?: number; position?: number; text?: string; price?: number }>(req);
+    const compId = currentCompanyId || 1;
+    try {
+      const ad = buyNewspaperSponsor(body.newspaperId || 3, body.position ?? 0, compId, body.text, body.price);
+      sendJson(res, ad);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to place ad';
+      sendJson(res, { error: msg }, 400);
+    }
+    return true;
+  }
+
+  // 11. Certificates Explorer
+  const certLatestMatch = pathname.match(/^\/api\/v2\/certificates-explorer\/(\d+)\/latest\/$/) || pathname.match(/^\/api\/v2\/certificates-explorer\/latest\/$/);
+  if (certLatestMatch) {
+    const realmId = certLatestMatch[1] ? Number(certLatestMatch[1]) : 0;
+    sendJson(res, getLatestCertificates(realmId));
+    return true;
+  }
+
+  const certRarestMatch = pathname.match(/^\/api\/v2\/certificates-explorer\/(\d+)\/rarest\/$/) || pathname.match(/^\/api\/v2\/certificates-explorer\/rarest\/$/);
+  if (certRarestMatch) {
+    const realmId = certRarestMatch[1] ? Number(certRarestMatch[1]) : 0;
+    sendJson(res, getRarestCertificates(realmId));
+    return true;
+  }
+
+  const certDetailMatch = pathname.match(/^\/api\/v2\/certificates-explorer\/(\d+)\/certificate\/([^/]+)\/([^/]+)\/([^/]+)\/$/);
+  if (certDetailMatch) {
+    const realmId = Number(certDetailMatch[1]);
+    const kind = Number(certDetailMatch[2]);
+    const certId = certDetailMatch[3];
+    const extra = certDetailMatch[4];
+    sendJson(res, getCertificateDetail(realmId, kind, certId, extra));
+    return true;
+  }
+
+  if (pathname === '/api/v2/certificates-explorer/' || pathname.startsWith('/api/v2/certificates-explorer/')) {
+    sendJson(res, getLatestCertificates(0));
+    return true;
+  }
+
+  const companyCertsMatch = pathname.match(/^\/api\/v2\/companies\/(\d+|me)\/certificates\/$/);
+  if (companyCertsMatch) {
+    const compId = companyCertsMatch[1] === 'me' ? (currentCompanyId || 1) : Number(companyCertsMatch[1]);
+    sendJson(res, getCompanyCertificates(compId));
+    return true;
+  }
+
+  // 12. Company Tags & Search
+  const tagSearchMatch = pathname.match(/^\/api\/v2\/tag-search\/([^/]+)\/$/);
+  if (tagSearchMatch) {
+    const query = decodeURIComponent(tagSearchMatch[1]);
+    sendJson(res, searchCompaniesByTags(query));
+    return true;
+  }
+
+  const companyTagsMatch = pathname.match(/^\/api\/v2\/companies\/(\d+|me)\/tags\/$/);
+  if (companyTagsMatch) {
+    const compId = companyTagsMatch[1] === 'me' ? (currentCompanyId || 1) : Number(companyTagsMatch[1]);
+    if (method === 'GET') {
+      sendJson(res, getCompanyTags(compId));
+      return true;
+    }
+    if (method === 'POST') {
+      const body = await readJsonBody<{ kind?: string; buySell?: string }>(req);
+      const tags = addCompanyTag(compId, body.kind || '1', body.buySell || 'b');
+      sendJson(res, tags);
+      return true;
+    }
+    if (method === 'PATCH') {
+      try {
+        const result = unlockTagSlot(compId);
+        sendJson(res, result);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'Unlock tag slot failed';
+        sendJson(res, { error: msg }, 400);
+      }
+      return true;
+    }
+  }
+
+  const deleteTagMatch = pathname.match(/^\/api\/v2\/companies\/tags\/(\d+)\/$/);
+  if (deleteTagMatch && method === 'DELETE') {
+    const tagId = Number(deleteTagMatch[1]);
+    deleteCompanyTag(tagId, currentCompanyId || undefined);
+    sendJson(res, { success: true });
+    return true;
+  }
+
+  // 13. Company Lookup
+  const companyLookup3Match = pathname.match(/^\/api\/v2\/company-lookup\/([^/]+)\/([^/]+)\/([^/]+)\/$/);
+  if (companyLookup3Match) {
+    const companyIdOrSearch = companyLookup3Match[1];
+    const realmId = Number(companyLookup3Match[2]) || 0;
+    const companyName = decodeURIComponent(companyLookup3Match[3]);
+    const info = lookupCompany(realmId, companyName || companyIdOrSearch);
+    sendJson(res, info);
+    return true;
+  }
+
+  const companyLookup2Match = pathname.match(/^\/api\/v2\/company-lookup\/([^/]+)\/([^/]+)\/$/);
+  if (companyLookup2Match) {
+    const realmId = Number(companyLookup2Match[1]) || 0;
+    const tagOrName = decodeURIComponent(companyLookup2Match[2]);
+    const info = lookupCompany(realmId, tagOrName);
+    sendJson(res, info);
+    return true;
+  }
+
+  if (pathname === '/api/v2/company-lookup/' || pathname.startsWith('/api/v2/company-lookup/')) {
+    const query = searchParams.get('q') || searchParams.get('name') || searchParams.get('tag') || '1';
+    const info = lookupCompany(0, query);
+    sendJson(res, info);
+    return true;
+  }
+
+  // 14. Polls & Challenges
   if (pathname.includes('/polls/')) {
     sendJson(res, { id: 1, question: '你最喜欢的产业是哪一个？', options: ['农业', '电子', '航空航天', '零售'] });
     return true;
   }
 
-  // Challenges
   if (pathname.includes('/challenges/current/')) {
     sendJson(res, { challenges: [] });
     return true;

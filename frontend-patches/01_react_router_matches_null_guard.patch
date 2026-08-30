@@ -1,0 +1,5 @@
+--- a/frontend-original/static/bundle/assets/index-cgzgptQ8.js
++++ b/frontend-original/static/bundle/assets/index-cgzgptQ8.js
+@@ -904 +904 @@
+-function Q6t(e){return e.filter((t,r)=>r===0||t.route.path&&t.route.path.length>0)}
++function Q6t(e){return (e||[]).filter((t,r)=>r===0||t.route.path&&t.route.path.length>0)}

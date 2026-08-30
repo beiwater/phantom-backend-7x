@@ -53,7 +53,7 @@ export function formatBuilding(b: BuildingRow) {
   const meta = getBuildingMeta(b.kind);
   return {
     id: b.id,
-    busy: null,
+    busy: b.busy_until ? (new Date(b.busy_until).getTime() > Date.now() ? b.busy_until : null) : null,
     category: b.category || meta.category || 'production',
     company: {
       id: b.company_id,

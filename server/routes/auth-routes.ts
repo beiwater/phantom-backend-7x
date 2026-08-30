@@ -26,6 +26,51 @@ export async function handleAuthRoutes(
   currentPlayerId: number | null,
   currentCompanyId: number | null
 ): Promise<boolean> {
+  // Guest / Tutorial start via form POST or GET
+  const tutorialMatch = pathname.match(/^\/(?:[a-z]{2}(?:-[a-z]{2})?\/)?tutorial\/?(?:\d+\/)?$/) ||
+                        pathname.match(/^\/(?:[a-z]{2}(?:-[a-z]{2})?\/)?start-in-tutorial\/?(?:\d+\/)?$/);
+  if (tutorialMatch && method === 'POST') {
+    let token = sessionToken;
+    if (!token || !currentPlayerId) {
+      const guestEmail = `guest_${Date.now()}_${Math.floor(Math.random() * 10000)}@guest.simcompanies.local`;
+      const guestPass = `Guest_${Math.random().toString(36).slice(2, 10)}`;
+      const auth = registerPlayer(guestEmail, guestPass);
+      token = createSession(auth.playerId, auth.companyId);
+    }
+    res.writeHead(302, {
+      'Location': '/zh-cn/landscape/',
+      'Set-Cookie': `sessionid=${token}; Path=/; HttpOnly; SameSite=Lax`
+    });
+    res.end();
+    return true;
+  }
+
+  // Device Auth / Guest API
+  if (pathname === '/api/v2/auth/device/auth/' && method === 'POST') {
+    const guestEmail = `device_${Date.now()}_${Math.floor(Math.random() * 10000)}@guest.simcompanies.local`;
+    const guestPass = `Device_${Math.random().toString(36).slice(2, 10)}`;
+    const auth = registerPlayer(guestEmail, guestPass);
+    const token = createSession(auth.playerId, auth.companyId);
+    res.writeHead(200, {
+      'Content-Type': 'application/json',
+      'Set-Cookie': `sessionid=${token}; Path=/; HttpOnly; SameSite=Lax`
+    });
+    res.end(JSON.stringify({ status: 'ok', success: true, redirectUrl: '/zh-cn/landscape/' }));
+    return true;
+  }
+
+  // Language switcher
+  const langMatch = pathname.match(/^\/(?:[a-z]{2}(?:-[a-z]{2})?\/)?change-language\/([a-zA-Z_-]+)\/?$/);
+  if (langMatch) {
+    const lang = langMatch[1] === 'en' ? 'en' : 'zh-cn';
+    res.writeHead(302, {
+      'Location': `/${lang}/`,
+      'Set-Cookie': `language=${lang}; Path=/; SameSite=Lax`
+    });
+    res.end();
+    return true;
+  }
+
   // Signout / Logout
   if (pathname === '/signout/' || pathname === '/zh-cn/signout/' || pathname === '/logout/') {
     if (sessionToken) destroySession(sessionToken);
