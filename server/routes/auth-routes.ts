@@ -47,7 +47,7 @@ export async function handleAuthRoutes(
         'Content-Type': 'application/json',
         'Set-Cookie': `sessionid=${token}; Path=/; HttpOnly; SameSite=Lax`
       });
-      res.end(JSON.stringify({ status: 'ok', playerId: auth.playerId, companyId: auth.companyId }));
+      res.end(JSON.stringify({ status: 'redirect', redirectUrl: '/zh-cn/landscape/' }));
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       sendJson(res, { error: msg }, 400);
@@ -65,7 +65,7 @@ export async function handleAuthRoutes(
         'Content-Type': 'application/json',
         'Set-Cookie': `sessionid=${token}; Path=/; HttpOnly; SameSite=Lax`
       });
-      res.end(JSON.stringify({ status: 'ok', playerId: auth.playerId, companyId: auth.companyId }));
+      res.end(JSON.stringify({ status: 'redirect', redirectUrl: '/zh-cn/landscape/' }));
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       sendJson(res, { error: msg }, 400);
