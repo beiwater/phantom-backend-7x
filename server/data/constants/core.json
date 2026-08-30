@@ -1,0 +1,127 @@
+{
+  "AVERAGE_SALARY": 345,
+  "REALM_PHASE_START": 0,
+  "REALM_PHASE_FASHION": 1,
+  "SALARY_MID": {
+    "0": 655,
+    "1": 700,
+    "2": 745
+  },
+  "ROBOT_COST": 940,
+  "SALES": {
+    "2": [
+      53,
+      54,
+      55,
+      56,
+      57
+    ],
+    "G": [
+      3,
+      4,
+      5,
+      7,
+      8,
+      9,
+      119,
+      123,
+      124,
+      125,
+      126,
+      122,
+      127,
+      140,
+      152
+    ],
+    "A": [
+      11,
+      12
+    ],
+    "C": [
+      24,
+      25,
+      26,
+      27,
+      28,
+      98
+    ],
+    "H": [
+      60,
+      61,
+      62,
+      63,
+      64,
+      65,
+      70,
+      71
+    ],
+    "B": [
+      91,
+      94,
+      95,
+      96,
+      97,
+      99
+    ],
+    "d": [
+      102,
+      103,
+      108,
+      109,
+      110
+    ],
+    "r": [
+      117,
+      121,
+      134,
+      122,
+      119,
+      123,
+      129,
+      130,
+      131,
+      142,
+      143,
+      132,
+      124,
+      125,
+      126,
+      149
+    ],
+    "t": [
+      146,
+      147,
+      148
+    ],
+    "z": [
+      153,
+      154
+    ],
+    "I": [
+      151,
+      155
+    ],
+    "u": [
+      67,
+      144,
+      150
+    ]
+  },
+  "PURCHASE_SIMBOOSTS_FEE": 0.1,
+  "PRODUCTION_SPEED_MODIFIER_DAYS": 21,
+  "PRODUCTION_SPEED_MODIFIER_RESOURCES": 3,
+  "PRODUCTION_SPEED_MODIFIER_FIRST_DAY": 0,
+  "LAUNCH_QUEUE_MAX": 30,
+  "TUTORIAL_BONUS": 12000,
+  "RETAIL_MODELING_QUALITY_WEIGHT": 0.3,
+  "TUTORIAL_APPLES_QUANTITY": 50,
+  "TUTORIAL_APPLES_RETAIL_PRICE": 7,
+  "ONBOARDING_REDESIGN_SEEDS_QUANTITY": 150,
+  "ONBOARDING_REDESIGN_APPLES_QUANTITY": 35,
+  "ONBOARDING_ACCELERATION": 12,
+  "PLAZA_MAP_POSITION": "P",
+  "PLAZA_DISABLED": "plaza-disabled",
+  "TAG_EXPIRY_DAYS": 3,
+  "MIN_WEATHER_SPEED_MULTIPLIER": 0.3,
+  "MAX_WEATHER_SPEED_MULTIPLIER": 1.7
+}

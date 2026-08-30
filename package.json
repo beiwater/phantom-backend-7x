@@ -1,0 +1,14 @@
+{
+  "name": "simcompanies-private",
+  "version": "1.0.0",
+  "description": "SimCompanies Private Server",
+  "main": "server/index.ts",
+  "type": "module",
+  "scripts": {
+    "start": "node --experimental-strip-types server/index.ts"
+  },
+  "dependencies": {
+    "puppeteer": "^25.9.0",
+    "ws": "^8.18.0"
+  }
+}
