@@ -120,15 +120,15 @@ export function constructBuilding(companyId: number, kind: string, position: str
   // Deduct money
   const newMoney = updateCompanyMoney(companyId, -meta.cost);
   const now = new Date().toISOString();
+  const busyUntil = new Date(Date.now() + 10 * 1000).toISOString();
 
   // Clean up any old building at this position
   db.prepare('DELETE FROM buildings WHERE company_id = ? AND position = ?').run(companyId, String(position));
 
   const res = db.prepare(`
-    INSERT INTO buildings (company_id, position, kind, size, name, cost, category, created_at)
-    VALUES (?, ?, ?, 1, ?, ?, ?, ?)
-  `).run(companyId, String(position), String(kind), String(meta.name), Number(meta.cost), String(meta.category), now);
-
+    INSERT INTO buildings (company_id, position, kind, size, name, cost, category, busy_until, created_at)
+    VALUES (?, ?, ?, 1, ?, ?, ?, ?, ?)
+  `).run(companyId, String(position), String(kind), String(meta.name), Number(meta.cost), String(meta.category), busyUntil, now);
   const newId = Number(res.lastInsertRowid);
   const building = getBuildingById(newId);
 
@@ -161,9 +161,9 @@ export function upgradeBuilding(companyId: number, buildingId: number, sizeDelta
 
     const newMoney = updateCompanyMoney(companyId, -cost);
     const newSize = building.size + sizeDelta;
-    db.prepare('UPDATE buildings SET size = ? WHERE id = ?').run(newSize, buildingId);
+    const busyUntil = new Date(Date.now() + 10 * 1000).toISOString();
+    db.prepare('UPDATE buildings SET size = ?, busy_until = ? WHERE id = ?').run(newSize, busyUntil, buildingId);
     const updated = getBuildingById(buildingId);
-
     return {
       building: updated ? formatBuilding(updated) : null,
       cost,
