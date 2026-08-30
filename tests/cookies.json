@@ -1,0 +1,14 @@
+{
+  "lastUpdated": null,
+  "accounts": {
+    "admin": {
+      "email": "admin@simcompanies.local",
+      "sessionid": null,
+      "domain": "127.0.0.1",
+      "path": "/",
+      "httpOnly": true,
+      "sameSite": "Lax"
+    }
+  },
+  "usage": "Load session cookies to skip re-authentication in E2E tests. Set via tests/cookie-saver.ts or manually after login."
+}
