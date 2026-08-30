@@ -23,20 +23,20 @@ export function getWarehouseResources(companyId: number) {
   return rows.map(r => ({
     id: r.id,
     kind: r.kind,
-    quality: r.quality || 0,
-    amount: r.amount || 0,
+    quality: Number(r.quality) || 0,
+    amount: Number(r.amount) || 0,
     blocked: false,
     cost: {
-      workers: r.cost_workers || 0,
-      admin: r.cost_admin || 0,
-      material1: r.cost_material1 || 0,
-      material2: r.cost_material2 || 0,
+      workers: Number(r.cost_workers) || 0,
+      admin: Number(r.cost_admin) || 0,
+      material1: Number(r.cost_material1) || 0,
+      material2: Number(r.cost_material2) || 0,
       material3: 0,
       material4: 0,
       material5: 0,
-      market: r.cost_market || 1.0
+      market: Number(r.cost_market) || 1.0
     },
-    datetime: r.updated_at,
+    datetime: r.updated_at || new Date().toISOString(),
     materials: ["", "", "", "", ""]
   }));
 }

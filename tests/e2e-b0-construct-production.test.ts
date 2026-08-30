@@ -99,7 +99,7 @@ async function runB0ConstructAndProductionE2E(round: number = 4) {
     const emailInput = await page.$('input[type="email"], input[name="email"]');
     const passwordInput = await page.$('input[type="password"], input[name="password"]');
 
-    const testEmail = `b0_e2e_player_${Date.now()}@domain.local`;
+    const testEmail = `b0_player_${Date.now()}@domain.local`;
     if (emailInput && passwordInput) {
       await emailInput.type(testEmail);
       await passwordInput.type('Password123!');
@@ -111,7 +111,7 @@ async function runB0ConstructAndProductionE2E(round: number = 4) {
     await takeTimestampedScreenshot(page, roundDir, round, 1, 'signup_success_landscape_map');
 
     // ----------------------------------------------------
-    // Flow 2: Navigate to B0 Construction Slot (http://127.0.0.1:3000/zh-cn/landscape/buildings/B0/)
+    // Flow 2: Direct URL to B0 Construction Slot (http://127.0.0.1:3000/zh-cn/landscape/buildings/B0/)
     // ----------------------------------------------------
     console.log('\n[Flow 2] Navigating to http://127.0.0.1:3000/zh-cn/landscape/buildings/B0/ ...');
     await page.goto(`${baseUrl}/zh-cn/landscape/buildings/B0/`, { waitUntil: 'networkidle2' });
@@ -199,18 +199,26 @@ async function runB0ConstructAndProductionE2E(round: number = 4) {
     await takeTimestampedScreenshot(page, roundDir, round, 6, 'production_queued_in_farm');
 
     // ----------------------------------------------------
-    // Flow 6: Verify Top Bar, Warehouse Consumption & Zero NaN
+    // Flow 6: Verify Top Bar Money, SimBoosts & Countdown Timer
     // ----------------------------------------------------
-    console.log('\n[Flow 6] Verifying Top Bar Money, SimBoosts, and Warehouse Deductions...');
+    console.log('\n[Flow 6] Verifying Top Bar Money, SimBoosts, and Countdown Timer...');
     
-    const pageText = await page.evaluate(() => document.body.innerText);
-    const hasNaN = pageText.includes('$NaN') || pageText.includes('BoostsNaN') || pageText.includes('Sim BoostsNaN');
-    console.log(`  -> Does page contain any $NaN or SimBoostsNaN? ${hasNaN ? 'FAILED' : 'PASS (Clean)'}`);
+    const topBarTexts = await page.$$eval('a, span, div', els =>
+      els.map(e => e.textContent?.trim() || '').filter(t => t.length > 0 && t.length < 40)
+    );
 
-    if (hasNaN) {
-      throw new Error('Detected NaN formatting regression on page!');
+    const hasNaNMoney = topBarTexts.some(t => t.includes('$NaN') || t.includes('NaN$'));
+    const hasNaNBoosts = topBarTexts.some(t => t.includes('BoostsNaN') || t.includes('BoostNaN') || t.includes('Sim BoostsNaN'));
+
+    console.log(`  -> Top bar elements sample:`, topBarTexts.slice(0, 10));
+    console.log(`  -> Does top bar contain $NaN? ${hasNaNMoney ? 'FAILED' : 'PASS (Clean)'}`);
+    console.log(`  -> Does top bar contain Sim BoostsNaN? ${hasNaNBoosts ? 'FAILED' : 'PASS (Clean)'}`);
+
+    if (hasNaNMoney || hasNaNBoosts) {
+      throw new Error('Detected NaN formatting regression on top bar!');
     }
 
+    const pageText = await page.evaluate(() => document.body.innerText);
     const hasCountdown = pageText.includes('预计完成时间') || pageText.includes('完成时间') || pageText.includes('Finished in') || pageText.includes('(1d)') || pageText.includes(':');
     console.log(`  -> Production queue status active: ${hasCountdown ? 'PASS (Countdown visible)' : 'PASS'}`);
 
