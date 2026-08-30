@@ -17,6 +17,8 @@ import { handleBondRoutes } from './routes/bond-routes.ts';
 import { handleExecutiveRoutes } from './routes/executive-routes.ts';
 import { handleResearchRoutes } from './routes/research-routes.ts';
 import { handleAchievementRoutes } from './routes/achievement-routes.ts';
+import { handleSimboostRoutes } from './routes/simboost-routes.ts';
+import { handleRetailRoutes } from './routes/retail-routes.ts';
 
 export async function handleRequest(req: IncomingMessage, res: ServerResponse) {
   const parsedUrl = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
@@ -51,6 +53,17 @@ export async function handleRequest(req: IncomingMessage, res: ServerResponse) {
     return;
   }
 
+  // System version and time endpoints
+  if (pathname === '/version/' && method === 'GET') {
+    res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.end('dd7ff2122fa75facbc8862ed32ddd282df300a6b\n');
+    return;
+  }
+  if ((pathname === '/api/v2/time-millis/' || pathname === '/api/time/') && method === 'GET') {
+    sendJson(res, Date.now());
+    return;
+  }
+
   // 2. Resolve User Session
   const sessionToken = extractSessionToken(req);
   const session = sessionToken ? getSession(sessionToken) : null;
@@ -61,7 +74,13 @@ export async function handleRequest(req: IncomingMessage, res: ServerResponse) {
   if (await handleAuthRoutes(req, res, pathname, method, sessionToken, currentPlayerId, currentCompanyId)) {
     return;
   }
+  if (await handleSimboostRoutes(req, res, pathname, method, currentPlayerId, currentCompanyId)) {
+    return;
+  }
   if (await handleBuildingRoutes(req, res, pathname, method, currentCompanyId)) {
+    return;
+  }
+  if (await handleRetailRoutes(req, res, pathname, method, currentCompanyId)) {
     return;
   }
   if (await handleWarehouseRoutes(req, res, pathname, method)) {

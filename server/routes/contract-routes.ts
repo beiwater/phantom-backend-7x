@@ -16,24 +16,47 @@ export async function handleContractRoutes(
   method: string,
   currentCompanyId: number | null
 ): Promise<boolean> {
-  // Incoming contracts
-  const incomingMatch = pathname.match(/^\/api\/v3\/contracts-incoming\/(\d+)\/(\d+|me)\/$/);
-  if (incomingMatch) {
-    const effectiveCompanyId = currentCompanyId || 4259175;
+  const effectiveCompanyId = currentCompanyId || 4259175;
+
+  // 1. Incoming contracts (v2 & v3)
+  if (
+    pathname === '/api/v2/contracts-incoming/' ||
+    pathname.match(/^\/api\/v3\/contracts-incoming\/(\d+)\/(\d+|me)\/$/)
+  ) {
     sendJson(res, getIncomingContracts(effectiveCompanyId));
     return true;
   }
 
-  // Outgoing contracts
-  const outgoingMatch = pathname.match(/^\/api\/v3\/contracts-outgoing\/(\d+)\/(\d+|me)\/$/);
-  if (outgoingMatch) {
-    const effectiveCompanyId = currentCompanyId || 4259175;
+  // 2. Outgoing contracts (v2 & v3)
+  if (
+    pathname === '/api/v2/contracts-outgoing/' ||
+    pathname.match(/^\/api\/v3\/contracts-outgoing\/(\d+)\/(\d+|me)\/$/)
+  ) {
     sendJson(res, getOutgoingContracts(effectiveCompanyId));
     return true;
   }
 
-  // Send new contract
-  const sendContractMatch = pathname.match(/^\/api\/v3\/contracts\/(\d+|me)\/$/);
+  // 3. Contracts history incoming / outgoing
+  if (pathname === '/api/v2/contracts-history-incoming/' || pathname === '/api/v2/contracts-history-outgoing/') {
+    sendJson(res, []);
+    return true;
+  }
+
+  // 4. Warehouse contracts summary: /api/v2/warehouse-contracts-summary/:realm/:kind/
+  const contractsSummaryMatch = pathname.match(/^\/api\/v2\/warehouse-contracts-summary\/(\d+)\/(\d+)\/$/);
+  if (contractsSummaryMatch) {
+    const kind = Number(contractsSummaryMatch[2]);
+    sendJson(res, {
+      resourceKind: kind,
+      totalVolumeDaily: 50000,
+      averageDiscountPrice: 1.15,
+      activePartnersCount: 3
+    });
+    return true;
+  }
+
+  // 5. Send new contract
+  const sendContractMatch = pathname.match(/^\/api\/v3\/contracts\/(\d+|me)\/$/) || pathname === '/api/v2/contracts/';
   if (sendContractMatch && method === 'POST') {
     if (!currentCompanyId) {
       sendJson(res, { error: 'Unauthorized' }, 401);
@@ -64,8 +87,9 @@ export async function handleContractRoutes(
     return true;
   }
 
-  // Accept contract
-  const acceptMatch = pathname.match(/^\/api\/v3\/contracts\/(\d+)\/accept\/$/);
+  // 6. Accept contract
+  const acceptMatch = pathname.match(/^\/api\/v3\/contracts\/(\d+)\/accept\/$/) ||
+                      pathname.match(/^\/api\/v2\/contracts\/(\d+)\/accept\/$/);
   if (acceptMatch && method === 'POST') {
     if (!currentCompanyId) {
       sendJson(res, { error: 'Unauthorized' }, 401);
@@ -82,8 +106,9 @@ export async function handleContractRoutes(
     return true;
   }
 
-  // Reject contract
-  const rejectMatch = pathname.match(/^\/api\/v3\/contracts\/(\d+)\/reject\/$/);
+  // 7. Reject contract
+  const rejectMatch = pathname.match(/^\/api\/v3\/contracts\/(\d+)\/reject\/$/) ||
+                      pathname.match(/^\/api\/v2\/contracts\/(\d+)\/reject\/$/);
   if (rejectMatch && method === 'POST') {
     if (!currentCompanyId) {
       sendJson(res, { error: 'Unauthorized' }, 401);
@@ -100,8 +125,9 @@ export async function handleContractRoutes(
     return true;
   }
 
-  // Cancel contract
-  const cancelMatch = pathname.match(/^\/api\/v3\/contracts\/(\d+)\/$/);
+  // 8. Cancel contract
+  const cancelMatch = pathname.match(/^\/api\/v3\/contracts\/(\d+)\/$/) ||
+                      pathname.match(/^\/api\/v2\/contracts\/(\d+)\/$/);
   if (cancelMatch && method === 'DELETE') {
     if (!currentCompanyId) {
       sendJson(res, { error: 'Unauthorized' }, 401);

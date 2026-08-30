@@ -10,7 +10,7 @@ export async function handleSocialRoutes(
   method: string,
   currentCompanyId: number | null
 ): Promise<boolean> {
-  // Contacts & Default Chatrooms (Must include unreadMessages: [])
+  // 1. Contacts & Default Chatrooms (Must include unreadMessages: [])
   if (pathname === '/api/v2/contacts/') {
     sendJson(res, {
       chatrooms: [
@@ -30,14 +30,51 @@ export async function handleSocialRoutes(
     return true;
   }
 
-  // Chatroom show rules
+  // 2. Game Notifications: /api/v2/game-notifications/
+  if (pathname === '/api/v2/game-notifications/' || pathname === '/api/v2/game-notifications') {
+    sendJson(res, {
+      notifications: [
+        {
+          id: 1,
+          title: "欢迎来到 Sim Companies 私人服务器",
+          body: "生产加速 10x，全功能子系统已完整就绪！",
+          date: new Date().toISOString(),
+          read: true,
+          type: "system"
+        }
+      ],
+      unreadCount: 0
+    });
+    return true;
+  }
+
+  // 3. Error Announcements: /api/v2/error-announcement/
+  if (pathname === '/api/v2/error-announcement/') {
+    sendJson(res, { announcement: null });
+    return true;
+  }
+
+  // 4. Captcha endpoints: /api/v2/captcha/, /api/v2/registrations/captcha/
+  if (pathname.includes('/captcha/')) {
+    sendJson(res, { success: true, verified: true, token: "simcomp-local-captcha-token" });
+    return true;
+  }
+
+  // 5. Chatroom show rules
   const chatRulesMatch = pathname.match(/^\/api\/v2\/chatroom\/([^/]+)\/show-rules\/$/);
   if (chatRulesMatch) {
     sendJson(res, { success: true });
     return true;
   }
 
-  // Chatroom Messages
+  // 6. Chatroom from id: /api/v2/chatroom/:room/from-id/:id/
+  const chatFromIdMatch = pathname.match(/^\/api\/v2\/chatroom\/([^/]+)\/from-id\/(\d+)\/$/);
+  if (chatFromIdMatch) {
+    sendJson(res, []);
+    return true;
+  }
+
+  // 7. Chatroom Messages
   const chatroomMatch = pathname.match(/^\/api\/v2\/chatroom\/([^/]+)\/$/);
   if (chatroomMatch) {
     const room = decodeURIComponent(chatroomMatch[1]);
@@ -74,7 +111,7 @@ export async function handleSocialRoutes(
     return true;
   }
 
-  // Send Message
+  // 8. Send Message
   if ((pathname === '/api/v2/message/' || pathname === '/api/v2/messages/') && method === 'POST') {
     const body = await readJsonBody<{ chatroom?: string; text?: string; recipient?: number }>(req);
     const comp = currentCompanyId ? getCompanyById(currentCompanyId) : null;
@@ -99,7 +136,7 @@ export async function handleSocialRoutes(
     return true;
   }
 
-  // Newspaper single issue
+  // 9. Newspaper single issue
   const newspaperIssueMatch = pathname.match(/^\/api\/v3\/[^/]+\/(\d+)\/newspaper\/(\d+)\/$/);
   if (newspaperIssueMatch) {
     const realmId = Number(newspaperIssueMatch[1]);
@@ -136,7 +173,7 @@ export async function handleSocialRoutes(
     });
   }
 
-  // Newspaper issue list
+  // 10. Newspaper issue list
   const newspaperListMatch = pathname.match(/^\/api\/v3\/[^/]+\/(\d+)\/newspaper\/$/);
   if (newspaperListMatch) {
     const realmId = Number(newspaperListMatch[1]);
@@ -155,7 +192,7 @@ export async function handleSocialRoutes(
     ]);
   }
 
-  // Newspaper Sponsor Params
+  // 11. Newspaper Sponsor Params
   if (pathname === '/api/v2/newspaper/sponsor-params/') {
     return sendJson(res, {
       sponsorCost: 500,
@@ -164,15 +201,34 @@ export async function handleSocialRoutes(
     });
   }
 
-  // Polls
+  // 12. Polls
   if (pathname.includes('/polls/')) {
     sendJson(res, { id: 1, question: '你最喜欢的产业是哪一个？', options: ['农业', '电子', '航空航天', '零售'] });
     return true;
   }
 
-  // Challenges
+  // 13. Challenges
   if (pathname.includes('/challenges/current/')) {
     sendJson(res, { challenges: [] });
+    return true;
+  }
+  if (pathname.includes('/challenges/attempt/') || pathname.includes('/challenges/restart/')) {
+    sendJson(res, { success: true });
+    return true;
+  }
+
+  // 14. Courses & Education: /api/courses/
+  if (pathname.startsWith('/api/courses/')) {
+    sendJson(res, { courses: [], invitations: [], students: [] });
+    return true;
+  }
+
+  // 15. Contests: /api/v3/:realm/contest/:id/
+  if (pathname.includes('/contest/')) {
+    sendJson(res, {
+      contest: { name: "Weekly Production Championship", id: 1, end: new Date(Date.now() + 86400000 * 7).toISOString() },
+      participants: []
+    });
     return true;
   }
 

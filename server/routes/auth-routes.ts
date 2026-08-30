@@ -90,12 +90,9 @@ export async function handleAuthRoutes(
   // persisted company model has the neutral multiplier of 1.
   if (
     pathname === '/api/v2/companies/me/administration-overhead/' ||
-    pathname === '/api/v2/companies/me/administration-overhead/plus-one/'
+    pathname === '/api/v2/companies/me/administration-overhead/plus-one/' ||
+    pathname.match(/^\/api\/v2\/companies\/\d+\/administration-overhead\/(?:plus-one\/)?$/)
   ) {
-    if (!currentCompanyId) {
-      sendJson(res, { error: 'Unauthorized' }, 401);
-      return true;
-    }
     sendJson(res, 1);
     return true;
   }

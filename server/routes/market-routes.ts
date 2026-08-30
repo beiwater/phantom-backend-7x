@@ -16,6 +16,7 @@ export async function handleMarketRoutes(
   method: string,
   currentCompanyId: number | null
 ): Promise<boolean> {
+  // 1. Recent resources
   if (pathname.includes('/recent-resources/')) {
     sendJson(res, {
       resources: [{ kind: 1 }, { kind: 2 }, { kind: 3 }, { kind: 13 }, { kind: 66 }]
@@ -23,13 +24,47 @@ export async function handleMarketRoutes(
     return true;
   }
 
-  const marketTickerMatch = pathname.match(/^\/api\/v3\/market-ticker\/(\d+)\/$/);
-  if (marketTickerMatch) {
-    const realmId = Number(marketTickerMatch[1]);
-    sendJson(res, getMarketTicker(realmId));
+  // 2. Market ticker (v2 & v3)
+  if (
+    pathname === '/api/v2/market-ticker/' ||
+    pathname === '/api/v3/market-ticker/' ||
+    pathname.match(/^\/api\/v[23]\/market-ticker\/\d+\/$/)
+  ) {
+    sendJson(res, getMarketTicker(0));
     return true;
   }
 
+  // 3. Market limits: /api/v2/market/limits/:realm/:kind/:quality/
+  const marketLimitsMatch = pathname.match(/^\/api\/v2\/market\/limits\/(\d+)\/(\d+)\/(\d+)\/$/);
+  if (marketLimitsMatch) {
+    const kind = Number(marketLimitsMatch[2]);
+    sendJson(res, {
+      minPrice: 0.5,
+      maxPrice: 5000,
+      feePercentage: 0.03,
+      resourceKind: kind
+    });
+    return true;
+  }
+
+  // 4. Market buy orders: /api/v3/market/buy/:realm/:kind/
+  const marketBuyOrdersMatch = pathname.match(/^\/api\/v3\/market\/buy\/(\d+)\/(\d+)\/$/);
+  if (marketBuyOrdersMatch) {
+    sendJson(res, []);
+    return true;
+  }
+
+  // 5. Market collectibles & SimBoosts available: /api/v2/market-collectibles/
+  if (
+    pathname === '/api/v2/market-collectibles/' ||
+    pathname === '/api/v2/market-collectibles-sbs/' ||
+    pathname === '/api/v2/nfts/collectors/'
+  ) {
+    sendJson(res, []);
+    return true;
+  }
+
+  // 6. Market orderbook for resource
   const marketListMatch = pathname.match(/^\/api\/v3\/market\/(\d+)\/(\d+)\/$/);
   if (marketListMatch) {
     const realmId = Number(marketListMatch[1]);
@@ -38,8 +73,7 @@ export async function handleMarketRoutes(
     return true;
   }
 
-  // The original frontend uses this route for the same order book data when
-  // it requests all quality tiers for a resource.
+  // 7. Market orderbook all quality tiers
   const allMarketListMatch = pathname.match(/^\/api\/v3\/market\/all\/(\d+)\/(\d+)\/$/);
   if (allMarketListMatch) {
     const realmId = Number(allMarketListMatch[1]);
@@ -48,23 +82,23 @@ export async function handleMarketRoutes(
     return true;
   }
 
-  const companyMarketOrdersMatch = pathname.match(/^\/api\/v2\/companies\/(\d+)\/market-orders\/$/);
+  // 8. Company's own market orders
+  const companyMarketOrdersMatch = pathname.match(/^\/api\/v2\/companies\/(\d+|me)\/market-orders\/$/);
   if (companyMarketOrdersMatch) {
-    const compId = Number(companyMarketOrdersMatch[1]);
+    const compId = companyMarketOrdersMatch[1] === 'me' ? (currentCompanyId || 4259175) : Number(companyMarketOrdersMatch[1]);
     sendJson(res, getCompanyMarketOrders(compId));
     return true;
   }
 
-  // A company with no posted buy orders has a valid empty order book. This is
-  // an explicit compatibility route, rather than the router's unimplemented
-  // API fallback, so the frontend can distinguish "none" from "unknown".
-  const companyBuyOrdersMatch = pathname.match(/^\/api\/v2\/companies\/(\d+)\/market-buy-orders\/$/);
+  // 9. Company's own market buy orders
+  const companyBuyOrdersMatch = pathname.match(/^\/api\/v2\/companies\/(\d+|me)\/market-buy-orders\/$/);
   if (companyBuyOrdersMatch && method === 'GET') {
     sendJson(res, []);
     return true;
   }
 
-  if (pathname === '/api/v2/market-order/') {
+  // 10. Post market order
+  if (pathname === '/api/v2/market-order/' || pathname === '/api/v2/market-order') {
     if (method === 'POST') {
       if (!currentCompanyId) {
         sendJson(res, { error: 'Unauthorized' }, 401);
@@ -82,7 +116,8 @@ export async function handleMarketRoutes(
     }
   }
 
-  if (pathname === '/api/v2/market-order/take/') {
+  // 11. Take market order
+  if (pathname === '/api/v2/market-order/take/' || pathname === '/api/v2/market-order/take') {
     if (method === 'POST') {
       if (!currentCompanyId) {
         sendJson(res, { error: 'Unauthorized' }, 401);
@@ -100,6 +135,7 @@ export async function handleMarketRoutes(
     }
   }
 
+  // 12. Cancel market order
   const marketOrderCancelMatch = pathname.match(/^\/api\/v2\/market-order\/(\d+)\/$/);
   if (marketOrderCancelMatch && method === 'DELETE') {
     if (!currentCompanyId) {
