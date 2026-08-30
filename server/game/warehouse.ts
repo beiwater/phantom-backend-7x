@@ -17,23 +17,24 @@ export interface WarehouseRow {
 export function getWarehouseResources(companyId: number) {
   const rows = db.prepare(`
     SELECT * FROM warehouse WHERE company_id = ? AND amount > 0
+    ORDER BY kind ASC, quality ASC
   `).all(companyId) as unknown as WarehouseRow[];
 
   return rows.map(r => ({
     id: r.id,
     kind: r.kind,
-    quality: r.quality,
-    amount: r.amount,
+    quality: r.quality || 0,
+    amount: r.amount || 0,
     blocked: false,
     cost: {
-      workers: r.cost_workers,
-      admin: r.cost_admin,
-      material1: r.cost_material1,
-      material2: r.cost_material2,
+      workers: r.cost_workers || 0,
+      admin: r.cost_admin || 0,
+      material1: r.cost_material1 || 0,
+      material2: r.cost_material2 || 0,
       material3: 0,
       material4: 0,
       material5: 0,
-      market: r.cost_market
+      market: r.cost_market || 1.0
     },
     datetime: r.updated_at,
     materials: ["", "", "", "", ""]
@@ -44,7 +45,15 @@ export function getWarehouseItem(companyId: number, kind: number, quality: numbe
   const row = db.prepare(`
     SELECT * FROM warehouse WHERE company_id = ? AND kind = ? AND quality = ?
   `).get(companyId, kind, quality) as unknown as WarehouseRow | undefined;
-  return row || null;
+
+  if (row) return row;
+
+  // Fallback to any available quality tier
+  const anyRow = db.prepare(`
+    SELECT * FROM warehouse WHERE company_id = ? AND kind = ? AND amount > 0 ORDER BY quality ASC LIMIT 1
+  `).get(companyId, kind) as unknown as WarehouseRow | undefined;
+
+  return anyRow || null;
 }
 
 export function getWarehouseItemById(id: number): WarehouseRow | null {
@@ -61,11 +70,14 @@ export function addResource(
   amount: number,
   cost: { workers?: number; admin?: number; material1?: number; material2?: number; market?: number } = {}
 ): WarehouseRow {
-  const existing = getWarehouseItem(companyId, kind, quality);
+  const existing = db.prepare(`
+    SELECT * FROM warehouse WHERE company_id = ? AND kind = ? AND quality = ?
+  `).get(companyId, kind, quality) as unknown as WarehouseRow | undefined;
+
   const now = new Date().toISOString();
 
   if (existing) {
-    const newAmount = existing.amount + amount;
+    const newAmount = (Number(existing.amount) || 0) + amount;
     db.prepare(`
       UPDATE warehouse
       SET amount = ?, updated_at = ?
@@ -85,7 +97,7 @@ export function addResource(
       cost.admin || 0,
       cost.material1 || 0,
       cost.material2 || 0,
-      cost.market || 0,
+      cost.market || 1.0,
       now
     );
     return {
@@ -98,23 +110,42 @@ export function addResource(
       cost_admin: cost.admin || 0,
       cost_material1: cost.material1 || 0,
       cost_material2: cost.material2 || 0,
-      cost_market: cost.market || 0,
+      cost_market: cost.market || 1.0,
       updated_at: now
     };
   }
 }
 
 export function consumeResource(companyId: number, kind: number, quality: number, amount: number): boolean {
-  const item = getWarehouseItem(companyId, kind, quality);
-  if (!item || item.amount < amount) {
-    return false;
-  }
-  const newAmount = item.amount - amount;
+  let remainingNeeded = amount;
   const now = new Date().toISOString();
-  db.prepare(`
-    UPDATE warehouse
-    SET amount = ?, updated_at = ?
-    WHERE id = ?
-  `).run(newAmount, now, item.id);
-  return true;
+
+  // Try exact quality first
+  const exact = db.prepare(`
+    SELECT * FROM warehouse WHERE company_id = ? AND kind = ? AND quality = ? AND amount > 0
+  `).get(companyId, kind, quality) as unknown as WarehouseRow | undefined;
+
+  if (exact) {
+    const take = Math.min(exact.amount, remainingNeeded);
+    const newAmount = exact.amount - take;
+    db.prepare('UPDATE warehouse SET amount = ?, updated_at = ? WHERE id = ?').run(newAmount, now, exact.id);
+    remainingNeeded -= take;
+  }
+
+  if (remainingNeeded <= 0) return true;
+
+  // Consume from other available qualities
+  const rows = db.prepare(`
+    SELECT * FROM warehouse WHERE company_id = ? AND kind = ? AND amount > 0 ORDER BY quality ASC
+  `).all(companyId, kind) as unknown as WarehouseRow[];
+
+  for (const row of rows) {
+    if (remainingNeeded <= 0) break;
+    const take = Math.min(row.amount, remainingNeeded);
+    const newAmount = row.amount - take;
+    db.prepare('UPDATE warehouse SET amount = ?, updated_at = ? WHERE id = ?').run(newAmount, now, row.id);
+    remainingNeeded -= take;
+  }
+
+  return remainingNeeded <= 0;
 }

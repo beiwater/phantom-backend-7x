@@ -42,20 +42,31 @@ export function getCompanyById(companyId: number): CompanyRow | null {
 
 export function updateCompanyMoney(companyId: number, delta: number): number {
   const comp = getCompanyById(companyId);
-  if (!comp) return 0;
-  const newMoney = Math.max(0, comp.money + delta);
+  const currentMoney = comp ? (Number(comp.money) || 0) : 100000;
+  const newMoney = Math.max(0, Math.round((currentMoney + delta) * 100) / 100);
   db.prepare('UPDATE companies SET money = ? WHERE company_id = ?').run(newMoney, companyId);
   return newMoney;
+}
+
+export function updateCompanySimBoosts(companyId: number, delta: number): number {
+  const comp = getCompanyById(companyId);
+  const currentSB = comp ? (Number(comp.simboosts) || 0) : 250;
+  const newSB = Math.max(0, currentSB + delta);
+  db.prepare('UPDATE companies SET simboosts = ? WHERE company_id = ?').run(newSB, companyId);
+  return newSB;
 }
 
 export function createCompanyForPlayer(playerId: number, name: string, realmId: number = 0) {
   const companyId = Math.floor(4000000 + Math.random() * 6000000);
   const now = new Date().toISOString();
+  const initialMoney = CONFIG.INITIAL_MONEY || 100000;
+  const initialSimboosts = CONFIG.INITIAL_SIMBOOSTS || 250;
+  const initialLevel = CONFIG.INITIAL_LEVEL || 5;
 
   db.prepare(`
     INSERT INTO companies (company_id, player_id, name, money, simboosts, level, rating, experience, realm_id, logo, personal_assistant, note, created_at)
     VALUES (?, ?, ?, ?, ?, ?, 'BBB', 20, ?, '', 'old', 'Private Server Company', ?)
-  `).run(companyId, playerId, name, CONFIG.INITIAL_MONEY, CONFIG.INITIAL_SIMBOOSTS, CONFIG.INITIAL_LEVEL, realmId, now);
+  `).run(companyId, playerId, name, initialMoney, initialSimboosts, initialLevel, realmId, now);
 
   // Seed default Farm and Grocery store
   db.prepare(`
@@ -68,13 +79,15 @@ export function createCompanyForPlayer(playerId: number, name: string, realmId: 
     VALUES (?, '1', 'G', 1, 'Grocery store', 10350, 'sales', ?)
   `).run(companyId, now);
 
-  // Seed warehouse goods
+  // Seed generous initial warehouse stock
   const seedStock = [
-    { kind: 1, amount: 10000 },
-    { kind: 2, amount: 10000 },
-    { kind: 66, amount: 5000 },
-    { kind: 13, amount: 10000 },
-    { kind: 3, amount: 2000 },
+    { kind: 1, amount: 20000 },  // Power
+    { kind: 2, amount: 20000 },  // Water
+    { kind: 66, amount: 10000 }, // Seeds
+    { kind: 13, amount: 20000 }, // Transport
+    { kind: 3, amount: 5000 },   // Apples
+    { kind: 4, amount: 5000 },   // Oranges
+    { kind: 119, amount: 5000 }, // Coffee
   ];
 
   for (const s of seedStock) {
@@ -91,20 +104,17 @@ export function resetCompany(companyId: number) {
   const comp = getCompanyById(companyId);
   if (!comp) return;
 
-  // Clear buildings and queues
   db.prepare('DELETE FROM buildings WHERE company_id = ?').run(companyId);
   db.prepare('DELETE FROM production_queues WHERE company_id = ?').run(companyId);
   db.prepare('DELETE FROM warehouse WHERE company_id = ?').run(companyId);
 
   const now = new Date().toISOString();
-  // Reset company stats
   db.prepare(`
     UPDATE companies
     SET money = ?, level = 1, experience = 0, created_at = ?
     WHERE company_id = ?
   `).run(CONFIG.INITIAL_MONEY, now, companyId);
 
-  // Seed fresh farm
   db.prepare(`
     INSERT INTO buildings (company_id, position, kind, size, name, cost, category, created_at)
     VALUES (?, '0', 'P', 1, 'Farm', 6900, 'production', ?)
@@ -134,7 +144,7 @@ export function getPersonalData(playerId: number) {
     companies: companies.map(c => ({
       id: c.company_id,
       name: c.name,
-      money: c.money,
+      money: Number(c.money) || 0,
       level: c.level,
       realmId: c.realm_id
     }))
@@ -206,6 +216,9 @@ export function getAuthData(playerId?: number | null, targetCompanyId?: number |
     return null;
   }
 
+  const safeMoney = typeof company.money === 'number' ? company.money : Number(company.money || 100000);
+  const safeSimBoosts = typeof company.simboosts === 'number' ? company.simboosts : Number(company.simboosts || 250);
+
   return {
     authUser: {
       id: player.player_id,
@@ -239,9 +252,9 @@ export function getAuthData(playerId?: number | null, targetCompanyId?: number |
       personalAssistant: company.personal_assistant || "old",
       moderatorSign: false,
       hqImage: "",
-      money: company.money,
+      money: safeMoney,
       exchangedToday: 0,
-      simBoosts: company.simboosts,
+      simBoosts: safeSimBoosts,
       popupNotifications: {
         help: true,
         sale: true,
@@ -265,17 +278,17 @@ export function getAuthData(playerId?: number | null, targetCompanyId?: number |
       courseId: null,
       showOnlineIndicator: true,
       testCategory: 0,
-      level: company.level,
-      realmId: company.realm_id,
+      level: company.level || 5,
+      realmId: company.realm_id || 0,
       excludeFromRanks: false,
       challengeStart: null
     },
     levelInfo: {
       levelName: "Family business",
       ratingCode: company.rating || "BBB",
-      level: company.level,
+      level: company.level || 5,
       inTutorial: false,
-      experience: company.experience,
+      experience: company.experience || 20,
       experienceToNextLevel: 80,
       maxBuildings: 10,
       capabilities: {
@@ -320,14 +333,14 @@ export function getPlayerCompanies(playerId: number) {
     id: c.company_id,
     company: c.name,
     logo: c.logo || "",
-    realmId: c.realm_id,
+    realmId: c.realm_id || 0,
     deleted: false,
     level: {
       levelName: "Family business",
-      ratingCode: c.rating,
-      level: c.level,
+      ratingCode: c.rating || "BBB",
+      level: c.level || 5,
       inTutorial: false,
-      experience: c.experience,
+      experience: c.experience || 20,
       experienceToNextLevel: 80,
       maxBuildings: 10,
       capabilities: {
