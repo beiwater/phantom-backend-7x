@@ -108,7 +108,8 @@ db.exec(`
     price REAL,
     fees REAL DEFAULT 0,
     posted_at TEXT,
-    active INTEGER DEFAULT 1
+    active INTEGER DEFAULT 1,
+    is_npc INTEGER DEFAULT 0
   );
 
   CREATE TABLE IF NOT EXISTS contracts (
