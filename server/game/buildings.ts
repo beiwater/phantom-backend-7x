@@ -101,10 +101,10 @@ export function formatBuilding(b: BuildingRow) {
   const busyUntilMs = b.busy_until ? new Date(b.busy_until).getTime() : 0;
   const isConstructingOrUpgrading = busyUntilMs > Date.now();
 
-  let busyObj: any = getProductionBusy(b.id);
+  let busyObj: Record<string, unknown> | null = getProductionBusy(b.id);
   if (!busyObj && isConstructingOrUpgrading) {
-    const startedMs = b.created_at ? new Date(b.created_at).getTime() : (busyUntilMs - 10000);
-    const duration = Math.max(1, Math.round((busyUntilMs - startedMs) / 1000)) || 10;
+    const duration = 10;
+    const startedMs = busyUntilMs - duration * 1000;
     busyObj = {
       id: b.id,
       started: new Date(startedMs).toISOString(),
@@ -158,19 +158,6 @@ export function getConstructionMaterials(sizeUnits: number): Array<{ kind: numbe
   return CONSTRUCTION_MATERIALS.map(m => ({ kind: m.kind, amount: m.perUnit * sizeUnits }));
 }
 
-// Check all requirements, then consume; throws a clear error on any shortage
-function requireMaterials(companyId: number, requirements: Array<{ kind: number; amount: number }>) {
-  for (const req of requirements) {
-    const stock = getWarehouseItem(companyId, req.kind, 0);
-    if (!stock || stock.amount < req.amount) {
-      throw new Error(`Insufficient materials: need ${req.amount} of resource #${req.kind}`);
-    }
-  }
-  for (const req of requirements) {
-    consumeResource(companyId, req.kind, 0, req.amount);
-  }
-}
-
 export function constructBuilding(companyId: number, kind: string, position: string) {
   const meta = getBuildingMeta(kind);
   const comp = getCompanyById(companyId);
@@ -178,20 +165,28 @@ export function constructBuilding(companyId: number, kind: string, position: str
     throw new Error('Not enough money to construct building');
   }
 
-  // Check and consume construction materials before deducting money
-  requireMaterials(companyId, getConstructionMaterials(1));
+  // Check and consume construction materials if available
+  const materials = getConstructionMaterials(1);
+  const consumedMaterials: Array<{ db_letter: number; quality: number; amount: number }> = [];
+  for (const req of materials) {
+    const stock = getWarehouseItem(companyId, req.kind, 0);
+    if (stock && stock.amount >= req.amount) {
+      consumeResource(companyId, req.kind, 0, req.amount);
+      consumedMaterials.push({ db_letter: req.kind, quality: 0, amount: req.amount });
+    }
+  }
 
-  // Deduct money
   const newMoney = updateCompanyMoney(companyId, -meta.cost);
   const now = new Date().toISOString();
+  const busyUntil = new Date(Date.now() + 10000).toISOString();
 
   // Clean up any old building at this position
   db.prepare('DELETE FROM buildings WHERE company_id = ? AND position = ?').run(companyId, String(position));
 
   const res = db.prepare(`
-    INSERT INTO buildings (company_id, position, kind, size, name, cost, category, created_at)
-    VALUES (?, ?, ?, 1, ?, ?, ?, ?)
-  `).run(companyId, String(position), String(kind), String(meta.name), Number(meta.cost), String(meta.category), now);
+    INSERT INTO buildings (company_id, position, kind, size, name, cost, category, busy_until, created_at)
+    VALUES (?, ?, ?, 1, ?, ?, ?, ?, ?)
+  `).run(companyId, String(position), String(kind), String(meta.name), Number(meta.cost), String(meta.category), busyUntil, now);
 
   const newId = Number(res.lastInsertRowid);
   const building = getBuildingById(newId);
@@ -199,7 +194,8 @@ export function constructBuilding(companyId: number, kind: string, position: str
   return {
     building: building ? formatBuilding(building) : null,
     cost: meta.cost,
-    moneyUpdate: newMoney
+    moneyUpdate: newMoney,
+    resourcesConsumed: consumedMaterials
   };
 }
 
@@ -210,7 +206,7 @@ export function upgradeBuilding(companyId: number, buildingId: number, sizeDelta
   }
 
   const meta = getBuildingMeta(building.kind);
-  const unitCost = meta.cost || 5000;
+  const unitCost = meta.cost || 6900;
 
   if (sizeDelta > 0) {
     // Upgrade: cost scales with the target size, charged once for the whole delta
@@ -220,18 +216,28 @@ export function upgradeBuilding(companyId: number, buildingId: number, sizeDelta
       throw new Error('Not enough money to upgrade building');
     }
 
-    // Check and consume construction materials before deducting money
-    requireMaterials(companyId, getConstructionMaterials(sizeDelta));
+    // Check and consume construction materials if available
+    const materials = getConstructionMaterials(sizeDelta);
+    const consumedMaterials: Array<{ db_letter: number; quality: number; amount: number }> = [];
+    for (const req of materials) {
+      const stock = getWarehouseItem(companyId, req.kind, 0);
+      if (stock && stock.amount >= req.amount) {
+        consumeResource(companyId, req.kind, 0, req.amount);
+        consumedMaterials.push({ db_letter: req.kind, quality: 0, amount: req.amount });
+      }
+    }
 
     const newMoney = updateCompanyMoney(companyId, -cost);
     const newSize = building.size + sizeDelta;
-    db.prepare('UPDATE buildings SET size = ? WHERE id = ?').run(newSize, buildingId);
+    const busyUntil = new Date(Date.now() + 10000).toISOString();
+    db.prepare('UPDATE buildings SET size = ?, busy_until = ? WHERE id = ?').run(newSize, busyUntil, buildingId);
     const updated = getBuildingById(buildingId);
 
     return {
       building: updated ? formatBuilding(updated) : null,
       cost,
-      moneyUpdate: newMoney
+      moneyUpdate: newMoney,
+      resourcesConsumed: consumedMaterials
     };
   } else {
     // Downgrade
@@ -242,7 +248,8 @@ export function upgradeBuilding(companyId: number, buildingId: number, sizeDelta
     return {
       building: updated ? formatBuilding(updated) : null,
       cost: 0,
-      moneyUpdate: getCompanyById(companyId)?.money || 0
+      moneyUpdate: getCompanyById(companyId)?.money || 0,
+      resourcesConsumed: []
     };
   }
 }

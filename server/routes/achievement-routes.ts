@@ -1,7 +1,9 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { readJsonBody, sendJson } from './utils.ts';
 import {
-  getCompanyAchievements,
+  getIndividualAchievements,
+  getAchievementsOverview,
+  claimAchievement,
   getDisplayCase,
   updateDisplayCase,
   removeDisplayCaseSlot,
@@ -18,96 +20,99 @@ export async function handleAchievementRoutes(
 ): Promise<boolean> {
   const effectiveCompanyId = currentCompanyId || 4259175;
 
-  // Achievements list
-  const achMatch = pathname.match(/^\/api\/v2\/no-cache\/companies\/(\d+|me)\/achievements\/$/) ||
-                   pathname.match(/^\/api\/v2\/companies\/(\d+|me)\/achievements\/$/);
-  if (achMatch) {
-    sendJson(res, getCompanyAchievements(effectiveCompanyId));
+  // 1. Claim individual achievement: DELETE /api/v2/no-cache/companies/achievements/:id/ or /api/v2/companies/achievements/:id/
+  const claimAchMatch = pathname.match(/^\/api\/v2\/(?:no-cache\/)?companies\/achievements\/([^/]+)\/$/);
+  if (claimAchMatch && method === 'DELETE') {
+    const achId = claimAchMatch[1];
+    const result = claimAchievement(effectiveCompanyId, achId);
+    sendJson(res, result);
     return true;
   }
 
-  // Display case (Must wrap in { displayCase: [...] })
-  const dcMatch = pathname.match(/^\/api\/v2\/companies\/(\d+|me)\/display-case\/$/);
-  if (dcMatch) {
-    if (method === 'GET') {
-      sendJson(res, { displayCase: getDisplayCase(effectiveCompanyId) });
-      return true;
-    }
-    if (method === 'POST') {
-      const body = await readJsonBody<{ slot: number; kind: number; quality?: number; title?: string }>(req);
-      const updated = updateDisplayCase(effectiveCompanyId, body.slot, body.kind, body.quality || 0, body.title || '');
-      sendJson(res, { displayCase: updated });
-      return true;
-    }
+  // 2. Individual achievements list for toast / collection modal
+  const individualAchMatch = pathname.match(/^\/api\/v2\/no-cache\/companies\/(\d+|me)\/achievements\/$/);
+  if (individualAchMatch && method === 'GET') {
+    sendJson(res, getIndividualAchievements(effectiveCompanyId));
+    return true;
   }
 
-  // Remove display case slot
+  // 3. Achievements overview (Summary list of categories & stars for achievements page)
+  const overviewAchMatch = pathname.match(/^\/api\/v2\/companies\/(\d+|me)\/achievements\/$/);
+  if (overviewAchMatch && method === 'GET') {
+    sendJson(res, getAchievementsOverview(effectiveCompanyId));
+    return true;
+  }
+
+  // 4. Sync 3rd party achievements
+  if (pathname.includes('/achievements/sync-3rd-party/')) {
+    sendJson(res, { tasks: [] });
+    return true;
+  }
+
+  // 5. Display case (Must wrap in { displayCase: [...] })
+  const dcMatch = pathname.match(/^\/api\/v2\/companies\/(\d+|me)\/display-case\/$/);
+  if (dcMatch) {
+    if (method === 'POST') {
+      const body = await readJsonBody<{ slot: number; resourceKind: number; quality?: number; title?: string }>(req);
+      sendJson(res, { displayCase: updateDisplayCase(effectiveCompanyId, body.slot, body.resourceKind, body.quality, body.title) });
+      return true;
+    }
+    sendJson(res, { displayCase: getDisplayCase(effectiveCompanyId) });
+    return true;
+  }
+
+  // 6. Remove display case slot
   const dcSlotMatch = pathname.match(/^\/api\/v2\/companies\/(\d+|me)\/display-case\/(\d+)\/$/);
   if (dcSlotMatch && method === 'DELETE') {
     const slot = Number(dcSlotMatch[2]);
-    const updated = removeDisplayCaseSlot(effectiveCompanyId, slot);
-    sendJson(res, { displayCase: updated });
+    sendJson(res, { displayCase: removeDisplayCaseSlot(effectiveCompanyId, slot) });
     return true;
   }
 
-  // Collectibles (Must wrap in { collectibles: [...] })
+  // 7. Collectibles (Must wrap in { collectibles: [...] })
   if (pathname.includes('/collectibles/')) {
     sendJson(res, { collectibles: getCollectibles(effectiveCompanyId) });
     return true;
   }
 
-  // Certificates Explorer
+  // 8. Certificates Explorer
   const certMatch = pathname.match(/^\/api\/v2\/certificates-explorer\/(\d+)\/latest\/$/) ||
                     pathname.includes('/certificates');
   if (certMatch) {
-    const realmId = Number(certMatch[1] || 0);
-    sendJson(res, {
-      certificates: getCertificates(realmId),
-      latestCertificates: getCertificates(realmId),
-      rarestCertificates: getCertificates(realmId)
-    });
+    const realmId = 0;
+    sendJson(res, getCertificates(realmId));
     return true;
   }
 
-  // Building Auctions
+  // 9. Building Auctions
   if (pathname.includes('/building-auctions/')) {
     sendJson(res, {
-      buildingAuctions: [
-        { id: 1, buildingId: 101, kind: 'A', name: 'Aerospace Factory Level 3', currentBid: 45000, minBid: 48000, finishes: new Date(Date.now() + 86400000).toISOString() }
-      ]
+      auctions: [],
+      myBids: [],
+      featured: null
     });
     return true;
   }
 
-  // Government Orders
+  // 10. Government Orders
   if (pathname.includes('/government-orders/')) {
-    if (pathname.includes('/tier/')) {
-      sendJson(res, { tier: 1 });
-      return true;
-    }
     sendJson(res, {
-      governmentOrders: [],
-      applications: [],
-      blockedCompanies: []
+      orders: [],
+      tier: 1,
+      completedOrders: []
     });
     return true;
   }
 
-  // Game notifications
-  if (pathname.includes('/game-notifications/')) {
-    sendJson(res, { notifications: [] });
-    return true;
-  }
-
-  // Gift baskets
+  // 11. Gift baskets
   if (pathname.includes('/gift-baskets/')) {
-    sendJson(res, { outgoingBaskets: [], receivedBaskets: [] });
+    sendJson(res, { baskets: [] });
     return true;
   }
 
-  // Unlocked PAs
+  // 12. Unlocked PAs
   if (pathname.includes('/unlocked-pas/')) {
-    sendJson(res, { unlockedPAs: ['old'] });
+    sendJson(res, { pas: [] });
     return true;
   }
 

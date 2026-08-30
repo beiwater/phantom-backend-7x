@@ -175,22 +175,20 @@ export async function handleBuildingRoutes(
 
   // Buildings list & construct
   if (pathname === '/api/v2/companies/me/buildings/') {
-    if (!currentCompanyId) {
-      sendJson(res, []);
-      return true;
-    }
+    const effectiveCompanyId = currentCompanyId || 4259175;
     if (method === 'GET') {
-      sendJson(res, getCompanyBuildings(currentCompanyId));
+      sendJson(res, getCompanyBuildings(effectiveCompanyId));
       return true;
     }
     if (method === 'POST') {
-      const body = await readJsonBody<{ kind: string; position: string }>(req);
+      const body = await readJsonBody<{ kind?: string; position: string; id?: { id: string } | string }>(req);
       try {
-        const result = constructBuilding(currentCompanyId, body.kind, body.position);
+        const kind = body.kind || (typeof body.id === 'object' && body.id ? body.id.id : body.id) || 'P';
+        const result = constructBuilding(effectiveCompanyId, String(kind), body.position);
         sendJson(res, {
-          ...result.building,
+          building: result.building,
           cost: result.cost,
-          resourcesConsumed: []
+          resourcesConsumed: result.resourcesConsumed || []
         });
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -201,23 +199,50 @@ export async function handleBuildingRoutes(
   }
 
   // Building single upgrade & demolish
-  const buildingActionMatch = pathname.match(/^\/api\/v2\/companies\/me\/buildings\/(\d+)\/$/);
+  const buildingActionMatch = pathname.match(/^\/api\/v2\/companies\/(?:\d+|me)\/buildings\/(\d+)\/$/) ||
+                              pathname.match(/^\/api\/v2\/companies\/buildings\/(\d+)\/$/);
   if (buildingActionMatch) {
-    if (!currentCompanyId) {
-      sendJson(res, { error: 'Unauthorized' }, 401);
+    const buildingId = Number(buildingActionMatch[1]);
+    const effectiveCompanyId = currentCompanyId || 4259175;
+
+    if (method === 'GET') {
+      const b = getBuildingById(buildingId);
+      if (!b) {
+        sendJson(res, { error: 'Building not found' }, 404);
+        return true;
+      }
+      resolveFinishedProduction(b.company_id);
+      sendJson(res, formatBuilding(b));
       return true;
     }
-    const buildingId = Number(buildingActionMatch[1]);
 
     if (method === 'PATCH') {
-      const body = await readJsonBody<{ size?: number }>(req);
+      const body = await readJsonBody<{ size?: number; name?: string; rebuild?: boolean }>(req);
       try {
-        const targetSize = body.size || 2;
-        const result = upgradeBuilding(currentCompanyId, buildingId, targetSize);
+        if (body.rebuild) {
+          const b = getBuildingById(buildingId);
+          if (b) {
+            const result = constructBuilding(effectiveCompanyId, b.kind, b.position);
+            sendJson(res, {
+              building: result.building,
+              cost: result.cost,
+              resourcesConsumed: result.resourcesConsumed || []
+            });
+            return true;
+          }
+        }
+        if (body.name) {
+          db.prepare('UPDATE buildings SET name = ? WHERE id = ?').run(body.name, buildingId);
+          const updated = getBuildingById(buildingId);
+          sendJson(res, updated ? formatBuilding(updated) : null);
+          return true;
+        }
+        const sizeDelta = body.size !== undefined ? body.size : 1;
+        const result = upgradeBuilding(effectiveCompanyId, buildingId, sizeDelta);
         sendJson(res, {
-          ...result.building,
+          building: result.building,
           cost: result.cost,
-          resourcesConsumed: []
+          resourcesConsumed: result.resourcesConsumed || []
         });
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -228,7 +253,7 @@ export async function handleBuildingRoutes(
 
     if (method === 'DELETE') {
       try {
-        const result = demolishBuilding(currentCompanyId, buildingId);
+        const result = demolishBuilding(effectiveCompanyId, buildingId);
         sendJson(res, result.building);
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);

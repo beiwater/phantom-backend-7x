@@ -1,0 +1,66 @@
+async function test() {
+  const base = 'http://127.0.0.1:3000';
+
+  // 1. Test building upgrade PATCH
+  console.log('--- 1. Testing Building Upgrade PATCH ---');
+  // First ensure building exists at position 0
+  const buildRes = await fetch(`${base}/api/v2/companies/me/buildings/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ kind: 'P', position: 'B0' })
+  });
+  const buildData = await buildRes.json();
+  console.log('Construct Building response status:', buildRes.status, 'Building ID:', buildData?.id || buildData?.building?.id);
+  const bId = buildData?.id || buildData?.building?.id || 1;
+
+  const patchRes = await fetch(`${base}/api/v2/companies/me/buildings/${bId}/`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ size: 1 })
+  });
+  const patchData = await patchRes.json();
+  console.log('Upgrade Building PATCH status:', patchRes.status);
+  console.log('Upgrade Building PATCH body:', JSON.stringify(patchData));
+  if (patchRes.status !== 200 || !patchData.building || patchData.building.size !== 2) {
+    console.error('Upgrade building failed!');
+    process.exit(1);
+  }
+  console.log('Building busy structure:', patchData.building.busy);
+
+  // 2. Test Achievements List
+  console.log('\n--- 2. Testing Achievements List ---');
+  const achRes = await fetch(`${base}/api/v2/no-cache/companies/me/achievements/`);
+  const achData = await achRes.json();
+  console.log('Achievements list status:', achRes.status);
+  console.log('Achievements count:', achData.length);
+  console.log('First achievement (Market Tycoon):', JSON.stringify(achData[0]));
+  if (achRes.status !== 200 || !achData[0] || achData[0].sim_boosts !== 5) {
+    console.error('Achievements list invalid!');
+    process.exit(1);
+  }
+
+  // 3. Test Achievement Claim DELETE
+  console.log('\n--- 3. Testing Achievement Claim DELETE ---');
+  const claimRes = await fetch(`${base}/api/v2/no-cache/companies/achievements/market-tycoon/`, {
+    method: 'DELETE'
+  });
+  const claimData = await claimRes.json();
+  console.log('Claim achievement DELETE status:', claimRes.status);
+  console.log('Claim achievement body:', JSON.stringify(claimData));
+  if (claimRes.status !== 200 || !claimData.success || claimData.sim_boosts !== 5) {
+    console.error('Claim achievement failed!');
+    process.exit(1);
+  }
+
+  // 4. Test Achievements Overview
+  console.log('\n--- 4. Testing Achievements Overview ---');
+  const overRes = await fetch(`${base}/api/v2/companies/me/achievements/`);
+  const overData = await overRes.json();
+  console.log('Achievements overview status:', overRes.status);
+  console.log('Achievements overview count:', overData.length);
+  console.log('First overview item:', JSON.stringify(overData[0]));
+
+  console.log('\n✅ ALL BUILDING UPGRADE AND ACHIEVEMENT TESTS PASSED!');
+}
+
+test();
