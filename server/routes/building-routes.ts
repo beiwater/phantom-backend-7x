@@ -162,6 +162,26 @@ export async function handleBuildingRoutes(
     return true;
   }
 
+  // Building robots install / uninstall
+  const robotsMatch = pathname.match(/^\/api\/v2\/companies\/buildings\/(\d+)\/robots\/$/);
+  if (robotsMatch) {
+    if (method === 'POST') {
+      return sendJson(res, { robotsInstalled: true, wageDiscount: 0.03 });
+    }
+    if (method === 'DELETE') {
+      return sendJson(res, { robotsInstalled: false, wageDiscount: 0 });
+    }
+  }
+
+  // PA Quests
+  if (pathname.includes('/pa/quests/') || pathname.includes('/objectives/')) {
+    return sendJson(res, {
+      quests: [
+        { id: 1, title: '初创公司启航', description: '在农场排产苹果与种子，并在生鲜超市出售。', completed: true, reward: 500 }
+      ]
+    });
+  }
+
   // Building production queue
   const queueMatch = pathname.match(/^\/api\/v2\/companies\/buildings\/(\d+)\/queue\/$/);
   if (queueMatch) {
