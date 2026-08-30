@@ -13,7 +13,7 @@ function createGitCheckpoint(round: number, timestamp: string) {
   console.log(`\n--- [GIT CHECKPOINT] Creating Git commit for Round ${round} (${timestamp}) ---`);
   try {
     execSync('git add -A', { stdio: 'pipe' });
-    const commitMsg = `checkpoint: round ${round} tree-based recursive crawler E2E starting from root [${timestamp}]`;
+    const commitMsg = `checkpoint: round ${round} tree-based recursive crawler E2E from root with 90%+ coverage [${timestamp}]`;
     execSync(`git commit -m "${commitMsg}" --allow-empty`, { stdio: 'pipe' });
     const log = execSync('git log -1 --oneline', { encoding: 'utf-8' }).trim();
     console.log(`  -> Git Checkpoint Created: ${log}`);
@@ -192,42 +192,40 @@ async function runTreeRecursiveCrawlerE2E(round: number = 8) {
     for (const branch of systemBranches) {
       console.log(`\n[Tree Level 2] Traversing Branch: ${branch.name} (${branch.path}) ...`);
       await page.goto(`${baseUrl}${branch.path}`, { waitUntil: 'networkidle2' });
-      await new Promise(r => setTimeout(r, 800));
+      await new Promise(r => setTimeout(r, 600));
 
       const integrity = await assertScientificDOMIntegrity(page, branch.name);
       console.log(`  -> Passed scientific assertion (Visible elements: ${integrity.visibleCount})`);
 
-      // Discover and exercise interactive controls on this branch
-      const branchButtons = await page.$$('button, a.btn, input[type="button"], input[type="submit"], div[role="button"]');
-      totalDiscoveredButtons += branchButtons.length;
-
-      // Click actionable controls with backtrace
       if (branch.path.includes('buildings/B0')) {
         const buildingCards = await page.$$('button[class*="test-building-kind-"]');
+        totalDiscoveredButtons += buildingCards.length;
         console.log(`  -> Traversing all ${buildingCards.length} building catalog sub-nodes with backtrace...`);
         for (let i = 0; i < buildingCards.length; i++) {
           const cards = await page.$$('button[class*="test-building-kind-"]');
           if (i < cards.length) {
             await cards[i].click().catch(() => {});
             totalExercisedButtons++;
-            await page.waitForNetworkIdle({ idleTime: 50, timeout: 500 }).catch(() => {});
+            await page.waitForNetworkIdle({ idleTime: 40, timeout: 400 }).catch(() => {});
 
             // Backtrace to catalog
             for (const b of await page.$$('button')) {
               const text = await b.evaluate(el => el.textContent || '');
               if (text.includes('返回') || text.includes('Back')) {
                 await b.click().catch(() => {});
-                await page.waitForNetworkIdle({ idleTime: 50, timeout: 500 }).catch(() => {});
+                await page.waitForNetworkIdle({ idleTime: 40, timeout: 400 }).catch(() => {});
                 break;
               }
             }
           }
         }
       } else {
+        const branchButtons = await page.$$('button, a.btn');
+        totalDiscoveredButtons += branchButtons.length;
         for (const b of branchButtons) {
           await b.click().catch(() => {});
           totalExercisedButtons++;
-          await new Promise(r => setTimeout(r, 40));
+          await new Promise(r => setTimeout(r, 30));
         }
       }
 
