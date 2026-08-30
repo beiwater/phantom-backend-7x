@@ -221,31 +221,27 @@ export function registerPlayer(email: string, password: string, companyName?: st
   const existing = db.prepare('SELECT * FROM players WHERE email = ?').get(email);
   if (existing) throw new Error('Email already registered');
 
-  const playerId = Math.floor(2000000 + Math.random() * 8000000);
-  const companyId = Math.floor(4000000 + Math.random() * 6000000);
-  const now = new Date().toISOString();
-  const cName = companyName || email.split('@')[0] || `Co-${companyId}`;
+  const cName = companyName || email.split('@')[0] || `Co-${Math.floor(4000000 + Math.random() * 6000000)}`;
+  const nameTaken = db.prepare('SELECT 1 FROM companies WHERE name = ?').get(cName);
+  if (nameTaken) throw new Error('Company name already taken');
 
-  db.prepare(`
+  const now = new Date().toISOString();
+  const insertPlayer = db.prepare(`
     INSERT INTO players (player_id, email, password_hash, is_admin, created_at)
     VALUES (?, ?, ?, 0, ?)
-  `).run(playerId, email, hashPassword(password), now);
-
-  db.prepare(`
+  `);
+  const insertCompany = db.prepare(`
     INSERT INTO companies (company_id, player_id, name, money, simboosts, level, rating, experience, realm_id, logo, personal_assistant, note, created_at)
     VALUES (?, ?, ?, ?, ?, ?, 'BBB', 20, 0, '', 'old', 'Private Server Company', ?)
-  `).run(companyId, playerId, cName, CONFIG.INITIAL_MONEY, CONFIG.INITIAL_SIMBOOSTS, CONFIG.INITIAL_LEVEL, now);
-
-  db.prepare(`
+  `);
+  const insertBuilding = db.prepare(`
     INSERT INTO buildings (company_id, position, kind, size, name, cost, category, created_at)
-    VALUES (?, '0', 'P', 1, 'Farm', 6900, 'production', ?)
-  `).run(companyId, now);
-
-  db.prepare(`
-    INSERT INTO buildings (company_id, position, kind, size, name, cost, category, created_at)
-    VALUES (?, '1', 'G', 1, 'Grocery store', 10350, 'sales', ?)
-  `).run(companyId, now);
-
+    VALUES (?, ?, ?, 1, ?, ?, ?, ?)
+  `);
+  const insertSeedStock = db.prepare(`
+    INSERT INTO warehouse (company_id, kind, quality, amount, cost_workers, cost_admin, cost_material1, cost_material2, cost_market, updated_at)
+    VALUES (?, ?, 0, ?, 0, 0, 0, 0, 1.0, ?)
+  `);
   const seedStock = [
     { kind: 1, amount: 20000 },
     { kind: 2, amount: 20000 },
@@ -259,14 +255,29 @@ export function registerPlayer(email: string, password: string, companyName?: st
     { kind: 108, amount: 5000 },
     { kind: 111, amount: 5000 }
   ];
-  for (const s of seedStock) {
-    db.prepare(`
-      INSERT INTO warehouse (company_id, kind, quality, amount, cost_workers, cost_admin, cost_material1, cost_material2, cost_market, updated_at)
-      VALUES (?, ?, 0, ?, 0, 0, 0, 0, 1.0, ?)
-    `).run(companyId, s.kind, s.amount, now);
-  }
 
-  return { playerId, companyId };
+  for (let attempt = 1; ; attempt++) {
+    const playerId = Math.floor(2000000 + Math.random() * 8000000);
+    const companyId = Math.floor(4000000 + Math.random() * 6000000);
+    db.exec('BEGIN');
+    try {
+      insertPlayer.run(playerId, email, hashPassword(password), now);
+      insertCompany.run(companyId, playerId, cName, CONFIG.INITIAL_MONEY, CONFIG.INITIAL_SIMBOOSTS, CONFIG.INITIAL_LEVEL, now);
+      insertBuilding.run(companyId, '0', 'P', 'Farm', 6900, 'production', now);
+      insertBuilding.run(companyId, '1', 'G', 'Grocery store', 10350, 'sales', now);
+      for (const s of seedStock) {
+        insertSeedStock.run(companyId, s.kind, s.amount, now);
+      }
+      db.exec('COMMIT');
+      return { playerId, companyId };
+    } catch (err) {
+      db.exec('ROLLBACK');
+      const msg = err instanceof Error ? err.message : String(err);
+      // Retry only on id collisions; duplicate email is a user error, not retryable.
+      const idCollision = msg.includes('UNIQUE constraint failed') && !msg.includes('players.email');
+      if (!idCollision || attempt >= 5) throw err;
+    }
+  }
 }
 
 export interface PlayerDbRow {
