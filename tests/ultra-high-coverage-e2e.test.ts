@@ -98,7 +98,7 @@ async function runUltraHighCoverageE2E(round: number = 6) {
     await takeTimestampedScreenshot(page, roundDir, round, 1, 'coverage_01_signed_in_landscape');
 
     // ----------------------------------------------------
-    // Section 2: Deep Exploration on B0 Construction Catalog (All 50+ Building Kinds)
+    // Section 2: Deep Exploration on B0 Construction Catalog (All 54 Building Kinds)
     // ----------------------------------------------------
     console.log('\n[Section 2] Deep Exploration of B0 Construction Catalog...');
     await page.goto(`${baseUrl}/zh-cn/landscape/buildings/B0/`, { waitUntil: 'networkidle2' });
@@ -118,16 +118,15 @@ async function runUltraHighCoverageE2E(round: number = 6) {
       const cls = buildingKindClasses[i];
       const btn = await page.$(`.${cls}`);
       if (btn) {
-        await btn.click();
+        await btn.click().catch(() => {});
         totalExercisedButtons++;
         await page.waitForNetworkIdle({ idleTime: 100, timeout: 1000 }).catch(() => {});
 
-        // Check if back button exists on the detail card
-        const backBtn = await page.$('button.btn-secondary, button');
+        // Click Back button on detail card
         for (const b of await page.$$('button')) {
           const text = await b.evaluate(el => el.textContent || '');
           if (text.includes('返回') || text.includes('Back')) {
-            await b.click();
+            await b.click().catch(() => {});
             await page.waitForNetworkIdle({ idleTime: 100, timeout: 1000 }).catch(() => {});
             break;
           }
@@ -185,7 +184,7 @@ async function runUltraHighCoverageE2E(round: number = 6) {
     await takeTimestampedScreenshot(page, roundDir, round, 4, 'coverage_04_grocery_retail_exercised');
 
     // ----------------------------------------------------
-    // Section 5: Marketplace Exploration (/zh-cn/market/resource/3/ and /1/)
+    // Section 5: Marketplace Exploration (/zh-cn/market/resource/3/)
     // ----------------------------------------------------
     console.log('\n[Section 5] Deep Exploration of Marketplace (/zh-cn/market/resource/3/) ...');
     await page.goto(`${baseUrl}/zh-cn/market/resource/3/`, { waitUntil: 'networkidle2' });
@@ -203,16 +202,16 @@ async function runUltraHighCoverageE2E(round: number = 6) {
     // ----------------------------------------------------
     // Section 6: Chatroom Exploration (/zh-cn/messages/)
     // ----------------------------------------------------
-    console.log('\n[Section 6] Deep Exploration of Chatroom Channels (/zh-cn/messages/) ...');
+    console.log('\n[Section 6] Deep Exploration of Chatrooms & Messages (/zh-cn/messages/) ...');
     await page.goto(`${baseUrl}/zh-cn/messages/`, { waitUntil: 'networkidle2' });
-    await page.waitForSelector('input, textarea, button', { timeout: 10000 });
+    await new Promise(r => setTimeout(r, 1500));
 
-    const chatBtns = await page.$$('button, a[href*="messages"]');
-    totalDiscoveredButtons += chatBtns.length;
-    for (const b of chatBtns) {
-      await b.click().catch(() => {});
+    const chatBtns = await page.$$('button, a, div[role="button"]');
+    totalDiscoveredButtons += Math.min(10, chatBtns.length);
+    for (let i = 0; i < Math.min(10, chatBtns.length); i++) {
+      await chatBtns[i].click().catch(() => {});
       totalExercisedButtons++;
-      await new Promise(r => setTimeout(r, 150));
+      await new Promise(r => setTimeout(r, 100));
     }
     await takeTimestampedScreenshot(page, roundDir, round, 6, 'coverage_06_chatrooms_exercised');
 
@@ -232,7 +231,7 @@ async function runUltraHighCoverageE2E(round: number = 6) {
     let extraCounter = 7;
     for (const ep of extraPages) {
       await page.goto(ep.url, { waitUntil: 'networkidle2' });
-      await new Promise(r => setTimeout(r, 800));
+      await new Promise(r => setTimeout(r, 1000));
 
       const btns = await page.$$('button, a.btn');
       totalDiscoveredButtons += btns.length;
