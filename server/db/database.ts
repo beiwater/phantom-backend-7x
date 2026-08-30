@@ -148,59 +148,8 @@ db.exec(`
     skill_communication INTEGER DEFAULT 5,
     salary REAL DEFAULT 250,
     status TEXT DEFAULT 'employed',
-    age INTEGER DEFAULT 35,
-    genome INTEGER DEFAULT 1,
-    current_training_type TEXT,
-    note TEXT DEFAULT '',
-    strike_until TEXT,
-    plans_to_retire INTEGER DEFAULT 0,
     training_finish_at TEXT,
     created_at TEXT
-  );
-
-  CREATE TABLE IF NOT EXISTS executive_trainings (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    executive_id INTEGER,
-    company_id INTEGER,
-    training_type TEXT,
-    started_at TEXT,
-    finish_at TEXT,
-    completed INTEGER DEFAULT 0,
-    skills_gained TEXT,
-    cost REAL DEFAULT 0
-  );
-
-  CREATE TABLE IF NOT EXISTS executive_offers (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    poacher_company_id INTEGER,
-    target_company_id INTEGER,
-    executive_id INTEGER,
-    slot_position TEXT,
-    skill_position TEXT,
-    agency INTEGER DEFAULT 1,
-    offered_salary REAL DEFAULT 0,
-    expected_salary REAL DEFAULT 0,
-    agency_fee REAL DEFAULT 0,
-    reimbursement REAL DEFAULT 0,
-    status INTEGER DEFAULT 1,
-    accelerated INTEGER DEFAULT 0,
-    researched INTEGER DEFAULT 0,
-    created_at TEXT,
-    extended_at TEXT,
-    candidate_data TEXT
-  );
-
-  CREATE TABLE IF NOT EXISTS former_executives (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    company_id INTEGER,
-    name TEXT,
-    avatar TEXT,
-    position TEXT,
-    skills TEXT,
-    salary REAL,
-    reason TEXT,
-    compensation REAL DEFAULT 0,
-    left_at TEXT
   );
 
   CREATE TABLE IF NOT EXISTS research (
@@ -278,17 +227,6 @@ if (!pqColumns.some(c => c.name === 'quality')) {
   const bondCols = (db.prepare('PRAGMA table_info(bonds)').all() as { name: string }[]).map((c) => c.name);
   if (!bondCols.includes('maturity_date')) db.exec('ALTER TABLE bonds ADD COLUMN maturity_date TEXT');
   if (!bondCols.includes('settled')) db.exec('ALTER TABLE bonds ADD COLUMN settled INTEGER DEFAULT 0');
-}
-
-// Executive columns migration for legacy databases
-{
-  const execCols = (db.prepare('PRAGMA table_info(executives)').all() as { name: string }[]).map((c) => c.name);
-  if (!execCols.includes('age')) db.exec('ALTER TABLE executives ADD COLUMN age INTEGER DEFAULT 35');
-  if (!execCols.includes('genome')) db.exec('ALTER TABLE executives ADD COLUMN genome INTEGER DEFAULT 1');
-  if (!execCols.includes('current_training_type')) db.exec('ALTER TABLE executives ADD COLUMN current_training_type TEXT');
-  if (!execCols.includes('note')) db.exec('ALTER TABLE executives ADD COLUMN note TEXT DEFAULT ""');
-  if (!execCols.includes('strike_until')) db.exec('ALTER TABLE executives ADD COLUMN strike_until TEXT');
-  if (!execCols.includes('plans_to_retire')) db.exec('ALTER TABLE executives ADD COLUMN plans_to_retire INTEGER DEFAULT 0');
 }
 
 export function hashPassword(password: string): string {

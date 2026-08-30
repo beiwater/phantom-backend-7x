@@ -142,6 +142,10 @@ export async function handleFinanceRoutes(
     return true;
   }
 
+  if (pathname.includes('/executives/')) {
+    sendJson(res, { executives: [], offers: [], achievements: [] });
+    return true;
+  }
 
   if (pathname.includes('/certificates/')) {
     sendJson(res, []);

@@ -120,8 +120,7 @@ async function runTreeRecursiveCrawlerE2E(round: number = 8) {
     // Root Node (Tree Level 0): http://127.0.0.1:3000/
     // ----------------------------------------------------
     console.log('\n[Tree Level 0] Root Entry Point: http://127.0.0.1:3000/ ...');
-    await page.goto(`${baseUrl}/zh-cn/`, { waitUntil: 'domcontentloaded', timeout: 15000 });
-    await new Promise(r => setTimeout(r, 800));
+    await page.goto(`${baseUrl}/`, { waitUntil: 'networkidle2' });
     await assertScientificDOMIntegrity(page, 'Root Landing Page');
     await takeTimestampedScreenshot(page, roundDir, round, step++, 'root_entry_landing_page');
 
@@ -138,8 +137,8 @@ async function runTreeRecursiveCrawlerE2E(round: number = 8) {
     // Tree Level 1: Authentication Branch (Signup via UI DOM)
     // ----------------------------------------------------
     console.log('\n[Tree Level 1] Navigating to Signup page via DOM / UI...');
-    await page.goto(`${baseUrl}/zh-cn/signup/`, { waitUntil: 'domcontentloaded', timeout: 15000 });
-    await new Promise(r => setTimeout(r, 800));
+    await page.goto(`${baseUrl}/zh-cn/signup/`, { waitUntil: 'networkidle2' });
+
     for (const b of await page.$$('button')) {
       const text = await b.evaluate(el => el.textContent || '');
       if (text.includes('全部接受') || text.includes('仅限必要')) {
@@ -193,7 +192,7 @@ async function runTreeRecursiveCrawlerE2E(round: number = 8) {
 
     for (const branch of systemBranches) {
       console.log(`\n[Tree Level 2] Traversing Branch: ${branch.name} (${branch.path}) ...`);
-      await page.goto(`${baseUrl}${branch.path}`, { waitUntil: 'domcontentloaded', timeout: 15000 });
+      await page.goto(`${baseUrl}${branch.path}`, { waitUntil: 'networkidle2' });
       await new Promise(r => setTimeout(r, 600));
 
       const integrity = await assertScientificDOMIntegrity(page, branch.name);

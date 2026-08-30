@@ -460,10 +460,6 @@ export async function handleBuildingRoutes(
   if (salesOrdersMatch) {
     const buildingId = Number(salesOrdersMatch[1]);
     const building = getBuildingById(buildingId);
-    if (building?.kind === 'B') {
-      // Sales Office uses Aerospace sales orders in encyclopedia-routes
-      return false;
-    }
     let orders = db.prepare('SELECT * FROM retail_orders WHERE building_id = ?').all(buildingId) as unknown as RetailDbRow[];
 
     if (orders.length === 0 && building && RETAIL_PRODUCTS[building.kind]) {
@@ -525,10 +521,6 @@ export async function handleBuildingRoutes(
   if (singleSalesOrderMatch) {
     const buildingId = Number(singleSalesOrderMatch[1]);
     const orderId = Number(singleSalesOrderMatch[2]);
-    const building = getBuildingById(buildingId);
-    if (building?.kind === 'B') {
-      return false;
-    }
     const order = db.prepare('SELECT * FROM retail_orders WHERE id = ?').get(orderId) as { id: number; building_id: number; resource_kind: number; units: number; unit_price: number } | undefined;
 
     if (method === 'PUT') {
@@ -580,6 +572,21 @@ export async function handleBuildingRoutes(
     }
   }
 
+  // Restaurant endpoints
+  if (pathname.includes('/restaurant-properties/')) {
+    sendJson(res, {
+      rating: 4.5,
+      menuPrice: 25,
+      goodService: true,
+      isLuxury: false
+    });
+    return true;
+  }
+
+  if (pathname.includes('/restaurant-runs/')) {
+    sendJson(res, []);
+    return true;
+  }
 
   return false;
 }

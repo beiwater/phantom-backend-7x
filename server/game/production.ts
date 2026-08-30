@@ -122,7 +122,7 @@ export function queueProduction(companyId: number, buildingId: number, resourceK
     }
   }
 
-  const duration = 1; // 1 second production time for test environment
+  const duration = calculateProductionTime(resourceKind, amount, building.size);
   // Quality achievable at queue time, driven by the research quality cap (#39).
   const quality = getProductionQualityCap(companyId, resourceKind);
   const finishDate = new Date(now.getTime() + duration * 1000);
