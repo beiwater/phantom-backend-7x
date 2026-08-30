@@ -136,18 +136,17 @@ async function runTreeRecursiveCrawlerE2E(round: number = 8) {
     // ----------------------------------------------------
     // Tree Level 1: Authentication Branch (Sign In via UI DOM)
     // ----------------------------------------------------
-    console.log('\n[Tree Level 1] Navigating to Sign In via DOM button click...');
-    const signinLinks = await page.$$('a[href*="signin"], button');
-    for (const link of signinLinks) {
-      const text = await link.evaluate(el => el.textContent || '');
-      if (text.includes('登录') || text.includes('Sign in') || text.includes('已有账号')) {
-        await link.click();
-        await page.waitForNetworkIdle({ idleTime: 200, timeout: 3000 }).catch(() => {});
+    console.log('\n[Tree Level 1] Navigating to Sign In page via DOM / UI...');
+    await page.goto(`${baseUrl}/zh-cn/signin/`, { waitUntil: 'networkidle2' });
+
+    for (const b of await page.$$('button')) {
+      const text = await b.evaluate(el => el.textContent || '');
+      if (text.includes('全部接受') || text.includes('仅限必要')) {
+        await b.click();
         break;
       }
     }
 
-    // Fill Sign In Form via DOM
     for (const b of await page.$$('button')) {
       const text = await b.evaluate(el => el.textContent || '');
       if (text.includes('使用邮箱地址') || text.includes('邮箱')) {
