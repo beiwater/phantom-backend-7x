@@ -239,22 +239,49 @@ export async function handleBuildingRoutes(
   // Take finished production order
   const takeOrderMatch = pathname.match(/^\/api\/v2\/order\/take\/(\d+)\/$/);
   if (takeOrderMatch && method === 'POST') {
-    const queueId = Number(takeOrderMatch[1]);
-    const item = db.prepare('SELECT * FROM production_queues WHERE id = ?').get(queueId) as { id: number; company_id: number; kind: number; quality: number; amount: number; building_id: number } | undefined;
-    if (item) {
-      addResource(item.company_id, item.kind, item.quality, item.amount);
-      db.prepare('DELETE FROM production_queues WHERE id = ?').run(queueId);
-      sendJson(res, {
-        success: true,
-        resource: {
-          kind: item.kind,
-          quality: item.quality,
-          amount: item.amount
-        }
-      });
+    if (!currentCompanyId) {
+      sendJson(res, { error: 'Unauthorized' }, 401);
       return true;
     }
-    sendJson(res, { success: true });
+    const queueId = Number(takeOrderMatch[1]);
+    const item = db.prepare('SELECT * FROM production_queues WHERE id = ?').get(queueId) as { id: number; company_id: number; kind: number; quality: number; amount: number; finishes_at: string; resolved: number } | undefined;
+    if (!item || item.company_id !== currentCompanyId) {
+      sendJson(res, { error: 'Order not found' }, 400);
+      return true;
+    }
+    if (new Date(item.finishes_at).getTime() > Date.now()) {
+      sendJson(res, { error: 'Production not finished yet' }, 400);
+      return true;
+    }
+    if (item.resolved === 1) {
+      sendJson(res, { error: 'Order already claimed' }, 400);
+      return true;
+    }
+
+    db.exec('BEGIN');
+    try {
+      // Delete-first guard: only one request can claim the order
+      const del = db.prepare('DELETE FROM production_queues WHERE id = ? AND resolved = 0').run(queueId);
+      if (del.changes === 0) {
+        throw new Error('Order already claimed');
+      }
+      addResource(item.company_id, item.kind, item.quality ?? 0, item.amount);
+      db.exec('COMMIT');
+    } catch (err: unknown) {
+      db.exec('ROLLBACK');
+      const msg = err instanceof Error ? err.message : String(err);
+      sendJson(res, { error: msg }, 400);
+      return true;
+    }
+
+    sendJson(res, {
+      success: true,
+      resource: {
+        kind: item.kind,
+        quality: item.quality ?? 0,
+        amount: item.amount
+      }
+    });
     return true;
   }
 
@@ -324,14 +351,32 @@ export async function handleBuildingRoutes(
   if (singleSalesOrderMatch) {
     const buildingId = Number(singleSalesOrderMatch[1]);
     const orderId = Number(singleSalesOrderMatch[2]);
-    const order = db.prepare('SELECT * FROM retail_orders WHERE id = ?').get(orderId) as { id: number; resource_kind: number; units: number; unit_price: number } | undefined;
+    const order = db.prepare('SELECT * FROM retail_orders WHERE id = ?').get(orderId) as { id: number; building_id: number; resource_kind: number; units: number; unit_price: number } | undefined;
 
     if (method === 'PUT') {
-      if (order && currentCompanyId) {
-        consumeResource(currentCompanyId, order.resource_kind, 0, order.units);
+      if (!currentCompanyId) {
+        sendJson(res, { error: 'Unauthorized' }, 401);
+        return true;
+      }
+      if (!order || order.building_id !== buildingId) {
+        sendJson(res, { error: 'Sales order not found' }, 400);
+        return true;
+      }
+      const building = getBuildingById(buildingId);
+      if (!building || building.company_id !== currentCompanyId) {
+        sendJson(res, { error: 'Sales order not found' }, 400);
+        return true;
+      }
+
+      db.exec('BEGIN');
+      try {
+        if (!consumeResource(currentCompanyId, order.resource_kind, 0, order.units)) {
+          throw new Error('Insufficient resources in warehouse');
+        }
         const revenue = Math.round(order.units * order.unit_price * 100) / 100;
         const newMoney = updateCompanyMoney(currentCompanyId, revenue);
         db.prepare('DELETE FROM retail_orders WHERE id = ?').run(orderId);
+        db.exec('COMMIT');
 
         return sendJson(res, {
           success: true,
@@ -342,9 +387,14 @@ export async function handleBuildingRoutes(
             units: -order.units
           }
         });
+      } catch (err: unknown) {
+        db.exec('ROLLBACK');
+        const msg = err instanceof Error ? err.message : String(err);
+        sendJson(res, { error: msg }, 400);
+        return true;
       }
-      return sendJson(res, { success: true, revenue: 0 });
     }
+
 
     if (method === 'DELETE') {
       db.prepare('DELETE FROM retail_orders WHERE id = ?').run(orderId);

@@ -109,23 +109,38 @@ export function queueProduction(companyId: number, buildingId: number, resourceK
 
 export function cancelQueueItem(companyId: number, buildingId: number, queueId: number) {
   const q = db.prepare(`
-    SELECT * FROM production_queues WHERE id = ? AND building_id = ? AND company_id = ?
+    SELECT * FROM production_queues WHERE id = ? AND building_id = ? AND company_id = ? AND resolved = 0
   `).get(queueId, buildingId, companyId) as unknown as QueueRow | undefined;
 
   if (!q) {
     throw new Error('Queue item not found');
   }
 
-  // Refund input materials
-  const resDef = getResourceDef(q.kind);
-  if (resDef && resDef.producedFrom) {
-    for (const [reqKindStr, reqPerUnit] of Object.entries(resDef.producedFrom)) {
-      const reqKind = Number(reqKindStr);
-      const totalReq = reqPerUnit * q.amount;
-      addResource(companyId, reqKind, 0, totalReq);
-    }
+  if (new Date(q.finishes_at).getTime() <= Date.now()) {
+    throw new Error('Queue item no longer cancellable');
   }
 
-  db.prepare('DELETE FROM production_queues WHERE id = ?').run(queueId);
+  db.exec('BEGIN');
+  try {
+    // Refund input materials
+    const resDef = getResourceDef(q.kind);
+    if (resDef && resDef.producedFrom) {
+      for (const [reqKindStr, reqPerUnit] of Object.entries(resDef.producedFrom)) {
+        const reqKind = Number(reqKindStr);
+        const totalReq = reqPerUnit * q.amount;
+        addResource(companyId, reqKind, 0, totalReq);
+      }
+    }
+
+    const del = db.prepare('DELETE FROM production_queues WHERE id = ? AND resolved = 0').run(queueId);
+    if (del.changes === 0) {
+      throw new Error('Queue item no longer cancellable');
+    }
+    db.exec('COMMIT');
+  } catch (err: unknown) {
+    db.exec('ROLLBACK');
+    throw err;
+  }
+
   return getBuildingQueue(companyId, buildingId);
 }
