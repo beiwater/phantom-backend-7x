@@ -79,15 +79,19 @@ export function createCompanyForPlayer(playerId: number, name: string, realmId: 
     VALUES (?, '1', 'G', 1, 'Grocery store', 10350, 'sales', ?)
   `).run(companyId, now);
 
-  // Seed generous initial warehouse stock
+  // Seed generous initial warehouse stock including construction materials
   const seedStock = [
-    { kind: 1, amount: 20000 },  // Power
-    { kind: 2, amount: 20000 },  // Water
-    { kind: 66, amount: 10000 }, // Seeds
-    { kind: 13, amount: 20000 }, // Transport
-    { kind: 3, amount: 5000 },   // Apples
-    { kind: 4, amount: 5000 },   // Oranges
-    { kind: 119, amount: 5000 }, // Coffee
+    { kind: 1, amount: 20000 },   // Power
+    { kind: 2, amount: 20000 },   // Water
+    { kind: 66, amount: 10000 },  // Seeds
+    { kind: 13, amount: 20000 },  // Transport
+    { kind: 3, amount: 5000 },    // Apples
+    { kind: 4, amount: 5000 },    // Oranges
+    { kind: 119, amount: 5000 },  // Coffee
+    { kind: 101, amount: 5000 },  // Planks
+    { kind: 102, amount: 5000 },  // Bricks
+    { kind: 108, amount: 5000 },  // Reinforced concrete
+    { kind: 111, amount: 5000 }   // Construction units
   ];
 
   for (const s of seedStock) {

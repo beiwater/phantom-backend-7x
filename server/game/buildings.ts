@@ -1,5 +1,5 @@
 import { db } from '../db/database.ts';
-import { getBuildingMeta, CONSTANTS_BUILDINGS } from './constants.ts';
+import { CONSTANTS_BUILDINGS } from './constants.ts';
 import { updateCompanyMoney, getCompanyById } from './company.ts';
 
 export interface BuildingRow {
@@ -11,30 +11,65 @@ export interface BuildingRow {
   name: string;
   cost: number;
   category: string;
-  busy_until: string | null;
   created_at: string;
+}
+
+const BUILDING_NAMES: Record<string, string> = {
+  P: 'Farm',
+  G: 'Grocery store',
+  E: 'Power plant',
+  W: 'Water reservoir',
+  M: 'Mine',
+  Q: 'Quarry',
+  F: 'Plantation',
+  '6': 'Beverage factory',
+  T: 'Fashion factory',
+  v: 'Forest nursery',
+  e: 'Slaughterhouse',
+  i: 'Mill',
+  j: 'Bakery',
+  Y: 'Materials processing',
+  g: 'General contractor',
+  '8': 'Shipping depot',
+  '1': 'Concrete plant',
+  O: 'Oil rig',
+  R: 'Refinery',
+  S: 'Gas station',
+  C: 'Car dealership',
+  H: 'Hardware store'
+};
+
+export function getBuildingMeta(kind: string) {
+  const b = CONSTANTS_BUILDINGS[kind] as { name?: string; costUnits?: number; category?: string } | undefined;
+  const name = b?.name || BUILDING_NAMES[kind] || 'Building';
+  const cost = b ? ((b.costUnits || 2) * 3450) : 6900;
+  const category = b?.category || 'production';
+  return { name, cost, category };
 }
 
 export function formatBuilding(b: BuildingRow) {
   const meta = getBuildingMeta(b.kind);
-  const def = CONSTANTS_BUILDINGS[b.kind];
-  let image = meta.image;
-  if (def && def.levelImages) {
-    const matched = def.levelImages.find(l => l.level === b.size) || def.levelImages[0];
-    if (matched) image = matched.image;
-  }
-
   return {
     id: b.id,
+    busy: null,
+    category: b.category || meta.category || 'production',
+    company: {
+      id: b.company_id,
+      name: "Private Co",
+      logo: ""
+    },
+    cost: b.cost || meta.cost || 6900,
+    costUnits: 2,
+    country: "AU",
+    created: b.created_at || new Date().toISOString(),
+    isUnderConstruction: false,
     kind: b.kind,
+    level: b.size || 1,
+    name: b.name || meta.name || 'Building',
     position: String(b.position),
-    image: image,
-    category: b.category || meta.category,
-    freeAndLocked: false,
-    name: b.name || meta.name,
-    cost: b.cost || meta.cost,
+    realm: 0,
     size: b.size || 1,
-    busy_until: b.busy_until
+    workers: (b.size || 1) * 10
   };
 }
 
@@ -64,10 +99,13 @@ export function constructBuilding(companyId: number, kind: string, position: str
   const newMoney = updateCompanyMoney(companyId, -meta.cost);
   const now = new Date().toISOString();
 
+  // Clean up any old building at this position
+  db.prepare('DELETE FROM buildings WHERE company_id = ? AND position = ?').run(companyId, String(position));
+
   const res = db.prepare(`
     INSERT INTO buildings (company_id, position, kind, size, name, cost, category, created_at)
     VALUES (?, ?, ?, 1, ?, ?, ?, ?)
-  `).run(companyId, String(position), kind, meta.name, meta.cost, meta.category, now);
+  `).run(companyId, String(position), String(kind), String(meta.name), Number(meta.cost), String(meta.category), now);
 
   const newId = Number(res.lastInsertRowid);
   const building = getBuildingById(newId);
@@ -101,21 +139,19 @@ export function upgradeBuilding(companyId: number, buildingId: number, sizeDelta
 
     return {
       building: updated ? formatBuilding(updated) : null,
-      money: newMoney,
-      resourcesConsumed: []
+      cost: unitCost,
+      moneyUpdate: newMoney
     };
   } else {
     // Downgrade
     const newSize = Math.max(1, building.size + sizeDelta);
-    const refund = Math.round(unitCost * 0.8);
-    const newMoney = updateCompanyMoney(companyId, refund);
     db.prepare('UPDATE buildings SET size = ? WHERE id = ?').run(newSize, buildingId);
     const updated = getBuildingById(buildingId);
 
     return {
       building: updated ? formatBuilding(updated) : null,
-      money: newMoney,
-      resources: []
+      cost: 0,
+      moneyUpdate: getCompanyById(companyId)?.money || 0
     };
   }
 }
@@ -126,17 +162,16 @@ export function demolishBuilding(companyId: number, buildingId: number) {
     throw new Error('Building not found');
   }
 
-  const meta = getBuildingMeta(building.kind);
-  const unitCost = meta.cost || 5000;
-  const refund = Math.round(unitCost * building.size * 0.8);
-
-  const newMoney = updateCompanyMoney(companyId, refund);
   db.prepare('DELETE FROM buildings WHERE id = ?').run(buildingId);
   db.prepare('DELETE FROM production_queues WHERE building_id = ?').run(buildingId);
+  db.prepare('DELETE FROM retail_orders WHERE building_id = ?').run(buildingId);
 
   return {
-    buildingId,
-    money: newMoney,
-    resources: []
+    success: true,
+    building: {
+      id: building.id,
+      position: String(building.position),
+      size: 0
+    }
   };
 }

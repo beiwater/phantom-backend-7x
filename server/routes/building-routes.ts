@@ -20,12 +20,12 @@ import { updateCompanyMoney } from '../game/company.ts';
 import { getResourceDef } from '../game/constants.ts';
 
 const RETAIL_PRODUCTS: Record<string, number[]> = {
-  'G': [3, 4, 121, 117, 119, 9],
-  'S': [11, 12],
-  'L': [24, 25, 26, 28],
-  'F': [40, 41, 42, 46, 47],
-  'C': [50, 51, 52, 53],
-  'H': [102, 103, 108, 109, 110]
+  G: [3, 4, 119, 7, 8, 9, 62],
+  S: [11, 12, 60, 61],
+  E: [24, 25, 40, 80],
+  T: [19, 20, 21, 22],
+  C: [50, 51, 52, 53],
+  H: [102, 103, 104]
 };
 
 export interface RetailDbRow {
@@ -61,9 +61,9 @@ export async function handleBuildingRoutes(
       try {
         const result = constructBuilding(currentCompanyId, body.kind, body.position);
         sendJson(res, {
-          building: result.building,
+          ...result.building,
           cost: result.cost,
-          moneyUpdate: result.moneyUpdate
+          resourcesConsumed: []
         });
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -81,30 +81,28 @@ export async function handleBuildingRoutes(
       return true;
     }
     const buildingId = Number(buildingActionMatch[1]);
+
     if (method === 'PATCH') {
-      const body = await readJsonBody<{ size?: number; position?: string; name?: string }>(req);
+      const body = await readJsonBody<{ size?: number }>(req);
       try {
-        if (body.size !== undefined) {
-          const result = upgradeBuilding(currentCompanyId, buildingId, body.size);
-          sendJson(res, {
-            building: result.building,
-            money: result.money,
-            resourcesConsumed: []
-          });
-          return true;
-        }
-        const b = getBuildingById(buildingId);
-        sendJson(res, { building: b ? formatBuilding(b) : null });
+        const targetSize = body.size || 2;
+        const result = upgradeBuilding(currentCompanyId, buildingId, targetSize);
+        sendJson(res, {
+          ...result.building,
+          cost: result.cost,
+          resourcesConsumed: []
+        });
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
         sendJson(res, { error: msg }, 400);
       }
       return true;
     }
+
     if (method === 'DELETE') {
       try {
         const result = demolishBuilding(currentCompanyId, buildingId);
-        sendJson(res, { buildingId: result.buildingId, money: result.money, resources: [] });
+        sendJson(res, result.building);
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
         sendJson(res, { error: msg }, 400);
@@ -113,34 +111,51 @@ export async function handleBuildingRoutes(
     }
   }
 
-  // Building sub-routes
-  if (pathname.includes('/abundance/')) {
-    sendJson(res, { abundance: 100 });
-    return true;
-  }
-  if (pathname.includes('/history/')) {
-    sendJson(res, []);
-    return true;
-  }
-  if (pathname.includes('/followers/')) {
-    sendJson(res, { linking: null });
+  // Building info by ID
+  const buildingGetMatch = pathname.match(/^\/api\/v2\/companies\/buildings\/(\d+)\/$/);
+  if (buildingGetMatch) {
+    const buildingId = Number(buildingGetMatch[1]);
+    const b = getBuildingById(buildingId);
+    if (!b) {
+      sendJson(res, { error: 'Building not found' }, 404);
+      return true;
+    }
+    resolveFinishedProduction(b.company_id);
+    sendJson(res, formatBuilding(b));
     return true;
   }
 
-  // Production Queues
+  // Building abundance
+  const abundanceMatch = pathname.match(/^\/api\/v2\/companies\/buildings\/(\d+)\/abundance\/$/);
+  if (abundanceMatch) {
+    sendJson(res, { abundance: 100, originalAbundance: 100 });
+    return true;
+  }
+
+  // Building production queue
   const queueMatch = pathname.match(/^\/api\/v2\/companies\/buildings\/(\d+)\/queue\/$/);
   if (queueMatch) {
-    if (!currentCompanyId) {
-      sendJson(res, []);
-      return true;
-    }
     const buildingId = Number(queueMatch[1]);
+    const building = getBuildingById(buildingId);
+    const effectiveCompanyId = building ? building.company_id : (currentCompanyId || 4259175);
+
     if (method === 'GET') {
-      sendJson(res, getBuildingQueue(currentCompanyId, buildingId));
+      resolveFinishedProduction(effectiveCompanyId);
+      sendJson(res, getBuildingQueue(effectiveCompanyId, buildingId));
       return true;
     }
     if (method === 'POST') {
-      const body = await readJsonBody<{ kind: number; amount: number }>(req);
+      if (!currentCompanyId) {
+        sendJson(res, { error: 'Unauthorized' }, 401);
+        return true;
+      }
+      const body = await readJsonBody<{
+        kind: number;
+        amount: number;
+        duration?: number;
+        quality?: number;
+      }>(req);
+
       try {
         const result = queueProduction(currentCompanyId, buildingId, body.kind, body.amount);
         sendJson(res, result.queue);
@@ -152,18 +167,18 @@ export async function handleBuildingRoutes(
     }
   }
 
-  // Cancel Queue
+  // Cancel production queue item
   const cancelQueueMatch = pathname.match(/^\/api\/v2\/companies\/buildings\/(\d+)\/queue\/(\d+)\/$/);
   if (cancelQueueMatch && method === 'DELETE') {
     if (!currentCompanyId) {
-      sendJson(res, []);
+      sendJson(res, { error: 'Unauthorized' }, 401);
       return true;
     }
     const buildingId = Number(cancelQueueMatch[1]);
     const queueId = Number(cancelQueueMatch[2]);
     try {
-      const queue = cancelQueueItem(currentCompanyId, buildingId, queueId);
-      sendJson(res, queue);
+      const result = cancelQueueItem(currentCompanyId, buildingId, queueId);
+      sendJson(res, result);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       sendJson(res, { error: msg }, 400);
@@ -171,147 +186,126 @@ export async function handleBuildingRoutes(
     return true;
   }
 
-  // Order take / harvest
+  // Take finished production order
   const takeOrderMatch = pathname.match(/^\/api\/v2\/order\/take\/(\d+)\/$/);
   if (takeOrderMatch && method === 'POST') {
-    if (currentCompanyId) resolveFinishedProduction(currentCompanyId);
-    sendJson(res, { amountAvailableNow: 0, profitAvailableNow: 0 });
+    const queueId = Number(takeOrderMatch[1]);
+    const item = db.prepare('SELECT * FROM production_queues WHERE id = ?').get(queueId) as { id: number; company_id: number; kind: number; quality: number; amount: number; building_id: number } | undefined;
+    if (item) {
+      addResource(item.company_id, item.kind, item.quality, item.amount);
+      db.prepare('DELETE FROM production_queues WHERE id = ?').run(queueId);
+      sendJson(res, {
+        success: true,
+        resource: {
+          kind: item.kind,
+          quality: item.quality,
+          amount: item.amount
+        }
+      });
+      return true;
+    }
+    sendJson(res, { success: true });
     return true;
   }
 
-  // Sales orders (Retail stores)
+  // Retail sales orders
   const salesOrdersMatch = pathname.match(/^\/api\/v2\/companies\/buildings\/(\d+)\/sales-orders\/$/);
   if (salesOrdersMatch) {
-    if (!currentCompanyId) {
-      sendJson(res, []);
-      return true;
-    }
     const buildingId = Number(salesOrdersMatch[1]);
     const building = getBuildingById(buildingId);
+    let orders = db.prepare('SELECT * FROM retail_orders WHERE building_id = ?').all(buildingId) as unknown as RetailDbRow[];
+
+    if (orders.length === 0 && building && RETAIL_PRODUCTS[building.kind]) {
+      const allowedKinds = RETAIL_PRODUCTS[building.kind];
+      const randomKind = allowedKinds[Math.floor(Math.random() * allowedKinds.length)];
+      const resDef = getResourceDef(randomKind);
+      const units = 100;
+      const unitPrice = resDef ? Math.round((resDef.cost || 2.0) * 1.35 * 100) / 100 : 2.5;
+      const now = new Date().toISOString();
+
+      db.prepare(`
+        INSERT INTO retail_orders (building_id, company_id, resource_kind, units, unit_price, cost, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `).run(buildingId, building.company_id, randomKind, units, unitPrice, units * unitPrice, now);
+
+      orders = db.prepare('SELECT * FROM retail_orders WHERE building_id = ?').all(buildingId) as unknown as RetailDbRow[];
+    }
 
     if (method === 'GET') {
-      let orders = db.prepare('SELECT * FROM retail_orders WHERE building_id = ?').all(buildingId) as unknown as RetailDbRow[];
-      if (orders.length === 0 && building) {
-        const availableKinds = RETAIL_PRODUCTS[building.kind] || [3, 4];
-        const kind = availableKinds[Math.floor(Math.random() * availableKinds.length)];
-        const resDef = getResourceDef(kind);
-        const units = 100 * building.size;
-        const basePrice = (resDef?.unitsSoldAnHour && resDef.unitsSoldAnHour > 0) ? (100 / resDef.unitsSoldAnHour) : 3.5;
-        const retailPrice = Math.round(basePrice * 1.35 * 100) / 100;
-        const now = new Date().toISOString();
-
-        const inserted = db.prepare(`
-          INSERT INTO retail_orders (building_id, company_id, resource_kind, units, unit_price, cost, created_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?)
-        `).run(buildingId, currentCompanyId, kind, units, retailPrice, basePrice, now);
-
-        orders = [{
-          id: Number(inserted.lastInsertRowid),
-          building_id: buildingId,
-          company_id: currentCompanyId,
-          resource_kind: kind,
-          units,
-          unit_price: retailPrice,
-          cost: basePrice,
-          created_at: now
-        }];
-      }
-
-      sendJson(res, orders.map(o => {
-        const rDef = getResourceDef(o.resource_kind);
-        return {
-          id: o.id,
-          resource: { kind: o.resource_kind, name: `Resource #${o.resource_kind}`, image: rDef?.image || '' },
-          units: o.units,
-          price: o.unit_price,
-          cost: o.cost,
-          secondsRemaining: 0
-        };
-      }));
-      return true;
+      return sendJson(res, orders.map(o => ({
+        id: o.id,
+        kind: o.resource_kind,
+        units: o.units,
+        unitPrice: o.unit_price,
+        cost: o.cost,
+        quality: 0
+      })));
     }
 
     if (method === 'POST') {
-      const availableKinds = (building && RETAIL_PRODUCTS[building.kind]) ? RETAIL_PRODUCTS[building.kind] : [3];
-      const kind = availableKinds[Math.floor(Math.random() * availableKinds.length)];
-      const resDef = getResourceDef(kind);
-      const units = 100 * (building ? building.size : 1);
-      const basePrice = (resDef?.unitsSoldAnHour && resDef.unitsSoldAnHour > 0) ? (100 / resDef.unitsSoldAnHour) : 3.5;
-      const retailPrice = Math.round(basePrice * 1.35 * 100) / 100;
+      const allowedKinds = (building && RETAIL_PRODUCTS[building.kind]) || [3, 4, 119];
+      const randomKind = allowedKinds[Math.floor(Math.random() * allowedKinds.length)];
+      const resDef = getResourceDef(randomKind);
+      const units = 100;
+      const unitPrice = resDef ? Math.round((resDef.cost || 2.0) * 1.35 * 100) / 100 : 2.5;
       const now = new Date().toISOString();
 
-      const inserted = db.prepare(`
+      const insertRes = db.prepare(`
         INSERT INTO retail_orders (building_id, company_id, resource_kind, units, unit_price, cost, created_at)
         VALUES (?, ?, ?, ?, ?, ?, ?)
-      `).run(buildingId, currentCompanyId, kind, units, retailPrice, basePrice, now);
+      `).run(buildingId, building?.company_id || currentCompanyId, randomKind, units, unitPrice, units * unitPrice, now);
 
-      sendJson(res, {
+      return sendJson(res, {
         salesOrder: {
-          id: Number(inserted.lastInsertRowid),
-          resource: { kind, name: `Resource #${kind}`, image: resDef?.image || '' },
+          id: Number(insertRes.lastInsertRowid),
+          kind: randomKind,
           units,
-          price: retailPrice,
-          cost: basePrice
+          unitPrice,
+          cost: units * unitPrice,
+          quality: 0
         },
         money: 0
       });
-      return true;
     }
   }
 
   // Fulfill or Reject Retail Sales Order
   const singleSalesOrderMatch = pathname.match(/^\/api\/v2\/companies\/buildings\/(\d+)\/sales-orders\/(\d+)\/$/);
   if (singleSalesOrderMatch) {
-    if (!currentCompanyId) {
-      sendJson(res, { error: 'Unauthorized' }, 401);
-      return true;
-    }
+    const buildingId = Number(singleSalesOrderMatch[1]);
     const orderId = Number(singleSalesOrderMatch[2]);
+    const order = db.prepare('SELECT * FROM retail_orders WHERE id = ?').get(orderId) as { id: number; resource_kind: number; units: number; unit_price: number } | undefined;
 
     if (method === 'PUT') {
-      const order = db.prepare('SELECT * FROM retail_orders WHERE id = ?').get(orderId) as RetailDbRow | undefined;
-      if (!order) {
-        sendJson(res, { error: 'Order not found' }, 404);
-        return true;
+      if (order && currentCompanyId) {
+        consumeResource(currentCompanyId, order.resource_kind, 0, order.units);
+        const revenue = Math.round(order.units * order.unit_price * 100) / 100;
+        const newMoney = updateCompanyMoney(currentCompanyId, revenue);
+        db.prepare('DELETE FROM retail_orders WHERE id = ?').run(orderId);
+
+        return sendJson(res, {
+          success: true,
+          revenue,
+          money: newMoney,
+          resource: {
+            kind: order.resource_kind,
+            units: -order.units
+          }
+        });
       }
-
-      const stock = getWarehouseItem(currentCompanyId, order.resource_kind, 0);
-      if (!stock || stock.amount < order.units) {
-        addResource(currentCompanyId, order.resource_kind, 0, order.units);
-      }
-
-      consumeResource(currentCompanyId, order.resource_kind, 0, order.units);
-      const revenue = Math.round(order.units * order.unit_price * 100) / 100;
-      const newMoney = updateCompanyMoney(currentCompanyId, revenue);
-
-      db.prepare('DELETE FROM retail_orders WHERE id = ?').run(orderId);
-
-      sendJson(res, {
-        money: newMoney,
-        resourceTransactions: [
-          { dbLetter: order.resource_kind, quality: 0, delta: -order.units }
-        ]
-      });
-      return true;
+      return sendJson(res, { success: true, revenue: 0 });
     }
 
     if (method === 'DELETE') {
       db.prepare('DELETE FROM retail_orders WHERE id = ?').run(orderId);
-      sendJson(res, { status: 'ok' });
-      return true;
+      return sendJson(res, { success: true });
     }
   }
 
-  // Restaurant properties & runs
-  const restaurantPropsMatch = pathname.match(/^\/api\/v2\/companies\/buildings\/(\d+)\/restaurant-properties\/$/);
-  if (restaurantPropsMatch) {
-    const buildingId = Number(restaurantPropsMatch[1]);
-    const b = getBuildingById(buildingId);
+  // Restaurant endpoints
+  if (pathname.includes('/restaurant-properties/')) {
     sendJson(res, {
-      building: b ? formatBuilding(b) : null,
-      saladBar: [],
-      mains: [],
-      drinks: [],
+      rating: 4.5,
       menuPrice: 25,
       goodService: true,
       isLuxury: false
