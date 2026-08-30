@@ -76,13 +76,14 @@ export async function handleRequest(req: IncomingMessage, res: ServerResponse) {
   if (await handleSocialRoutes(req, res, pathname, method, currentCompanyId)) {
     return;
   }
+  // Bond routes must dispatch BEFORE finance routes: finance's '/bonds/' stub would otherwise shadow every real bond endpoint (issue #42)
+  if (await handleBondRoutes(req, res, pathname, method, currentCompanyId)) {
+    return;
+  }
   if (await handleFinanceRoutes(req, res, pathname, method, currentCompanyId)) {
     return;
   }
   if (await handleContractRoutes(req, res, pathname, method, currentCompanyId)) {
-    return;
-  }
-  if (await handleBondRoutes(req, res, pathname, method, currentCompanyId)) {
     return;
   }
   if (await handleExecutiveRoutes(req, res, pathname, method, currentCompanyId)) {

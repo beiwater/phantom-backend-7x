@@ -9,6 +9,8 @@ export interface BondRow {
   amount: number;
   status: string;
   created_at: string;
+  maturity_date: string | null;
+  settled: number;
 }
 
 export function formatBond(b: BondRow) {
@@ -37,6 +39,7 @@ export function formatBond(b: BondRow) {
 }
 
 export function getBondsOwned(companyId: number) {
+  settleMaturedBonds();
   const rows = db.prepare(`
     SELECT * FROM bonds
     WHERE buyer_company_id = ? AND status = 'active'
@@ -47,6 +50,7 @@ export function getBondsOwned(companyId: number) {
 }
 
 export function getBondsSold(companyId: number) {
+  settleMaturedBonds();
   const rows = db.prepare(`
     SELECT * FROM bonds
     WHERE seller_company_id = ? AND status = 'active'
@@ -57,6 +61,7 @@ export function getBondsSold(companyId: number) {
 }
 
 export function getBondMarketListings() {
+  settleMaturedBonds();
   const rows = db.prepare(`
     SELECT * FROM bonds
     WHERE buyer_company_id IS NULL AND status = 'active'
@@ -86,19 +91,49 @@ export function getBondMarketListings() {
 
   return current.map(formatBond);
 }
+export function settleMaturedBonds() {
+  const now = new Date().toISOString();
+  const due = db.prepare(`
+    SELECT * FROM bonds
+    WHERE status = 'active' AND buyer_company_id IS NOT NULL AND settled = 0
+      AND maturity_date IS NOT NULL AND maturity_date <= ?
+  `).all(now) as unknown as BondRow[];
+  if (due.length === 0) return;
+
+  for (const b of due) {
+    // Lazy settlement on read; per-bond transaction keeps money + bond row consistent (issue #42)
+    db.exec('BEGIN');
+    try {
+      const payout = Math.round(b.amount * (1 + b.interest_rate) * 100) / 100;
+      const sellerRow = db.prepare('SELECT money FROM companies WHERE company_id = ?').get(b.seller_company_id) as { money: number } | undefined;
+      const sellerMoney = Math.max(0, Number(sellerRow?.money) || 0);
+      const paid = Math.min(sellerMoney, payout);
+      const defaulted = sellerMoney < payout;
+
+      if (paid > 0) updateCompanyMoney(b.seller_company_id, -paid);
+      if (b.buyer_company_id) updateCompanyMoney(b.buyer_company_id, paid);
+      db.prepare('UPDATE bonds SET settled = 1, status = ? WHERE id = ?').run(defaulted ? 'defaulted' : 'matured', b.id);
+      db.exec('COMMIT');
+    } catch (err) {
+      db.exec('ROLLBACK');
+      console.error(`Failed to settle bond #${b.id}:`, err);
+    }
+  }
+}
 
 export function issueBonds(sellerCompanyId: number, amount: number, interestRate: number = 0.005) {
   const comp = getCompanyById(sellerCompanyId);
   if (!comp) throw new Error('Company not found');
 
   const now = new Date().toISOString();
-  // Seller receives cash immediately upon issuing
+  const maturityDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+  // Seller receives cash immediately upon issuing — free money on issue is issue #23's problem, out of scope here
   const newMoney = updateCompanyMoney(sellerCompanyId, amount);
 
   const res = db.prepare(`
-    INSERT INTO bonds (seller_company_id, buyer_company_id, interest_rate, amount, status, created_at)
-    VALUES (?, NULL, ?, ?, 'active', ?)
-  `).run(sellerCompanyId, interestRate, amount, now);
+    INSERT INTO bonds (seller_company_id, buyer_company_id, interest_rate, amount, status, created_at, maturity_date)
+    VALUES (?, NULL, ?, ?, 'active', ?, ?)
+  `).run(sellerCompanyId, interestRate, amount, now, maturityDate);
 
   const bondId = Number(res.lastInsertRowid);
   const row = db.prepare('SELECT * FROM bonds WHERE id = ?').get(bondId) as unknown as BondRow;
@@ -133,6 +168,10 @@ export function callBonds(sellerCompanyId: number, bondId: number) {
   const b = db.prepare('SELECT * FROM bonds WHERE id = ?').get(bondId) as unknown as BondRow | undefined;
   if (!b || b.status !== 'active' || b.seller_company_id !== sellerCompanyId) {
     throw new Error('Bond not found');
+  }
+  // Early call only before maturity; matured/defaulted bonds settle via settleMaturedBonds (issue #42)
+  if (b.maturity_date && b.maturity_date <= new Date().toISOString()) {
+    throw new Error('Bond has matured and can no longer be called early');
   }
 
   const seller = getCompanyById(sellerCompanyId);
