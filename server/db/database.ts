@@ -9,15 +9,14 @@ fs.mkdirSync(CONFIG.DATA_DIR, { recursive: true });
 const dbPath = path.join(CONFIG.DATA_DIR, 'simcompanies.sqlite');
 export const db = new DatabaseSync(dbPath);
 
-// Initialize schema
+// Initialize all database schemas
 db.exec(`
-  PRAGMA journal_mode = WAL;
-
   CREATE TABLE IF NOT EXISTS players (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     player_id INTEGER UNIQUE,
     email TEXT UNIQUE,
     password_hash TEXT,
+    password TEXT,
     is_admin INTEGER DEFAULT 0,
     theme TEXT DEFAULT 'light',
     language TEXT DEFAULT 'zh-cn',
@@ -25,7 +24,7 @@ db.exec(`
   );
 
   CREATE TABLE IF NOT EXISTS sessions (
-    session_token TEXT PRIMARY KEY,
+    token TEXT PRIMARY KEY,
     player_id INTEGER,
     active_company_id INTEGER,
     created_at TEXT,
@@ -111,6 +110,70 @@ db.exec(`
     active INTEGER DEFAULT 1
   );
 
+  CREATE TABLE IF NOT EXISTS contracts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    sender_company_id INTEGER,
+    recipient_company_id INTEGER,
+    kind INTEGER,
+    quality INTEGER DEFAULT 0,
+    amount REAL,
+    price REAL,
+    status TEXT DEFAULT 'pending',
+    created_at TEXT
+  );
+
+  CREATE TABLE IF NOT EXISTS bonds (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    seller_company_id INTEGER,
+    buyer_company_id INTEGER,
+    interest_rate REAL DEFAULT 0.005,
+    amount REAL DEFAULT 5000,
+    status TEXT DEFAULT 'active',
+    created_at TEXT
+  );
+
+  CREATE TABLE IF NOT EXISTS executives (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    company_id INTEGER,
+    name TEXT,
+    avatar TEXT,
+    position TEXT DEFAULT 'unassigned',
+    skill_management INTEGER DEFAULT 5,
+    skill_accounting INTEGER DEFAULT 5,
+    skill_science INTEGER DEFAULT 5,
+    skill_communication INTEGER DEFAULT 5,
+    salary REAL DEFAULT 250,
+    status TEXT DEFAULT 'employed',
+    training_finish_at TEXT,
+    created_at TEXT
+  );
+
+  CREATE TABLE IF NOT EXISTS research (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    company_id INTEGER,
+    discipline INTEGER,
+    points INTEGER DEFAULT 0,
+    patents INTEGER DEFAULT 0
+  );
+
+  CREATE TABLE IF NOT EXISTS display_case (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    company_id INTEGER,
+    slot INTEGER,
+    resource_kind INTEGER,
+    quality INTEGER DEFAULT 0,
+    title TEXT DEFAULT ''
+  );
+
+  CREATE TABLE IF NOT EXISTS achievements (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    company_id INTEGER,
+    achievement_id INTEGER,
+    level INTEGER DEFAULT 1,
+    progress REAL DEFAULT 100,
+    unlocked_at TEXT
+  );
+
   CREATE TABLE IF NOT EXISTS chat_messages (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     room TEXT,
@@ -173,7 +236,6 @@ export function registerPlayer(email: string, password: string, companyName?: st
     VALUES (?, ?, ?, ?, ?, ?, 'BBB', 20, 0, '', 'old', 'Private Server Company', ?)
   `).run(companyId, playerId, cName, CONFIG.INITIAL_MONEY, CONFIG.INITIAL_SIMBOOSTS, CONFIG.INITIAL_LEVEL, now);
 
-  // Seed default Farm and Grocery store
   db.prepare(`
     INSERT INTO buildings (company_id, position, kind, size, name, cost, category, created_at)
     VALUES (?, '0', 'P', 1, 'Farm', 6900, 'production', ?)
@@ -184,13 +246,18 @@ export function registerPlayer(email: string, password: string, companyName?: st
     VALUES (?, '1', 'G', 1, 'Grocery store', 10350, 'sales', ?)
   `).run(companyId, now);
 
-  // Seed initial warehouse inventory
   const seedStock = [
-    { kind: 1, amount: 10000 },
-    { kind: 2, amount: 10000 },
-    { kind: 66, amount: 5000 },
-    { kind: 13, amount: 10000 },
-    { kind: 3, amount: 2000 },
+    { kind: 1, amount: 20000 },
+    { kind: 2, amount: 20000 },
+    { kind: 66, amount: 10000 },
+    { kind: 13, amount: 20000 },
+    { kind: 3, amount: 5000 },
+    { kind: 4, amount: 5000 },
+    { kind: 119, amount: 5000 },
+    { kind: 101, amount: 5000 },
+    { kind: 102, amount: 5000 },
+    { kind: 108, amount: 5000 },
+    { kind: 111, amount: 5000 }
   ];
   for (const s of seedStock) {
     db.prepare(`
@@ -252,16 +319,20 @@ if (row.count === 0) {
   `).run(4259175, now);
 
   const seedStock = [
-    { kind: 1, amount: 10000, quality: 0 },
-    { kind: 2, amount: 10000, quality: 0 },
-    { kind: 66, amount: 5000, quality: 0 },
-    { kind: 13, amount: 10000, quality: 0 },
-    { kind: 3, amount: 2000, quality: 0 },
+    { kind: 1, amount: 20000, quality: 0 },
+    { kind: 2, amount: 20000, quality: 0 },
+    { kind: 66, amount: 10000, quality: 0 },
+    { kind: 13, amount: 20000, quality: 0 },
+    { kind: 3, amount: 5000, quality: 0 },
+    { kind: 101, amount: 5000, quality: 0 },
+    { kind: 102, amount: 5000, quality: 0 },
+    { kind: 108, amount: 5000, quality: 0 },
+    { kind: 111, amount: 5000, quality: 0 }
   ];
   for (const s of seedStock) {
     db.prepare(`
       INSERT INTO warehouse (company_id, kind, quality, amount, cost_workers, cost_admin, cost_material1, cost_material2, cost_market, updated_at)
-      VALUES (?, ?, ?, ?, 0, 0, 0, 0, 0.25 * s.amount, ?)
+      VALUES (?, ?, ?, ?, 0, 0, 0, 0, 1.0, ?)
     `).run(4259175, s.kind, s.quality, s.amount, now);
   }
 

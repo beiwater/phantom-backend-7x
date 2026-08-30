@@ -1,0 +1,109 @@
+import type { IncomingMessage, ServerResponse } from 'node:http';
+import { readJsonBody, sendJson } from './utils.ts';
+import {
+  getCompanyExecutives,
+  getExecutiveCandidates,
+  hireExecutive,
+  fireExecutive,
+  assignExecutive,
+  trainExecutive
+} from '../game/executives.ts';
+
+export async function handleExecutiveRoutes(
+  req: IncomingMessage,
+  res: ServerResponse,
+  pathname: string,
+  method: string,
+  currentCompanyId: number | null
+): Promise<boolean> {
+  // Current executives list
+  if (pathname === '/api/v4/executives/' || pathname.match(/^\/api\/v4\/executives\/company\/(\d+|me)\/$/)) {
+    const effectiveCompanyId = currentCompanyId || 4259175;
+    sendJson(res, {
+      executives: getCompanyExecutives(effectiveCompanyId),
+      candidates: getExecutiveCandidates(effectiveCompanyId)
+    });
+    return true;
+  }
+
+  // Candidates list
+  if (pathname === '/api/v4/executives/candidates/') {
+    const effectiveCompanyId = currentCompanyId || 4259175;
+    sendJson(res, getExecutiveCandidates(effectiveCompanyId));
+    return true;
+  }
+
+  // Hire executive
+  if (pathname === '/api/v4/executives/hire/' && method === 'POST') {
+    if (!currentCompanyId) {
+      sendJson(res, { error: 'Unauthorized' }, 401);
+      return true;
+    }
+    const body = await readJsonBody<{ candidateId: number; position?: string }>(req);
+    try {
+      const exec = hireExecutive(currentCompanyId, body.candidateId, body.position || 'unassigned');
+      sendJson(res, exec);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      sendJson(res, { error: msg }, 400);
+    }
+    return true;
+  }
+
+  // Fire executive
+  const fireMatch = pathname.match(/^\/api\/v4\/executives\/(\d+)\/fire\/$/);
+  if (fireMatch && method === 'POST') {
+    if (!currentCompanyId) {
+      sendJson(res, { error: 'Unauthorized' }, 401);
+      return true;
+    }
+    const execId = Number(fireMatch[1]);
+    try {
+      const result = fireExecutive(currentCompanyId, execId);
+      sendJson(res, result);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      sendJson(res, { error: msg }, 400);
+    }
+    return true;
+  }
+
+  // Assign executive position
+  const assignMatch = pathname.match(/^\/api\/v4\/executives\/(\d+)\/assign\/$/);
+  if (assignMatch && method === 'POST') {
+    if (!currentCompanyId) {
+      sendJson(res, { error: 'Unauthorized' }, 401);
+      return true;
+    }
+    const execId = Number(assignMatch[1]);
+    const body = await readJsonBody<{ position: string }>(req);
+    try {
+      const exec = assignExecutive(currentCompanyId, execId, body.position);
+      sendJson(res, exec);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      sendJson(res, { error: msg }, 400);
+    }
+    return true;
+  }
+
+  // Train executive
+  const trainMatch = pathname.match(/^\/api\/v4\/executives\/(\d+)\/train\/$/);
+  if (trainMatch && method === 'POST') {
+    if (!currentCompanyId) {
+      sendJson(res, { error: 'Unauthorized' }, 401);
+      return true;
+    }
+    const execId = Number(trainMatch[1]);
+    try {
+      const result = trainExecutive(currentCompanyId, execId);
+      sendJson(res, result);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      sendJson(res, { error: msg }, 400);
+    }
+    return true;
+  }
+
+  return false;
+}

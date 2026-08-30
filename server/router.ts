@@ -12,6 +12,11 @@ import { handleMarketRoutes } from './routes/market-routes.ts';
 import { handleEncyclopediaRoutes } from './routes/encyclopedia-routes.ts';
 import { handleSocialRoutes } from './routes/social-routes.ts';
 import { handleFinanceRoutes } from './routes/finance-routes.ts';
+import { handleContractRoutes } from './routes/contract-routes.ts';
+import { handleBondRoutes } from './routes/bond-routes.ts';
+import { handleExecutiveRoutes } from './routes/executive-routes.ts';
+import { handleResearchRoutes } from './routes/research-routes.ts';
+import { handleAchievementRoutes } from './routes/achievement-routes.ts';
 
 export async function handleRequest(req: IncomingMessage, res: ServerResponse) {
   const parsedUrl = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
@@ -22,8 +27,9 @@ export async function handleRequest(req: IncomingMessage, res: ServerResponse) {
   if (method === 'OPTIONS') {
     res.writeHead(204, {
       'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Headers': '*',
-      'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS'
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-CSRFToken',
+      'Access-Control-Allow-Credentials': 'true'
     });
     res.end();
     return;
@@ -71,6 +77,21 @@ export async function handleRequest(req: IncomingMessage, res: ServerResponse) {
     return;
   }
   if (await handleFinanceRoutes(req, res, pathname, method, currentCompanyId)) {
+    return;
+  }
+  if (await handleContractRoutes(req, res, pathname, method, currentCompanyId)) {
+    return;
+  }
+  if (await handleBondRoutes(req, res, pathname, method, currentCompanyId)) {
+    return;
+  }
+  if (await handleExecutiveRoutes(req, res, pathname, method, currentCompanyId)) {
+    return;
+  }
+  if (await handleResearchRoutes(req, res, pathname, method, currentCompanyId)) {
+    return;
+  }
+  if (await handleAchievementRoutes(req, res, pathname, method, currentCompanyId)) {
     return;
   }
 
