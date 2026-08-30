@@ -37,7 +37,7 @@ export function formatMarketOrder(o: MarketOrderRow) {
       logo: seller.logo || '',
       certificates: 0,
       contest_wins: 0,
-      npc: o.seller_id >= 990000,
+      npc: o.seller_id === 999900,
       courseId: null,
       ip: 'private'
     },
@@ -197,7 +197,7 @@ export function takeMarketOrder(
     // Update order
     const remaining = available - takeAmount;
     if (remaining <= 0) {
-      if (order.seller_id >= 990000) {
+      if (order.seller_id === 999900) {
         // NPC auto replenishes
         db.prepare('UPDATE market_orders SET quantity = 100000 WHERE id = ?').run(order.id);
       } else {
@@ -207,8 +207,11 @@ export function takeMarketOrder(
       db.prepare('UPDATE market_orders SET quantity = ? WHERE id = ?').run(remaining, order.id);
     }
 
-    // Pay seller if real player
-    if (order.seller_id < 990000) {
+    // Pay the seller. Self-trade (buyer === seller) is allowed: the seller is
+    // credited and the buyer charged in the same pass, so money stays consistent.
+    // Only the seeded NPC (999900) is unpaid; real company ids live in the
+    // millions (see database.ts registerPlayer), so never use range checks here.
+    if (order.seller_id !== 999900) {
       updateCompanyMoney(order.seller_id, cost);
     }
 
