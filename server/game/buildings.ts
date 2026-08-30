@@ -1,5 +1,10 @@
 import { db } from '../db/database.ts';
-import { CONSTANTS_BUILDINGS, CONSTRUCTION_MATERIALS, DEMOLITION_REFUND_RATE } from './constants.ts';
+import {
+  CONSTANTS_BUILDINGS,
+  CONSTRUCTION_MATERIALS,
+  DEMOLITION_REFUND_RATE,
+  getResourceDef
+} from './constants.ts';
 import { getWarehouseItem, consumeResource } from './warehouse.ts';
 import { updateCompanyMoney, getCompanyById } from './company.ts';
 
@@ -14,6 +19,48 @@ export interface BuildingRow {
   category: string;
   created_at: string;
   busy_until: string | null;
+}
+
+interface ProductionQueueBusyRow {
+  id: number;
+  kind: number;
+  quality: number;
+  amount: number;
+  duration_seconds: number;
+  started_at: string;
+  finishes_at: string;
+}
+
+function getProductionBusy(buildingId: number) {
+  const queue = db.prepare(`
+    SELECT id, kind, quality, amount, duration_seconds, started_at, finishes_at
+    FROM production_queues
+    WHERE building_id = ? AND resolved = 0
+    ORDER BY id DESC
+    LIMIT 1
+  `).get(buildingId) as ProductionQueueBusyRow | undefined;
+
+  if (!queue) return null;
+
+  const resource = getResourceDef(queue.kind);
+  const canFetch = new Date(queue.finishes_at).getTime() <= Date.now();
+
+  return {
+    id: queue.id,
+    started: queue.started_at,
+    duration: Number(queue.duration_seconds),
+    accelerationFactor: 1,
+    category: 'r',
+    canFetch,
+    manualResolve: false,
+    resource: {
+      kind: queue.kind,
+      quality: Number(queue.quality) || 0,
+      amount: Number(queue.amount),
+      amountAvailableNow: canFetch ? Number(queue.amount) : 0,
+      image: resource?.image || ''
+    }
+  };
 }
 
 const BUILDING_NAMES: Record<string, string> = {

@@ -2,7 +2,12 @@ import { db } from '../db/database.ts';
 import { getProductionQualityCap } from './research.ts';
 import { getBuildingById, formatBuilding } from './buildings.ts';
 import { getResourceDef, calculateProductionTime } from './constants.ts';
-import { consumeResource, addResource, getWarehouseItem } from './warehouse.ts';
+import {
+  consumeResourceWithTransactions,
+  addResource,
+  getWarehouseItem,
+  type ResourceTransaction
+} from './warehouse.ts';
 
 export interface QueueRow {
   id: number;
@@ -60,6 +65,14 @@ export function getBuildingQueue(companyId: number, buildingId: number) {
 }
 
 export function queueProduction(companyId: number, buildingId: number, resourceKind: number, amount: number) {
+  if (!Number.isFinite(amount) || amount <= 0) {
+    throw new Error('Production amount must be greater than zero');
+  }
+
+  // Finished automatic queues must be resolved before checking whether the
+  // building can accept a new job.
+  resolveFinishedProduction(companyId);
+
   const building = getBuildingById(buildingId);
   if (!building || building.company_id !== companyId) {
     throw new Error('Building not found');
@@ -84,7 +97,9 @@ export function queueProduction(companyId: number, buildingId: number, resourceK
     }
   }
 
-  // Check and consume input materials
+  const resourceTransactions: ResourceTransaction[] = [];
+
+  // Check input materials before changing any warehouse rows.
   if (resDef.producedFrom) {
     for (const [reqKindStr, reqPerUnit] of Object.entries(resDef.producedFrom)) {
       const reqKind = Number(reqKindStr);
@@ -95,11 +110,15 @@ export function queueProduction(companyId: number, buildingId: number, resourceK
       }
     }
 
-    // Consume materials
+    // Consume materials and retain the exact quality tiers used by the UI.
     for (const [reqKindStr, reqPerUnit] of Object.entries(resDef.producedFrom)) {
       const reqKind = Number(reqKindStr);
       const totalReq = reqPerUnit * amount;
-      consumeResource(companyId, reqKind, 0, totalReq);
+      const transactions = consumeResourceWithTransactions(companyId, reqKind, 0, totalReq);
+      if (!transactions) {
+        throw new Error(`Insufficient materials: need ${totalReq} of resource #${reqKind}`);
+      }
+      resourceTransactions.push(...transactions);
     }
   }
 
@@ -122,7 +141,8 @@ export function queueProduction(companyId: number, buildingId: number, resourceK
 
   return {
     queue,
-    building: updatedBuilding ? formatBuilding(updatedBuilding) : null
+    building: updatedBuilding ? formatBuilding(updatedBuilding) : null,
+    resourceTransactions
   };
 }
 

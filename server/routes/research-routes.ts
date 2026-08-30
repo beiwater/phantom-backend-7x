@@ -1,6 +1,11 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { readJsonBody, sendJson } from './utils.ts';
-import { getCompanyResearch, applyResearch } from '../game/research.ts';
+import {
+  getCompanyResearch,
+  applyResearch,
+  getResourceResearchAbility,
+  applyResourceResearch
+} from '../game/research.ts';
 
 export async function handleResearchRoutes(
   req: IncomingMessage,
@@ -31,6 +36,32 @@ export async function handleResearchRoutes(
       sendJson(res, { error: msg }, 400);
     }
     return true;
+  }
+
+  const resourceAbilityMatch = pathname.match(/^\/api\/v2\/companies\/(\d+|me)\/resource-ability\/(\d+)\/$/);
+  if (resourceAbilityMatch) {
+    if (!currentCompanyId) {
+      sendJson(res, { error: 'Unauthorized' }, 401);
+      return true;
+    }
+
+    const resourceKind = Number(resourceAbilityMatch[2]);
+    try {
+      if (method === 'GET') {
+        sendJson(res, getResourceResearchAbility(currentCompanyId, resourceKind));
+        return true;
+      }
+
+      if (method === 'POST') {
+        const body = await readJsonBody<{ points?: number }>(req);
+        sendJson(res, applyResourceResearch(currentCompanyId, resourceKind, Number(body.points)));
+        return true;
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      sendJson(res, { error: msg }, 400);
+      return true;
+    }
   }
 
   return false;

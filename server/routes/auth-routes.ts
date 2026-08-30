@@ -130,6 +130,21 @@ export async function handleAuthRoutes(
     return true;
   }
 
+  // Administration overhead is a numeric multiplier in the original API.
+  // The private server currently has no executive/admin ledger, so its
+  // persisted company model has the neutral multiplier of 1.
+  if (
+    pathname === '/api/v2/companies/me/administration-overhead/' ||
+    pathname === '/api/v2/companies/me/administration-overhead/plus-one/'
+  ) {
+    if (!currentCompanyId) {
+      sendJson(res, { error: 'Unauthorized' }, 401);
+      return true;
+    }
+    sendJson(res, 1);
+    return true;
+  }
+
   // Player Companies
   const playerCompaniesMatch = pathname.match(/^\/api\/v2\/players\/(\d+|me)\/companies\/$/);
   if (playerCompaniesMatch) {

@@ -5,10 +5,18 @@
   "main": "server/index.ts",
   "type": "module",
   "scripts": {
-    "start": "node --experimental-strip-types server/index.ts"
+    "start": "node --experimental-strip-types server/index.ts",
+    "e2e": "playwright test",
+    "e2e:headed": "playwright test --headed",
+    "e2e:browser": "node --experimental-strip-types scripts/e2e/find-browser.ts",
+    "e2e:report": "playwright show-report test-results/playwright-report",
+    "git:auto-push": "bash scripts/auto-push.sh"
   },
   "dependencies": {
     "puppeteer": "^25.9.0",
     "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.62.1"
   }
 }

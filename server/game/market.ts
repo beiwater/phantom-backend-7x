@@ -274,7 +274,12 @@ export function takeMarketOrder(
   }
 
   return {
+    // The original exchange consumer applies this value as a delta. Returning
+    // the absolute balance makes the client add the balance twice and leaves
+    // its visible cash display invalid.
     money: newMoney,
+    moneyDelta: -totalCost,
+    amountBought: totalBought,
     resourceTransactions: transactions.map(t => ({
       kind: t.kind,
       db_letter: t.kind,

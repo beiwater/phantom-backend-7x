@@ -38,10 +38,29 @@ export async function handleMarketRoutes(
     return true;
   }
 
+  // The original frontend uses this route for the same order book data when
+  // it requests all quality tiers for a resource.
+  const allMarketListMatch = pathname.match(/^\/api\/v3\/market\/all\/(\d+)\/(\d+)\/$/);
+  if (allMarketListMatch) {
+    const realmId = Number(allMarketListMatch[1]);
+    const resourceId = Number(allMarketListMatch[2]);
+    sendJson(res, getMarketOrdersForResource(realmId, resourceId));
+    return true;
+  }
+
   const companyMarketOrdersMatch = pathname.match(/^\/api\/v2\/companies\/(\d+)\/market-orders\/$/);
   if (companyMarketOrdersMatch) {
     const compId = Number(companyMarketOrdersMatch[1]);
     sendJson(res, getCompanyMarketOrders(compId));
+    return true;
+  }
+
+  // A company with no posted buy orders has a valid empty order book. This is
+  // an explicit compatibility route, rather than the router's unimplemented
+  // API fallback, so the frontend can distinguish "none" from "unknown".
+  const companyBuyOrdersMatch = pathname.match(/^\/api\/v2\/companies\/(\d+)\/market-buy-orders\/$/);
+  if (companyBuyOrdersMatch && method === 'GET') {
+    sendJson(res, []);
     return true;
   }
 
