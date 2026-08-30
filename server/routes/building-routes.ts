@@ -73,6 +73,7 @@ export async function handleBuildingRoutes(
         message: "Production started successfully",
         money: 0,
         building: result.building,
+        resourceTransactions: result.resourceTransactions,
         followerErrors: [],
         simboostsDelta: 0
       });
@@ -80,6 +81,95 @@ export async function handleBuildingRoutes(
       const msg = err instanceof Error ? err.message : String(err);
       sendJson(res, { error: msg }, 400);
     }
+    return true;
+  }
+
+  if (v1BusyMatch && method === 'DELETE') {
+    if (!currentCompanyId) {
+      sendJson(res, { error: 'Unauthorized' }, 401);
+      return true;
+    }
+
+    const buildingId = Number(v1BusyMatch[1]);
+    const building = getBuildingById(buildingId);
+    if (!building || building.company_id !== currentCompanyId) {
+      sendJson(res, { error: 'Building not found' }, 404);
+      return true;
+    }
+
+    const queueItem = db.prepare(`
+      SELECT id FROM production_queues
+      WHERE building_id = ? AND company_id = ? AND resolved = 0
+      ORDER BY id DESC
+      LIMIT 1
+    `).get(buildingId, currentCompanyId) as { id: number } | undefined;
+
+    if (!queueItem) {
+      sendJson(res, { error: 'Building has no cancellable production' }, 400);
+      return true;
+    }
+
+    try {
+      cancelQueueItem(currentCompanyId, buildingId, queueItem.id);
+      const updatedBuilding = getBuildingById(buildingId);
+      sendJson(res, {
+        message: 'Production cancelled successfully',
+        // The original client treats this field as a money delta, not the
+        // company's absolute balance. Cancelling production refunds inputs
+        // only, so the cash delta is zero.
+        money: 0,
+        building: updatedBuilding ? formatBuilding(updatedBuilding) : null,
+        followerErrors: [],
+        simboostsDelta: 0
+      });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      sendJson(res, { error: msg }, 400);
+    }
+    return true;
+  }
+
+  const historyMatch = pathname.match(/^\/api\/v2\/companies\/buildings\/(\d+)\/history\/$/);
+  if (historyMatch && method === 'GET') {
+    const buildingId = Number(historyMatch[1]);
+    const building = getBuildingById(buildingId);
+    if (!building) {
+      sendJson(res, { error: 'Building not found' }, 404);
+      return true;
+    }
+
+    const rows = db.prepare(`
+      SELECT id, kind, quality, amount, started_at
+      FROM production_queues
+      WHERE building_id = ?
+      ORDER BY id DESC
+      LIMIT 20
+    `).all(buildingId) as Array<{
+      id: number;
+      kind: number;
+      quality: number;
+      amount: number;
+      started_at: string;
+    }>;
+
+    sendJson(res, rows.map(row => ({
+      id: row.id,
+      kind: row.kind,
+      quality: Number(row.quality) || 0,
+      amount: Number(row.amount),
+      outputAmount: Number(row.amount),
+      datetime: row.started_at
+    })));
+    return true;
+  }
+
+  const followersMatch = pathname.match(/^\/api\/v3\/companies\/buildings\/(\d+)\/followers\/$/);
+  if (followersMatch) {
+    if (method === 'GET') {
+      sendJson(res, { linking: [] });
+      return true;
+    }
+    sendJson(res, { error: 'Building followers are not supported yet' }, 501);
     return true;
   }
 
@@ -250,9 +340,60 @@ export async function handleBuildingRoutes(
       sendJson(res, { error: 'Unauthorized' }, 401);
       return true;
     }
-    const queueId = Number(takeOrderMatch[1]);
-    const item = db.prepare('SELECT * FROM production_queues WHERE id = ?').get(queueId) as { id: number; company_id: number; kind: number; quality: number; amount: number; finishes_at: string; resolved: number } | undefined;
+    const requestedId = Number(takeOrderMatch[1]);
+    // The original frontend sends the building id. Keep queue-id lookup as a
+    // compatibility path for older clients and existing integrations.
+    const item = db.prepare(`
+      SELECT * FROM production_queues
+      WHERE building_id = ? AND company_id = ? AND resolved = 0
+      ORDER BY id DESC
+      LIMIT 1
+    `).get(requestedId, currentCompanyId) as {
+      id: number;
+      building_id: number;
+      company_id: number;
+      kind: number;
+      quality: number;
+      amount: number;
+      finishes_at: string;
+      resolved: number;
+    } | undefined || db.prepare(`
+      SELECT * FROM production_queues
+      WHERE id = ? AND company_id = ? AND resolved = 0
+    `).get(requestedId, currentCompanyId) as {
+      id: number;
+      building_id: number;
+      company_id: number;
+      kind: number;
+      quality: number;
+      amount: number;
+      finishes_at: string;
+      resolved: number;
+    } | undefined;
+
     if (!item || item.company_id !== currentCompanyId) {
+      const targetBuilding = getBuildingById(requestedId);
+      const alreadyResolved = targetBuilding && targetBuilding.company_id === currentCompanyId
+        ? db.prepare(`
+            SELECT id FROM production_queues
+            WHERE building_id = ? AND company_id = ? AND resolved = 1
+            ORDER BY id DESC
+            LIMIT 1
+          `).get(requestedId, currentCompanyId)
+        : undefined;
+
+      if (alreadyResolved) {
+        sendJson(res, {
+          success: true,
+          moneyUpdate: getCompanyById(currentCompanyId)?.money || 0,
+          achievements: [],
+          levelInfo: null,
+          newBusy: null,
+          resourceTransactions: []
+        });
+        return true;
+      }
+
       sendJson(res, { error: 'Order not found' }, 400);
       return true;
     }
@@ -268,11 +409,21 @@ export async function handleBuildingRoutes(
     db.exec('BEGIN');
     try {
       // Delete-first guard: only one request can claim the order
-      const del = db.prepare('DELETE FROM production_queues WHERE id = ? AND resolved = 0').run(queueId);
-      if (del.changes === 0) {
+      const claimed = db.prepare('UPDATE production_queues SET resolved = 1 WHERE id = ? AND resolved = 0').run(item.id);
+      if (claimed.changes === 0) {
         throw new Error('Order already claimed');
       }
       addResource(item.company_id, item.kind, item.quality ?? 0, item.amount);
+      const latest = db.prepare(`
+        SELECT finishes_at FROM production_queues
+        WHERE building_id = ? AND company_id = ? AND resolved = 0
+        ORDER BY finishes_at DESC, id DESC
+        LIMIT 1
+      `).get(item.building_id, currentCompanyId) as { finishes_at: string } | undefined;
+      db.prepare('UPDATE buildings SET busy_until = ? WHERE id = ?').run(
+        latest?.finishes_at || null,
+        item.building_id
+      );
       db.exec('COMMIT');
     } catch (err: unknown) {
       db.exec('ROLLBACK');
@@ -283,11 +434,23 @@ export async function handleBuildingRoutes(
 
     sendJson(res, {
       success: true,
+      moneyUpdate: getCompanyById(currentCompanyId)?.money || 0,
+      achievements: [],
+      levelInfo: null,
+      newBusy: null,
       resource: {
         kind: item.kind,
         quality: item.quality ?? 0,
         amount: item.amount
-      }
+      },
+      resourceTransactions: [{
+        kind: item.kind,
+        db_letter: item.kind,
+        dbLetter: item.kind,
+        quality: item.quality ?? 0,
+        delta: item.amount,
+        amount: item.amount
+      }]
     });
     return true;
   }

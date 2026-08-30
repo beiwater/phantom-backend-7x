@@ -98,8 +98,13 @@ export async function handleRequest(req: IncomingMessage, res: ServerResponse) {
 
   // 4. Fallback for unhandled API requests
   if (pathname.startsWith('/api/')) {
-    console.log(`[API Fallback] Unhandled ${method} ${pathname}`);
-    return sendJson(res, []);
+    console.warn(`[API Not Implemented] ${method} ${pathname}`);
+    return sendJson(res, {
+      error: 'API route is not implemented',
+      code: 'API_NOT_IMPLEMENTED',
+      method,
+      path: pathname
+    }, 404);
   }
 
   // 5. HTML Page rendering (SPA catch-all)

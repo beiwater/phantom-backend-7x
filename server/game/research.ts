@@ -53,6 +53,56 @@ export function getProductionQualityCap(companyId: number, resourceKind: number)
   return Math.min(12, Math.floor(row.patents / 2) + 1);
 }
 
+export interface ResourceResearchAbility {
+  kind: number;
+  quality: number;
+  patents: number;
+  patentsNeeded: number;
+  researchUnits: number;
+}
+
+export function getResourceResearchAbility(companyId: number, resourceKind: number): ResourceResearchAbility {
+  const discipline = getDisciplineForResource(resourceKind);
+  const row = db.prepare(`
+    SELECT points, patents FROM research
+    WHERE company_id = ? AND discipline = ?
+  `).get(companyId, discipline) as { points: number; patents: number } | undefined;
+
+  const patents = Number(row?.patents || 0);
+  const quality = row ? Math.min(12, Math.floor(patents / 2) + 1) : 0;
+
+  return {
+    kind: resourceKind,
+    quality,
+    patents,
+    // The frontend uses this value to display the cost of the next quality
+    // tier. The first tier requires twelve patents in the original tree.
+    patentsNeeded: Math.max(12, (quality + 1) * 12),
+    researchUnits: Number(row?.points || 0)
+  };
+}
+
+export function applyResourceResearch(companyId: number, resourceKind: number, points: number) {
+  if (!getResourceDef(resourceKind)) {
+    throw new Error(`Unknown resource kind: ${resourceKind}`);
+  }
+  if (!Number.isFinite(points) || points <= 0) {
+    throw new Error('Research points must be a finite positive number');
+  }
+
+  const before = getResourceResearchAbility(companyId, resourceKind);
+  applyResearch(companyId, getDisciplineForResource(resourceKind), points);
+  const after = getResourceResearchAbility(companyId, resourceKind);
+
+  return {
+    ...after,
+    previousQuality: before.quality,
+    newQuality: after.quality,
+    researchUnitsCommitted: points,
+    patentsGained: Math.max(0, after.patents - before.patents)
+  };
+}
+
 export function getCompanyResearch(companyId: number) {
   const rows = db.prepare(`
     SELECT * FROM research WHERE company_id = ?

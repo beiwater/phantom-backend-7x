@@ -24,7 +24,7 @@ db.exec(`
   );
 
   CREATE TABLE IF NOT EXISTS sessions (
-    token TEXT PRIMARY KEY,
+    session_token TEXT PRIMARY KEY,
     player_id INTEGER,
     active_company_id INTEGER,
     created_at TEXT,
@@ -207,6 +207,13 @@ db.exec(`
     last_login TEXT
   );
 `);
+
+// Legacy databases used `token` for the session primary key while the
+// session service consistently reads and writes `session_token`.
+const sessionColumns = db.prepare('PRAGMA table_info(sessions)').all() as Array<{ name: string }>;
+if (!sessionColumns.some(column => column.name === 'session_token') && sessionColumns.some(column => column.name === 'token')) {
+  db.exec('ALTER TABLE sessions RENAME COLUMN token TO session_token');
+}
 
 // Migration: legacy committed databases predate the production_queues.quality
 // column (#39). CREATE TABLE IF NOT EXISTS does not alter existing tables.

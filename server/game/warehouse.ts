@@ -14,6 +14,14 @@ export interface WarehouseRow {
   updated_at: string;
 }
 
+export interface ResourceTransaction {
+  kind: number;
+  dbLetter: number;
+  quality: number;
+  delta: number;
+  amount: number;
+}
+
 export function getWarehouseResources(companyId: number) {
   const rows = db.prepare(`
     SELECT * FROM warehouse WHERE company_id = ? AND amount > 0
@@ -116,36 +124,45 @@ export function addResource(
   }
 }
 
-export function consumeResource(companyId: number, kind: number, quality: number, amount: number): boolean {
+export function consumeResourceWithTransactions(
+  companyId: number,
+  kind: number,
+  quality: number,
+  amount: number
+): ResourceTransaction[] | null {
+  if (!Number.isFinite(amount) || amount <= 0) return null;
+
+  const rows = db.prepare(`
+    SELECT * FROM warehouse
+    WHERE company_id = ? AND kind = ? AND amount > 0
+    ORDER BY CASE WHEN quality = ? THEN 0 ELSE 1 END, quality ASC, id ASC
+  `).all(companyId, kind, quality) as unknown as WarehouseRow[];
+
+  const availableAmount = rows.reduce((total, row) => total + Number(row.amount || 0), 0);
+  if (availableAmount < amount) return null;
+
   let remainingNeeded = amount;
   const now = new Date().toISOString();
-
-  // Try exact quality first
-  const exact = db.prepare(`
-    SELECT * FROM warehouse WHERE company_id = ? AND kind = ? AND quality = ? AND amount > 0
-  `).get(companyId, kind, quality) as unknown as WarehouseRow | undefined;
-
-  if (exact) {
-    const take = Math.min(exact.amount, remainingNeeded);
-    const newAmount = exact.amount - take;
-    db.prepare('UPDATE warehouse SET amount = ?, updated_at = ? WHERE id = ?').run(newAmount, now, exact.id);
-    remainingNeeded -= take;
-  }
-
-  if (remainingNeeded <= 0) return true;
-
-  // Consume from other available qualities
-  const rows = db.prepare(`
-    SELECT * FROM warehouse WHERE company_id = ? AND kind = ? AND amount > 0 ORDER BY quality ASC
-  `).all(companyId, kind) as unknown as WarehouseRow[];
+  const transactions: ResourceTransaction[] = [];
 
   for (const row of rows) {
     if (remainingNeeded <= 0) break;
-    const take = Math.min(row.amount, remainingNeeded);
-    const newAmount = row.amount - take;
+    const takenAmount = Math.min(Number(row.amount), remainingNeeded);
+    const newAmount = Number(row.amount) - takenAmount;
     db.prepare('UPDATE warehouse SET amount = ?, updated_at = ? WHERE id = ?').run(newAmount, now, row.id);
-    remainingNeeded -= take;
+    remainingNeeded -= takenAmount;
+    transactions.push({
+      kind,
+      dbLetter: kind,
+      quality: Number(row.quality) || 0,
+      delta: -takenAmount,
+      amount: -takenAmount
+    });
   }
 
-  return remainingNeeded <= 0;
+  return transactions;
+}
+
+export function consumeResource(companyId: number, kind: number, quality: number, amount: number): boolean {
+  return consumeResourceWithTransactions(companyId, kind, quality, amount) !== null;
 }
