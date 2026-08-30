@@ -135,3 +135,41 @@ test('real player core loop keeps UI and persisted state coherent', async ({ pag
   expect(diagnostics.data.apiResponses.some((response) => response.method === 'POST' && /\/buildings\/\d+\/busy\//.test(response.url))).toBe(true);
   expect(diagnostics.data.apiResponses.some((response) => response.method === 'POST' && response.url.includes('/market-order/take/'))).toBe(true);
 });
+
+test('player can explore encyclopedia, newspaper, and financial overview without errors', async ({ page, diagnostics }, testInfo) => {
+  const email = `dom_explorer_${Date.now()}@example.local`;
+
+  await page.goto('/zh-cn/signup/');
+  await dismissCookieBanner(page);
+  await page.getByRole('button', { name: '使用邮箱地址', exact: true }).click();
+  await page.locator('input[type="email"]').fill(email);
+  await page.locator('input[type="password"]').fill(password);
+  await page.getByRole('button', { name: '注册', exact: true }).click();
+  await expect(page).toHaveURL(/\/zh-cn\/landscape\//);
+  await expect(page.getByText('$100,000', { exact: true })).toBeVisible();
+
+  // 1. Explore Encyclopedia
+  await page.goto('/zh-cn/encyclopedia/0/');
+  await expect(page.getByText('原材料加工业', { exact: true }).first()).toBeVisible();
+  await expect(page.locator('body')).not.toContainText('NaN');
+  await page.screenshot({ path: testInfo.outputPath('07-encyclopedia-home.png') });
+
+  await page.goto('/zh-cn/encyclopedia/0/resource/3/');
+  await expect(page.getByText('苹果', { exact: true }).first()).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath('08-encyclopedia-apples.png') });
+
+  // 2. Explore Newspaper
+  await page.goto('/zh-cn/newspaper/0/');
+  await expect(page.getByText('私人服务器经济模型平稳运行', { exact: true }).first()).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath('09-newspaper.png') });
+
+  // 3. Explore Headquarters & Finances
+  await page.goto('/zh-cn/headquarters/overview/');
+  await expect(page.getByText('总览', { exact: true }).first()).toBeVisible();
+  await expect(page.locator('body')).not.toContainText('NaN');
+  await page.screenshot({ path: testInfo.outputPath('10-hq-finances.png') });
+
+  await diagnostics.flush();
+  expect(diagnostics.data.pageErrors).toEqual([]);
+  expect(diagnostics.data.failedRequests.filter((request) => request.localApi)).toEqual([]);
+});
