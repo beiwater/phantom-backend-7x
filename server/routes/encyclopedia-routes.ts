@@ -39,7 +39,8 @@ export async function handleEncyclopediaRoutes(
   }
 
   // Encyclopedia Resource Detail
-  const encResMatch = pathname.match(/^\/api\/v4\/[^/]+\/\d+\/encyclopedia\/resources\/(\d+)\/(\d+)\/$/);
+  const encResMatch = pathname.match(/^\/api\/v4\/[^/]+\/\d+\/encyclopedia\/resources\/(\d+)\/(\d+)\/$/) ||
+                      pathname.match(/^\/api\/v4\/[^/]+\/\d+\/encyclopedia\/resources\/(\d+)\/$/);
   if (encResMatch) {
     const kind = Number(encResMatch[1]);
     const resDef = getResourceDef(kind);
@@ -55,6 +56,21 @@ export async function handleEncyclopediaRoutes(
       retailModel: { saturation: 0.5, averagePrice: 2.5 }
     });
     return true;
+  }
+
+  // Static Documentation Pages / Guides
+  const pagesMatch = pathname.match(/^\/api\/v3\/pages\/[^/]+\/([^/]+)\/$/);
+  if (pagesMatch) {
+    const pageKey = pagesMatch[1];
+    return sendJson(res, {
+      title: pageKey.toUpperCase(),
+      content: `<h2>Sim Companies 指南: ${pageKey}</h2><p>私人服务器版本文库与游戏机制文档已全面在线。</p>`
+    });
+  }
+
+  // EVA Rankings
+  if (pathname.includes('/encyclopedia/eva-ranking/')) {
+    return sendJson(res, []);
   }
 
   if (pathname.includes('/resources-retail-info/')) {
