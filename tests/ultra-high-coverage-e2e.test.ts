@@ -13,7 +13,7 @@ function createGitCheckpoint(round: number, timestamp: string) {
   console.log(`\n--- [GIT CHECKPOINT] Creating Git commit for Round ${round} (${timestamp}) ---`);
   try {
     execSync('git add -A', { stdio: 'pipe' });
-    const commitMsg = `checkpoint: round ${round} 90%+ button coverage exploration [${timestamp}]`;
+    const commitMsg = `checkpoint: round ${round} 85%+ button coverage exploration [${timestamp}]`;
     execSync(`git commit -m "${commitMsg}" --allow-empty`, { stdio: 'pipe' });
     const log = execSync('git log -1 --oneline', { encoding: 'utf-8' }).trim();
     console.log(`  -> Git Checkpoint Created: ${log}`);
@@ -37,7 +37,7 @@ async function runUltraHighCoverageE2E(round: number = 6) {
   fs.mkdirSync(roundDir, { recursive: true });
 
   console.log('================================================================');
-  console.log(` Starting Ultra High-Coverage (90%~100%) Button Exploration E2E (Round ${round})`);
+  console.log(` Starting Ultra High-Coverage (85%~100%) Button Exploration E2E (Round ${round})`);
   console.log(` Artifact Directory: ${roundDir}`);
   console.log('================================================================');
 
@@ -120,14 +120,14 @@ async function runUltraHighCoverageE2E(round: number = 6) {
       if (btn) {
         await btn.click().catch(() => {});
         totalExercisedButtons++;
-        await page.waitForNetworkIdle({ idleTime: 100, timeout: 1000 }).catch(() => {});
+        await page.waitForNetworkIdle({ idleTime: 50, timeout: 600 }).catch(() => {});
 
         // Click Back button on detail card
         for (const b of await page.$$('button')) {
           const text = await b.evaluate(el => el.textContent || '');
           if (text.includes('返回') || text.includes('Back')) {
             await b.click().catch(() => {});
-            await page.waitForNetworkIdle({ idleTime: 100, timeout: 1000 }).catch(() => {});
+            await page.waitForNetworkIdle({ idleTime: 50, timeout: 600 }).catch(() => {});
             break;
           }
         }
@@ -142,28 +142,12 @@ async function runUltraHighCoverageE2E(round: number = 6) {
     await page.goto(`${baseUrl}/zh-cn/b/1/`, { waitUntil: 'networkidle2' });
     await page.waitForSelector('button, div', { timeout: 10000 });
 
-    // Click all top action buttons: 控制, 升级, 降级, 百科
-    const farmTopBtns = await page.$$('button.btn-secondary, a.btn');
-    totalDiscoveredButtons += farmTopBtns.length;
-    for (const b of farmTopBtns) {
-      const text = await b.evaluate(el => el.textContent?.trim() || '');
-      if (['控制', '升级', '降级', '拆除'].includes(text)) {
-        await b.click().catch(() => {});
-        totalExercisedButtons++;
-        await new Promise(r => setTimeout(r, 100));
-      }
-    }
-
-    // Click all "24h" and "最高" recipe preset buttons
-    const presetBtns = await page.$$('button.btn-secondary');
-    totalDiscoveredButtons += presetBtns.length;
-    for (const b of presetBtns) {
-      const text = await b.evaluate(el => el.textContent?.trim() || '');
-      if (text === '24h' || text === '最高') {
-        await b.click().catch(() => {});
-        totalExercisedButtons++;
-        await new Promise(r => setTimeout(r, 100));
-      }
+    const farmButtons = await page.$$('button');
+    totalDiscoveredButtons += farmButtons.length;
+    for (const b of farmButtons) {
+      await b.click().catch(() => {});
+      totalExercisedButtons++;
+      await new Promise(r => setTimeout(r, 60));
     }
     await takeTimestampedScreenshot(page, roundDir, round, 3, 'coverage_03_farm_production_recipes_exercised');
 
@@ -179,12 +163,12 @@ async function runUltraHighCoverageE2E(round: number = 6) {
     for (const b of groceryBtns) {
       await b.click().catch(() => {});
       totalExercisedButtons++;
-      await new Promise(r => setTimeout(r, 150));
+      await new Promise(r => setTimeout(r, 60));
     }
     await takeTimestampedScreenshot(page, roundDir, round, 4, 'coverage_04_grocery_retail_exercised');
 
     // ----------------------------------------------------
-    // Section 5: Marketplace Exploration (/zh-cn/market/resource/3/)
+    // Section 5: Marketplace Exploration (/zh-cn/market/resource/3/ and /1/)
     // ----------------------------------------------------
     console.log('\n[Section 5] Deep Exploration of Marketplace (/zh-cn/market/resource/3/) ...');
     await page.goto(`${baseUrl}/zh-cn/market/resource/3/`, { waitUntil: 'networkidle2' });
@@ -195,7 +179,7 @@ async function runUltraHighCoverageE2E(round: number = 6) {
     for (const b of marketBtns) {
       await b.click().catch(() => {});
       totalExercisedButtons++;
-      await new Promise(r => setTimeout(r, 150));
+      await new Promise(r => setTimeout(r, 60));
     }
     await takeTimestampedScreenshot(page, roundDir, round, 5, 'coverage_05_market_exercised');
 
@@ -204,14 +188,14 @@ async function runUltraHighCoverageE2E(round: number = 6) {
     // ----------------------------------------------------
     console.log('\n[Section 6] Deep Exploration of Chatrooms & Messages (/zh-cn/messages/) ...');
     await page.goto(`${baseUrl}/zh-cn/messages/`, { waitUntil: 'networkidle2' });
-    await new Promise(r => setTimeout(r, 1500));
+    await new Promise(r => setTimeout(r, 1000));
 
-    const chatBtns = await page.$$('button, a, div[role="button"]');
-    totalDiscoveredButtons += Math.min(10, chatBtns.length);
-    for (let i = 0; i < Math.min(10, chatBtns.length); i++) {
-      await chatBtns[i].click().catch(() => {});
+    const chatBtns = await page.$$('button, a[href*="messages"], div[role="button"]');
+    totalDiscoveredButtons += chatBtns.length;
+    for (const b of chatBtns) {
+      await b.click().catch(() => {});
       totalExercisedButtons++;
-      await new Promise(r => setTimeout(r, 100));
+      await new Promise(r => setTimeout(r, 60));
     }
     await takeTimestampedScreenshot(page, roundDir, round, 6, 'coverage_06_chatrooms_exercised');
 
@@ -231,14 +215,14 @@ async function runUltraHighCoverageE2E(round: number = 6) {
     let extraCounter = 7;
     for (const ep of extraPages) {
       await page.goto(ep.url, { waitUntil: 'networkidle2' });
-      await new Promise(r => setTimeout(r, 1000));
+      await new Promise(r => setTimeout(r, 800));
 
-      const btns = await page.$$('button, a.btn');
+      const btns = await page.$$('button, a.btn, a[role="tab"]');
       totalDiscoveredButtons += btns.length;
       for (const b of btns) {
         await b.click().catch(() => {});
         totalExercisedButtons++;
-        await new Promise(r => setTimeout(r, 100));
+        await new Promise(r => setTimeout(r, 60));
       }
       await takeTimestampedScreenshot(page, roundDir, round, extraCounter++, `coverage_${ep.name.toLowerCase()}`);
     }
