@@ -83,3 +83,13 @@ export function calculateProductionTime(resourceKind: number, amount: number, bu
   const baseSeconds = Math.max(5, Math.ceil(hoursNeeded * 3600));
   return Math.max(3, Math.round(baseSeconds / (CONFIG.PRODUCTION_SPEED_MULTIPLIER || 1)));
 }
+
+// Construction materials consumed per building size unit (kinds match the seeded warehouse stock)
+export const CONSTRUCTION_MATERIALS: Array<{ kind: number; perUnit: number }> = [
+  { kind: 101, perUnit: 10 },  // Planks
+  { kind: 102, perUnit: 15 },  // Bricks
+  { kind: 108, perUnit: 8 },   // Reinforced concrete
+  { kind: 111, perUnit: 2 }    // Construction units
+];
+
+export const DEMOLITION_REFUND_RATE = 0.5;
