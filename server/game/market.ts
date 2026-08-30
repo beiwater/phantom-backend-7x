@@ -150,6 +150,44 @@ export function postMarketOrder(
   };
 }
 
+export function cancelMarketOrder(companyId: number, orderId: number) {
+  const order = db.prepare('SELECT * FROM market_orders WHERE id = ?').get(orderId) as unknown as MarketOrderRow | undefined;
+  if (!order) {
+    throw new Error('Market order not found');
+  }
+  if (order.seller_id !== companyId) {
+    throw new Error('You can only cancel your own market orders');
+  }
+  if (order.active !== 1 || order.quantity <= 0) {
+    throw new Error('Market order is no longer active');
+  }
+
+  db.exec('BEGIN');
+  try {
+    // Refund remaining goods to warehouse
+    addResource(companyId, order.kind, order.quality, order.quantity);
+
+    // NOTE: the 3% listing fee (order.fees) is intentionally NOT refunded,
+    // matching SimCompanies behavior where listing fees are non-refundable.
+    db.prepare('UPDATE market_orders SET active = 0 WHERE id = ?').run(orderId);
+    db.exec('COMMIT');
+  } catch (err: unknown) {
+    db.exec('ROLLBACK');
+    throw err;
+  }
+
+  const updated = db.prepare('SELECT * FROM market_orders WHERE id = ?').get(orderId) as unknown as MarketOrderRow;
+  const company = getCompanyById(companyId);
+  const warehouse = db.prepare('SELECT * FROM warehouse WHERE company_id = ? AND kind = ? AND quality = ?')
+    .get(companyId, order.kind, order.quality) as unknown as { amount: number } | undefined;
+
+  return {
+    sellOrder: formatMarketOrder(updated),
+    money: company ? company.money : null,
+    warehouseAmount: warehouse ? Number(warehouse.amount) : 0
+  };
+}
+
 export function takeMarketOrder(
   buyerCompanyId: number,
   params: { resource: number; quantity: number; quality?: number; maxPrice: number; money?: number }

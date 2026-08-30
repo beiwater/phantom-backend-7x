@@ -5,7 +5,8 @@ import {
   getMarketOrdersForResource,
   getCompanyMarketOrders,
   postMarketOrder,
-  takeMarketOrder
+  takeMarketOrder,
+  cancelMarketOrder
 } from '../game/market.ts';
 
 export async function handleMarketRoutes(
@@ -78,6 +79,23 @@ export async function handleMarketRoutes(
       }
       return true;
     }
+  }
+
+  const marketOrderCancelMatch = pathname.match(/^\/api\/v2\/market-order\/(\d+)\/$/);
+  if (marketOrderCancelMatch && method === 'DELETE') {
+    if (!currentCompanyId) {
+      sendJson(res, { error: 'Unauthorized' }, 401);
+      return true;
+    }
+    const orderId = Number(marketOrderCancelMatch[1]);
+    try {
+      const result = cancelMarketOrder(currentCompanyId, orderId);
+      sendJson(res, result);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      sendJson(res, { error: msg }, 400);
+    }
+    return true;
   }
 
   return false;
