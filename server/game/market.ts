@@ -18,7 +18,7 @@ export interface MarketOrderRow {
 export function formatMarketOrder(o: MarketOrderRow) {
   const seller = getCompanyById(o.seller_id) || {
     company_id: o.seller_id,
-    name: 'Market Trader',
+    name: o.seller_id === 999900 ? 'Market Supplier' : 'Market Trader',
     realm_id: 0,
     logo: ''
   };
@@ -37,7 +37,7 @@ export function formatMarketOrder(o: MarketOrderRow) {
       logo: seller.logo || '',
       certificates: 0,
       contest_wins: 0,
-      npc: false,
+      npc: o.seller_id >= 990000,
       courseId: null,
       ip: 'private'
     },
@@ -51,15 +51,13 @@ export function getMarketTicker(realmId: number) {
 
   for (const [kindStr, def] of Object.entries(CONSTANTS_RESOURCES)) {
     const kind = Number(kindStr);
-    if (!def.isExchangeTradable) continue;
+    if (def.isExchangeTradable === false) continue;
 
-    // Find lowest active price
     const lowest = db.prepare(`
-      SELECT MIN(price) as minPrice FROM market_orders WHERE kind = ? AND active = 1
+      SELECT MIN(price) as minPrice FROM market_orders WHERE kind = ? AND active = 1 AND quantity > 0
     `).get(kind) as { minPrice: number | null } | undefined;
 
-    const basePrice = (def.unitsSoldAnHour && def.unitsSoldAnHour > 0) ? (100 / def.unitsSoldAnHour) : 5.0;
-    const price = (lowest && lowest.minPrice !== null) ? lowest.minPrice : Math.round(basePrice * 100) / 100;
+    const price = (lowest && lowest.minPrice !== null) ? lowest.minPrice : 1.0;
 
     tickerList.push({
       kind,
@@ -199,15 +197,21 @@ export function takeMarketOrder(
     // Update order
     const remaining = available - takeAmount;
     if (remaining <= 0) {
-      db.prepare('UPDATE market_orders SET quantity = 0, active = 0 WHERE id = ?').run(order.id);
+      if (order.seller_id >= 990000) {
+        // NPC auto replenishes
+        db.prepare('UPDATE market_orders SET quantity = 100000 WHERE id = ?').run(order.id);
+      } else {
+        db.prepare('UPDATE market_orders SET quantity = 0, active = 0 WHERE id = ?').run(order.id);
+      }
     } else {
       db.prepare('UPDATE market_orders SET quantity = ? WHERE id = ?').run(remaining, order.id);
     }
 
-    // Pay seller
-    updateCompanyMoney(order.seller_id, cost);
+    // Pay seller if real player
+    if (order.seller_id < 990000) {
+      updateCompanyMoney(order.seller_id, cost);
+    }
 
-    // Record transaction
     transactions.push({
       kind: resourceKind,
       quality: order.quality,
@@ -232,7 +236,10 @@ export function takeMarketOrder(
     money: newMoney,
     resourceTransactions: transactions.map(t => ({
       kind: t.kind,
+      db_letter: t.kind,
+      dbLetter: t.kind,
       quality: t.quality,
+      delta: t.amount,
       amount: t.amount
     }))
   };
