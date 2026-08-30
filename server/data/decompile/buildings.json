@@ -1,0 +1,1060 @@
+{
+  "_meta": {
+    "source": "entry.js lines ~6454-8050",
+    "upgradeFormula": {
+      "AVERAGE_SALARY": 345,
+      "referenceCostMoney": "costUnits * 10 * AVERAGE_SALARY",
+      "referenceCostExample": "costUnits * 3450",
+      "constructionResourcesPerCostUnit": {
+        "101": {
+          "amount": 4,
+          "name": "planks"
+        },
+        "102": {
+          "amount": 55,
+          "name": "bricks"
+        },
+        "108": {
+          "amount": 16,
+          "name": "concrete"
+        },
+        "111": {
+          "amount": 1,
+          "name": "steel_beam"
+        }
+      },
+      "resourcesForNewBuild": "qp[resourceId] * costUnits * 1",
+      "resourcesForUpgrade": "qp[resourceId] * costUnits * currentSize",
+      "referenceUpgradeCost": "costUnits * 3450 * (newSize - 1)"
+    }
+  },
+  "buildings": [
+    {
+      "name": "farm",
+      "dbLetter": "P",
+      "sincePhase": 0,
+      "category": "production",
+      "costUnits": 2,
+      "buildDuration": 3600,
+      "salaryModifier": 0.3,
+      "tiers": [
+        1,
+        2,
+        3,
+        6,
+        10,
+        15
+      ],
+      "landscapeImages": [
+        "plantation-lvl1.png",
+        "plantation-lvl2.png",
+        "plantation-lvl3.png"
+      ]
+    },
+    {
+      "name": "water_reservoir",
+      "dbLetter": "W",
+      "sincePhase": 0,
+      "category": "production",
+      "costUnits": 6,
+      "buildDuration": 7200,
+      "salaryModifier": 1,
+      "tiers": [
+        1,
+        2,
+        3,
+        6,
+        10,
+        15
+      ],
+      "landscapeImages": [
+        "reservoir-lvl1.png",
+        "reservoir-lvl2.png"
+      ]
+    },
+    {
+      "name": "power_plant",
+      "dbLetter": "E",
+      "sincePhase": 0,
+      "category": "production",
+      "costUnits": 15,
+      "buildDuration": 10800,
+      "salaryModifier": 1.2,
+      "tiers": [
+        1,
+        2,
+        3,
+        6,
+        10,
+        15
+      ],
+      "landscapeImages": [
+        "powerplant-lvl1.png",
+        "powerplant-lvl2.png"
+      ]
+    },
+    {
+      "name": "oil_rig",
+      "dbLetter": "O",
+      "sincePhase": 1,
+      "category": "production",
+      "costUnits": 20,
+      "buildDuration": 14400,
+      "salaryModifier": 1.5,
+      "tiers": [
+        1,
+        2,
+        3,
+        6,
+        10,
+        15
+      ],
+      "landscapeImages": [
+        "oilrig-lvl1.png",
+        "oilrig-lvl2.png"
+      ]
+    },
+    {
+      "name": "refinery",
+      "dbLetter": "R",
+      "sincePhase": 1,
+      "category": "production",
+      "costUnits": 20,
+      "buildDuration": 14400,
+      "salaryModifier": 1.4,
+      "tiers": [
+        1,
+        2,
+        3,
+        6,
+        10,
+        15
+      ],
+      "landscapeImages": [
+        "refinery-lvl1.png",
+        "refinery-lvl2.png"
+      ]
+    },
+    {
+      "name": "shipping_depot",
+      "dbLetter": "S",
+      "sincePhase": 2,
+      "category": "production",
+      "costUnits": 15,
+      "buildDuration": 10800,
+      "salaryModifier": 0.9,
+      "tiers": [
+        1,
+        2,
+        3,
+        6
+      ],
+      "landscapeImages": [
+        "shipping-lvl1.png",
+        "shipping-lvl2.png"
+      ]
+    },
+    {
+      "name": "grocery_store",
+      "dbLetter": "G",
+      "sincePhase": 0,
+      "category": "sales",
+      "costUnits": 3,
+      "buildDuration": 3600,
+      "salaryModifier": 0.4,
+      "tiers": [
+        1,
+        2,
+        3,
+        6,
+        10,
+        15
+      ],
+      "landscapeImages": [
+        "grocery2-lvl1.png",
+        "grocery2-lvl2.png",
+        "grocery2-lvl3.png"
+      ]
+    },
+    {
+      "name": "electronics_store",
+      "dbLetter": "C",
+      "sincePhase": 3,
+      "category": "sales",
+      "costUnits": 5,
+      "buildDuration": 3600,
+      "salaryModifier": 0.5,
+      "tiers": [
+        1,
+        2,
+        3,
+        6,
+        10,
+        15
+      ],
+      "landscapeImages": [
+        "estore-lvl1.png",
+        "estore-lvl2.png"
+      ]
+    },
+    {
+      "name": "gas_station",
+      "dbLetter": "A",
+      "sincePhase": 2,
+      "category": "sales",
+      "costUnits": 7,
+      "buildDuration": 7200,
+      "salaryModifier": 1,
+      "tiers": [
+        1,
+        2,
+        3,
+        6,
+        10,
+        15
+      ],
+      "landscapeImages": [
+        "gasstation-lvl1.png",
+        "gasstation-lvl2.png"
+      ]
+    },
+    {
+      "name": "ranch",
+      "dbLetter": "F",
+      "sincePhase": 0,
+      "category": "production",
+      "costUnits": 3,
+      "buildDuration": 7200,
+      "salaryModifier": 0.4,
+      "tiers": [
+        1,
+        2,
+        3,
+        6,
+        10,
+        15
+      ],
+      "landscapeImages": [
+        "farm-lvl1.png",
+        "farm-lvl2.png"
+      ]
+    },
+    {
+      "name": "mine",
+      "dbLetter": "M",
+      "sincePhase": 3,
+      "category": "production",
+      "costUnits": 7,
+      "buildDuration": 14400,
+      "salaryModifier": 0.8,
+      "tiers": [
+        1,
+        2,
+        3,
+        6,
+        10,
+        15
+      ],
+      "landscapeImages": [
+        "mine-lvl1.png",
+        "mine-lvl2.png"
+      ]
+    },
+    {
+      "name": "factory",
+      "dbLetter": "Y",
+      "sincePhase": 3,
+      "category": "production",
+      "costUnits": 14,
+      "buildDuration": 10800,
+      "salaryModifier": 1.2,
+      "tiers": [
+        1,
+        2,
+        3,
+        6,
+        10,
+        15
+      ],
+      "landscapeImages": [
+        "factory-lvl1.png",
+        "factory-lvl2.png"
+      ]
+    },
+    {
+      "name": "electronics_factory",
+      "dbLetter": "L",
+      "sincePhase": 3,
+      "category": "production",
+      "costUnits": 24,
+      "buildDuration": 18000,
+      "salaryModifier": 1.1,
+      "tiers": [
+        1,
+        2,
+        3,
+        6,
+        10,
+        15
+      ],
+      "landscapeImages": [
+        "efactory4-lvl1.png",
+        "efactory4-lvl2.png",
+        "efactory4-lvl3.png"
+      ]
+    },
+    {
+      "name": "clothes_factory",
+      "dbLetter": "T",
+      "sincePhase": 1,
+      "category": "production",
+      "costUnits": 4,
+      "buildDuration": 7200,
+      "salaryModifier": 0.4,
+      "tiers": [],
+      "landscapeImages": [
+        "clothsfactory-lvl1.png",
+        "clothsfactory-lvl2.png"
+      ]
+    },
+    {
+      "name": "fashion_store",
+      "dbLetter": "H",
+      "sincePhase": 1,
+      "category": "sales",
+      "costUnits": 5,
+      "buildDuration": 10800,
+      "salaryModifier": 0.9,
+      "tiers": [],
+      "landscapeImages": [
+        "fashion-lvl1.png",
+        "fashion-lvl2.png"
+      ]
+    },
+    {
+      "name": "plant_research",
+      "dbLetter": "p",
+      "sincePhase": 1,
+      "category": "research",
+      "costUnits": 30,
+      "buildDuration": 18000,
+      "salaryModifier": 1.3,
+      "tiers": [],
+      "landscapeImages": [
+        "plantresearch.png"
+      ]
+    },
+    {
+      "name": "physics_lab",
+      "dbLetter": "h",
+      "sincePhase": 1,
+      "category": "research",
+      "costUnits": 48,
+      "buildDuration": 25200,
+      "salaryModifier": 1.7,
+      "tiers": [],
+      "landscapeImages": [
+        "physics-lab-lvl1.png",
+        "physics-lab-lvl2.png",
+        "physics-lab-lvl3.png"
+      ]
+    },
+    {
+      "name": "breeding_research",
+      "dbLetter": "b",
+      "sincePhase": 1,
+      "category": "research",
+      "costUnits": 28,
+      "buildDuration": 18000,
+      "salaryModifier": 1.2,
+      "tiers": [],
+      "landscapeImages": [
+        "breeding-research-lvl1.png",
+        "breeding-research-lvl2.png",
+        "breeding-research-lvl3.png"
+      ]
+    },
+    {
+      "name": "chemistry_research",
+      "dbLetter": "c",
+      "sincePhase": 1,
+      "category": "research",
+      "costUnits": 28,
+      "buildDuration": 18000,
+      "salaryModifier": 1.2,
+      "tiers": [],
+      "landscapeImages": [
+        "chemistry-research-lvl1.png",
+        "chemistry-research-lvl2.png",
+        "chemistry-research-lvl3.png"
+      ]
+    },
+    {
+      "name": "software_research",
+      "dbLetter": "s",
+      "sincePhase": 3,
+      "category": "research",
+      "costUnits": 19,
+      "buildDuration": 10800,
+      "salaryModifier": 1.7,
+      "tiers": [],
+      "landscapeImages": [
+        "swresearch.png"
+      ]
+    },
+    {
+      "name": "race_track",
+      "dbLetter": "a",
+      "sincePhase": 6,
+      "category": "research",
+      "costUnits": 40,
+      "buildDuration": 21600,
+      "salaryModifier": 1.6,
+      "tiers": [],
+      "landscapeImages": [
+        "race-track-lvl1.png",
+        "race-track-lvl2.png",
+        "race-track-lvl3.png"
+      ]
+    },
+    {
+      "name": "fashion_research",
+      "dbLetter": "f",
+      "sincePhase": 1,
+      "category": "research",
+      "costUnits": 21,
+      "buildDuration": 7200,
+      "salaryModifier": 1.3,
+      "tiers": [],
+      "landscapeImages": [
+        "fashion-research-lvl1.png",
+        "fashion-research-lvl1.png",
+        "fashion-research-lvl3.png"
+      ]
+    },
+    {
+      "name": "launchpad",
+      "dbLetter": "l",
+      "sincePhase": 7,
+      "category": "research",
+      "costUnits": 36,
+      "buildDuration": 32400,
+      "salaryModifier": 1.5,
+      "tiers": [],
+      "landscapeImages": [
+        "launchpad-lvl1.png",
+        "launchpad-lvl2.png",
+        "launchpad-lvl3.png"
+      ]
+    },
+    {
+      "name": "kitchen",
+      "dbLetter": "q",
+      "sincePhase": 1,
+      "category": "research",
+      "costUnits": 24,
+      "buildDuration": 14400,
+      "salaryModifier": 1.5,
+      "tiers": [],
+      "landscapeImages": [
+        "kitchen-lvl1.png",
+        "kitchen-lvl2.png",
+        "kitchen-lvl3.png"
+      ]
+    },
+    {
+      "name": "propulsion_factory",
+      "dbLetter": "D",
+      "sincePhase": 6,
+      "category": "production",
+      "costUnits": 30,
+      "buildDuration": 25200,
+      "salaryModifier": 1.8,
+      "tiers": [
+        1,
+        2,
+        3,
+        6,
+        10,
+        15
+      ],
+      "landscapeImages": [
+        "propulsion-2-lvl1.png",
+        "propulsion-2-lvl2.png",
+        "propulsion-2-lvl3.png"
+      ]
+    },
+    {
+      "name": "sales_offices",
+      "dbLetter": "B",
+      "sincePhase": 7,
+      "category": "sales",
+      "costUnits": 18,
+      "buildDuration": 7200,
+      "salaryModifier": 1.7,
+      "tiers": [
+        1,
+        2,
+        3,
+        6,
+        10,
+        15
+      ],
+      "landscapeImages": [
+        "sales-offices-2-lvl1.png",
+        "sales-offices-2-lvl2.png",
+        "sales-offices-2-lvl3.png"
+      ]
+    },
+    {
+      "name": "quarry",
+      "dbLetter": "Q",
+      "sincePhase": 2,
+      "category": "production",
+      "costUnits": 7,
+      "buildDuration": 10800,
+      "salaryModifier": 0.8,
+      "tiers": [
+        1,
+        2,
+        3,
+        6,
+        10,
+        15
+      ],
+      "landscapeImages": [
+        "quarry-lvl1.png",
+        "quarry-lvl2.png",
+        "quarry-lvl3.png",
+        "quarry-lvl4.png"
+      ]
+    },
+    {
+      "name": "concrete_plant",
+      "dbLetter": "o",
+      "sincePhase": 2,
+      "category": "production",
+      "costUnits": 17,
+      "buildDuration": 18000,
+      "salaryModifier": 1.1,
+      "tiers": [
+        1,
+        2,
+        3,
+        6,
+        10,
+        15
+      ],
+      "landscapeImages": [
+        "concrete-plant-lvl1.png",
+        "concrete-plant-lvl2.png",
+        "concrete-plant-lvl3.png"
+      ]
+    },
+    {
+      "name": "construction_factory",
+      "dbLetter": "x",
+      "sincePhase": 3,
+      "category": "production",
+      "costUnits": 21,
+      "buildDuration": 21600,
+      "salaryModifier": 1.4,
+      "tiers": [
+        1,
+        2,
+        3,
+        6,
+        10,
+        15
+      ],
+      "landscapeImages": [
+        "construction-factory-lvl1.png",
+        "construction-factory-lvl2.png",
+        "construction-factory-lvl3.png",
+        "construction-factory-lvl4.png"
+      ]
+    },
+    {
+      "name": "general_contractor",
+      "dbLetter": "g",
+      "sincePhase": 4,
+      "category": "production",
+      "costUnits": 14,
+      "buildDuration": 7200,
+      "salaryModifier": 1,
+      "tiers": [
+        1,
+        2,
+        3,
+        6,
+        10,
+        15
+      ],
+      "landscapeImages": [
+        "general-contractor-lvl1.png",
+        "general-contractor-lvl2.png",
+        "general-contractor-lvl3.png"
+      ]
+    },
+    {
+      "name": "hardware_store",
+      "dbLetter": "d",
+      "sincePhase": 0,
+      "category": "sales",
+      "costUnits": 4,
+      "buildDuration": 14400,
+      "salaryModifier": 0.5,
+      "tiers": [
+        1,
+        2,
+        3,
+        6,
+        10,
+        15
+      ],
+      "landscapeImages": [
+        "hardware-store-lvl1.png",
+        "hardware-store-lvl2.png",
+        "hardware-store-lvl3.png"
+      ]
+    },
+    {
+      "name": "bank",
+      "dbLetter": "n",
+      "sincePhase": 5,
+      "category": "other",
+      "costUnits": 40,
+      "buildDuration": 28800,
+      "salaryModifier": 0,
+      "tiers": [],
+      "landscapeImages": [
+        "bank-lvl1.png",
+        "bank-lvl2.png",
+        "bank-lvl3.png"
+      ]
+    },
+    {
+      "name": "slaughterhouse",
+      "dbLetter": "e",
+      "sincePhase": 0,
+      "category": "production",
+      "costUnits": 6,
+      "buildDuration": 14400,
+      "salaryModifier": 1.2,
+      "tiers": [
+        1,
+        2,
+        3,
+        6,
+        10,
+        15
+      ],
+      "landscapeImages": [
+        "slaughterhouse-lvl1.png",
+        "slaughterhouse-lvl2.png",
+        "slaughterhouse-lvl3.png"
+      ]
+    },
+    {
+      "name": "mill",
+      "dbLetter": "i",
+      "sincePhase": 0,
+      "category": "production",
+      "costUnits": 8,
+      "buildDuration": 10800,
+      "salaryModifier": 1.1,
+      "tiers": [
+        1,
+        2,
+        3,
+        6,
+        10,
+        15
+      ],
+      "landscapeImages": [
+        "mill-lvl1.png",
+        "mill-lvl2.png",
+        "mill-lvl3.png"
+      ]
+    },
+    {
+      "name": "bakery",
+      "dbLetter": "j",
+      "sincePhase": 8,
+      "category": "production",
+      "costUnits": 11,
+      "buildDuration": 18000,
+      "salaryModifier": 1.3,
+      "tiers": [
+        1,
+        2,
+        3,
+        6,
+        10,
+        15
+      ],
+      "landscapeImages": [
+        "bakery-lvl1.png",
+        "bakery-lvl2.png",
+        "bakery-lvl3.png"
+      ]
+    },
+    {
+      "name": "food_processing_plant",
+      "dbLetter": "k",
+      "sincePhase": 2,
+      "category": "production",
+      "costUnits": 25,
+      "buildDuration": 21600,
+      "salaryModifier": 1.1,
+      "tiers": [
+        1,
+        2,
+        3,
+        6,
+        10,
+        15
+      ],
+      "landscapeImages": [
+        "food-processing-lvl1.png",
+        "food-processing-lvl2.png",
+        "food-processing-lvl3.png"
+      ]
+    },
+    {
+      "name": "catering",
+      "dbLetter": "m",
+      "sincePhase": 8,
+      "category": "production",
+      "costUnits": 30,
+      "buildDuration": 14400,
+      "salaryModifier": 1.9,
+      "tiers": [
+        1,
+        2,
+        3,
+        6,
+        10,
+        15
+      ],
+      "landscapeImages": [
+        "catering-lvl1.png",
+        "catering-lvl2.png",
+        "catering-lvl3.png"
+      ]
+    },
+    {
+      "name": "restaurant",
+      "dbLetter": "r",
+      "sincePhase": 8,
+      "category": "sales",
+      "costUnits": 26,
+      "buildDuration": 10800,
+      "salaryModifier": 1.7,
+      "tiers": [],
+      "landscapeImages": [
+        "restaurant-low-lvl1.png",
+        "restaurant-low-lvl2.png",
+        "restaurant-low-lvl3.png"
+      ]
+    },
+    {
+      "name": "autumn_market",
+      "dbLetter": "t",
+      "sincePhase": 1,
+      "category": "seasonal",
+      "costUnits": 4,
+      "buildDuration": 7200,
+      "salaryModifier": 0.6,
+      "tiers": [],
+      "landscapeImages": [
+        "autumn-market-lvl1.png",
+        "autumn-market-lvl2.png",
+        "autumn-market-lvl3.png"
+      ]
+    },
+    {
+      "name": "xmas_market",
+      "dbLetter": "u",
+      "sincePhase": 1,
+      "category": "seasonal",
+      "costUnits": 5,
+      "buildDuration": 7200,
+      "salaryModifier": 0.7,
+      "tiers": [],
+      "landscapeImages": [
+        "xmas-market-lvl1.png",
+        "xmas-market-lvl2.png",
+        "xmas-market-lvl3.png"
+      ]
+    },
+    {
+      "name": "forest_nursery",
+      "dbLetter": "v",
+      "sincePhase": 1,
+      "category": "production",
+      "costUnits": 5,
+      "buildDuration": 7200,
+      "salaryModifier": 0.23,
+      "tiers": [
+        1,
+        2,
+        3,
+        6
+      ],
+      "landscapeImages": [
+        "forest-nursery/shed-lvl1.png",
+        "forest-nursery/shed-lvl2.png",
+        "forest-nursery/shed-lvl3.png"
+      ],
+      "hasFrontImages": true
+    },
+    {
+      "name": "academy",
+      "dbLetter": "y",
+      "sincePhase": 5,
+      "category": "other",
+      "costUnits": 19,
+      "buildDuration": 28800,
+      "salaryModifier": 0,
+      "tiers": [
+        1,
+        5,
+        10,
+        15,
+        20
+      ],
+      "landscapeImages": [
+        "academy-lvl1.png",
+        "academy-lvl2.png",
+        "academy-lvl3.png",
+        "academy-lvl4.png",
+        "academy-lvl5.png"
+      ]
+    },
+    {
+      "name": "beach_market",
+      "dbLetter": "z",
+      "sincePhase": 8,
+      "category": "seasonal",
+      "costUnits": 3,
+      "buildDuration": 7200,
+      "salaryModifier": 0.7,
+      "tiers": [],
+      "landscapeImages": [
+        "beach-market-lvl1.png",
+        "beach-market-lvl2.png",
+        "beach-market-lvl3.png"
+      ]
+    },
+    {
+      "name": "spring_market",
+      "dbLetter": "I",
+      "sincePhase": 3,
+      "category": "seasonal",
+      "costUnits": 2,
+      "buildDuration": 3600,
+      "salaryModifier": 0.7,
+      "tiers": [
+        1,
+        2,
+        3
+      ],
+      "landscapeImages": [
+        "spring_market_tier01.png",
+        "spring_market_tier02.png",
+        "spring_market_tier03.png"
+      ],
+      "landscapeDir": "seasonal"
+    },
+    {
+      "name": "hangar",
+      "dbLetter": "0",
+      "sincePhase": 7,
+      "category": "production",
+      "costUnits": 29,
+      "buildDuration": 10800,
+      "salaryModifier": 2.2,
+      "tiers": [
+        1,
+        2,
+        3,
+        6,
+        10,
+        15
+      ],
+      "landscapeImages": [
+        "horizontal-integration-lvl1.png",
+        "horizontal-integration-lvl2.png",
+        "horizontal-integration-lvl3.png"
+      ]
+    },
+    {
+      "name": "car_factory",
+      "dbLetter": "1",
+      "sincePhase": 6,
+      "category": "production",
+      "costUnits": 27,
+      "buildDuration": 21600,
+      "salaryModifier": 1.3,
+      "tiers": [],
+      "landscapeImages": [
+        "carfactory-lvl1.png",
+        "carfactory-lvl2.png"
+      ]
+    },
+    {
+      "name": "car_dealership",
+      "dbLetter": "2",
+      "sincePhase": 6,
+      "category": "sales",
+      "costUnits": 6,
+      "buildDuration": 10800,
+      "salaryModifier": 1.1,
+      "tiers": [],
+      "landscapeImages": [
+        "car-dealership-lvl1.png",
+        "car-dealership-lvl2.png"
+      ]
+    },
+    {
+      "name": "castle",
+      "dbLetter": "3",
+      "sincePhase": 5,
+      "category": "recreation",
+      "costUnits": 40,
+      "buildDuration": 43200,
+      "salaryModifier": 0,
+      "tiers": [],
+      "landscapeImages": [
+        "recreational/castle-lvl1.png",
+        "recreational/castle-lvl2.png",
+        "recreational/castle-lvl3.png"
+      ]
+    },
+    {
+      "name": "park",
+      "dbLetter": "4",
+      "sincePhase": 5,
+      "category": "recreation",
+      "costUnits": 40,
+      "buildDuration": 43200,
+      "salaryModifier": 0,
+      "tiers": [
+        1,
+        2,
+        3
+      ],
+      "landscapeImages": [
+        "recreational/park-lvl1.png",
+        "recreational/park-lvl2.png",
+        "recreational/park-lvl3.png"
+      ]
+    },
+    {
+      "name": "lake",
+      "dbLetter": "5",
+      "sincePhase": 5,
+      "category": "recreation",
+      "costUnits": 40,
+      "buildDuration": 43200,
+      "salaryModifier": 0,
+      "tiers": [
+        1,
+        2,
+        3
+      ],
+      "landscapeImages": [
+        "recreational/lake2-lvl1.png",
+        "recreational/lake2-lvl2.png",
+        "recreational/lake2-lvl3.png"
+      ]
+    },
+    {
+      "name": "beverage_factory",
+      "dbLetter": "6",
+      "sincePhase": 2,
+      "category": "production",
+      "costUnits": 4,
+      "buildDuration": 7200,
+      "salaryModifier": 0.7,
+      "tiers": [
+        1,
+        2,
+        3,
+        6
+      ],
+      "landscapeImages": [
+        "beverage-factory-lvl1.png",
+        "beverage-factory-lvl2.png",
+        "beverage-factory-lvl3.png"
+      ]
+    },
+    {
+      "name": "aerospace_factory",
+      "dbLetter": "7",
+      "sincePhase": 7,
+      "category": "production",
+      "costUnits": 31,
+      "buildDuration": 21600,
+      "salaryModifier": 1.7,
+      "tiers": [
+        1,
+        2,
+        3,
+        6,
+        10,
+        15
+      ],
+      "landscapeImages": [
+        "aerospace-2-lvl1.png",
+        "aerospace-2-lvl2.png",
+        "aerospace-2-lvl3.png"
+      ]
+    },
+    {
+      "name": "aerospace_electronics",
+      "dbLetter": "8",
+      "sincePhase": 7,
+      "category": "production",
+      "costUnits": 41,
+      "buildDuration": 21600,
+      "salaryModifier": 2.1,
+      "tiers": [
+        1,
+        2,
+        3,
+        6,
+        10,
+        15
+      ],
+      "landscapeImages": [
+        "aero-electronics-2-lvl1.png",
+        "aero-electronics-2-lvl2.png",
+        "aero-electronics-2-lvl3.png"
+      ]
+    },
+    {
+      "name": "vertical_integration_facility",
+      "dbLetter": "9",
+      "sincePhase": 7,
+      "category": "production",
+      "costUnits": 33,
+      "buildDuration": 10800,
+      "salaryModifier": 2.2,
+      "tiers": [
+        1,
+        2,
+        3,
+        6,
+        10,
+        15
+      ],
+      "landscapeImages": [
+        "vertical-integration-lvl1.png",
+        "vertical-integration-lvl2.png",
+        "vertical-integration-lvl3.png"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,269 @@
+{
+  "description": "Sim Companies Phase / Realm Progression System — extracted from decompiled client JS.",
+  "source_files": [
+    "chunk_oX.js (REALM_PHASE_START, REALM_PHASE_FASHION, Ji constants)",
+    "chunk_sen.js (building feature sincePhase references)",
+    "entry.js (realm definitions s_, building definitions with sincePhase, _o/fx phase checks)",
+    "chunk_I6i.js (changelog entries documenting phase history)",
+    "chunk_XLi.js (phase-gated building availability check)"
+  ],
+  "note": "REALM_PHASE_ENERGY_BONDS_GO, REALM_PHASE_CAR_INDUSTRY, REALM_PHASE_EXECUTIVES, REALM_PHASE_AEROSPACE, and REALM_PHASE_RESTAURANTS are referenced in client code (chunk_sen.js) but their numeric values are not defined client-side — likely populated from server config. Values below are inferred from building/resource sincePhase assignments.",
+
+  "phaseConstants": {
+    "REALM_PHASE_START": 0,
+    "REALM_PHASE_FASHION": 1,
+    "REALM_PHASE_ENERGY_BONDS_GO": 2,
+    "REALM_PHASE_ELECTRONICS": 3,
+    "REALM_PHASE_CAR_INDUSTRY": 4,
+    "REALM_PHASE_EXECUTIVES": 5,
+    "REALM_PHASE_AUTOMOTIVE": 6,
+    "REALM_PHASE_AEROSPACE": 7,
+    "REALM_PHASE_RESTAURANTS": 8
+  },
+
+  "totalPhases": 9,
+  "phaseZeroIndexed": true,
+  "maxPhaseObserved": 8,
+
+  "phaseAvailabilityCheck": {
+    "function": "_o(realmPhase, item) || fx(realmPhase, item)",
+    "logic": "item.sincePhase <= realmPhase — i.e. item is available when the realm has reached (or passed) its sincePhase"
+  },
+
+  "phaseUnlocks": {
+    "0_start": {
+      "name": "Start",
+      "sincePhase": 0,
+      "constant": "REALM_PHASE_START",
+      "buildings": {
+        "production": ["Plantation (P)", "Reservoir (W)", "Power Plant (E)", "Farm/Ranch (F)", "Slaughterhouse (e)", "Mill (i)"],
+        "sales": ["Grocery Store (G)", "Hardware Store (d)"]
+      },
+      "resources": ["Seeds", "Water", "Power", "Apples", "Grain", "Livestock", "Meat", "Flour"],
+      "features": ["Basic production", "Basic retail", "Market trading"],
+      "simboostsExchangeLimit": 2000
+    },
+    "1_fashion": {
+      "name": "Fashion",
+      "sincePhase": 1,
+      "constant": "REALM_PHASE_FASHION",
+      "buildings": {
+        "production": ["Oil Rig (O)", "Refinery (R)", "Clothes Factory (T)"],
+        "sales": ["Fashion Store (H)"],
+        "research": ["Plant Research (p)", "Physics Lab (h)", "Breeding Research (b)", "Chemistry Research (c)", "Fashion Research (f)", "Kitchen Research (q)"],
+        "seasonal": ["Autumn Market (t)", "Xmas Market (u)", "Summer Market (v)"]
+      },
+      "resources": ["Crude Oil", "Petrol", "Diesel", "Plastics", "Cotton", "Fabric", "Clothes", "Fashion items"],
+      "features": ["Research buildings", "Seasonal markets", "Fashion retail"],
+      "simboostsExchangeLimit": 4000
+    },
+    "2_energy_bonds_go": {
+      "name": "Energy & Bonds & Government Orders",
+      "sincePhase": 2,
+      "constant": "REALM_PHASE_ENERGY_BONDS_GO",
+      "buildings": {
+        "production": ["Shipping Depot (S)", "Quarry (Q)", "Concrete Plant (o)", "Food Processing (k)", "Beverage Factory (6)"],
+        "sales": ["Gas Station (A)"]
+      },
+      "resources": ["Sand", "Cement", "Concrete", "Chemicals", "Processed Food", "Beverages", "Transport"],
+      "features": ["Bonds (max interest 2%)", "Government Orders", "Shipping logistics"],
+      "simboostsExchangeLimit": 6000
+    },
+    "3_electronics": {
+      "name": "Electronics",
+      "sincePhase": 3,
+      "constant": "REALM_PHASE_ELECTRONICS (inferred)",
+      "buildings": {
+        "production": ["Mine (M)", "Factory (Y)", "Electronics Factory (L)", "Construction Factory (x)"],
+        "sales": ["Electronics Store (C)"],
+        "research": ["Software Research (s)"],
+        "seasonal": ["Spring Market (I)"]
+      },
+      "resources": ["Iron Ore", "Steel", "Aluminium", "Silicon", "Electronic Components", "Consumer Electronics", "Construction Materials"],
+      "features": ["Electronics retail", "Software research", "Advanced manufacturing"],
+      "bondsNote": "Bonds max interest reduced from 4% to 2% at this phase",
+      "simboostsExchangeLimit": 8000
+    },
+    "4_car_industry": {
+      "name": "Car Industry",
+      "sincePhase": 4,
+      "constant": "REALM_PHASE_CAR_INDUSTRY",
+      "buildings": {
+        "production": ["General Contractor (g)"]
+      },
+      "resources": ["Vehicle Parts", "Engines", "Chassis"],
+      "features": ["Car part manufacturing", "General contracting"],
+      "simboostsExchangeLimit": 10000
+    },
+    "5_executives": {
+      "name": "Executives",
+      "sincePhase": 5,
+      "constant": "REALM_PHASE_EXECUTIVES",
+      "buildings": {
+        "other": ["Bank (n)", "Academy (y)"],
+        "recreation": ["Castle (3)", "Park (4)", "Lake (5)"]
+      },
+      "resources": [],
+      "features": [
+        "Executives system",
+        "Banks (other category buildings)",
+        "Academy",
+        "Recreation buildings: Castle, Park, Lake — upkeep cost escalates per building",
+        "Recreation bonus affects company overhead"
+      ],
+      "simboostsExchangeLimit": 10000
+    },
+    "6_automotive": {
+      "name": "Automotive",
+      "sincePhase": 6,
+      "constant": "REALM_PHASE_AUTOMOTIVE (inferred)",
+      "buildings": {
+        "production": ["Propulsion Factory (D)", "Car Factory (1)"],
+        "sales": ["Car Dealership (2)"],
+        "research": ["Race Track (a)"]
+      },
+      "resources": ["Aerospace Components", "Propulsion Systems"],
+      "features": ["Car manufacturing", "Car sales", "Propulsion tech", "Race track research"],
+      "simboostsExchangeLimit": 10000
+    },
+    "7_aerospace": {
+      "name": "Aerospace",
+      "sincePhase": 7,
+      "constant": "REALM_PHASE_AEROSPACE",
+      "buildings": {
+        "production": ["Horizontal Integration (0)", "Aerospace Factory (7)", "Aero Electronics (8)", "Vertical Integration (9)"],
+        "sales": ["Sales Offices (B)"],
+        "research": ["Launch Pad (l)"]
+      },
+      "resources": ["Rockets", "Satellites", "Advanced Aerospace Electronics", "Launch Systems"],
+      "features": ["Aerospace manufacturing", "Horizontal/Vertical integration", "Space industry"],
+      "simboostsExchangeLimit": 10000
+    },
+    "8_restaurants": {
+      "name": "Restaurants",
+      "sincePhase": 8,
+      "constant": "REALM_PHASE_RESTAURANTS",
+      "buildings": {
+        "production": ["Bakery (j)", "Catering (m)"],
+        "sales": ["Restaurant (r)"],
+        "seasonal": ["Beach Market (z)"]
+      },
+      "resources": ["Baked Goods", "Catering Supplies"],
+      "features": [
+        "Restaurant system — open/close, menu, rating, occupancy heatmap",
+        "Restaurant seating management",
+        "Simicheline Star certificate for best rated restaurant",
+        "Restaurant wages and revenue",
+        "Luxury restaurant upgrade (low → top image)"
+      ],
+      "simboostsExchangeLimit": 10000
+    }
+  },
+
+  "realmDifferences": {
+    "magnates": {
+      "idx": 0,
+      "textId": "magnates",
+      "name": "Magnates",
+      "logo": "images/realms/Magnates_140.png",
+      "retailModeling": 0,
+      "currentPhase": 8,
+      "researchLimit": 12,
+      "features": {
+        "bonds": true,
+        "govOrders": true,
+        "executives": true,
+        "recBuildings": true,
+        "collectibles": true,
+        "robots": true,
+        "purchases": true,
+        "buildingAuctions": true,
+        "resourceProductionModifiers": true
+      },
+      "bonds": {
+        "maxInterest": 2,
+        "minInterest": 0.5
+      },
+      "exchangeFee": 0.04,
+      "simboostsExchangeLimit": 10000
+    },
+    "entrepreneurs": {
+      "idx": 1,
+      "textId": "entrepreneurs",
+      "name": "Entrepreneurs",
+      "logo": "images/realms/Entrepeneurs_140.png",
+      "retailModeling": 1,
+      "currentPhase": 8,
+      "researchLimit": 12,
+      "features": {
+        "bonds": true,
+        "govOrders": true,
+        "executives": true,
+        "recBuildings": true,
+        "collectibles": true,
+        "robots": true,
+        "purchases": true,
+        "buildingAuctions": true,
+        "resourceProductionModifiers": true
+      },
+      "bonds": {
+        "maxInterest": 2,
+        "minInterest": 0.5
+      },
+      "exchangeFee": 0.04,
+      "simboostsExchangeLimit": 10000
+    },
+    "keyDifferences": [
+      "retailModeling: Magnates=0 (default), Entrepreneurs=1 (alternate model)",
+      "All other realm capabilities are identical at current phase"
+    ]
+  },
+
+  "phaseTransition": {
+    "mechanism": "SERVER_CONTROLLED — no client-side advancement logic found. Phase is stored as `realm.phase` (currently 8 for both realms).",
+    "likelyTrigger": "Advancement is triggered server-side when the total economic output / company value of all companies in the realm reaches a developer-set threshold. Confirmed by changelog entries documenting manual phase advances by the game team.",
+    "phaseHistory_entrepreneurs": [
+      { "phase": 0, "name": "Start", "sincePhase": 0 },
+      { "phase": 1, "name": "Fashion", "sincePhase": 1 },
+      { "phase": 2, "name": "Energy & Bonds & GO", "sincePhase": 2, "changelog": null },
+      { "phase": 3, "name": "Electronics", "sincePhase": 3, "changelog": "Entrepreneurs realm advance to the next phase: electronics added, bonds max interest reduced to 4% (later reduced to 2%)" },
+      { "phase": 4, "name": "Car Industry", "sincePhase": 4, "changelog": "Entrepreneurs realm advanced to the next phase - with car industry (8 May 2023)" },
+      { "phase": 5, "name": "Executives", "sincePhase": 5, "changelog": "Advance Entrepreneurs phase: Enable executives" },
+      { "phase": 6, "name": "Automotive", "sincePhase": 6, "changelog": null },
+      { "phase": 7, "name": "Aerospace", "sincePhase": 7, "changelog": null },
+      { "phase": 8, "name": "Restaurants", "sincePhase": 8, "changelog": "Entrepreneurs phase advance: Restaurants (13 Nov 2023)" }
+    ]
+  },
+
+  "simboostsExchangeLimitsByPhase": {
+    "formula": "(phase + 1) * 2000, capped at 10000",
+    "source": "Changelog entry: 'Simboosts exchange for money limited by realm phase. (1st phase: 2,000/day; 2nd phase 4,000/day; 3rd phase 6,000/day, ... 10,000/day max)'",
+    "limits": {
+      "phase0": 2000,
+      "phase1": 4000,
+      "phase2": 6000,
+      "phase3": 8000,
+      "phase4_plus": 10000
+    }
+  },
+
+  "keyGameConstants": {
+    "AVERAGE_SALARY": 345,
+    "ROBOT_COST": 940,
+    "PRODUCTION_SPEED_MODIFIER_DAYS": 21,
+    "PRODUCTION_SPEED_MODIFIER_RESOURCES": 3,
+    "PRODUCTION_SPEED_MODIFIER_FIRST_DAY": 0,
+    "LAUNCH_QUEUE_MAX": 30,
+    "TUTORIAL_BONUS": 12000,
+    "RETAIL_MODELING_QUALITY_WEIGHT": 0.3,
+    "TUTORIAL_APPLES_QUANTITY": 50,
+    "TUTORIAL_APPLES_RETAIL_PRICE": 7,
+    "ONBOARDING_REDESIGN_SEEDS_QUANTITY": 150,
+    "ONBOARDING_REDESIGN_APPLES_QUANTITY": 35,
+    "ONBOARDING_ACCELERATION": 12,
+    "TAG_EXPIRY_DAYS": 3,
+    "MIN_WEATHER_SPEED_MULTIPLIER": 0.3,
+    "MAX_WEATHER_SPEED_MULTIPLIER": 1.7,
+    "PURCHASE_SIMBOOSTS_FEE": 0.1
+  }
+}

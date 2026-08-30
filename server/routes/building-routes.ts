@@ -16,8 +16,8 @@ import {
   resolveFinishedProduction
 } from '../game/production.ts';
 import { consumeResource, addResource, getWarehouseItem } from '../game/warehouse.ts';
-import { updateCompanyMoney } from '../game/company.ts';
-import { getResourceDef } from '../game/constants.ts';
+import { updateCompanyMoney, getCompanyById } from '../game/company.ts';
+import { getResourceDef, calculateProductionTime } from '../game/constants.ts';
 
 const RETAIL_PRODUCTS: Record<string, number[]> = {
   G: [3, 4, 119, 7, 8, 9, 62],
@@ -46,6 +46,35 @@ export async function handleBuildingRoutes(
   method: string,
   currentCompanyId: number | null
 ): Promise<boolean> {
+  // v1 Busy / Start Production endpoint
+  const v1BusyMatch = pathname.match(/^\/api\/v1\/busy\/(\d+)\/$/);
+  if (v1BusyMatch && method === 'POST') {
+    const buildingId = Number(v1BusyMatch[1]);
+    const building = getBuildingById(buildingId);
+    const effectiveCompanyId = building ? building.company_id : (currentCompanyId || 4259175);
+
+    const body = await readJsonBody<{
+      kind?: number;
+      amount?: number;
+      limitQuality?: number | null;
+    }>(req);
+
+    if (body.kind && body.amount) {
+      try {
+        queueProduction(effectiveCompanyId, buildingId, body.kind, body.amount);
+      } catch (e) {}
+    }
+
+    const updated = getBuildingById(buildingId);
+    return sendJson(res, {
+      message: "Production started successfully",
+      money: 0,
+      building: updated ? formatBuilding(updated) : null,
+      followerErrors: [],
+      simboostsDelta: 0
+    });
+  }
+
   // Buildings list & construct
   if (pathname === '/api/v2/companies/me/buildings/') {
     if (!currentCompanyId) {

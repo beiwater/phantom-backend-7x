@@ -1,0 +1,152 @@
+{
+  "npr": {
+    "description": "Season definitions with date-based saturation curves for retail demand",
+    "seasons": {
+      "Ramadan": {
+        "id": "Ramadan",
+        "saturation": [
+          {"date": "01-01", "saturation": 0.03},
+          {"date": "02-05", "saturation": 0.03},
+          {"date": "02-18", "saturation": 0.9},
+          {"date": "03-19", "saturation": 1.0},
+          {"date": "03-30", "saturation": 0.03},
+          {"date": "12-31", "saturation": 0.03}
+        ]
+      },
+      "Easter": {
+        "id": "Easter",
+        "saturation": [
+          {"date": "01-01", "saturation": 0.03},
+          {"date": "03-05", "saturation": 0.03},
+          {"date": "03-20", "saturation": 0.9},
+          {"date": "04-20", "saturation": 1.0},
+          {"date": "04-30", "saturation": 0.03},
+          {"date": "12-31", "saturation": 0.03}
+        ]
+      },
+      "Summer": {
+        "id": "Summer",
+        "saturation": [
+          {"date": "01-01", "saturation": 0.03},
+          {"date": "07-05", "saturation": 0.03},
+          {"date": "07-14", "saturation": 1.0},
+          {"date": "08-20", "saturation": 1.0},
+          {"date": "09-14", "saturation": 0.03},
+          {"date": "12-31", "saturation": 0.03}
+        ]
+      },
+      "Halloween": {
+        "id": "Halloween",
+        "saturation": [
+          {"date": "01-01", "saturation": 0.03},
+          {"date": "10-01", "saturation": 0.03},
+          {"date": "10-15", "saturation": 1.0},
+          {"date": "11-03", "saturation": 1.0},
+          {"date": "11-15", "saturation": 0.03},
+          {"date": "12-31", "saturation": 0.03}
+        ]
+      },
+      "Xmas": {
+        "id": "Xmas",
+        "saturation": [
+          {"date": "01-01", "saturation": 0.3},
+          {"date": "01-10", "saturation": 0.03},
+          {"date": "11-01", "saturation": 0.03},
+          {"date": "11-25", "saturation": 0.7},
+          {"date": "12-04", "saturation": 1.0},
+          {"date": "12-24", "saturation": 1.0},
+          {"date": "12-31", "saturation": 0.3}
+        ]
+      }
+    }
+  },
+  "apr": {
+    "description": "Special event effects (production yield modifiers)",
+    "events": {
+      "AutumnHarvest": {
+        "id": "AutumnHarvest",
+        "productionYield": [
+          {"date": "01-01", "min": 0.03, "max": 0.05},
+          {"date": "08-01", "min": 0.03, "max": 0.05},
+          {"date": "09-03", "min": 0.8,  "max": 1.0},
+          {"date": "10-01", "min": 1.0,  "max": 1.5},
+          {"date": "11-01", "min": 1.0,  "max": 1.5},
+          {"date": "11-14", "min": 0.3,  "max": 0.5},
+          {"date": "11-20", "min": 0.03, "max": 0.05},
+          {"date": "12-31", "min": 0.03, "max": 0.05}
+        ]
+      }
+    }
+  },
+  "Ji": {
+    "description": "Game constants (tuning parameters)",
+    "AVERAGE_SALARY": 345,
+    "REALM_PHASE_START": 0,
+    "REALM_PHASE_FASHION": 1,
+    "SALARY_MID": {
+      "0": 655,
+      "1": 700,
+      "2": 745
+    },
+    "ROBOT_COST": 940,
+    "PURCHASE_SIMBOOSTS_FEE": 0.1,
+    "PRODUCTION_SPEED_MODIFIER_DAYS": 21,
+    "PRODUCTION_SPEED_MODIFIER_RESOURCES": 3,
+    "PRODUCTION_SPEED_MODIFIER_FIRST_DAY": 0,
+    "LAUNCH_QUEUE_MAX": 30,
+    "TUTORIAL_BONUS": 12000,
+    "RETAIL_MODELING_QUALITY_WEIGHT": 0.3,
+    "TUTORIAL_APPLES_QUANTITY": 50,
+    "TUTORIAL_APPLES_RETAIL_PRICE": 7,
+    "ONBOARDING_REDESIGN_SEEDS_QUANTITY": 150,
+    "ONBOARDING_REDESIGN_APPLES_QUANTITY": 35,
+    "ONBOARDING_ACCELERATION": 12,
+    "PLAZA_MAP_POSITION": "P",
+    "PLAZA_DISABLED": "plaza-disabled",
+    "TAG_EXPIRY_DAYS": 3,
+    "MIN_WEATHER_SPEED_MULTIPLIER": 0.3,
+    "MAX_WEATHER_SPEED_MULTIPLIER": 1.7
+  },
+  "dpr": {
+    "description": "Building category groups (dbLetter -> building IDs). Maps resource/workplace dbLetter codes to arrays of building IDs.",
+    "categories": {
+      "2": [53, 54, 55, 56, 57],
+      "G": [3, 4, 5, 7, 8, 9, 119, 123, 124, 125, 126, 122, 127, 140, 152],
+      "A": [11, 12],
+      "C": [24, 25, 26, 27, 28, 98],
+      "H": [60, 61, 62, 63, 64, 65, 70, 71],
+      "B": [91, 94, 95, 96, 97, 99],
+      "d": [102, 103, 108, 109, 110],
+      "r": [117, 121, 134, 122, 119, 123, 129, 130, 131, 142, 143, 132, 124, 125, 126, 149],
+      "t": [146, 147, 148],
+      "z": [153, 154],
+      "I": [151, 155],
+      "u": [67, 144, 150]
+    }
+  },
+  "Cdr": {
+    "description": "Resource name dbLetter to seasonal date range. Special resources (t,u,z,I) that have an active season window in mm-dd format.",
+    "resources": {
+      "t": {"from": "10-10", "to": "11-05"},
+      "u": {"from": "12-01", "to": "12-27"},
+      "z": {"from": "07-08", "to": "08-29"},
+      "I": {"from": "04-02", "to": "04-12"}
+    }
+  },
+  "t5": {
+    "description": "Parsed version of Cdr with from/to split into numeric month/day components (1-indexed months)",
+    "resources": {
+      "t": {"fromMonth1to12": 10, "fromDay": 10, "toMonth1to12": 11, "toDay": 5},
+      "u": {"fromMonth1to12": 12, "fromDay": 1,  "toMonth1to12": 12, "toDay": 27},
+      "z": {"fromMonth1to12": 7,  "fromDay": 8,  "toMonth1to12": 8,  "toDay": 29},
+      "I": {"fromMonth1to12": 4,  "fromDay": 2,  "toMonth1to12": 4,  "toDay": 12}
+    }
+  },
+  "_sources": {
+    "npr_seasons": "chunk_oX.js:4643-4850 (Qdr,Jdr,epr,tpr,rpr -> npr)",
+    "apr_events": "chunk_oX.js:4851-4898 (ipr -> apr)",
+    "Ji_constants": "chunk_oX.js:4899-4940 (opr,spr,lpr,cpr,upr,dpr,ppr,fpr,... -> Ji)",
+    "dpr_categories": "chunk_oX.js:4915-4962 (dpr)",
+    "Cdr_t5": "chunk_oX.js:705-728 (wdr,xdr,Sdr,Edr -> Cdr,t5)"
+  }
+}

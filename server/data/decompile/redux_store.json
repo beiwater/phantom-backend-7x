@@ -1,0 +1,468 @@
+{
+  "store": {
+    "description": "Redux store created via configureStore wrapper gur() in chunk_pur.js",
+    "storeCreation": {
+      "location": "entry.js:62035-62042",
+      "function": "gur",
+      "reducerMap": "Xia",
+      "middlewareFactory": "Qia (asyncDispatch enhancer)"
+    },
+    "reducers": {
+      "combinedBy": "$kt (combineReducers from chunk_Qcr.js)",
+      "map": "entry.js:61987-62010"
+    }
+  },
+  "middleware": [
+    {
+      "name": "K9",
+      "type": "redux-thunk",
+      "source": "chunk_Ukt.js, imported entry.js:70",
+      "note": "Added unconditionally; if thunk=true or thunk is an object with extraArgument, used with/without extraArgument"
+    },
+    {
+      "name": "Qia",
+      "type": "custom asyncDispatch middleware",
+      "source": "entry.js:62011-62033",
+      "description": "Intercepts dispatch calls and collects async dispatches (via asyncDispatch key in 3rd arg to thunks), flushes them after the parent thunk completes"
+    }
+  ],
+  "devTools": {
+    "enabledWhen": "Iv() returns truthy",
+    "source": "entry.js:62041"
+  },
+  "stateSlices": [
+    {
+      "key": "user",
+      "reducer": "GOr",
+      "source": "chunk_FOr.js",
+      "initialState": "zOr",
+      "shape": {
+        "authInfoFetched": { "type": "boolean", "default": false },
+        "authCompany": { "type": "object|null", "default": null, "note": "undefined in initial, populated on login" },
+        "authUser": { "type": "object|null", "default": null, "note": "undefined in initial, populated on login" },
+        "activeFeatureFlags": { "type": "object", "default": {} },
+        "courses": { "type": "array", "default": [] },
+        "levelInfo": { "type": "object|null", "default": null, "note": "undefined in initial" },
+        "temporals": { "type": "object|null", "default": null, "note": "undefined in initial" },
+        "cookieConsent": { "type": "boolean|null", "default": null, "note": "undefined in initial" },
+        "cookieDeviceConsent": { "type": "boolean|null", "default": null, "note": "undefined in initial" },
+        "timestamp": {
+          "authUser": { "type": "number", "default": 0 }
+        },
+        "fetching": {
+          "companies": { "type": "boolean", "default": false },
+          "authUser": { "type": "boolean", "default": false },
+          "weather": { "type": "boolean", "default": false },
+          "royalties": { "type": "boolean", "default": false }
+        },
+        "recentlyVisitedProfiles": { "type": "array", "default": [] },
+        "administrationOverhead": { "type": "number|null", "default": null, "note": "undefined in initial" },
+        "administrationOverheadPlusOne": { "type": "number|null", "default": null, "note": "undefined in initial" },
+        "fetchingAdministrationOverhead": { "type": "boolean", "default": false },
+        "companies": { "type": "array|null", "default": null },
+        "fetchingAdministrationOverheadPlusOne": { "type": "boolean", "default": false },
+        "preferences": {
+          "theme": { "type": "enum(qI)", "default": "qI.System" }
+        },
+        "simplifyUI": { "type": "boolean", "default": false },
+        "productionModifier": { "type": "number|null", "default": null, "note": "undefined in initial" },
+        "salesModifier": { "type": "number|null", "default": null, "note": "undefined in initial" },
+        "weather": { "type": "object|null", "default": null, "note": "undefined in initial" },
+        "royalties": { "type": "object|null", "default": null, "note": "undefined in initial" }
+      },
+      "keyExports": ["addMoney", "updateMoney", "fetchAdministrationOverhead", "addSimBoosts", "loadAuthUser"]
+    },
+    {
+      "key": "messages",
+      "reducer": "Jna",
+      "source": "chunk_Wna.js",
+      "initialState": "Qna",
+      "shape": {
+        "webSocketConnected": { "type": "boolean", "default": false },
+        "unreadMessages": { "type": "number|null", "default": null },
+        "unreadMessagesOtherRealms": { "type": "number|null", "default": null },
+        "chatrooms": { "type": "array", "default": [] },
+        "contacts": { "type": "array|null", "default": null },
+        "incomplete": { "type": "array", "default": [] },
+        "messages": { "type": "object(map)", "default": {} },
+        "fullHistory": { "type": "object(map)", "default": {} },
+        "atLeastOnePull": { "type": "object(map)", "default": {} },
+        "aiSuggestions": { "type": "object(map)", "default": {} },
+        "aiSummaries": { "type": "object(map)", "default": {} },
+        "fetching": {
+          "chatrooms": { "type": "boolean", "default": false },
+          "contacts": { "type": "boolean", "default": false },
+          "messages": { "type": "object(map)", "default": {} },
+          "websocketLastConnectionAttempt": { "type": "number|null", "default": null },
+          "aiSuggestions": { "type": "object(map)", "default": {} },
+          "aiSummaries": { "type": "object(map)", "default": {} }
+        },
+        "ignoringCompanies": { "type": "object(map)", "default": {} },
+        "companiesChatBlockingUs": { "type": "object(map)", "default": {} },
+        "banned": { "type": "boolean", "default": false },
+        "invisible": { "type": "boolean", "default": false },
+        "sending": { "type": "object(map)", "default": {} },
+        "chatOpen": { "type": "boolean", "default": false },
+        "popupNotifications": { "type": "array", "default": [] }
+      }
+    },
+    {
+      "key": "flash",
+      "reducer": "oia",
+      "source": "chunk_eia.js",
+      "initialState": "aia",
+      "shape": {
+        "messages": { "type": "array", "default": [] }
+      }
+    },
+    {
+      "key": "newspaper",
+      "reducer": "fia",
+      "source": "chunk_sia.js",
+      "initialState": "pia",
+      "shape": {
+        "newspapers": {
+          "0": { "type": "object", "default": {}, "note": "keyed by realm ID; realm 0 = default object" }
+        },
+        "fetching": {
+          "newspapers": { "type": "object(map)", "default": {} },
+          "sponsorParams": { "type": "boolean", "default": false }
+        },
+        "sponsorParams": { "type": "object|null", "default": null }
+      }
+    },
+    {
+      "key": "constants",
+      "reducer": "tBr",
+      "source": "chunk_zjr.js",
+      "initialState": "eBr",
+      "shape": {
+        "resources": {
+          "0": { "type": "array", "default": [] },
+          "1": { "type": "array", "default": [] }
+        },
+        "resourcesLanguage": { "type": "string|null", "default": null },
+        "resourceRetail": {
+          "0": { "type": "object|null", "default": null },
+          "1": { "type": "object|null", "default": null }
+        },
+        "resourceDetails": {
+          "0": { "type": "object(map)", "default": {} },
+          "1": { "type": "object(map)", "default": {} },
+          "2": { "type": "object(map)", "default": {} }
+        },
+        "judgements": { "type": "array", "default": [] },
+        "resourceProductionModifiers": { "type": "object(map)", "default": {} },
+        "fetching": {
+          "buildings": { "type": "object(map)", "default": {} },
+          "resourceDetails": {
+            "0": { "type": "object(map)", "default": {} },
+            "1": { "type": "object(map)", "default": {} },
+            "2": { "type": "object(map)", "default": {} }
+          },
+          "resourceRetail": {
+            "0": { "type": "boolean", "default": false },
+            "1": { "type": "boolean", "default": false }
+          },
+          "realms": { "type": "boolean", "default": false },
+          "resources": { "type": "object(map)", "default": {} },
+          "resourceProductionModifiers": {
+            "0": { "type": "boolean", "default": false },
+            "1": { "type": "boolean", "default": false }
+          }
+        }
+      }
+    },
+    {
+      "key": "buildings",
+      "reducer": "Rdr",
+      "source": "chunk_oX.js",
+      "initialState": "Mdr",
+      "shape": {
+        "buildings": { "type": "object(map)|null", "default": null, "note": "Map of building ID -> building object with busy, position, category, size, etc." },
+        "timestamp": {
+          "buildings": { "type": "number|null", "default": null }
+        },
+        "activeEvent": { "type": "object|null", "default": null, "note": "undefined in initial" },
+        "fetchingBuildings": { "type": "boolean", "default": false },
+        "abundance": { "type": "object(map)", "default": {} },
+        "recreationBonus": { "type": "number|null", "default": null, "note": "undefined in initial" },
+        "queues": { "type": "object(map)", "default": {} },
+        "fetching": {
+          "abundance": { "type": "object(map)", "default": {} },
+          "queues": { "type": "object(map)", "default": {} }
+        }
+      },
+      "keyExports": ["refreshBuildings", "addBuilding", "removeBuilding", "updateBuilding", "setBuildingBusy"]
+    },
+    {
+      "key": "warehouse",
+      "reducer": "ccr",
+      "source": "chunk_tcr.js",
+      "initialState": "scr",
+      "shape": {
+        "resources": { "type": "array|null", "default": null, "note": "Array of resource objects with id, amount, etc." },
+        "buyOrders": { "type": "array|null", "default": null, "note": "undefined in initial" },
+        "contractsIncoming": { "type": "array|null", "default": null },
+        "contractsIncomingOtherRealms": { "type": "array|null", "default": null },
+        "contractsOutgoing": { "type": "array|null", "default": null },
+        "resourceTransactions": { "type": "object(map)", "default": {}, "note": "key: resourceId -> array of transactions" },
+        "recentContractsOutgoing": { "type": "array|null", "default": null },
+        "recentContractsIncoming": { "type": "array|null", "default": null },
+        "contractsSummaryIncoming": { "type": "object|null", "default": null, "note": "undefined in initial" },
+        "contractsSummaryOutgoing": { "type": "object|null", "default": null, "note": "undefined in initial" },
+        "fetchingResources": { "type": "boolean", "default": false },
+        "fetchingBuyOrders": { "type": "boolean", "default": false },
+        "fetchingResourceTransactions": { "type": "object(map)", "default": {} },
+        "fetchingContractsIncoming": { "type": "boolean", "default": false },
+        "fetchingContractsOutgoing": { "type": "boolean", "default": false },
+        "fetchingRecentContractsOutgoing": { "type": "boolean", "default": false },
+        "fetchingRecentContractsIncoming": { "type": "boolean", "default": false },
+        "fetchingContractsSummaryIncoming": { "type": "boolean", "default": false },
+        "fetchingContractsSummaryOutgoing": { "type": "boolean", "default": false },
+        "timestamp": { "type": "object(map)", "default": {} }
+      },
+      "keyExports": ["fetchResources", "updateResource", "updateResourceById", "addContract", "addResourceTransactions"]
+    },
+    {
+      "key": "connectivity",
+      "reducer": "_ia",
+      "source": "chunk_hia.js",
+      "initialState": "bia",
+      "shape": {
+        "isOnline": { "type": "boolean", "default": "!window.navigator || window.navigator.onLine" }
+      }
+    },
+    {
+      "key": "achievements",
+      "reducer": "kia",
+      "source": "chunk_wia.js",
+      "initialState": "Aia",
+      "shape": {
+        "achievements": { "type": "array|null", "default": null, "note": "undefined in initial" },
+        "fetchingAchievements": { "type": "boolean", "default": false },
+        "timestamp": { "type": "number|null", "default": null, "note": "undefined in initial" }
+      }
+    },
+    {
+      "key": "stats",
+      "reducer": "KHn",
+      "source": "chunk_AHn.js",
+      "initialState": "ZHn",
+      "shape": {
+        "realm": {
+          "0": { "type": "object(map)", "default": {}, "note": "stats keyed by realm ID; populated dynamically" }
+        },
+        "fetching": { "type": "object(map)", "default": {}, "note": "fetching flags keyed dynamically" }
+      },
+      "note": "Generic stats bucket; sub-keys include companyValue, topCompanyValue, etc. — populated per-realm on demand"
+    },
+    {
+      "key": "hints",
+      "reducer": "Yin",
+      "source": "chunk_$Ke.js",
+      "initialState": "$Ke",
+      "shape": {
+        "hints": {
+          "type": "object(map)",
+          "default": "keyed by tt.CATEGORY_* constants (NAVIGATION, ACHIEVEMENTS, REFERRALS, ENCYCLOPEDIA, MAP, PRODUCTION, RETAIL, EXCHANGE, HEADQUARTERS, NEW_BUILDING, BUILDING, CHAT, WAREHOUSE, SELL)",
+          "note": "each category holds an array of hint objects"
+        },
+        "encyclopediaAcknowledged": { "type": "boolean", "default": false },
+        "showConstructionSlots": { "type": "boolean", "default": false },
+        "dismissedHints": { "type": "array", "default": [] },
+        "areHintsVisible": { "type": "boolean", "default": true },
+        "paDismissed": { "type": "boolean", "default": false }
+      }
+    },
+    {
+      "key": "finances",
+      "reducer": "ZKn",
+      "source": "chunk_zKn.js",
+      "initialState": "YKn",
+      "shape": {
+        "recentTransactions": { "type": "array|null", "default": null },
+        "allRecentTransactionsPulled": { "type": "boolean", "default": false },
+        "balanceSheet": { "type": "object|null", "default": null },
+        "incomeStatement": { "type": "object|null", "default": null },
+        "cashflowStatement": { "type": "object|null", "default": null },
+        "financialHistory": { "type": "array|null", "default": null },
+        "fetching": { "type": "object(map)", "default": {}, "note": "fetching flags keyed dynamically" }
+      },
+      "keyExports": ["fetchRecentTransactions"]
+    },
+    {
+      "key": "executives",
+      "reducer": "MQr",
+      "source": "chunk_wQr.js",
+      "initialState": "AQr",
+      "slice": "WRt (createSlice: name='executivesState')",
+      "shape": {
+        "executives": { "type": "array|null", "default": null, "note": "undefined in initial" },
+        "timestamp": {
+          "executives": { "type": "number|null", "default": null, "note": "undefined in initial" }
+        },
+        "myOffers": { "type": "array|null", "default": null, "note": "undefined in initial" },
+        "hostileOffers": { "type": "array|null", "default": null, "note": "undefined in initial" }
+      },
+      "keyExports": ["updateExecutives", "updateExecutive", "addExecutive", "dismissExecutive", "addMyOffer", "updateMyOffer", "removeMyOffer", "updateHostileOffers", "updateHostileOffer", "removeHostileOffer"]
+    },
+    {
+      "key": "market",
+      "reducer": "Nia",
+      "source": "chunk_Pia.js",
+      "initialState": "Ria",
+      "shape": {
+        "ticker": { "type": "array|null", "default": null },
+        "fetchingTicker": { "type": "boolean", "default": false },
+        "marketData": { "type": "object(map)", "default": {} },
+        "fetchingMarketData": { "type": "object(map)", "default": {} },
+        "requestIp": { "type": "string", "default": "" },
+        "timestamp": {
+          "marketData": { "type": "object(map)", "default": {} }
+        }
+      },
+      "keyExports": ["fetchTicker"]
+    },
+    {
+      "key": "research",
+      "reducer": "Uia",
+      "source": "chunk_Dia.js",
+      "initialState": "$ia",
+      "shape": {
+        "research": { "type": "object(map)", "default": {}, "note": "keyed by research type/category" },
+        "fetching": { "type": "object(map)", "default": {} },
+        "timestamp": {
+          "research": { "type": "object(map)", "default": {} }
+        },
+        "fetchingResearch": { "type": "boolean", "default": false }
+      }
+    },
+    {
+      "key": "localization",
+      "reducer": "Yia",
+      "source": "chunk_Hia_2.js",
+      "initialState": "Wia",
+      "shape": {
+        "languages": { "type": "object(map)", "default": {}, "note": "keyed by language code -> translation data" },
+        "fetching": { "type": "object(map)", "default": {}, "note": "keyed by language code -> boolean" }
+      }
+    },
+    {
+      "key": "preferences",
+      "reducer": "Kia",
+      "source": "chunk_Zia.js",
+      "initialState": "Zia",
+      "shape": {
+        "theme": { "type": "enum(Br)", "default": "Br.Light", "note": "Values: Br.Light, Br.Dark (from chunk entry.js enum)" }
+      }
+    },
+    {
+      "key": "buildingAuctions",
+      "reducer": "mri",
+      "source": "chunk_iB.js",
+      "initialState": "pri",
+      "slice": "LHt (createSlice: name='buildingAuctionsState')",
+      "shape": {
+        "bids": { "type": "object|null", "default": null, "note": "undefined in initial" },
+        "buildingAuctions": { "type": "array|null", "default": null, "note": "undefined in initial" },
+        "filterCriteria": {
+          "type": "object",
+          "default": "$O",
+          "fields": {
+            "includeBuildingDbLetters": { "type": "array", "default": "all non-recreation building dbLetters" },
+            "levelSub4": { "type": "boolean", "default": true },
+            "level5To9": { "type": "boolean", "default": true },
+            "level10To14": { "type": "boolean", "default": true },
+            "level15To19": { "type": "boolean", "default": true },
+            "level20OrMore": { "type": "boolean", "default": true },
+            "abundancePerfect": { "type": "boolean", "default": true },
+            "abundanceExceptional": { "type": "boolean", "default": true },
+            "abundanceVeryGood": { "type": "boolean", "default": true },
+            "abundanceGood": { "type": "boolean", "default": true },
+            "abundanceUsable": { "type": "boolean", "default": true },
+            "abundanceLower": { "type": "boolean", "default": true }
+          }
+        },
+        "activeUnlocks": { "type": "object|null", "default": null, "note": "undefined in initial" }
+      },
+      "keyExports": ["setBids", "setBuildingAuctions", "setFilterCriteria", "setActiveUnlocks"]
+    },
+    {
+      "key": "animations",
+      "reducer": "bjr",
+      "source": "chunk_djr.js",
+      "initialState": "mjr",
+      "slice": "Z6t (createSlice: name='animationsState')",
+      "shape": {
+        "runningResourcesAnimations": { "type": "array", "default": [] },
+        "runningCashAnimations": { "type": "array", "default": [] },
+        "runningSimboostsAnimations": { "type": "array", "default": [] }
+      },
+      "keyExports": ["startResourceAnimation", "removeResourceAnimation", "startCashAnimation", "removeCashAnimation", "startSimboostsAnimation", "removeSimboostsAnimation"]
+    },
+    {
+      "key": "gameNotifications",
+      "reducer": "Mur",
+      "source": "chunk_Cur.js",
+      "initialState": "Our",
+      "slice": "Gkt (createSlice: name='gameNotificationsState')",
+      "shape": {
+        "notifications": { "type": "array|null", "default": null, "note": "undefined in initial" }
+      },
+      "keyExports": ["setNotifications", "addNotification"]
+    },
+    {
+      "key": "giftBaskets",
+      "reducer": "gZi",
+      "source": "chunk_sZi.js",
+      "initialState": "hZi",
+      "slice": "kVt (createSlice: name='giftBasketsState')",
+      "shape": {
+        "receivedBaskets": { "type": "array|null", "default": null, "note": "undefined in initial" }
+      },
+      "keyExports": ["setReceivedBaskets"]
+    },
+    {
+      "key": "eggCollection",
+      "reducer": "wKr",
+      "source": "chunk_dKr.js",
+      "initialState": "mKr",
+      "slice": "NRt (createSlice: name='eggCollectionState')",
+      "shape": {
+        "companyEggs": { "type": "object|null", "default": null, "note": "undefined in initial" },
+        "companyEggsMetadata": { "type": "object|null", "default": null, "note": "undefined in initial" },
+        "eggMovements": { "type": "object|null", "default": null, "note": "undefined in initial" },
+        "eggMovementsMetadata": { "type": "object|null", "default": null, "note": "undefined in initial" },
+        "dealerEggs": { "type": "object|null", "default": null, "note": "undefined in initial" },
+        "dealerEggsMetadata": { "type": "object|null", "default": null, "note": "undefined in initial" },
+        "eggSwaps": { "type": "object|null", "default": null, "note": "undefined in initial" },
+        "eggSwapsMetadata": { "type": "object|null", "default": null, "note": "undefined in initial" }
+      },
+      "keyExports": ["setCompanyEggs", "setEggMovements", "setDealerEggs", "setEggSwaps", "reduceEggAmount", "updateEgg", "swapEggs", "removeEggSwap"]
+    }
+  ],
+  "storeAccess": {
+    "storeVariable": "Kw",
+    "export": "entry.js:62046: export const Kw = Jia()",
+    "usage": "Kw.dispatch(...), Kw.getState()",
+    "disconnectionHandler": "entry.js:62047-62051",
+    "reconnectionHandler": "entry.js:62051-62054"
+  },
+  "reducerImplementationTypes": {
+    "switchCaseReducers": [
+      "user (GOr)", "messages (Jna)", "flash (oia)", "newspaper (fia)",
+      "constants (tBr)", "buildings (Rdr)", "warehouse (ccr)", "connectivity (_ia)",
+      "achievements (kia)", "stats (KHn)", "hints (Yin)", "finances (ZKn)",
+      "market (Nia)", "research (Uia)", "localization (Yia)", "preferences (Kia)"
+    ],
+    "createSliceReducers": [
+      "executives (MQr/executivesState)",
+      "buildingAuctions (mri/buildingAuctionsState)",
+      "animations (bjr/animationsState)",
+      "gameNotifications (Mur/gameNotificationsState)",
+      "giftBaskets (gZi/giftBasketsState)",
+      "eggCollection (wKr/eggCollectionState)"
+    ]
+  }
+}

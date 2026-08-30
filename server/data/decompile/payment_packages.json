@@ -1,0 +1,316 @@
+{
+  "_meta": {
+    "description": "Payment packages, pricing tiers, payment methods, and related game data extracted from decompiled Sim Companies JS",
+    "source": "decompiled/modules/chunk_X4i.js, chunk_K3i.js, chunk_OPi.js, chunk_smi.js, chunk_Mor_2.js, chunk_hae.js, chunk_kzt.js, entry.js",
+    "critical_note": "Package SKUs, specific prices, and simboost quantities are SERVER-DRIVEN via /api/v4/payment-packages/{type}/. The client JS contains only the rendering logic and data model. No hardcoded package definitions exist in the frontend code.",
+    "extraction_date": "2026-05-28"
+  },
+
+  "packageDataModel": {
+    "_source": "chunk_OPi.js (I1e component), chunk_X4i.js (_Oi component)",
+    "fields": {
+      "sku": "string - unique SKU identifier (e.g. 'simboosts_small', 'starter_pack_entrepreneur')",
+      "simBoosts": "number - base amount of simboosts in this package",
+      "price": "string - price as a string (e.g. '4.95', '19.95')",
+      "starting": "boolean - true if this is a starter pack (1-time purchase)",
+      "isSupporter": "boolean - true if this grants supporter status",
+      "supporter": "boolean - true if this IS a supporter package",
+      "supporterOnly": "boolean - true if only visible to supporters",
+      "image": "string - path to package image (e.g. 'images/packages/small.png')",
+      "hq": "number|null - HQ skin index from hqUnlockables array (for HQ skin packages)",
+      "wideFrame": "boolean - true for wider card layout",
+      "limit": "number|undefined - max purchases per player (undefined = unlimited)",
+      "googleSku": "string - Google Play SKU for Android in-app purchases",
+      "appleSku": "string - Apple App Store SKU for iOS in-app purchases",
+      "steamSku": "string - Steam itemdefid for Steam purchases",
+      "approximateCurrency": "object - approximate local currency values for display",
+      "ignore": "boolean - if true, purchase bypasses normal flow (used for free packages)"
+    },
+    "api_endpoint": "/api/v4/payment-packages/{type}/",
+    "type_values": ["web", "ios", "android", "steam"]
+  },
+
+  "hqSkinUnlockables": {
+    "_source": "entry.js (iDn / fI = aDn.hqUnlockables)",
+    "_note": "HQ skins purchasable with simboosts. simboosts=null means seasonal/event-only (not purchasable directly). simboosts=0 means default/free.",
+    "skins": [
+      { "idx": 0,  "simboosts": 0,    "image": "images/landscape/hq/default (empty)",      "season": null },
+      { "idx": 1,  "simboosts": 100,  "image": "images/landscape/hq/hq-golf.png",          "season": null },
+      { "idx": 2,  "simboosts": 200,  "image": "images/landscape/hq/hq-golf2.png",         "season": null },
+      { "idx": 3,  "simboosts": 250,  "image": "images/landscape/hq/hq-green-tower.png",   "season": null },
+      { "idx": 4,  "simboosts": 300,  "image": "images/landscape/hq/hq-banana.png",        "season": null },
+      { "idx": 5,  "simboosts": 300,  "image": "images/landscape/hq/hq-vintage.png",       "season": null },
+      { "idx": 6,  "simboosts": null, "image": "images/landscape/hq/hq-ariake.png",        "season": "special" },
+      { "idx": 7,  "simboosts": null, "image": "images/landscape/hq/hq-haunted.svg",       "season": "Halloween" },
+      { "idx": 8,  "simboosts": null, "image": "images/landscape/hq/hq-winter.png",        "season": "Xmas" },
+      { "idx": 9,  "simboosts": 0,    "image": "images/landscape/hq/hq-uk-bell-tower.png", "season": null },
+      { "idx": 10, "simboosts": null, "image": "images/landscape/hq/hq-town-hall-xmas.png","season": "Xmas" },
+      { "idx": 11, "simboosts": null, "image": "images/landscape/hq/hq-obsidian.png",      "season": "special" },
+      { "idx": 12, "simboosts": null, "image": "images/buildings/other/hq_cyberpunk_tier01.png", "season": "Cyberpunk" },
+      { "idx": 13, "simboosts": null, "image": "images/buildings/other/hq_cyberpunk_tier02.png", "season": "Cyberpunk" },
+      { "idx": 14, "simboosts": 190,  "image": "images/buildings/other/hq_haunted.png",         "season": "Halloween" },
+      { "idx": 15, "simboosts": 290,  "image": "images/buildings/other/hq_disco_nuke.png",      "season": null },
+      { "idx": 16, "simboosts": 190,  "image": "images/buildings/other/hq_frozen.png",          "season": "Xmas" },
+      { "idx": 17, "simboosts": 250,  "image": "images/buildings/other/hq_industrial_resources.png", "season": null },
+      { "idx": 18, "simboosts": 250,  "image": "images/buildings/other/hq_aerospace.png",       "season": null },
+      { "idx": 19, "simboosts": 190,  "image": "images/buildings/other/hq_mosque.png",          "season": "Ramadan" },
+      { "idx": 20, "simboosts": 190,  "image": "images/buildings/other/hq_spring.png",          "season": "Easter" },
+      { "idx": 21, "simboosts": 250,  "image": "images/buildings/other/hq_electronics.png",     "season": null }
+    ]
+  },
+
+  "paymentMethods": {
+    "_source": "chunk_X4i.js, chunk_K3i.js, chunk_Mor_2.js, chunk_hae.js",
+    "methods": [
+      {
+        "id": "stripe",
+        "name": "Stripe (Credit/Debit Card)",
+        "platform": ["web"],
+        "api_endpoints": {
+          "create_payment": "/api/v2/payment-stripe/",
+          "sync_session": "/api/v2/payment-stripe/sync",
+          "async_webhook": "/api/v2/payment-stripe/async",
+          "failed_webhook": "/api/v2/payment-stripe/failed"
+        },
+        "components": ["Q3i (Stripe Elements wrapper)", "h4i (Stripe checkout form)"],
+        "notes": "Default payment provider for web (per changelog: 'Make Stripe default payment provider for web')"
+      },
+      {
+        "id": "braintree",
+        "name": "Braintree / PayPal",
+        "platform": ["web"],
+        "api_endpoints": {
+          "create_payment": "/api/v2/payment/"
+        },
+        "components": ["v3i (Braintree Drop-in UI)", "k1e (Braintree card form)"],
+        "notes": "Supports PayPal, credit cards, Venmo via Braintree SDK. 'PayPal payments suffered from integration issue on PayPal's end, during the weekend 9th March and 10th March. The issue has now been resolved'"
+      },
+      {
+        "id": "apple_pay",
+        "name": "Apple Pay (In-App Purchase)",
+        "platform": ["ios"],
+        "api_endpoints": {
+          "purchase_v1": "/apple-purchase/",
+          "purchase_v2": "/api/v2/apple-purchase/"
+        },
+        "notes": "Uses Apple StoreKit. Processes pending transactions on mount. Supports receipt refresh."
+      },
+      {
+        "id": "google_pay",
+        "name": "Google Pay (In-App Purchase)",
+        "platform": ["android"],
+        "api_endpoints": {
+          "purchase": "/api/v2/google-purchase/"
+        },
+        "notes": "Uses Google Play Billing. Consumes tokens after successful server validation. 'Google simboost purchases fixes - stability improvements and no-refresh after purchase implemented'"
+      },
+      {
+        "id": "steam",
+        "name": "Steam Wallet",
+        "platform": ["steam"],
+        "api_endpoints": {},
+        "notes": "Uses Steamworks SDK. Registers onOrderFinished and onOrderFailed callbacks. 'Integrated payment support with the Steam platform.' 'Fix simboost purchase sale not being reflected for Steam users'"
+      },
+      {
+        "id": "tron",
+        "name": "TRON (Crypto - TRX/USDT)",
+        "platform": ["web"],
+        "api_endpoints": {
+          "create_invoice": "/api/v2/payment-crypto/tron/",
+          "get_invoice": "/api/v2/payment-crypto/tron/{purchaseDriver}/{invoiceId}/"
+        },
+        "components": ["sTi (TRON payment UI with QR codes)"],
+        "notes": "Supports both TRX and USDT (TRC-20). Shows deposit address + QR code. Polls for payment confirmation. Minimum USDT threshold: 15 USDT for large QR display. 'Added TRX/USDT (TRON) payment option'"
+      },
+      {
+        "id": "algorand",
+        "name": "Algorand (ALGO)",
+        "platform": ["web"],
+        "status": "deprecated",
+        "api_endpoints": {},
+        "notes": "REMOVED per changelog: 'Remove Algorand integration, NFT trading, and collectible auction house'. Was active until ~2024. 'ALGO simboosts pricing reduced by about 10% - to reflect no payment provider fees when this method is used'"
+      }
+    ]
+  },
+
+  "pricingMechanics": {
+    "_source": "chunk_OPi.js (f3i, I1e), chunk_X4i.js (hOi, _Oi), chunk_hae.js (i18n messages)",
+    "baseSimBoosts": {
+      "description": "Total simboosts awarded = base simBoosts from package + bonuses",
+      "calculation": "package.simBoosts + floor(countryBonus% * package.simBoosts / 100) + floor(playerBonus% * package.simBoosts / 100) + floor(salePromotion% * total / 100)",
+      "notes": "Country bonus applied only if countryCodeIso is set. Player bonus applied if bonus > 0. Sale promotion applied on top of the already-bonused total."
+    },
+    "supporterDiscount": {
+      "percentage": 10,
+      "messageKey": "Checkout.supporterDiscountApplied",
+      "message": "All prices listed already reflect your 10% supporter discount. Thank you for your support."
+    },
+    "countryPricing": {
+      "api_endpoint": "/api/v2/payment-pricing/",
+      "response_fields": {
+        "countryCodeIso": "string - ISO 2-letter country code",
+        "bonus": "number - percentage bonus simboosts for this country"
+      },
+      "notes": "Changelog mentions displaying BRL/CZK/IDR/TRY value estimates on checkout"
+    },
+    "playerBonuses": {
+      "api_endpoint": "/api/v2/player-bonuses/",
+      "response_fields": {
+        "bonus": "number - percentage bonus (0 = no bonus)",
+        "id": "string - bonus identifier",
+        "validUntil": "string - ISO date when bonus expires"
+      },
+      "messageKey": "Checkout.youWillGetMoreNextPurchase",
+      "message": "You will get {bonus}% more simboosts with your next purchase. Offer expires in {countdown}."
+    },
+    "salePromotions": {
+      "field": "user.temporals.simboostsSalePromotion",
+      "fields": {
+        "promotionPercentage": "number - extra percentage on top of all other bonuses",
+        "simboostsWithHQ": "array of { hqIdx: number, simboosts: number } - extra SB for specific HQ packages"
+      }
+    }
+  },
+
+  "packageRendering": {
+    "_source": "chunk_OPi.js (f3i, I1e), chunk_kzt.js (kzt, hht)",
+    "displayLabels": {
+      "bestValue": "Shown on: starter packs (if not yet purchased), or package with highest simBoosts count",
+      "mostPopular": "Shown on: package with exactly 300 simBoosts (and starting pack already purchased)",
+      "purchaseLimit": "Shown when package.limit is set: 'Purchase is limited to {limit} packs per player'",
+      "starterPack": "Labeled 'Starter Pack' with special badge",
+      "supporter": "Labeled 'Supporter' with badge and discount info",
+      "supporterPackMessage": "All simboosts unlocks except for HQ skins"
+    },
+    "filtering": {
+      "supporterOnly": "Packages with supporterOnly=true only shown to existing supporters",
+      "startingPack": "Starting packs hidden if already purchased (startingPackPurchased=true)",
+      "isSupporter": "Supporter packages hidden if already purchased (supporterPurchased=true)",
+      "priceFilter": "When simboostsSalePromotion is active with HQ packages, filter out packages priced >= $60 (unless they match an HQ in the promotion)"
+    }
+  },
+
+  "simBoostUsageCosts": {
+    "_source": "entry.js (game mechanics, changelog in chunk_I6i.js)",
+    "hqSkins": "See hqSkinUnlockables above (0-300 simboosts per skin)",
+    "exchangeLimit": {
+      "mechanism": "Phase-based daily exchange limit (simboosts to cash)",
+      "formula": "min(phase * 2000, 10000) simboosts/day",
+      "examples": {
+        "phase1": "2,000 simboosts/day",
+        "phase2": "4,000 simboosts/day",
+        "phase3": "6,000 simboosts/day",
+        "phaseMax": "10,000 simboosts/day (phase 5+)"
+      },
+      "changelogRef": "Simboosts exchange for money limited by realm phase. (1st phase: 2,000/day; 2nd phase 4,000/day; 3rd phase 6,000/day, ... 10,000/day max)"
+    },
+    "newspaperSponsorSlot": "Variable simboost cost (was increased ~50% Aug 7)",
+    "buildingRush": "Variable simboost cost to rush construction",
+    "restaurantTrigger": "+5 simboosts to produce or sell daily",
+    "collectiblesExchange": "Players trade collectible items for simboosts (90-day purchase period)"
+  },
+
+  "historicalFundraisingCampaigns": {
+    "_source": "chunk_OPi.js (Vl constant)",
+    "campaigns": [
+      {
+        "organisation": "Medecins sans Frontieres (MSF)",
+        "url": "https://www.msf.org/four-things-know-about-earthquake-response-t%C3%BCrkiye-and-syria",
+        "percent": 20,
+        "from": 1676505600000,
+        "fromDate": "2023-02-16",
+        "until": 1677715200000,
+        "untilDate": "2023-03-01",
+        "description": "Turkey-Syria earthquake response fundraiser. 20% extra simboosts on all purchases during this period.",
+        "newspaperIssues": [
+          { "realmId": 0, "issue": 234 },
+          { "realmId": 1, "issue": 20 }
+        ]
+      }
+    ]
+  },
+
+  "checkoutFlow": {
+    "_source": "chunk_X4i.js (_Oi, hOi, fvt, sTi, aOi), chunk_OPi.js (f3i, v3i)",
+    "routes": {
+      "/checkout/": "Package selection grid (f3i component)",
+      "/checkout/package/:sku": "Single package checkout page (fvt component) - web payments",
+      "/checkout/options/:sku": "Alternative payment options page (fvt + _Ti) - shows platform choices",
+      "/checkout/stripe/process/": "Stripe post-payment processing page (aOi component)"
+    },
+    "steps": {
+      "web_stripe": [
+        "1. User selects package on /checkout/",
+        "2. Redirected to /checkout/package/:sku",
+        "3. Stripe Elements form shown (Q3i -> h4i)",
+        "4. User fills payment details and submits",
+        "5. On success: redirected to /checkout/stripe/process/?session_id=X",
+        "6. Server syncs Stripe session -> awards simboosts",
+        "7. Animated simboost count flies to HUD counter"
+      ],
+      "web_braintree": [
+        "1. User selects package on /checkout/",
+        "2. Braintree Drop-in UI shown (v3i -> k1e)",
+        "3. User selects payment method (card, PayPal, Venmo) and submits",
+        "4. Nonce sent to /api/v2/payment/",
+        "5. On success: finishPayment() -> animated simboost count"
+      ],
+      "web_tron": [
+        "1. User selects package on /checkout/",
+        "2. TRON payment UI shown (sTi)",
+        "3. POST /api/v2/payment-crypto/tron/ creates invoice",
+        "4. User sends TRX/USDT to deposit address",
+        "5. User clicks 'I have sent the payment'",
+        "6. Server checks transaction -> awards simboosts",
+        "7. QR code shown for amounts >= 15 USDT"
+      ],
+      "ios": [
+        "1. App requests Apple products via StoreKit",
+        "2. Apple Pay sheet appears",
+        "3. On purchase: cbAppleProductPurchase / cbAppleProductPurchaseV2 called",
+        "4. Receipt sent to server for validation",
+        "5. On success: simboosts awarded, StoreKit transaction finished"
+      ],
+      "android": [
+        "1. App fetches available Google Play SKUs",
+        "2. Google Play billing flow initiated",
+        "3. On purchase: webviewCallbackPurchase called",
+        "4. Token + orderId sent to /api/v2/google-purchase/",
+        "5. On success: token consumed, simboosts awarded"
+      ],
+      "steam": [
+        "1. Steam overlay opens with product listing",
+        "2. User completes purchase in Steam",
+        "3. onOrderFinished callback fires",
+        "4. Simboosts awarded via Redux dispatch"
+      ]
+    }
+  },
+
+  "changelogPricingEntries": {
+    "_source": "chunk_I6i.js",
+    "relevantEntries": [
+      { "date": "10th November", "text": "Another simboosts package option added (between small and medium for $8.95)" },
+      { "date": "10th May", "text": "2 new payment packages added" },
+      { "date": "14th May", "text": "Fixed missing prices for supporter and starter pack" },
+      { "date": "20th December", "text": "ALGO simboosts pricing reduced by about 10% - to reflect no payment provider fees when this method is used" },
+      { "date": "7th August", "text": "Sim Times Ads simboosts cost increase ~ 50%" },
+      { "date": "12th October", "text": "Referrals update: Referring companies get simboosts as rewards; Referred companies get $2,000 starting bonus; Only referred companies that do at least one SB purchase are considered" },
+      { "date": "1st October", "text": "Add possibility to transfer simboosts to a new realm; limited time offer" },
+      { "date": "18th October", "text": "Simboosts exchange for money limited by realm phase. (1st phase: 2,000/day; 2nd phase 4,000/day; 3rd phase 6,000/day, ... 10,000/day max)" },
+      { "date": "15th August", "text": "Display IDR/TRY values estimates on simboosts checkout" },
+      { "date": "11th August", "text": "Display BRL/CZK values estimates on simboosts checkout" }
+    ]
+  },
+
+  "keyFiles": {
+    "chunk_X4i.js": "Main checkout page component (_Oi), package list (hOi), individual package checkout (fvt), TRON payment (sTi), Stripe callback (aOi), platform selection (_Ti)",
+    "chunk_OPi.js": "Package card rendering (I1e), package grid (f3i), Braintree checkout (v3i), fundraising banners",
+    "chunk_K3i.js": "Stripe API calls (K3i, X3i, Q3i, h4i), TRON invoice API calls (R4i, N4i), loading/success UI (M4i, rGt)",
+    "chunk_kzt.js": "Buy button component (kzt), HQ unlock button (hht)",
+    "chunk_smi.js": "API call functions: Azt (packages), Hmi (player bonuses), Vmi (country pricing), zmi (Apple purchase v1), Gmi (Apple purchase v2)",
+    "chunk_hae.js": "Braintree SDK bundled code + i18n message constants",
+    "chunk_Mor_2.js": "Route + API endpoint definitions",
+    "entry.js": "HQ unlockables (iDn/fI), game enums"
+  }
+}

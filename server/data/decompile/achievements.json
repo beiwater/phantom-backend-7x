@@ -1,0 +1,415 @@
+{
+  "note": "Achievement definitions are server-side and fetched via API. This file documents the client-side system architecture, known achievement types, data structures, and the certificate system.",
+  "apiEndpoints": {
+    "fetchAchievements": {
+      "method": "GET",
+      "url": "/api/v2/no-cache/companies/{companyId}/achievements/",
+      "description": "Fetch individual achievements for a company. Returns achievement objects with progress, rewards, and collection status."
+    },
+    "fetchAchievementsOverview": {
+      "method": "GET",
+      "url": "/api/v2/companies/{companyId}/achievements/",
+      "description": "Fetch achievement overviews (summary with stars, labels, images). Used on the Achievements page."
+    },
+    "collectAchievement": {
+      "method": "DELETE",
+      "url": "/api/v2/no-cache/companies/achievements/{achievementId}/",
+      "description": "Collect an achievement reward. Removes the achievement from the pending list."
+    },
+    "applyLevelBonus": {
+      "method": "POST",
+      "url": "/api/v2/no-cache/companies/level-bonus/{achievementId}/",
+      "body": { "specialization": "production" },
+      "description": "Apply a level-based achievement bonus. Specialization is either 'production' (1% production speed) or 'sales' (1% sales speed). Available every 5 levels."
+    },
+    "sync3rdParty": {
+      "method": "POST",
+      "url": "/api/v2/companies/{companyId}/achievements/sync-3rd-party/",
+      "description": "Sync achievements to Steam (3rd party platform). Returns tasks array with status per achievement.",
+      "responseShape": { "tasks": [{ "status": "success|error", "achievementId": "string" }] }
+    }
+  },
+  "dataStructures": {
+    "individualAchievement": {
+      "description": "An achievement that can be collected for rewards. Returned by fetchAchievements.",
+      "fields": {
+        "id": { "type": "string", "description": "Unique achievement identifier (used in API URLs)" },
+        "name": { "type": "string", "description": "Achievement display name" },
+        "congratulation": { "type": "string", "description": "Congratulations message shown when earned" },
+        "is_daily": { "type": "boolean", "description": "True for daily-reset achievements (Logged in, Produced/Sold)" },
+        "is_level": { "type": "boolean", "description": "True for level-based achievements that grant recurring bonuses" },
+        "level": { "type": "number", "description": "Current level number (for level-based achievements). Every 5th level offers a specialization bonus choice." },
+        "done": { "type": "number", "description": "Number of times completed/quality stars earned" },
+        "available": { "type": "number", "description": "Number of additional completions available" },
+        "sim_boosts": { "type": "number", "description": "SimBoost reward amount" },
+        "reward": { "type": "number", "description": "Cash reward amount in dollars" },
+        "message": { "type": "string", "description": "Progress or description message" },
+        "nextAchievement": {
+          "type": "object|null",
+          "description": "Preview of the next tier. Contains: name, done, available, message, reward, sim_boosts"
+        }
+      }
+    },
+    "achievementOverview": {
+      "description": "Summary view of an achievement category. Returned by fetchAchievementsOverview.",
+      "fields": {
+        "label": { "type": "string", "description": "Display label in the Achievements page" },
+        "action": { "type": "string", "description": "Action description (what to do)" },
+        "type": { "type": "string", "description": "Achievement type key (e.g., Builder, Employer). Used for hint targeting." },
+        "id": { "type": "string", "description": "Achievement identifier for 'put on display' functionality" },
+        "stars": { "type": "number", "description": "Current star count (completed tiers)" },
+        "starsMax": { "type": "number", "description": "Maximum stars achievable" },
+        "reward": { "type": "number", "description": "Cash reward for next tier" },
+        "simBoosts": { "type": "number", "description": "SimBoost reward for next tier" },
+        "rewards": { "type": "number[]", "description": "Array of cash rewards for each tier" },
+        "progress": {
+          "type": "object|null",
+          "description": "Current progress toward next star",
+          "fields": {
+            "percent": { "type": "number", "description": "Progress percentage (0-100)" },
+            "label": { "type": "string", "description": "Progress label text" }
+          }
+        },
+        "image": { "type": "string", "description": "Achievement icon image path (e.g., images/achievements/...)" }
+      }
+    }
+  },
+  "knownAchievementTypes": {
+    "description": "Achievement types discovered from client-side hints, changelogs, and onboarding data. The 'type' field in achievementOverview maps to these keys.",
+    "types": {
+      "Builder": {
+        "source": "hints_anchor",
+        "hintCategory": "Early game achievements - building construction"
+      },
+      "Employer": {
+        "source": "hints_anchor",
+        "hintCategory": "Early game achievements - hiring employees"
+      },
+      "RetailSeller": {
+        "source": "hints_anchor",
+        "hintCategory": "Early game achievements - retail sales"
+      },
+      "MarketSeller": {
+        "source": "hints_anchor",
+        "hintCategory": "Early game achievements - market/exchange sales"
+      },
+      "MarketBuyer": {
+        "source": "hints_anchor + changelog",
+        "changelogRef": "MarketBuyer achievement updated (Sep 20)",
+        "hintCategory": "Early game achievements - purchasing from exchange"
+      },
+      "Scientist": {
+        "source": "changelog",
+        "changelogRefs": [
+          "Scientist achievement lvl 8 added (Oct 7)",
+          "Scientist achievement added for quality 9 and 10 (Mar 15)",
+          "Enable Scientist achievements at the right realm phase"
+        ],
+        "description": "Based on research quality levels (Q1-Q10)"
+      },
+      "KnowItAll": {
+        "source": "changelog",
+        "changelogRefs": [
+          "Q4 Know-it-all achievement added (Aug 24)",
+          "Know-it-all achievement rewards increased (Oct 15)",
+          "Do not count seasonal resources (Xmas crackers and Xmas ornaments) towards Know-it-all achievement"
+        ],
+        "description": "Based on producing different resource types"
+      },
+      "Overachiever": {
+        "source": "changelog",
+        "changelogRefs": [
+          "Over-achiever achievement for top 6,000 rank added (Dec 7)",
+          "Over-achiever achievement updated (May 18)",
+          "Overachiever top achievement adjusted - Rank 50 needed, was 30"
+        ],
+        "description": "Based on company ranking position"
+      },
+      "Mentor": {
+        "source": "changelog",
+        "changelogRefs": ["Achievement added: Mentor (May 11)"],
+        "description": "Likely related to executive training or referrals"
+      },
+      "Supplier": {
+        "source": "changelog",
+        "changelogRefs": ["The 'Supplier' achievement level added (May 25)"],
+        "description": "Based on supplying resources to the exchange"
+      },
+      "Prospector": {
+        "source": "changelog",
+        "changelogRefs": [
+          "Prospector achievement expanded (Apr 5)",
+          "Prospector achievement rewards halved (Apr 27)"
+        ],
+        "description": "Likely related to resource gathering or mining"
+      },
+      "GOBureaucrat": {
+        "source": "changelog",
+        "changelogRefs": ["Added progress bar to the GO Bureaucrat achievement to show progress towards fulfilling government orders"],
+        "description": "Based on completing government orders"
+      },
+      "Architect": {
+        "source": "changelog",
+        "changelogRefs": ["Improve architect achievement detection to make sure player receives it"],
+        "description": "Based on building or construction activities"
+      }
+    }
+  },
+  "dailyAchievements": {
+    "description": "Two achievements that reset daily.",
+    "achievements": [
+      {
+        "name": "Logged in today",
+        "trigger": "Logging into the game each day",
+        "source": "changelog",
+        "changelogRef": "More timely delivery of the daily achievements: logged-in and production/retail start (Jun 1)"
+      },
+      {
+        "name": "Produced or sold today",
+        "trigger": "Starting production or making a retail sale",
+        "source": "changelog",
+        "changelogRef": "More timely delivery of the daily achievements: logged-in and production/retail start (Jun 1)"
+      }
+    ],
+    "mechanics": {
+      "reset": "Daily at midnight UTC (Articles.dailyAchievementsReset)",
+      "localStorage": "daily-achievements-{companyId} tracks collection status with value 'collected'",
+      "cacheExpiry": "Achievements refetched after 4 minutes if daily not yet collected"
+    }
+  },
+  "levelBasedAchievements": {
+    "description": "Achievements with is_level=true. They have levels that increment. Every 5 levels, the player can choose a specialization bonus: +1% production speed or +1% sales speed.",
+    "bonusChoice": {
+      "production": {
+        "label": "+1% production speed",
+        "reduxAction": "a5r(1) — adds to production bonus"
+      },
+      "sales": {
+        "label": "+1% sales speed",
+        "reduxAction": "s5r(1) — adds to sales bonus"
+      }
+    },
+    "steamTracking": "Level-based achievement collection triggers Cde() for Steam tracking with source, country, companyId, realmId, level, and email."
+  },
+  "achievementRewards": {
+    "cash": "Achievements award cash (reward field). Cash is animated flying from achievement position to company money display.",
+    "simBoosts": "Achievements award SimBoosts (sim_boosts field). Animated similarly to cash rewards.",
+    "display": "Achievements can be displayed in the company display case alongside certificates and resources.",
+    "ocdCertificate": "A special 'allAchievements' certificate is awarded for achieving all available achievements (OCD certified)."
+  },
+  "achievementProgress": {
+    "description": "Achievements track progress using done/available counters or progress.percent.",
+    "starSystem": "Overview achievements use stars/starsMax to show tier completion. Stars = starsMax means fully completed.",
+    "qualityDisplay": "Individual achievements show done/(done+available) as quality stars."
+  },
+  "thirdPartySync": {
+    "platform": "Steam",
+    "mechanism": {
+      "trigger": "Automatic on achievements page load, or triggered by collectAchievement when running on Steam (Et.callIfSteam).",
+      "throttle": "Maximum once per 12 hours (43200000ms). Tracked via localStorage keys.",
+      "localStorageKeys": {
+        "lastSync": "lastSyncThirdPartyAchievements:{companyId} — ISO date string",
+        "inFlight": "syncThirdPartyAchievementsInFlight:{companyId} — 'true' while sync in progress"
+      },
+      "manualTrigger": "User can click 'Sync achievements' button in the display case / company profile (Account page)."
+    },
+    "history": {
+      "initialIntegration": "Achievements integration with steam achievements (part 1 - proof of concept, 2 achievements added)",
+      "fixes": [
+        "Fixed steam achievements synchronization",
+        "Fix achievement syncing to steam achievements",
+        "Fix achievements sync"
+      ]
+    }
+  },
+  "certificates": {
+    "description": "Certificates are monthly/weekly awards displayed in company profiles. They are separate from achievements but can be showcased in the display case alongside achievements.",
+    "apiEndpoints": {
+      "fetchDisplayCase": {
+        "method": "GET",
+        "url": "/api/v2/companies/{companyId}/display-case/"
+      },
+      "updateDisplayCase": {
+        "method": "POST",
+        "url": "/api/v2/companies/{companyId}/display-case/",
+        "body": {
+          "certificate_id": "number|undefined",
+          "achievement_id": "string|undefined",
+          "resource_id": "number|undefined",
+          "nft_id": "number|undefined",
+          "show_amount": "boolean"
+        }
+      },
+      "removeFromDisplayCase": {
+        "method": "DELETE",
+        "url": "/api/v2/companies/{companyId}/display-case/{itemId}/"
+      }
+    },
+    "types": {
+      "allAchievements": {
+        "idKey": "Certificates.allAchievementsDescription",
+        "description": "Awarded for achieving all available achievements (OCD certified)."
+      },
+      "producerCertificate": {
+        "idKey": "Certificates.producerCertificateDescription",
+        "description": "The Producer certificate can be obtained by producing most units of a specific non-research resource in a month."
+      },
+      "fastestValue": {
+        "idKey": "Certificates.fastestValueDescription",
+        "description": "Awarded to the fastest growing company by value in a week/month."
+      },
+      "fastestBuilding": {
+        "idKey": "Certificates.fastestBuildingDescription",
+        "description": "Awarded to the fastest growing company by building value in a week/month."
+      },
+      "fastestEmployer": {
+        "idKey": "Certificates.fastestEmployerDescription",
+        "description": "Awarded to the fastest growing employer in a week/month."
+      },
+      "largestValue": {
+        "idKey": "Certificates.largestValueDescription",
+        "description": "Awarded to the largest company by value in a month."
+      },
+      "largestBuilding": {
+        "idKey": "Certificates.largestBuildingDescription",
+        "description": "Awarded to the largest company by building value in a month."
+      },
+      "largestEmployer": {
+        "idKey": "Certificates.largestEmployerDescription",
+        "description": "Awarded to the largest employer in a month."
+      },
+      "largestSeller": {
+        "idKey": "Certificates.largestSellerDescription",
+        "description": "Awarded to the company earning most money in a month by selling resources on the exchange."
+      },
+      "largestBuyer": {
+        "idKey": "Certificates.largestBuyerDescription",
+        "description": "Awarded to the company spending most money buying resources on the exchange in a month."
+      },
+      "highestPatents": {
+        "idKey": "Certificates.highestPatentsDescription",
+        "description": "Awarded to the company with the highest patents value in a month."
+      },
+      "veteran": {
+        "idKey": "Certificates.veteranDescription",
+        "description": "Awarded to companies that have been playing for {years} year(s)."
+      },
+      "highestShare": {
+        "idKey": "Certificates.highestShareDescription",
+        "description": "Awarded to the company with the highest share price."
+      },
+      "supporter": {
+        "idKey": "Certificates.supporterDescription",
+        "description": "Awarded to companies for supporting the game by purchasing the supporter package."
+      },
+      "kingMidas": {
+        "idKey": "Certificates.kingMidasDescription",
+        "description": "Awarded to the company with the most golden bars in a month."
+      },
+      "startOver": {
+        "idKey": "Certificates.startOverDescription",
+        "description": "Awarded to companies that did a start-over reset."
+      },
+      "elonAward": {
+        "idKey": "Certificates.elonAwardDescription",
+        "description": "Awarded to the company with the most rapid unscheduled disassemblies (rocket explosions on launch) in a month."
+      },
+      "educator": {
+        "idKey": "Certificates.educatorDescription",
+        "description": "Awarded to the company that did most executive trainings in a month."
+      },
+      "loanShark": {
+        "idKey": "Certificates.loanSharkDescription",
+        "description": "Awarded to the company that collected the most bond interest in a month."
+      },
+      "retailer": {
+        "idKey": "Certificates.retailerDescription",
+        "description": "Awarded to the company that sold the most of a specific resource in retail in a month."
+      },
+      "madScientist": {
+        "idKey": "Certificates.madScientistDescription",
+        "description": "Awarded to the company that produced most research units of a specific research in a month."
+      },
+      "simichelineStar": {
+        "idKey": "Certificates.simichelineStarDescription",
+        "description": "Awarded to the company with the best rated restaurant in a month."
+      },
+      "reset": {
+        "idKey": "Certificates.resetDescription",
+        "description": "Awarded when resetting the company."
+      },
+      "largestResetValue": {
+        "idKey": "Certificates.largestResetValueDescription",
+        "description": "Awarded to the largest company which did a reset in a specific year, by value in a month."
+      },
+      "cashCow": {
+        "idKey": "Certificates.cashCowDescription",
+        "description": "Awarded to the company that paid the most taxes in a month."
+      },
+      "realEstateMogul": {
+        "idKey": "Certificates.realEstateMogulDescription",
+        "description": "Awarded to the company that sold the most buildings in the Building Auction in a month."
+      },
+      "executivePimp": {
+        "idKey": "Certificates.executivePimpDescription",
+        "description": "Awarded to the company that earned the most royalties in a month."
+      },
+      "cyberSpire": {
+        "idKey": "Certificates.cyberSpireDescription",
+        "description": "Awarded for supporting the game by purchasing the Cyber Spire HQ."
+      },
+      "obsidian": {
+        "idKey": "Certificates.obsidianDescription",
+        "description": "Awarded for supporting the game by purchasing the Obsidian HQ."
+      },
+      "cyberTower": {
+        "idKey": "Certificates.cyberTowerDescription",
+        "description": "Awarded for supporting the game by purchasing the Cyber Tower HQ."
+      },
+      "overfeeder": {
+        "idKey": "Certificates.overfeederDescription",
+        "description": "Awarded to the restaurant that fed the most people in a month."
+      },
+      "dumpsterChef": {
+        "idKey": "Certificates.dumpsterChefDescription",
+        "description": "Awarded to the restaurant that wasted the most food, by resource value, in a month."
+      },
+      "walletWielder": {
+        "idKey": "Certificates.walletWielderDescription",
+        "description": "Awarded to the company that bought buildings with the highest total book value in the Building Auction in a month."
+      },
+      "contest": {
+        "idKey": "Certificates.contestDescription",
+        "description": "Awarded to the company which successfully participated in a contest."
+      },
+      "eggCollector": {
+        "idKey": "Certificates.eggCollectorDescription",
+        "description": "Awarded to the company that cracked the competition and egg-quired the most Eggs by the Easter season's end."
+      }
+    }
+  },
+  "displayCase": {
+    "description": "Companies can showcase achievements, certificates, resources, and collectibles in their display case. Each item takes one slot.",
+    "maxSlots": "Maximum display case slots: 12 (increased from 8, Nov 2 changelog)",
+    "slotUnlock": "Additional slots can be unlocked using SimBoosts via PATCH /api/v2/companies/me/display-case/",
+    "achievementDisplay": "Achievements in display case show: name, achievement icon image, and quality stars.",
+    "revenueStream": "Achievement rewards + SimBoost exchanges contribute to 'From Game' income on financial statements."
+  },
+  "reduxStore": {
+    "slice": "achievements",
+    "path": "state.achievements",
+    "initialState": {
+      "achievements": "undefined",
+      "fetchingAchievements": false,
+      "timestamp": "undefined"
+    },
+    "actions": {
+      "FETCH_ACHIEVEMENTS": "Sets fetchingAchievements=true",
+      "UPDATE_ACHIEVEMENTS": "Replaces achievements array, sets timestamp, fetchingAchievements=false",
+      "FETCH_ACHIEVEMENTS_ERROR": "Sets fetchingAchievements=false",
+      "ADD_ACHIEVEMENTS": "Appends achievements to existing array",
+      "REMOVE_ACHIEVEMENT": "Removes achievement by id from array"
+    },
+    "reducerFile": "chunk_wia.js"
+  }
+}

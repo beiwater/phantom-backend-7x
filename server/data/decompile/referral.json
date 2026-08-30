@@ -1,0 +1,101 @@
+{
+  "system": {
+    "name": "Referral Program",
+    "description": "Refer friends to play Sim Companies and earn Sim Boost rewards as their companies level up. Referred players get a cash starting bonus.",
+    "category": "referral_program",
+    "categoryRef": "CATEGORY_REFERRALS",
+    "navLabel": "Referral program"
+  },
+
+  "referrerRewards": {
+    "description": "Referring company earns SimBoosts when referred companies reach specific levels",
+    "currency": "SimBoosts",
+    "tiers": [
+      { "level": 5,  "reward": 10 },
+      { "level": 10, "reward": 20 },
+      { "level": 15, "reward": 30 }
+    ],
+    "maxPerReferral": 60,
+    "constants": {
+      "level5_reward": "Wht = 10",
+      "level10_reward": "Yht = 20",
+      "level15_reward": "Zht = 30"
+    }
+  },
+
+  "refereeRewards": {
+    "description": "Anyone who registers using a referral link gets a cash bonus",
+    "bonus": {
+      "amount": 2000,
+      "currency": "USD (in-game cash)"
+    },
+    "transactionType": {
+      "id": "REFERRAL_BONUS",
+      "code": "ref-bonus",
+      "message": "Bonus for using a referral link"
+    }
+  },
+
+  "referralLink": {
+    "format": "https://www.simcompanies.com/ref/{playerId}/",
+    "localizedFormat": "https://www.simcompanies.com/{locale}/ref/{playerId}/",
+    "playerIdSource": "t.user.authUser?.playerId"
+  },
+
+  "qualityRequirement": {
+    "description": "Only referred companies that make at least one Sim Boost purchase are considered for rewards",
+    "reason": "Anti-fake-referral cheating measure",
+    "trackedField": "paying (boolean in API response)"
+  },
+
+  "api": {
+    "endpoint": "GET /api/v2/companies/referrals/",
+    "responseFields": {
+      "company": "string - company name",
+      "id": "number - company ID",
+      "realmId": "number - realm identifier",
+      "logo": "string - logo URL",
+      "level": "number - current company level",
+      "paying": "boolean - has made at least one SB purchase",
+      "lastSeen": "string - last activity date"
+    }
+  },
+
+  "socialSharing": {
+    "shareText": "Check out this business sim game! And get $2,000 in-game when you use my link!",
+    "platforms": ["Facebook", "Twitter", "LinkedIn", "Reddit"]
+  },
+
+  "objectives": {
+    "name": "ReferralSuggestion",
+    "description": "You can get a cash bonus if you refer the game to others.",
+    "learnAboutMessage": "Learn about referrals",
+    "overlayMessage": "You can get as much as 60 simboosts for each of the friends you bring over."
+  },
+
+  "displayOnPage": {
+    "referredListColumns": ["Company", "Purchased SBs", "Last Seen"],
+    "tutorialStatus": "in tutorial (shown for level < 0)",
+    "payingStatus": {
+      "true": "green checkmark (purchased)",
+      "false": "not yet"
+    }
+  },
+
+  "changelog": {
+    "date": "12th of October",
+    "text": "Referrals update: Referring companies get simboosts as rewards; Referred companies get $2,000 starting bonus; Only referred companies that do at least one SB purchase are considered (sorry, we had to do this to prevent fake referrals cheating)"
+  },
+
+  "sources": [
+    "chunk_Qyi.js - Referral page component",
+    "chunk_Mor_2.js - URL routes (referral, referrals, api_v2_companies_referrals)",
+    "entry.js lines ~57713-57778 - Referral messages and reward constants (Wht=10, Yht=20, Zht=30)",
+    "entry.js lines ~36631-36632 - REFERRAL_BONUS transaction type (ref-bonus)",
+    "chunk_P9i.js lines ~824-856 - ReferralSuggestion onboarding objective",
+    "chunk_I6i.js lines ~4250-4252 - Changelog entry for referral update",
+    "chunk_$Ke.js - Hint categories including CATEGORY_REFERRALS",
+    "chunk_ABn.js - Navigation with referral anchor link",
+    "chunk_Ryi.js - Social sharing buttons (Facebook, Twitter, LinkedIn, Reddit)"
+  ]
+}

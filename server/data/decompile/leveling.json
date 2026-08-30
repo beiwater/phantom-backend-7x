@@ -1,0 +1,148 @@
+{
+  "meta": {
+    "source": "decompiled Sim Companies client JS (2026-05-28)",
+    "note": "XP table values are server-side. The client receives experienceToNextLevel from API. The s5t diminishing-returns formula with UK=80, E0=60 thresholds shapes the XP curve. Base array fzt=[40..100] mapped through s5t yields the chart curve. Actual XP amounts may be these values scaled by a server-side multiplier."
+  },
+  "levelCap": 60,
+  "gameVersion": "v25.0",
+
+  "xpFormula": {
+    "description": "Diminishing returns applied to base XP values",
+    "function": "s5t(t) — if t > UK(80): t = 80 + (t-80)/2; if t > E0(60): t = 60 + (t-60)/2",
+    "constants": {
+      "UK": 80,
+      "E0": 60
+    },
+    "baseValues": "Array.from({length: 61}, (_, i) => i + 40) — yields [40, 41, 42, ..., 100]",
+    "xpCurve": [40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 60.5, 61, 61.5, 62, 62.5, 63, 63.5, 64, 64.5, 65, 65.5, 66, 66.5, 67, 67.5, 68, 68.5, 69, 69.5, 70, 70.25, 70.5, 70.75, 71, 71.25, 71.5, 71.75, 72, 72.25, 72.5, 72.75, 73, 73.25, 73.5, 73.75, 74, 74.25, 74.5, 74.75, 75],
+    "chartCurveNote": "The curve shows the relative XP requirements across levels 0-60. Levels 0-20 use flat base (40-60). Levels 21-40 use half-slope diminishing returns. Levels 41-60 use quarter-slope. Actual server-side XP amounts are scaled from these values."
+  },
+
+  "levelThresholds": {
+    "description": "Level ranges and what unlocks at each tier. Source: z9 array in entry.js",
+    "tiers": [
+      { "levelRange": "0-4",  "title": "Contractor",                 "maxBuildings": 4,  "scrape": false, "research": false, "contracts": false, "bonds": false, "executives": false, "governmentOrders": false, "hqUpdates": false, "paUpdates": false, "buildingAuctions": false, "seasonal": false, "buyOrders": false, "timeLimitS": 7200 },
+      { "levelRange": "5-9",  "title": "Family business",            "maxBuildings": 5,  "scrape": true,  "research": false, "contracts": true,  "bonds": false, "executives": false, "governmentOrders": false, "hqUpdates": false, "paUpdates": false, "buildingAuctions": false, "seasonal": true,  "buyOrders": false, "timeLimitS": 86400 },
+      { "levelRange": "10-14","title": "Sole trader",                "maxBuildings": 6,  "scrape": true,  "research": true,  "contracts": true,  "bonds": true,  "executives": false, "governmentOrders": false, "hqUpdates": true,  "paUpdates": true,  "buildingAuctions": false, "seasonal": true,  "buyOrders": false, "timeLimitS": 86400 },
+      { "levelRange": "15-19","title": "Sole trader",                "maxBuildings": 8,  "scrape": true,  "research": true,  "contracts": true,  "bonds": true,  "executives": true,  "governmentOrders": false, "hqUpdates": true,  "paUpdates": true,  "buildingAuctions": false, "seasonal": true,  "buyOrders": false, "timeLimitS": 172800 },
+      { "levelRange": "20-24","title": "Limited company",            "maxBuildings": 10, "scrape": true,  "research": true,  "contracts": true,  "bonds": true,  "executives": true,  "governmentOrders": true,  "hqUpdates": true,  "paUpdates": true,  "buildingAuctions": true,  "seasonal": true,  "buyOrders": false, "timeLimitS": 172800 },
+      { "levelRange": "25-29","title": "Limited company",            "maxBuildings": 12, "scrape": true,  "research": true,  "contracts": true,  "bonds": true,  "executives": true,  "governmentOrders": true,  "hqUpdates": true,  "paUpdates": true,  "buildingAuctions": true,  "seasonal": true,  "buyOrders": true,  "timeLimitS": 172800 },
+      { "levelRange": "30-34","title": "Limited company",            "maxBuildings": 14, "scrape": true,  "research": true,  "contracts": true,  "bonds": true,  "executives": true,  "governmentOrders": true,  "hqUpdates": true,  "paUpdates": true,  "buildingAuctions": true,  "seasonal": true,  "buyOrders": true,  "timeLimitS": 172800 },
+      { "levelRange": "35-39","title": "Corporation",                "maxBuildings": 14, "scrape": true,  "research": true,  "contracts": true,  "bonds": true,  "executives": true,  "governmentOrders": true,  "hqUpdates": true,  "paUpdates": true,  "buildingAuctions": true,  "seasonal": true,  "buyOrders": true,  "timeLimitS": 172800 },
+      { "levelRange": "40-44","title": "Corporation",                "maxBuildings": 14, "scrape": true,  "research": true,  "contracts": true,  "bonds": true,  "executives": true,  "governmentOrders": true,  "hqUpdates": true,  "paUpdates": true,  "buildingAuctions": true,  "seasonal": true,  "buyOrders": true,  "timeLimitS": 172800 },
+      { "levelRange": "45-49","title": "Corporation",                "maxBuildings": 14, "scrape": true,  "research": true,  "contracts": true,  "bonds": true,  "executives": true,  "governmentOrders": true,  "hqUpdates": true,  "paUpdates": true,  "buildingAuctions": true,  "seasonal": true,  "buyOrders": true,  "timeLimitS": 172800 },
+      { "levelRange": "50-54","title": "Multinational corporation",  "maxBuildings": 14, "scrape": true,  "research": true,  "contracts": true,  "bonds": true,  "executives": true,  "governmentOrders": true,  "hqUpdates": true,  "paUpdates": true,  "buildingAuctions": true,  "seasonal": true,  "buyOrders": true,  "timeLimitS": 172800 },
+      { "levelRange": "55-59","title": "Multinational corporation",  "maxBuildings": 14, "scrape": true,  "research": true,  "contracts": true,  "bonds": true,  "executives": true,  "governmentOrders": true,  "hqUpdates": true,  "paUpdates": true,  "buildingAuctions": true,  "seasonal": true,  "buyOrders": true,  "timeLimitS": 172800 },
+      { "levelRange": "60",   "title": "IPO",                        "maxBuildings": 14, "scrape": true,  "research": true,  "contracts": true,  "bonds": true,  "executives": true,  "governmentOrders": true,  "hqUpdates": true,  "paUpdates": true,  "buildingAuctions": true,  "seasonal": true,  "buyOrders": true,  "timeLimitS": 172800 }
+    ]
+  },
+
+  "capabilityUnlocks": {
+    "description": "What each capability does and when it unlocks",
+    "capabilities": {
+      "scrape":             { "unlockLevel": 5,  "description": "Ability to scrap/demolish buildings" },
+      "contracts":          { "unlockLevel": 5,  "description": "Ability to use contracts (incoming/outgoing supply agreements)" },
+      "seasonal":           { "unlockLevel": 5,  "description": "Access to seasonal production/retail resources" },
+      "research":           { "unlockLevel": 10, "description": "Ability to research quality levels" },
+      "bonds":              { "unlockLevel": 10, "description": "Ability to issue and trade bonds" },
+      "hqUpdates":          { "unlockLevel": 10, "description": "Ability to customize HQ appearance" },
+      "paUpdates":          { "unlockLevel": 10, "description": "Access to Personal Assistant updates/messages" },
+      "executives":         { "unlockLevel": 15, "description": "Ability to hire executives (COO, CFO, CMO, CTO)" },
+      "governmentOrders":   { "unlockLevel": 20, "description": "Ability to fulfill government orders" },
+      "buildingAuctions":   { "unlockLevel": 20, "description": "Ability to participate in building auctions" },
+      "buyOrders":          { "unlockLevel": 25, "description": "Ability to place buy orders on the exchange" }
+    }
+  },
+
+  "levelUpRewards": {
+    "description": "Rewards given upon reaching each level",
+    "productionSalesBonus": {
+      "description": "Every 5 levels (5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60): +1% production OR sales speed bonus (player chooses specialization)",
+      "apiEndpoint": "/api/v2/no-cache/companies/level-bonus/{companyId}/",
+      "apiFunction": "sJr(companyId, specialization)",
+      "sourceComment": "From patch notes: 'Production/Sales bonus every 5th level' and 'You can choose to increase your production or sales speed when you achieve level 5, 10, 15, and so on.'"
+    },
+    "titleChanges": "Company title changes at levels 0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60 (see levelThresholds.tiers)",
+    "maxBuildingsIncrease": "Gradually increases from 4 (L0) to 14 (L30). Caps at 14 buildings.",
+    "timeLimitIncrease": "Production/retail queue time limit increases from 2h (L0) to 24h (L5) to 48h (L15+)"
+  },
+
+  "xpEarningActions": {
+    "description": "Known actions that award XP (from code + patch notes)",
+    "actions": [
+      {
+        "action": "constructionRush",
+        "description": "Using simboosts to rush building construction awards experience points",
+        "evidence": "Patch note: 'Fix bug when not all experience points were given on construction rush' (chunk_I6i.js:3635)"
+      },
+      {
+        "action": "contestWinner",
+        "description": "Contest winners receive 40,000 XP",
+        "evidence": "Patch note: 'Contest winners now receive 40,000 XP' (chunk_I6i.js:9667)"
+      },
+      {
+        "action": "contestCertificate",
+        "description": "Other contest certificate recipients receive 5,000 XP",
+        "evidence": "Patch note: 'other contest certificate recipients receive 5,000 XP' (chunk_I6i.js:9667)"
+      },
+      {
+        "action": "generalGameplay",
+        "description": "Building, producing, selling, and other economic activities grant XP. Exact amounts are server-side.",
+        "evidence": "Home page text: 'Companies are rewarded for employing people, building infrastructure, making profits off the market and other activities.'"
+      },
+      {
+        "action": "executiveExperience",
+        "description": "Executives gain experience separately (not player level XP). Based on time spent in position. Apprentice executives contribute at reduced rate.",
+        "evidence": "Multiple references to executive experience gain in patch notes and UI strings"
+      }
+    ]
+  },
+
+  "levelInfoStructure": {
+    "description": "Shape of the levelInfo object returned by the API (api_v3_companies_auth_data)",
+    "fields": {
+      "level":                  "number  — current player level (0-60)",
+      "experience":             "number  — current XP accumulated in this level",
+      "experienceToNextLevel":  "number  — total XP needed to reach next level",
+      "inTutorial":             "boolean — whether player is in tutorial realm",
+      "capabilities": {
+        "contracts":            "boolean — contracts unlocked",
+        "buyOrders":            "boolean — buy orders unlocked",
+        "scrape":               "boolean — building scrap unlocked",
+        "seasonal":             "boolean — seasonal resources unlocked",
+        "bonds":                "boolean — bonds unlocked",
+        "executives":           "boolean — executives unlocked",
+        "governmentOrders":     "boolean — government orders unlocked",
+        "hqUpdates":            "boolean — HQ customization unlocked",
+        "paUpdates":            "boolean — PA updates unlocked",
+        "buildingAuctions":     "boolean — building auctions unlocked",
+        "research":             "boolean — research unlocked"
+      },
+      "acceleration": {
+        "multiplier":           "number  — production speed acceleration multiplier (from simboosts/events)",
+        "until":                "string? — expiration timestamp for acceleration"
+      },
+      "timeLimit":              "number  — max production/retail queue duration in seconds",
+      "maxBuildings":           "number  — max number of building slots",
+      "ratingCode":             "string  — bond credit rating code (tied to company financials)"
+    }
+  },
+
+  "tutorialLevels": {
+    "description": "Tutorial realm (realm 0) uses Gor array with an additional tier at start: -102",
+    "startLevel": -102,
+    "note": "Tutorial realm has a -102 tier with only 2 maxBuildings and no capabilities, transitioning to the normal z9 table at level 0."
+  },
+
+  "relevantChunks": {
+    "chunk_FOr.js": "Redux reducer for user state. Contains levelInfo update action (UPDATE_LEVEL_INFO), initial state with levelInfo: undefined, and fetch user data thunk (FETCH_USER_DATA / ADD_USER_DATA).",
+    "chunk_rBn_2.js": "Level/XP progress bar component. Reads levelInfo.experience and levelInfo.experienceToNextLevel to render the XP bar.",
+    "chunk_VRt.js": "Contains sJr(companyId, specialization) — the API call to apply level-up production/sales bonus.",
+    "chunk_s5t.js": "Contains s5t(t) — the diminishing returns formula used for XP and executive skill curves.",
+    "entry.js:4009-4244": "z9 array — the full level threshold table (13 tiers, 0-60).",
+    "entry.js:4245-4364": "Gor array — tutorial realm level thresholds.",
+    "entry.js:57293-57296": "fzt base values [40..100] and Wpi mapped XP curve via s5t.",
+    "entry.js:3989-3990": "E0=60, UK=80 — diminishing returns cutoff constants.",
+    "chunk_DKn_2.js": "Achievements UI component (not directly XP-related, but reads level for unlock display)."
+  }
+}

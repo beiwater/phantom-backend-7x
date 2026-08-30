@@ -1,0 +1,1016 @@
+{
+  "_meta": {
+    "source": "chunk_oX.js (Xdr/gt resources), entry.js (buildings), chunk_VRt.js (gQr costs), chunk_zjr.js (Jjr patents), chunk_cJr.js (probability)",
+    "version": "v25.0",
+    "description": "Sim Companies research tree - research types, buildings, costs, effects, and quality system",
+    "researchAvailableFromLevel": 10,
+    "researchBuildingUnlockLevel": 10,
+    "maxQuality": 12,
+    "qualityCeiling": 12,
+    "basePatentProbability": 0.0625,
+    "ctoProbabilityBonus": "mO * (1 + cto_skill / 100) = 0.0625 * (1 + skill/100)",
+    "patentConversionDescription": "Each research point has a 6.25% base probability to yield 1 patent. CTO executive's science skill increases this probability."
+  },
+  "qualityLevels": {
+    "description": "Patents needed to reach each quality level. Jjr array gives incremental patents per quality level. Quality 0 = unlocked by default. Quality 1-12 require patents.",
+    "maxQuality": 12,
+    "patentsNeededCumulative": [
+      12,
+      62,
+      562,
+      2562,
+      7562,
+      17562,
+      27562,
+      37562,
+      47562,
+      57562,
+      107562,
+      157562
+    ],
+    "patentsNeededPerLevel": [
+      {
+        "fromQuality": 0,
+        "toQuality": 1,
+        "patentsNeeded": 12,
+        "patentsCumulative": 12
+      },
+      {
+        "fromQuality": 1,
+        "toQuality": 2,
+        "patentsNeeded": 50,
+        "patentsCumulative": 62
+      },
+      {
+        "fromQuality": 2,
+        "toQuality": 3,
+        "patentsNeeded": 500,
+        "patentsCumulative": 562
+      },
+      {
+        "fromQuality": 3,
+        "toQuality": 4,
+        "patentsNeeded": 2000,
+        "patentsCumulative": 2562
+      },
+      {
+        "fromQuality": 4,
+        "toQuality": 5,
+        "patentsNeeded": 5000,
+        "patentsCumulative": 7562
+      },
+      {
+        "fromQuality": 5,
+        "toQuality": 6,
+        "patentsNeeded": 10000,
+        "patentsCumulative": 17562
+      },
+      {
+        "fromQuality": 6,
+        "toQuality": 7,
+        "patentsNeeded": 10000,
+        "patentsCumulative": 27562
+      },
+      {
+        "fromQuality": 7,
+        "toQuality": 8,
+        "patentsNeeded": 10000,
+        "patentsCumulative": 37562
+      },
+      {
+        "fromQuality": 8,
+        "toQuality": 9,
+        "patentsNeeded": 10000,
+        "patentsCumulative": 47562
+      },
+      {
+        "fromQuality": 9,
+        "toQuality": 10,
+        "patentsNeeded": 10000,
+        "patentsCumulative": 57562
+      },
+      {
+        "fromQuality": 10,
+        "toQuality": 11,
+        "patentsNeeded": 50000,
+        "patentsCumulative": 107562
+      },
+      {
+        "fromQuality": 11,
+        "toQuality": 12,
+        "patentsNeeded": 50000,
+        "patentsCumulative": 157562
+      }
+    ]
+  },
+  "researchBuildings": [
+    {
+      "dbLetter": "p",
+      "name": "Plant Research Center",
+      "sincePhase": 1,
+      "costUnits": 30,
+      "buildDurationSeconds": 18000,
+      "salaryModifier": 1.3,
+      "producesResearch": [
+        {
+          "resourceId": 29,
+          "name": "Plant Research"
+        }
+      ]
+    },
+    {
+      "dbLetter": "h",
+      "name": "Physics Lab",
+      "sincePhase": 1,
+      "costUnits": 48,
+      "buildDurationSeconds": 25200,
+      "salaryModifier": 1.7,
+      "producesResearch": [
+        {
+          "resourceId": 30,
+          "name": "Energy Research"
+        },
+        {
+          "resourceId": 31,
+          "name": "Mining Research"
+        },
+        {
+          "resourceId": 32,
+          "name": "Electronics Research",
+          "sincePhase": 3
+        }
+      ]
+    },
+    {
+      "dbLetter": "b",
+      "name": "Breeding Research",
+      "sincePhase": 1,
+      "costUnits": 28,
+      "buildDurationSeconds": 18000,
+      "salaryModifier": 1.2,
+      "producesResearch": [
+        {
+          "resourceId": 33,
+          "name": "Breeding Research"
+        }
+      ]
+    },
+    {
+      "dbLetter": "c",
+      "name": "Chemistry Research",
+      "sincePhase": 1,
+      "costUnits": 28,
+      "buildDurationSeconds": 18000,
+      "salaryModifier": 1.2,
+      "producesResearch": [
+        {
+          "resourceId": 34,
+          "name": "Chemistry Research"
+        },
+        {
+          "resourceId": 113,
+          "name": "Materials Research"
+        }
+      ]
+    },
+    {
+      "dbLetter": "s",
+      "name": "Software Research",
+      "sincePhase": 3,
+      "costUnits": 19,
+      "buildDurationSeconds": 10800,
+      "salaryModifier": 1.7,
+      "producesResearch": [
+        {
+          "resourceId": 35,
+          "name": "Software"
+        }
+      ]
+    },
+    {
+      "dbLetter": "a",
+      "name": "Race Track (Automotive Research)",
+      "sincePhase": 6,
+      "costUnits": 40,
+      "buildDurationSeconds": 21600,
+      "salaryModifier": 1.6,
+      "producesResearch": [
+        {
+          "resourceId": 58,
+          "name": "Automotive Research"
+        }
+      ]
+    },
+    {
+      "dbLetter": "f",
+      "name": "Fashion Research",
+      "sincePhase": 1,
+      "costUnits": 21,
+      "buildDurationSeconds": 7200,
+      "salaryModifier": 1.3,
+      "producesResearch": [
+        {
+          "resourceId": 59,
+          "name": "Fashion Research"
+        }
+      ]
+    },
+    {
+      "dbLetter": "l",
+      "name": "Launchpad (Aerospace Research)",
+      "sincePhase": 7,
+      "costUnits": 36,
+      "buildDurationSeconds": 32400,
+      "salaryModifier": 1.5,
+      "producesResearch": [
+        {
+          "resourceId": 100,
+          "name": "Aerospace Research"
+        }
+      ]
+    },
+    {
+      "dbLetter": "q",
+      "name": "Kitchen (Recipes Research)",
+      "sincePhase": 1,
+      "costUnits": 24,
+      "buildDurationSeconds": 14400,
+      "salaryModifier": 1.5,
+      "producesResearch": [
+        {
+          "resourceId": 145,
+          "name": "Recipes"
+        }
+      ]
+    }
+  ],
+  "researchItems": [
+    {
+      "id": 29,
+      "name": "Plant Research",
+      "dbLetter": 29,
+      "producedAtBuilding": "p",
+      "buildingName": "Plant Research Center",
+      "sincePhase": 1,
+      "producedPerHour": 12,
+      "sourcingCost": 95,
+      "improvesQualityOf": {
+        "description": "Improves quality of farming/plantation products",
+        "resources": [
+          {
+            "id": 3,
+            "name": "Apples"
+          },
+          {
+            "id": 4,
+            "name": "Oranges"
+          },
+          {
+            "id": 5,
+            "name": "Grapes"
+          },
+          {
+            "id": 6,
+            "name": "Grain"
+          },
+          {
+            "id": 40,
+            "name": "Cotton"
+          },
+          {
+            "id": 66,
+            "name": "Seeds"
+          },
+          {
+            "id": 72,
+            "name": "Sugarcane"
+          },
+          {
+            "id": 106,
+            "name": "Wood"
+          },
+          {
+            "id": 118,
+            "name": "Coffee Beans"
+          },
+          {
+            "id": 136,
+            "name": "Cocoa Beans"
+          },
+          {
+            "id": 120,
+            "name": "Vegetables"
+          },
+          {
+            "id": 139,
+            "name": "Fodder"
+          },
+          {
+            "id": 146,
+            "name": "Pumpkin"
+          },
+          {
+            "id": 150,
+            "name": "Tree"
+          }
+        ]
+      }
+    },
+    {
+      "id": 30,
+      "name": "Energy Research",
+      "dbLetter": 30,
+      "producedAtBuilding": "h",
+      "buildingName": "Physics Lab",
+      "sincePhase": 1,
+      "producedPerHour": 11,
+      "sourcingCost": 150,
+      "improvesQualityOf": {
+        "description": "Improves quality of power, fuel, engines, and propulsion",
+        "resources": [
+          {
+            "id": 1,
+            "name": "Power"
+          },
+          {
+            "id": 11,
+            "name": "Petrol"
+          },
+          {
+            "id": 12,
+            "name": "Diesel"
+          },
+          {
+            "id": 22,
+            "name": "Batteries"
+          },
+          {
+            "id": 48,
+            "name": "Electric Motor"
+          },
+          {
+            "id": 52,
+            "name": "Combustion Engine"
+          },
+          {
+            "id": 83,
+            "name": "Rocket Fuel"
+          },
+          {
+            "id": 85,
+            "name": "Solid Rocket"
+          },
+          {
+            "id": 86,
+            "name": "Rocket Engine"
+          },
+          {
+            "id": 88,
+            "name": "Ion Drive"
+          },
+          {
+            "id": 89,
+            "name": "Jet Engine"
+          }
+        ]
+      }
+    },
+    {
+      "id": 31,
+      "name": "Mining Research",
+      "dbLetter": 31,
+      "producedAtBuilding": "h",
+      "buildingName": "Physics Lab",
+      "sincePhase": 1,
+      "producedPerHour": 10,
+      "sourcingCost": 150,
+      "improvesQualityOf": {
+        "description": "Improves quality of raw materials and mining products",
+        "resources": [
+          {
+            "id": 2,
+            "name": "Water"
+          },
+          {
+            "id": 10,
+            "name": "Crude Oil"
+          },
+          {
+            "id": 14,
+            "name": "Minerals"
+          },
+          {
+            "id": 15,
+            "name": "Bauxite"
+          },
+          {
+            "id": 42,
+            "name": "Iron Ore"
+          },
+          {
+            "id": 44,
+            "name": "Sand"
+          },
+          {
+            "id": 68,
+            "name": "Gold Ore"
+          },
+          {
+            "id": 74,
+            "name": "Methane"
+          },
+          {
+            "id": 104,
+            "name": "Clay"
+          },
+          {
+            "id": 105,
+            "name": "Limestone"
+          }
+        ]
+      }
+    },
+    {
+      "id": 32,
+      "name": "Electronics Research",
+      "dbLetter": 32,
+      "producedAtBuilding": "h",
+      "buildingName": "Physics Lab",
+      "sincePhase": 3,
+      "producedPerHour": 8,
+      "sourcingCost": 180,
+      "improvesQualityOf": {
+        "description": "Improves quality of electronics, components, and satellites",
+        "resources": [
+          {
+            "id": 20,
+            "name": "Processors"
+          },
+          {
+            "id": 21,
+            "name": "Electronic Components"
+          },
+          {
+            "id": 23,
+            "name": "Displays"
+          },
+          {
+            "id": 70,
+            "name": "Gold Watch"
+          },
+          {
+            "id": 79,
+            "name": "High Grade E-Components"
+          },
+          {
+            "id": 98,
+            "name": "Quadcopter"
+          },
+          {
+            "id": 99,
+            "name": "Satellite"
+          },
+          {
+            "id": 82,
+            "name": "Attitude Control"
+          },
+          {
+            "id": 147,
+            "name": "Jack O'Lantern"
+          }
+        ]
+      }
+    },
+    {
+      "id": 33,
+      "name": "Breeding Research",
+      "dbLetter": 33,
+      "producedAtBuilding": "b",
+      "buildingName": "Breeding Research",
+      "sincePhase": 1,
+      "producedPerHour": 9,
+      "sourcingCost": 110,
+      "improvesQualityOf": {
+        "description": "Improves quality of animal products and livestock",
+        "resources": [
+          {
+            "id": 7,
+            "name": "Steak"
+          },
+          {
+            "id": 8,
+            "name": "Sausages"
+          },
+          {
+            "id": 9,
+            "name": "Eggs"
+          },
+          {
+            "id": 46,
+            "name": "Leather"
+          },
+          {
+            "id": 115,
+            "name": "Cows"
+          },
+          {
+            "id": 116,
+            "name": "Pigs"
+          },
+          {
+            "id": 117,
+            "name": "Milk"
+          }
+        ]
+      }
+    },
+    {
+      "id": 34,
+      "name": "Chemistry Research",
+      "dbLetter": 34,
+      "producedAtBuilding": "c",
+      "buildingName": "Chemistry Research",
+      "sincePhase": 1,
+      "producedPerHour": 11,
+      "sourcingCost": 90,
+      "improvesQualityOf": {
+        "description": "Improves quality of refined materials and chemicals",
+        "resources": [
+          {
+            "id": 18,
+            "name": "Aluminium"
+          },
+          {
+            "id": 16,
+            "name": "Silicon"
+          },
+          {
+            "id": 17,
+            "name": "Chemicals"
+          },
+          {
+            "id": 19,
+            "name": "Plastic"
+          },
+          {
+            "id": 43,
+            "name": "Steel"
+          },
+          {
+            "id": 45,
+            "name": "Glass"
+          },
+          {
+            "id": 67,
+            "name": "Xmas Crackers"
+          },
+          {
+            "id": 69,
+            "name": "Golden Bars"
+          },
+          {
+            "id": 73,
+            "name": "Ethanol"
+          },
+          {
+            "id": 75,
+            "name": "Carbon Fiber"
+          },
+          {
+            "id": 103,
+            "name": "Cement"
+          }
+        ]
+      }
+    },
+    {
+      "id": 35,
+      "name": "Software",
+      "dbLetter": 35,
+      "producedAtBuilding": "s",
+      "buildingName": "Software Research",
+      "sincePhase": 3,
+      "producedPerHour": 19,
+      "sourcingCost": 87.5,
+      "improvesQualityOf": {
+        "description": "Improves quality of consumer electronics and computing devices",
+        "resources": [
+          {
+            "id": 24,
+            "name": "Smart Phones"
+          },
+          {
+            "id": 25,
+            "name": "Tablets"
+          },
+          {
+            "id": 26,
+            "name": "Laptops"
+          },
+          {
+            "id": 27,
+            "name": "Monitors"
+          },
+          {
+            "id": 28,
+            "name": "Televisions"
+          },
+          {
+            "id": 47,
+            "name": "On-Board Computer"
+          },
+          {
+            "id": 80,
+            "name": "Flight Computer"
+          },
+          {
+            "id": 114,
+            "name": "Robots"
+          }
+        ]
+      }
+    },
+    {
+      "id": 58,
+      "name": "Automotive Research",
+      "dbLetter": 58,
+      "producedAtBuilding": "a",
+      "buildingName": "Race Track",
+      "sincePhase": 6,
+      "producedPerHour": 13,
+      "sourcingCost": 100,
+      "improvesQualityOf": {
+        "description": "Improves quality of vehicles and automotive parts",
+        "resources": [
+          {
+            "id": 51,
+            "name": "Car Body"
+          },
+          {
+            "id": 53,
+            "name": "Economy E-Car"
+          },
+          {
+            "id": 54,
+            "name": "Luxury E-Car"
+          },
+          {
+            "id": 55,
+            "name": "Economy Car"
+          },
+          {
+            "id": 56,
+            "name": "Luxury Car"
+          },
+          {
+            "id": 57,
+            "name": "Truck"
+          },
+          {
+            "id": 112,
+            "name": "Bulldozer"
+          }
+        ]
+      }
+    },
+    {
+      "id": 59,
+      "name": "Fashion Research",
+      "dbLetter": 59,
+      "producedAtBuilding": "f",
+      "buildingName": "Fashion Research",
+      "sincePhase": 1,
+      "producedPerHour": 17,
+      "sourcingCost": 50,
+      "improvesQualityOf": {
+        "description": "Improves quality of textiles, clothing, and accessories",
+        "resources": [
+          {
+            "id": 41,
+            "name": "Fabric"
+          },
+          {
+            "id": 49,
+            "name": "Luxury Car Interior"
+          },
+          {
+            "id": 50,
+            "name": "Car Interior"
+          },
+          {
+            "id": 60,
+            "name": "Underwear"
+          },
+          {
+            "id": 61,
+            "name": "Gloves"
+          },
+          {
+            "id": 62,
+            "name": "Dress"
+          },
+          {
+            "id": 63,
+            "name": "Simmi Shoes"
+          },
+          {
+            "id": 64,
+            "name": "Handbags"
+          },
+          {
+            "id": 65,
+            "name": "Sneakers"
+          },
+          {
+            "id": 71,
+            "name": "Necklace"
+          },
+          {
+            "id": 144,
+            "name": "Xmas Ornament"
+          },
+          {
+            "id": 148,
+            "name": "Witch Costume"
+          }
+        ]
+      }
+    },
+    {
+      "id": 100,
+      "name": "Aerospace Research",
+      "dbLetter": 100,
+      "producedAtBuilding": "l",
+      "buildingName": "Launchpad",
+      "sincePhase": 7,
+      "producedPerHour": 1,
+      "sourcingCost": 169.5,
+      "producedFrom": {
+        "91": 1,
+        "94": 1
+      },
+      "productionNote": "Produced from Sub-Orbital Rockets (91) and BFRs (94). Rockets must be launched to produce aerospace research.",
+      "improvesQualityOf": {
+        "description": "Improves quality of aerospace components and rockets",
+        "resources": [
+          {
+            "id": 77,
+            "name": "Fuselage"
+          },
+          {
+            "id": 78,
+            "name": "Wing"
+          },
+          {
+            "id": 81,
+            "name": "Cockpit"
+          },
+          {
+            "id": 84,
+            "name": "Fuel Tank"
+          },
+          {
+            "id": 90,
+            "name": "Sub-Orbital 2nd Stage"
+          },
+          {
+            "id": 91,
+            "name": "Sub-Orbital Rocket"
+          },
+          {
+            "id": 92,
+            "name": "Orbital Booster"
+          },
+          {
+            "id": 93,
+            "name": "Starship"
+          },
+          {
+            "id": 94,
+            "name": "BFR"
+          },
+          {
+            "id": 95,
+            "name": "Jumbo Jet"
+          },
+          {
+            "id": 96,
+            "name": "Luxury Jet"
+          },
+          {
+            "id": 97,
+            "name": "Single-Engine Plane"
+          }
+        ]
+      }
+    },
+    {
+      "id": 113,
+      "name": "Materials Research",
+      "dbLetter": 113,
+      "producedAtBuilding": "c",
+      "buildingName": "Chemistry Research",
+      "sincePhase": 1,
+      "producedPerHour": 8,
+      "sourcingCost": 125,
+      "improvesQualityOf": {
+        "description": "Improves quality of construction materials and composites",
+        "resources": [
+          {
+            "id": 76,
+            "name": "Carbon Composite"
+          },
+          {
+            "id": 87,
+            "name": "Heat Shield"
+          },
+          {
+            "id": 101,
+            "name": "Reinforced Concrete"
+          },
+          {
+            "id": 102,
+            "name": "Bricks"
+          },
+          {
+            "id": 107,
+            "name": "Steel Beams"
+          },
+          {
+            "id": 108,
+            "name": "Planks"
+          },
+          {
+            "id": 109,
+            "name": "Windows"
+          },
+          {
+            "id": 110,
+            "name": "Tools"
+          }
+        ]
+      }
+    },
+    {
+      "id": 145,
+      "name": "Recipes",
+      "dbLetter": 145,
+      "producedAtBuilding": "q",
+      "buildingName": "Kitchen",
+      "sincePhase": 1,
+      "producedPerHour": 11,
+      "sourcingCost": 120,
+      "improvesQualityOf": {
+        "description": "Improves quality of food, beverages, and prepared meals",
+        "resources": [
+          {
+            "id": 119,
+            "name": "Coffee Grounds"
+          },
+          {
+            "id": 133,
+            "name": "Flour"
+          },
+          {
+            "id": 137,
+            "name": "Dough"
+          },
+          {
+            "id": 121,
+            "name": "Bread"
+          },
+          {
+            "id": 123,
+            "name": "Apple Pie"
+          },
+          {
+            "id": 124,
+            "name": "Orange Juice"
+          },
+          {
+            "id": 125,
+            "name": "Apple Cider"
+          },
+          {
+            "id": 126,
+            "name": "Ginger Beer"
+          },
+          {
+            "id": 141,
+            "name": "Vegetable Oil"
+          },
+          {
+            "id": 128,
+            "name": "Pasta"
+          },
+          {
+            "id": 134,
+            "name": "Butter"
+          },
+          {
+            "id": 122,
+            "name": "Cheese"
+          },
+          {
+            "id": 135,
+            "name": "Sugar"
+          },
+          {
+            "id": 127,
+            "name": "Pizza"
+          },
+          {
+            "id": 140,
+            "name": "Chocolate"
+          },
+          {
+            "id": 138,
+            "name": "Gravy Boat"
+          },
+          {
+            "id": 129,
+            "name": "Hamburger"
+          },
+          {
+            "id": 130,
+            "name": "Lasagna"
+          },
+          {
+            "id": 131,
+            "name": "Meatballs"
+          },
+          {
+            "id": 142,
+            "name": "Salad"
+          },
+          {
+            "id": 132,
+            "name": "Cocktails"
+          },
+          {
+            "id": 143,
+            "name": "Samosas"
+          },
+          {
+            "id": 149,
+            "name": "Pumpkin Soup"
+          },
+          {
+            "id": 151,
+            "name": "Easter Bunny"
+          },
+          {
+            "id": 152,
+            "name": "Ramadan Sweets"
+          },
+          {
+            "id": 153,
+            "name": "Icecream Chocolate"
+          },
+          {
+            "id": 154,
+            "name": "Icecream Apple"
+          },
+          {
+            "id": 155,
+            "name": "Cream Egg"
+          }
+        ]
+      }
+    }
+  ],
+  "qualityEffects": {
+    "description": "Higher quality levels provide: better margins in retail, increased execution priority on the exchange, and for accumulator resources, each quality level increases production speed by a bonus percentage.",
+    "retailEffect": "Higher quality goods get better margins in retail",
+    "exchangeEffect": "Higher quality increases execution priority on the exchange",
+    "productionEffect": "Production speed impacted by researched quality; higher target quality = slower production but researched quality offsets this",
+    "accumulatorBonus": "Every quality level researched increases production speed by a bonus percentage for accumulator-type resources"
+  },
+  "realmPhaseAvailability": {
+    "description": "Research becomes available at company level 10 (Sole Trader). Some research types require later realm phases.",
+    "level10": "Research feature unlocked (Sole Trader, first level)",
+    "phase1Buildings": [
+      "Plant Research Center",
+      "Physics Lab",
+      "Breeding Research",
+      "Chemistry Research",
+      "Fashion Research",
+      "Kitchen"
+    ],
+    "phase3Buildings": [
+      "Software Research"
+    ],
+    "phase6Buildings": [
+      "Race Track (Automotive Research)"
+    ],
+    "phase7Buildings": [
+      "Launchpad (Aerospace Research)"
+    ]
+  },
+  "executiveBonus": {
+    "description": "CTO executive with science skill increases research effectiveness",
+    "ctoEffect": "Each technical skill point of the executive team increases research gains by 2% (hb=2)",
+    "ctoProductionBoost": "CTO impacts the production speed of research points, decreasing the cost to produce research",
+    "ctoProbabilityBoost": "Base probability (6.25%) is multiplied by (1 + cto_science_skill / 100)"
+  }
+}

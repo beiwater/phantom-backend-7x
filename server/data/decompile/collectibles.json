@@ -1,0 +1,352 @@
+{
+  "rarityTiers": [
+    {"tier": "COMMON", "description": "Most common eggs, drop frequently from building activity"},
+    {"tier": "RARE", "description": "Uncommon eggs with distinct patterns and materials"},
+    {"tier": "SPECIAL", "description": "Industry-themed eggs, harder to find"},
+    {"tier": "MYTHIC", "description": "Royal eggs — diamond, gold, silver. Extremely rare drops"}
+  ],
+
+  "eggTypes": {
+    "COMMON": [
+      {"id": "EGG_COLOR_WHITE",     "rarity": "COMMON", "image": "images/eggs/egg_color_white.png"},
+      {"id": "EGG_COLOR_BLUE",      "rarity": "COMMON", "image": "images/eggs/egg_color_blue.png"},
+      {"id": "EGG_COLOR_GREEN",     "rarity": "COMMON", "image": "images/eggs/egg_color_green.png"},
+      {"id": "EGG_COLOR_YELLOW",    "rarity": "COMMON", "image": "images/eggs/egg_color_yellow.png"},
+      {"id": "EGG_COLOR_RED",       "rarity": "COMMON", "image": "images/eggs/egg_color_red.png"},
+      {"id": "EGG_COLOR_PURPLE",    "rarity": "COMMON", "image": "images/eggs/egg_color_purple.png"},
+      {"id": "EGG_ORNAMENTS_01",    "rarity": "COMMON", "image": "images/eggs/egg_ornaments_01.png"},
+      {"id": "EGG_ORNAMENTS_02",    "rarity": "COMMON", "image": "images/eggs/egg_ornaments_02.png"},
+      {"id": "EGG_ORNAMENTS_03",    "rarity": "COMMON", "image": "images/eggs/egg_ornaments_03.png"},
+      {"id": "EGG_ORNAMENTS_04",    "rarity": "COMMON", "image": "images/eggs/egg_ornaments_04.png"},
+      {"id": "EGG_ORNAMENTS_05",    "rarity": "COMMON", "image": "images/eggs/egg_ornaments_05.png"},
+      {"id": "EGG_ORNAMENTS_06",    "rarity": "COMMON", "image": "images/eggs/egg_ornaments_06.png"},
+      {"id": "EGG_RIBBON_CYAN_BROWN",   "rarity": "COMMON", "image": "images/eggs/egg_ribbon_cyan_brown.png"},
+      {"id": "EGG_RIBBON_PINK_YELLOW",  "rarity": "COMMON", "image": "images/eggs/egg_ribbon_pink_yellow.png"},
+      {"id": "EGG_RIBBON_BLACK_WHITE",  "rarity": "COMMON", "image": "images/eggs/egg_ribbon_black white.png"},
+      {"id": "EGG_SCALES_BRONZE",    "rarity": "COMMON", "image": "images/eggs/egg_scales_bronze.png"},
+      {"id": "EGG_SCALES_OBSIDIAN",  "rarity": "COMMON", "image": "images/eggs/egg_scales_obsidian.png"},
+      {"id": "EGG_SCALES_RAINBOW",   "rarity": "COMMON", "image": "images/eggs/egg_scales_rainbow.png"},
+      {"id": "EGG_CHARACTER_AFRO",   "rarity": "COMMON", "image": "images/eggs/egg_animal_cow.png"},
+      {"id": "EGG_CHARACTER_CHICKEN", "rarity": "COMMON", "image": "images/eggs/egg_animal_chicken.png"},
+      {"id": "EGG_CHARACTER_MUSTACHE","rarity": "COMMON", "image": "images/eggs/egg_animal_pig.png"}
+    ],
+    "RARE": [
+      {"id": "EGG_COLORFUL_01",     "rarity": "RARE", "image": "images/eggs/egg_colorful_01.png"},
+      {"id": "EGG_COLORFUL_02",     "rarity": "RARE", "image": "images/eggs/egg_colorful_02.png"},
+      {"id": "EGG_COLORFUL_03",     "rarity": "RARE", "image": "images/eggs/egg_colorful_03.png"},
+      {"id": "EGG_COLORFUL_04",     "rarity": "RARE", "image": "images/eggs/egg_colorful_04.png"},
+      {"id": "EGG_COLORFUL_05",     "rarity": "RARE", "image": "images/eggs/egg_colorful_05.png"},
+      {"id": "EGG_COLORFUL_06",     "rarity": "RARE", "image": "images/eggs/egg_colorful_06.png"},
+      {"id": "EGG_MATERIAL_WOOD",   "rarity": "RARE", "image": "images/eggs/egg_material_wood.png"},
+      {"id": "EGG_MATERIAL_STONE",  "rarity": "RARE", "image": "images/eggs/egg_material_stone.png"},
+      {"id": "EGG_MATERIAL_BRICKS", "rarity": "RARE", "image": "images/eggs/egg_material_bricks.png"},
+      {"id": "EGG_MISSING_TEXTURE", "rarity": "RARE", "image": "images/eggs/egg_missing_texture.png"},
+      {"id": "EGG_NIGHT_SKY",       "rarity": "RARE", "image": "images/eggs/egg_night_sky.png"},
+      {"id": "EGG_SC_LOGO",         "rarity": "RARE", "image": "images/eggs/egg_sc_logo.png"}
+    ],
+    "SPECIAL": [
+      {"id": "EGG_INDUSTRY_AGRICULTURE", "rarity": "SPECIAL", "image": "images/eggs/egg_industry_agriculture.png"},
+      {"id": "EGG_INDUSTRY_AEROSPACE",   "rarity": "SPECIAL", "image": "images/eggs/egg_industry_aerospace.png"},
+      {"id": "EGG_INDUSTRY_AUTOMOTIVE",  "rarity": "SPECIAL", "image": "images/eggs/egg_industry_automotive.png"},
+      {"id": "EGG_INDUSTRY_ELECTRONICS", "rarity": "SPECIAL", "image": "images/eggs/egg_industry_electronics.png"},
+      {"id": "EGG_INDUSTRY_FASHION",     "rarity": "SPECIAL", "image": "images/eggs/egg_industry_fashion.png"},
+      {"id": "EGG_INDUSTRY_RESOURCES",   "rarity": "SPECIAL", "image": "images/eggs/egg_industry_resources.png"}
+    ],
+    "MYTHIC": [
+      {"id": "EGG_ROYAL_DIAMOND", "rarity": "MYTHIC", "image": "images/eggs/egg_royal_diamond.png"},
+      {"id": "EGG_ROYAL_GOLD",    "rarity": "MYTHIC", "image": "images/eggs/egg_royal_gold.png"},
+      {"id": "EGG_ROYAL_SILVER",  "rarity": "MYTHIC", "image": "images/eggs/egg_royal_silver.png"}
+    ]
+  },
+
+  "eggCollectionMechanics": {
+    "dropMechanism": {
+      "description": "Easter Eggs drop from building activity during the spring/Easter event. Drop rate is percentage per hour of building activity, scaled by spring market building levels.",
+      "source": "entry.js — EggCollection.easterEggsDropRate i18n string: 'Easter Eggs drop rate: {rate}% per hour of building activity ({levels} spring market levels)'"
+    },
+    "collecting": {
+      "api": "POST /api/v2/egg-collect/{buildingId}",
+      "function": "EKr(buildingId)",
+      "file": "chunk_xKr_2.js",
+      "description": "Collect eggs from a busy building. Returns eggs array."
+    },
+    "collection": {
+      "api": "GET /api/v2/companies/{companyId}/egg-collection/",
+      "function": "xKr(companyId)",
+      "file": "chunk_xKr_2.js",
+      "description": "Get company's egg collection. Returns { eggs, timestamp }."
+    },
+    "minting": {
+      "api": "POST /api/v2/companies/{companyId}/egg-collection/",
+      "function": "OKr(companyId)",
+      "file": "chunk_xKr_2.js",
+      "description": "Mint a unique Easter Egg collectible using one egg of each kind. Requires full collection. Action cannot be undone.",
+      "i18n": "EggCollection.mintCollectibleDescription: 'One egg of each kind will be used to create a unique Easter Egg collectible. This action cannot be undone.'"
+    },
+    "eggMovements": {
+      "api": "GET /api/v2/companies/{companyId}/egg-movements/",
+      "function": "IKr(companyId)",
+      "file": "chunk_xKr_2.js",
+      "description": "Get history of egg movements (drops, swaps, sales). Returns { movements, timestamp }.",
+      "csvExport": "GET /csv/egg-movements/{companyId}"
+    },
+    "stateManagement": {
+      "reduxSlice": "eggCollectionState",
+      "file": "chunk_dKr.js",
+      "initialState": {
+        "companyEggs": null,
+        "companyEggsMetadata": null,
+        "dealerEggs": null,
+        "dealerEggsMetadata": null,
+        "eggMovements": null,
+        "eggMovementsMetadata": null,
+        "eggSwaps": null,
+        "eggSwapsMetadata": null
+      },
+      "reducers": ["setCompanyEggs", "setCompanyEggsFetching", "setDealerEggs", "setDealerEggsFetching", "setEggMovements", "setEggMovementsFetching", "setEggSwaps", "setEggSwapsFetching", "removeEggSwap"]
+    }
+  },
+
+  "eggSwappingMechanics": {
+    "description": "Swap one egg for another of the SAME rarity tier with other players.",
+    "i18n": "EggCollection.swapOneEggSameRarity: 'Swap one egg for another of the same rarity.'",
+    "apis": {
+      "listSwaps": {
+        "api": "GET /api/v2/companies/{companyId}/egg-swaps/",
+        "function": "PKr(companyId)",
+        "file": "chunk_xKr_2.js",
+        "description": "Get all swap proposals for a company. Returns { swaps, timestamp }.",
+        "redux": "eggCollectionState.loadEggSwaps"
+      },
+      "proposeSwap": {
+        "api": "POST /api/v2/companies/{companyId}/egg-swaps/",
+        "function": "kKr(companyId, receiverCompanyId, senderEggKind, receiverEggKind)",
+        "file": "chunk_xKr_2.js",
+        "description": "Propose an egg swap with another company. Fields: receiverCompanyId, senderEggKind (your egg), receiverEggKind (their egg). Only same-rarity swaps are allowed."
+      },
+      "getSwap": {
+        "api": "GET /api/v2/companies/{companyId}/egg-swaps/{swapId}/",
+        "description": "Get details of a specific swap"
+      },
+      "deleteSwap": {
+        "api": "DELETE /api/v2/companies/{companyId}/egg-swaps/{swapId}/",
+        "function": "TKr(companyId, swapId)",
+        "file": "chunk_xKr_2.js",
+        "description": "Cancel/reject a swap proposal"
+      }
+    },
+    "uiRoutes": {
+      "collection": "/egg-collecting/collection/",
+      "collectionSwap": "/egg-collecting/collection/swap/:eggKind",
+      "dealer": "/egg-collecting/dealer/",
+      "minting": "/egg-collecting/minting/",
+      "swaps": "/egg-collecting/swaps/"
+    }
+  },
+
+  "eggDealerMechanics": {
+    "description": "Sell eggs to the Easter Egg Dealer. Eggs are sold in order received. Price varies by supply. Unsold eggs are destroyed at end of event.",
+    "i18n": {
+      "dealerTitle": "EggCollection.easterEggDealer: 'Easter Egg Dealer'",
+      "sellWarning": "EggCollection.sellPriceNotGuaranteed: 'The sell price is not guaranteed'",
+      "unsoldWarning": "EggCollection.unsoldEggsWarning: 'Unsold eggs cannot be retrieved back and the dealer will destroy them at the end of the event.'"
+    },
+    "sellOrder": {
+      "api": "POST /api/v2/egg-market-orders/{realmId}",
+      "function": "CKr(realmId, kind, amount)",
+      "file": "chunk_xKr_2.js",
+      "payload": {"kind": "egg_kind", "amount": "number"}
+    },
+    "getOrders": {
+      "api": "GET /api/v2/egg-market-orders/{realmId}",
+      "function": "SKr(realmId)",
+      "file": "chunk_xKr_2.js",
+      "returns": {"orders": "array", "timestamp": "number"}
+    },
+    "updatePrice": {
+      "api": "PATCH /api/v2/egg-market-orders/{realmId}",
+      "function": "AKr(realmId, kind, price)",
+      "file": "chunk_xKr_2.js",
+      "payload": {"kind": "egg_kind", "price": "number"}
+    }
+  },
+
+  "nftCollectibleTrading": {
+    "description": "Collectibles are NFT-like unique assets that can be traded on the collectible exchange using SimBoosts.",
+    "collectibleDataShape": {
+      "fields": ["id", "name", "image", "realm", "ipfs (object with .description)", "asset.currentOwnerId", "priceSimboosts"],
+      "source": "From chunk_oea.js NFT detail view and chunk_cji.js market list"
+    },
+    "marketApis": {
+      "listMarket": {
+        "api": "GET /api/v2/market-collectibles/",
+        "function": "pcr()",
+        "file": "chunk_kkt.js",
+        "description": "Get all collectibles listed on the market exchange"
+      },
+      "listForSale": {
+        "api": "POST /api/v2/market-collectibles/",
+        "file": "chunk_uei.js",
+        "payload": {"collectibleId": "number", "simboosts": "number"},
+        "description": "List your collectible for sale on the exchange for SimBoosts"
+      },
+      "buyOrDelist": {
+        "api": "PATCH /api/v2/market-collectibles/{listingId}/",
+        "function": "fcr(listingId)",
+        "file": "chunk_kkt.js",
+        "description": "Purchase a collectible (costs SimBoosts) or delist your own. If you are the current owner, delisting is free."
+      },
+      "simboostsAvailable": {
+        "api": "GET /api/v2/market-collectibles-sbs/",
+        "function": "Pkt()",
+        "file": "chunk_kkt.js",
+        "description": "Get SimBoosts available for purchase by non-supporters"
+      }
+    },
+    "nftAssetApis": {
+      "getAsset": {
+        "api": "GET /api/v2/nfts/assets/{assetId}/",
+        "description": "Get NFT asset metadata. Append ?ipfs=true to include IPFS metadata (description, etc.)"
+      },
+      "getTrades": {
+        "api": "GET /api/v2/nfts/assets/{assetId}/trades/",
+        "description": "Get trade history for an NFT asset. Returns { trades: [{id, datetime, priceSimboosts}] }."
+      },
+      "getCollectors": {
+        "api": "GET /api/v2/nfts/collectors/",
+        "function": "CBt()",
+        "file": "chunk_CBt.js",
+        "description": "Get list of NFT collectors"
+      }
+    },
+    "companyCollectibles": {
+      "api": "GET /api/v3/companies/{companyId}/collectibles/",
+      "function": "Uye(companyId)",
+      "description": "Get a company's collectible vault"
+    },
+    "uiRoutes": {
+      "marketCollectibles": "/market/collectibles/",
+      "marketCollectiblesVault": "/market/collectibles-vault/"
+    },
+    "transactionType": {
+      "COLLECTIBLES_BID": "1-collectibles-bid",
+      "COLLECTIBLES_BID_RETURNED": "1-collectibles-bid-returned"
+    },
+    "costDriver": "Wo.COLLECTIBLE_TRADE — purchasing collectibles is a SimBoost spend action"
+  },
+
+  "displayCaseMechanics": {
+    "description": "Showcase items on your company profile. Display case slots are unlocked with SimBoosts. Items that can be displayed: certificates, achievements, production resources, and collectibles (NFTs).",
+    "apis": {
+      "getDisplayCase": {
+        "api": "GET /api/v2/companies/{companyId}/display-case/",
+        "function": "$Rn(companyId)",
+        "file": "chunk_MRn.js",
+        "returns": {"displayCase": "array of display items"}
+      },
+      "addItem": {
+        "api": "POST /api/v2/companies/{companyId}/display-case/",
+        "payload": {
+          "nft_id": "number (optional, for collectible)",
+          "certificate_id": "number (optional)",
+          "achievement_id": "number (optional)",
+          "resource_id": "number (optional, for production resource)",
+          "show_amount": "boolean"
+        },
+        "description": "Add an item to the display case. One and only one item type ID must be provided.",
+        "source": "chunk_uei.js (collectible path), chunk_vHr.js (certificate/achievement/resource path)"
+      },
+      "unlockSlot": {
+        "api": "PATCH /api/v2/companies/me/display-case/",
+        "description": "Unlock an additional display case slot. Costs SimBoosts. Returns { message, simBoosts: remaining }.",
+        "source": "chunk__ii.js unlockDisplayCase method"
+      },
+      "getRemoveItem": {
+        "api": "GET /api/v2/companies/{companyId}/display-case/{itemId}/",
+        "description": "Get or remove a specific display case item"
+      }
+    },
+    "stateManagement": {
+      "componentStateFields": {
+        "displayCase": "undefined | array — current display case items",
+        "displayCaseSlots": "number — available slots from authCompany",
+        "confirmDisplayCaseCertificate": "null | object — pending certificate addition",
+        "confirmDisplayCaseRemove": "null | object — pending item removal",
+        "buyDisplayCaseModal": "boolean — show unlock modal",
+        "spinningDisplayCaseUnlock": "boolean — unlock in progress"
+      },
+      "source": "chunk__ii.js CompanyProfile component"
+    },
+    "ui": {
+      "unlockSlotsLabel": "Checkout.unlockDisplayCaseSlots: 'Unlock {slots} display case slots, where you can showcase your certificates, inventory, and achievements'"
+    }
+  },
+
+  "giftBasketCollectibles": {
+    "description": "Gift baskets can be upgraded to collectibles. Creating a gift basket collectible destroys an existing collectible and requires higher quality resource inputs.",
+    "deliveryTypeId": "12-24 (collectibleBasket — vs simboostsBasket: 12-23)",
+    "source": "entry.js — _c.deliveries.collectibleBasket = '12-24'",
+    "keyMechanics": [
+      "A collectible must be selected and destroyed to create the gift basket collectible",
+      "Higher quality resource inputs needed based on collectible quality",
+      "The receiver's company name and message are recorded in the collectible IPFS description",
+      "Collectible baskets are delivered last (after all normal deliveries)",
+      "No refund of resources, SimBoosts, collectible, or money on cancel",
+      "Gift cards cannot be made into collectibles — upgrade to basket required"
+    ],
+    "i18n": {
+      "qualityLabel": "giftBaskets.qCollectible: 'Q{quality} collectible'",
+      "noteQuality": "giftBaskets.noteCreateCollectibleBasket: 'Note: Collectible basket creation requires higher quality of resource inputs - based on the collectible quality.'",
+      "elevateText": "giftBaskets.thisWillTrulyElevate: 'This will truly elevate your gift to the next level. The receiver will get a gift basket collectible, ensuring lasting value outside the season. They will be able to put it on display, and/or trade with it. Your company and message will be recorded in the collectible description.'"
+    }
+  },
+
+  "collectibleEncyclopedia": {
+    "description": "The Encyclopedia provides a searchable catalog of collectibles and their collectors.",
+    "i18n": {
+      "title": "Encyclopedia.collectibles: 'Collectibles'",
+      "guideLink": "Encyclopedia.readAboutCollectibleItems: 'Learn all about collectible items in the {guide}.'",
+      "searchHint": "Encyclopedia.searchCollectiblesHint: 'search collectibles or collectors'",
+      "columns": {
+        "name": "Encyclopedia.collectiblesName: 'Name'",
+        "collector": "Encyclopedia.collectiblesCollector: 'Collector'",
+        "contact": "Encyclopedia.collectiblesContact: 'Contact'"
+      },
+      "notFound": "Encyclopedia.collectiblesNotFoundYet: 'Collectibles not found yet'",
+      "phaseWarning": "Encyclopedia.collectiblesNotAvailableInCurrentRealmPhase: 'Collectibles are not yet available in the current realm phase'"
+    },
+    "existingResourceQualityApi": {
+      "api": "GET /api/v4/{realmId}/{resourceType}/encyclopedia/existing-resource-quality/",
+      "function": "oNn(resourceType)",
+      "file": "chunk_CBt.js",
+      "description": "Check existing resource quality for encyclopedia"
+    }
+  },
+
+  "collectibleIcons": {
+    "collectibleLight": {"prefix": "fal", "iconName": "gem", "unicode": "f3a5"},
+    "collectibleSolid": {"prefix": "fas", "iconName": "gem", "unicode": "f3a5"},
+    "description": "Light = FontAwesome Light (outline), Solid = FontAwesome Solid, both using the 'gem' icon"
+  },
+
+  "sourceFiles": {
+    "chunk_CBt.js": "NFT collectors API wrapper + encyclopedia resource quality API",
+    "chunk_Fle.js": "Collectible render component (sS class) — displays collectible image with optional onClick",
+    "chunk_$Ri.js": "Realm collectibles display component — shows realm's collectible list",
+    "chunk_AHn.js": "Stats leaderboards including top-egg-collectors API and UI",
+    "chunk_D1r.js": "Icon definitions (collectibleLight: gem-fal, collectibleSolid: gem-fas)",
+    "chunk_xKr_2.js": "Egg collection/swapping/dealer API functions",
+    "chunk_kkt.js": "Market collectibles API functions",
+    "chunk_dKr.js": "Redux state slice for eggCollectionState",
+    "chunk_Nee_2.js": "Egg collection hooks (useEggCollection) including mintCollectible",
+    "chunk_oea.js": "NFT asset detail view, egg swap list UI, minting UI",
+    "chunk_cji.js": "Collectible market list component (Sji)",
+    "chunk_HGt.js": "Collectible vault component (uUi)",
+    "chunk_uei.js": "Display case collectible add modal, market list action modal",
+    "chunk_vHr.js": "Display case item add (certificate/achievement/resource)",
+    "chunk__ii.js": "Company profile display case management",
+    "chunk_MRn.js": "Display case API functions",
+    "chunk_Mor_2.js": "Route/API endpoint definitions",
+    "entry.js": "Egg type constants (Py), i18n strings, transaction types, collectible resource definitions"
+  }
+}

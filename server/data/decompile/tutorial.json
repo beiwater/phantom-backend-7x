@@ -1,0 +1,614 @@
+{
+  "meta": {
+    "sourceFiles": [
+      "chunk_KQn.js - FTUE Objectives (onboarding redesign tutorial system)",
+      "chunk_P9i.js - Classic Tutorial system + Post-tutorial suggestions",
+      "chunk_Fci.js - Building UI with tutorial hooks/hints usage",
+      "chunk_Ee.js - Audio system (tutorialVoiceOvers, playTutorialVoiceOver)",
+      "chunk_$Ke.js - Hints reducer/state",
+      "chunk_AHn.js - Menu/navigation with tutorial hints",
+      "chunk_AIt.js - Hint overlay rendering",
+      "chunk_ABn.js - Navigation menu with tutorial hints",
+      "chunk_I6i.js - Changelog with tutorial references",
+      "chunk_Isr.js - Feature flags (smootherHints)"
+    ],
+    "keyConstants": {
+      "KC": 35,
+      "RT": 150,
+      "TUTORIAL_APPLES_QUANTITY": 50,
+      "TUTORIAL_APPLES_RETAIL_PRICE": 7,
+      "ONBOARDING_REDESIGN_SEEDS_QUANTITY": 150,
+      "ONBOARDING_REDESIGN_APPLES_QUANTITY": 35,
+      "note": "KC and RT are the onboarding redesign quantities; TUTORIAL_APPLES_QUANTITY is the classic tutorial quantity"
+    },
+    "inTutorialFlag": "user.levelInfo.inTutorial — boolean; checked extensively to gate UI during tutorial",
+    "localStorageKey": "Objectives-tutorial — stores extra state (evaluateSeen, applesCollected, seedsCollected, encyclopediaVisited, etc.)",
+    "featureFlag": "onboardingRedesign — gates which tutorial system is active"
+  },
+
+  "tutorialSystems": {
+    "classic": {
+      "name": "Tutorial",
+      "internalId": "_0",
+      "file": "chunk_P9i.js",
+      "titleMessageId": "Objectives.tutorialName",
+      "titleDefaultMessage": "Tutorial: Produce and sell 50 apples",
+      "descriptionMessageId": "Objectives.tutorialDescription",
+      "descriptionDefaultMessage": "Learn how to navigate in the game and find out the most basic way to make money.",
+      "extra": {
+        "encyclopediaVisited": false,
+        "applesProduced": false,
+        "retailStarted": false
+      },
+      "trigger": "user.levelInfo.inTutorial === true AND onboardingRedesign feature flag is OFF",
+      "stages": [
+        {
+          "stageId": "RESEARCH",
+          "objective": "Find out how to produce apples",
+          "objectiveMessageId": "Objectives.tutorialStagesResearch",
+          "track": true,
+          "trigger": "Default first stage when inTutorial and resources not loaded yet; triggered when seeds=0, water=0, apples=0, money=500",
+          "hints": [
+            {
+              "category": "CATEGORY_NAVIGATION",
+              "anchor": "encyclopedia",
+              "copyMessageId": "Objectives.clickHere",
+              "copyDefaultMessage": "Click here",
+              "overlay": "MQn (encyclopedia overlay)",
+              "voiceOverId": "AQuickTutorial"
+            }
+          ]
+        },
+        {
+          "stageId": "BUYING_WATER",
+          "objective": "Buy water on the exchange",
+          "objectiveMessageId": "Objectives.tutorialStagesBuyingWater",
+          "track": true,
+          "trigger": "encyclopediaVisited=true AND water=0 AND money=500",
+          "hints": [
+            { "category": "CATEGORY_ENCYCLOPEDIA", "anchor": "3-overview", "overlay": "RQn" },
+            { "category": "CATEGORY_ENCYCLOPEDIA", "anchor": 3 },
+            { "category": "CATEGORY_MAP", "anchor": "exchange", "copyMessageId": "Objectives.goToTheExchange", "copyDefaultMessage": "Go to the exchange" },
+            { "category": "CATEGORY_EXCHANGE", "anchor": [2], "copy": "xQn", "overlay": "NQn" }
+          ]
+        },
+        {
+          "stageId": "BUYING_SEEDS",
+          "objective": "Buy seeds on the exchange",
+          "objectiveMessageId": "Objectives.tutorialStagesBuyingSeeds",
+          "track": true,
+          "trigger": "seeds=0 AND water=150 (3 × 50) AND money=500",
+          "hints": [
+            { "category": "CATEGORY_ENCYCLOPEDIA", "anchor": 3, "copy": "IQn" },
+            { "category": "CATEGORY_NAVIGATION", "anchor": "map", "except": "market or landscape routes", "copyMessageId": "Objectives.goToTheMap", "copyDefaultMessage": "Go to the map" },
+            { "category": "CATEGORY_MAP", "anchor": "exchange", "copyMessageId": "Objectives.goToTheExchange", "copyDefaultMessage": "Go to the exchange" },
+            { "category": "CATEGORY_EXCHANGE", "anchor": [66], "copy": "SQn" }
+          ]
+        },
+        {
+          "stageId": "PRODUCING",
+          "objective": "Produce 50 apples",
+          "objectiveMessageId": "Objectives.tutorialStagesProducing",
+          "track": true,
+          "trigger": "seeds=50 AND water=150 (3 × 50)",
+          "hints": [
+            { "category": "CATEGORY_NAVIGATION", "anchor": "map", "except": "building routes or landscape", "copyMessageId": "Objectives.goToTheMap", "copyDefaultMessage": "Go to the map" },
+            { "category": "CATEGORY_MAP", "anchor": 0, "copyMessageId": "Objectives.clickHere", "copyDefaultMessage": "Click here" },
+            { "category": "CATEGORY_PRODUCTION", "anchor": "APPLES", "copy": "EQn", "overlay": "AQn", "voiceOverId": "ProduceApples" }
+          ]
+        },
+        {
+          "stageId": "RETAILING",
+          "objective": "Sell apples in retail",
+          "objectiveMessageId": "Objectives.tutorialStagesRetailing",
+          "track": true,
+          "trigger": "apples=50",
+          "hints": [
+            { "category": "CATEGORY_NAVIGATION", "anchor": "map", "except": "building routes or landscape", "copyMessageId": "Objectives.goToTheMap", "copyDefaultMessage": "Go to the map" },
+            { "category": "CATEGORY_MAP", "anchor": 1, "copy": "d1e" },
+            { "category": "CATEGORY_RETAIL", "anchor": "APPLES", "copy": "CQn", "overlay": "kQn", "voiceOverId": "SellTheApplesYouProduced" }
+          ]
+        },
+        {
+          "stageId": "WAITING",
+          "objective": "Wait for the building to finish",
+          "objectiveMessageId": "Objectives.tutorialStagesWaiting",
+          "track": false,
+          "trigger": "Any building is busy (farm producing or grocery retailing)",
+          "hints": [
+            { "category": "CATEGORY_NAVIGATION", "anchor": "map", "except": "landscape", "copyMessageId": "Objectives.goToTheMap", "copyDefaultMessage": "Go to the map" }
+          ]
+        },
+        {
+          "stageId": "DONE",
+          "objective": "Checkout the cashflow",
+          "objectiveMessageId": "Objectives.tutorialStagesDone",
+          "track": true,
+          "trigger": "No resources remain AND money > 490 AND money != 500 (sold the apples)",
+          "hints": [
+            { "category": "CATEGORY_MAP", "anchor": "headquarters", "copyMessageId": "Objectives.goToTheExchange", "copyDefaultMessage": "Go to the exchange" },
+            { "category": "CATEGORY_NAVIGATION", "anchor": "finances", "copyMessageId": "Objectives.goToTheExchange", "copyDefaultMessage": "Go to the exchange", "except": "always" },
+            { "category": "CATEGORY_NAVIGATION", "anchor": "headquarters", "copyMessageId": "Objectives.goToTheExchange", "copyDefaultMessage": "Go to the exchange", "except": "headquarters or signup routes" },
+            { "category": "CATEGORY_WAREHOUSE", "anchor": "headquarters" },
+            { "category": "CATEGORY_HEADQUARTERS", "anchor": "overview", "overlay": "TQn", "voiceOverId": "YourHqIsWhere" },
+            { "category": "CATEGORY_HEADQUARTERS", "anchor": "register", "copyMessageId": "Objectives.clickHere", "copyDefaultMessage": "Click here", "overlay": "OQn" },
+            { "category": "CATEGORY_HEADQUARTERS", "anchor": "accounting" }
+          ]
+        }
+      ]
+    },
+
+    "ftue_onboardingRedesign": {
+      "name": "F.T.U.E. Objectives",
+      "internalId": "zo",
+      "file": "chunk_KQn.js",
+      "titleMessageId": "TWr (ftue.messageStartProduction)",
+      "titleDefaultMessage": "Start production",
+      "descriptionMessageId": "Objectives.tutorialDescription",
+      "descriptionDefaultMessage": "Learn how to navigate in the game and find out the most basic way to make money.",
+      "extra": {
+        "evaluateSeen": false,
+        "applesCollected": false,
+        "seedsCollected": false
+      },
+      "trigger": "user.levelInfo.inTutorial === true AND onboardingRedesign feature flag is ON",
+      "stages": [
+        {
+          "stageId": "COLLECT_1",
+          "objective": "Collect apples",
+          "objectiveMessageId": "ftue.collectApples",
+          "track": true,
+          "hideProgressBar": false,
+          "trigger": "Default entry. Building[0] busy producing 35 apples and canFetch=true. Also: building idle, apples=0, seeds=0, oranges=0, applesCollected=false.",
+          "completionCondition": "Building[0] busy, resource.kind=APPLES, resource.amount=35 (KC), canFetch=false, apples inventory=0. Sets extra.applesCollected=true.",
+          "hints": [
+            {
+              "category": "CATEGORY_MAP",
+              "anchor": 0,
+              "copyMessageId": "ftue.messageCollect",
+              "copyDefaultMessage": "Collect",
+              "delay": 1,
+              "overlay": "zWr (welcome overlay)",
+              "overlayMessageId": "ftue.welcomeToSimCompanies",
+              "overlayDefaultMessage": "Welcome to Sim Companies! You are about to start your own business empire. Produce goods, sell them on the market and earn money to grow your company."
+            },
+            {
+              "category": "CATEGORY_NAVIGATION",
+              "anchor": "map",
+              "except": "landscape route",
+              "copyMessageId": "Objectives.goToTheMap",
+              "copyDefaultMessage": "Go to the map",
+              "delay": 0
+            }
+          ]
+        },
+        {
+          "stageId": "SELL_1",
+          "objective": "Sell apples",
+          "objectiveMessageId": "ftue.sellApples",
+          "track": true,
+          "hideProgressBar": false,
+          "trigger": "Building idle AND apples=35 AND seedsCollected=false AND evaluateSeen=false AND seeds=0, OR building idle AND applesCollected=true AND previous stage=COLLECT_1",
+          "hints": [
+            { "category": "CATEGORY_MAP", "anchor": "exchange", "copyMessageId": "Objectives.goToTheExchange", "copyDefaultMessage": "Go to the exchange", "delay": 2 },
+            { "category": "CATEGORY_NAVIGATION", "anchor": "map", "except": "market, landscape, /sell/ routes", "copyMessageId": "Objectives.goToTheMap", "copyDefaultMessage": "Go to the map", "delay": 2 },
+            { "category": "CATEGORY_MAP", "anchor": "exchange", "copyMessageId": "Objectives.goToTheExchange", "copyDefaultMessage": "Go to the exchange", "delay": 2 },
+            { "category": "CATEGORY_EXCHANGE", "anchor": ["APPLES"], "copyMessageId": "Building.sell", "copyDefaultMessage": "Sell", "delay": 2 },
+            { "category": "CATEGORY_SELL", "anchor": "APPLES", "delay": 1 }
+          ]
+        },
+        {
+          "stageId": "EVALUATE",
+          "objective": "Wait for sale",
+          "objectiveMessageId": "ftue.waitForSale",
+          "track": true,
+          "hideProgressBar": false,
+          "trigger": "Building idle AND apples=0 AND seeds=0 AND evaluateSeen=false AND money > 500 (sold apples on exchange)",
+          "hints": [
+            { "category": "CATEGORY_NAVIGATION", "anchor": "map", "except": "market or landscape routes", "copyMessageId": "Objectives.goToTheMap", "copyDefaultMessage": "Go to the map", "delay": 1 },
+            { "category": "CATEGORY_MAP", "anchor": "evaluate", "delay": 1 }
+          ]
+        },
+        {
+          "stageId": "PRODUCE_2",
+          "objective": "Produce seeds",
+          "objectiveMessageId": "ftue.produceSeeds",
+          "track": true,
+          "hideProgressBar": false,
+          "trigger": "Building idle AND apples=0 AND seeds=0 AND evaluateSeen=true AND seedsCollected=false",
+          "hints": [
+            { "category": "CATEGORY_NAVIGATION", "anchor": "map", "except": "building routes or landscape", "copyMessageId": "Objectives.goToTheMap", "copyDefaultMessage": "Go to the map", "delay": 2 },
+            { "category": "CATEGORY_MAP", "anchor": 0, "copyMessageId": "Objectives.clickHere", "copyDefaultMessage": "Click here", "delay": 2 },
+            { "category": "CATEGORY_PRODUCTION", "anchor": "SEEDS", "copyMessageId": "ftue.messageSelectProduce", "copyDefaultMessage": "Select 5s and hit Produce", "delay": 2 }
+          ]
+        },
+        {
+          "stageId": "WAITING_2",
+          "objective": "Wait for seeds",
+          "objectiveMessageId": "ftue.waitForProduction",
+          "track": true,
+          "hideProgressBar": true,
+          "trigger": "Building busy producing seeds (resource.kind=SEEDS, amount=150, canFetch=false)",
+          "hints": [
+            { "category": "CATEGORY_NAVIGATION", "anchor": "map", "except": "landscape", "copyMessageId": "Objectives.goToTheMap", "copyDefaultMessage": "Go to the map", "delay": 2 }
+          ]
+        },
+        {
+          "stageId": "COLLECT_2",
+          "objective": "Collect seeds",
+          "objectiveMessageId": "ftue.collectSeeds",
+          "track": true,
+          "hideProgressBar": true,
+          "trigger": "Building busy producing seeds (amount=150, canFetch=true)",
+          "completionCondition": "Building busy, resource.kind=SEEDS, amount=150, canFetch=false, seeds=0 in inventory. Sets extra.seedsCollected=true.",
+          "hints": [
+            { "category": "CATEGORY_MAP", "anchor": 0, "copyMessageId": "ftue.messageCollect", "copyDefaultMessage": "Collect", "delay": 2 },
+            { "category": "CATEGORY_NAVIGATION", "anchor": "map", "except": "landscape", "copyMessageId": "Objectives.goToTheMap", "copyDefaultMessage": "Go to the map", "delay": 0 }
+          ]
+        },
+        {
+          "stageId": "PRODUCE_3",
+          "objective": "Produce apples",
+          "objectiveMessageId": "ftue.produceApples",
+          "track": true,
+          "hideProgressBar": true,
+          "trigger": "Building idle AND seedsCollected=true (from COLLECT_2) OR building idle AND seeds=150 in inventory",
+          "hints": [
+            { "category": "CATEGORY_NAVIGATION", "anchor": "map", "except": "building routes or landscape", "copyMessageId": "Objectives.goToTheMap", "copyDefaultMessage": "Go to the map", "delay": 2 },
+            { "category": "CATEGORY_MAP", "anchor": 0, "copyMessageId": "Objectives.clickHere", "copyDefaultMessage": "Click here", "delay": 2 },
+            { "category": "CATEGORY_PRODUCTION", "anchor": "APPLES", "copyMessageId": "ftue.messageSelectProduce", "copyDefaultMessage": "Select 5s and hit Produce", "delay": 2 }
+          ]
+        },
+        {
+          "stageId": "EXPAND",
+          "objective": "Build a grocery store",
+          "objectiveMessageId": "messageBuildAGroceryStore",
+          "track": true,
+          "hideProgressBar": true,
+          "trigger": "buildings[1] (grocery store) does not exist AND (building busy producing 35 apples, OR building idle AND apples >= 35 AND (seedsCollected OR evaluateSeen OR seeds > 0))",
+          "completionCondition": "buildings[1] exists (grocery store built). Dispatches Jin() to show construction slots.",
+          "hints": [
+            { "category": "CATEGORY_MAP", "anchor": "construction", "copyMessageId": "Objectives.clickHere", "copyDefaultMessage": "Click here", "delay": 2 },
+            { "category": "CATEGORY_NAVIGATION", "anchor": "map", "except": "landscape", "copyMessageId": "Objectives.goToTheMap", "copyDefaultMessage": "Go to the map", "delay": 0 },
+            { "category": "CATEGORY_NEW_BUILDING", "anchor": "GROCERY_STORE", "delay": 2, "copyMessageId": "Objectives.clickHere", "copyDefaultMessage": "Click here" }
+          ]
+        },
+        {
+          "stageId": "DONE",
+          "objective": "Create your company",
+          "objectiveMessageId": "ftue.createYourCompany",
+          "track": true,
+          "hideProgressBar": true,
+          "trigger": "buildings[1] (grocery store) exists",
+          "completionCondition": "Tutorial complete — directs user to register company at HQ",
+          "hints": [
+            { "category": "CATEGORY_MAP", "anchor": "headquarters", "copyMessageId": "Objectives.goToTheExchange", "copyDefaultMessage": "Go to the exchange" },
+            { "category": "CATEGORY_NAVIGATION", "anchor": "finances", "copyMessageId": "Objectives.goToTheExchange", "copyDefaultMessage": "Go to the exchange", "except": "always" },
+            { "category": "CATEGORY_NAVIGATION", "anchor": "headquarters", "copyMessageId": "Objectives.goToTheExchange", "copyDefaultMessage": "Go to the exchange", "except": "headquarters or signup routes" },
+            { "category": "CATEGORY_WAREHOUSE", "anchor": "headquarters" },
+            { "category": "CATEGORY_HEADQUARTERS", "anchor": "register", "copyMessageId": "Objectives.clickHere", "copyDefaultMessage": "Click here" },
+            { "category": "CATEGORY_HEADQUARTERS", "anchor": "accounting" }
+          ]
+        }
+      ]
+    }
+  },
+
+  "postTutorialSuggestions": [
+    {
+      "name": "RetailingGroceriesSuggestion",
+      "internalId": "wL",
+      "titleMessageId": "sSr",
+      "optional": true,
+      "trigger": "Has grocery store (kind='G') that is not busy AND has retail-able resources (3,4,5,7,8,9) OR money > 100",
+      "stages": [
+        {
+          "stageId": "BUYING",
+          "objectiveMessageId": "Objectives.retailingSuggestionStagesBuying",
+          "objectiveDefaultMessage": "Buy resources",
+          "hints": [
+            { "category": "CATEGORY_NAVIGATION", "anchor": "map" },
+            { "category": "CATEGORY_MAP", "anchor": "exchange" },
+            { "category": "CATEGORY_EXCHANGE", "anchor": [3,4,5,7,8,9], "overlay": "bQn" }
+          ]
+        },
+        {
+          "stageId": "RETAILING",
+          "objectiveMessageId": "Objectives.retailingSuggestionStagesRetailing",
+          "objectiveDefaultMessage": "Start retailing",
+          "track": true,
+          "hints": [
+            { "category": "CATEGORY_NAVIGATION", "anchor": "map" },
+            { "category": "CATEGORY_MAP", "anchor": "grocery store (not busy)" },
+            { "category": "CATEGORY_RETAIL", "anchor": "resource_available" }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "RetailingCarsSuggestion",
+      "internalId": "xL",
+      "titleMessageId": "dSr",
+      "optional": true,
+      "trigger": "Has car dealership not busy AND has car resources (ECONOMY_CAR, LUXURY_CAR, etc.) OR money > 5000",
+      "stages": [
+        {
+          "stageId": "BUYING",
+          "objectiveMessageId": "nQn",
+          "hints": [
+            { "category": "CATEGORY_NAVIGATION", "anchor": "map" },
+            { "category": "CATEGORY_MAP", "anchor": "exchange" },
+            { "category": "CATEGORY_EXCHANGE", "anchor": ["ECONOMY_CAR","LUXURY_CAR","ECONOMY_E_CAR","LUXURY_E_CAR","TRUCK"], "values": {"quantity": 1} }
+          ]
+        },
+        {
+          "stageId": "RETAILING",
+          "objectiveMessageId": "iQn",
+          "track": true,
+          "hints": [
+            { "category": "CATEGORY_NAVIGATION", "anchor": "map" },
+            { "category": "CATEGORY_MAP", "anchor": "car dealership (not busy)" },
+            { "category": "CATEGORY_RETAIL", "anchor": "resource_available" }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "ProductionSuggestion",
+      "internalId": "SL",
+      "titleMessageId": "lSr",
+      "descriptionDefaultMessage": "Make sure your farms are busy earning you money",
+      "optional": true,
+      "trigger": "Has farm kind='P' not busy; needs seeds and water, money > -9000",
+      "stages": [
+        {
+          "stageId": "BUYING_WATER",
+          "objectiveMessageId": "Objectives.productionSuggestionStagesBuyingWater",
+          "objectiveDefaultMessage": "Buy water",
+          "hints": [
+            { "category": "CATEGORY_NAVIGATION", "anchor": "map" },
+            { "category": "CATEGORY_MAP", "anchor": "exchange" },
+            { "category": "CATEGORY_EXCHANGE", "anchor": [2] }
+          ]
+        },
+        {
+          "stageId": "BUYING_SEEDS",
+          "objectiveMessageId": "Objectives.productionSuggestionStagesBuyingSeeds",
+          "objectiveDefaultMessage": "Buy seeds",
+          "hints": [
+            { "category": "CATEGORY_NAVIGATION", "anchor": "map" },
+            { "category": "CATEGORY_MAP", "anchor": "exchange" },
+            { "category": "CATEGORY_EXCHANGE", "anchor": [66] }
+          ]
+        },
+        {
+          "stageId": "PRODUCING",
+          "objectiveMessageId": "Objectives.productionSuggestionStagesProducing",
+          "objectiveDefaultMessage": "Start production",
+          "track": true,
+          "hints": [
+            { "category": "CATEGORY_NAVIGATION", "anchor": "map" },
+            { "category": "CATEGORY_MAP", "anchor": "farm (not busy)" },
+            { "category": "CATEGORY_PRODUCTION", "anchor": 4 }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "UpgradeFarmOrGrocerySuggestion",
+      "internalId": "EL",
+      "optional": true,
+      "trigger": "money > 9000; farms total size < grocery store total size → suggest new/upgrade farm; money > 15500 → suggest new/upgrade grocery"
+    },
+    {
+      "name": "CarDealershipUpgradeSuggestion",
+      "internalId": "CL",
+      "optional": true,
+      "trigger": "money > 23000; has free slots → new dealership; has size-1 dealership → upgrade"
+    },
+    {
+      "name": "AchievementsSuggestion",
+      "internalId": "T0",
+      "optional": true,
+      "trigger": "User visits achievements page; highlights achievements (Builder, Employer, RetailSeller, MarketSeller, MarketBuyer)"
+    },
+    {
+      "name": "ReferralSuggestion",
+      "internalId": "O0",
+      "optional": true,
+      "trigger": "User visits referrals page"
+    },
+    {
+      "name": "EncyclopediaSuggestion",
+      "internalId": "I0",
+      "optional": true,
+      "trigger": "User visits encyclopedia page for oranges (kind=4)",
+      "stage": {
+        "objectiveMessageId": "Objectives.inspectOranges",
+        "objectiveDefaultMessage": "Inspect oranges"
+      }
+    },
+    {
+      "name": "HelpChatSuggestion",
+      "internalId": "M0",
+      "optional": true,
+      "trigger": "User visits any help/chat channel",
+      "stage": {
+        "objectiveMessageId": "pQn",
+        "hints": [
+          { "category": "CATEGORY_NAVIGATION", "anchor": "messages" },
+          { "category": "CATEGORY_CHAT", "anchor": "help" }
+        ]
+      }
+    },
+    {
+      "name": "ExpandBusinessSuggestion",
+      "internalId": "Q1",
+      "optional": true,
+      "onboardingRedesignOnly": true,
+      "trigger": "Has free building slot AND money > 1000 + construction costs; builds farm/grocery/beverage in order: grocery→farm→beverage",
+      "stages": [
+        { "stageId": "BUILD_FARM", "objectiveMessageId": "Objectives.buildFarmStage", "objectiveDefaultMessage": "Build a new farm" },
+        { "stageId": "BUILD_GROCERY", "objectiveMessageId": "messageBuildANewGroceryStore", "objectiveDefaultMessage": "Build a new grocery store" },
+        { "stageId": "CHECKOUT_APPLE_CIDER", "objectiveMessageId": "Objectives.inspectAppleCider", "objectiveDefaultMessage": "Inspect apple cider" },
+        { "stageId": "BUILD_BEVERAGE", "objectiveMessageId": "messageBuildANewBeverageFactory", "objectiveDefaultMessage": "Build a new beverage factory" }
+      ]
+    },
+    {
+      "name": "SellOnExchangeSuggestion",
+      "internalId": "Kae",
+      "optional": true,
+      "onboardingRedesignOnly": true,
+      "trigger": "Has resources (apples, oranges, grapes, apple cider) worth selling on exchange; picks most valuable",
+      "stages": [
+        { "stageId": "SELL_APPLES", "objectiveMessageId": "ftue.sellApples", "objectiveDefaultMessage": "Sell apples" },
+        { "stageId": "SELL_ORANGES", "objectiveMessageId": "LWr" },
+        { "stageId": "SELL_GRAPES", "objectiveMessageId": "VWr" },
+        { "stageId": "SELL_APPLE_CIDER", "objectiveMessageId": "qWr" }
+      ]
+    },
+    {
+      "name": "CollectResourcesSuggestion",
+      "internalId": "AL",
+      "optional": true,
+      "onboardingRedesignOnly": true,
+      "trigger": "Any building has busy.canFetch === true",
+      "stage": {
+        "stageId": "COLLECT_RESOURCES",
+        "objectiveMessageId": "$Qn"
+      }
+    },
+    {
+      "name": "ClaimAchievementRewardSuggestion",
+      "internalId": "Xae",
+      "optional": true,
+      "onboardingRedesignOnly": true,
+      "trigger": "achievements array has entries (unclaimed rewards)",
+      "stage": {
+        "stageId": "CLAIM_ACHIEVEMENT_REWARD",
+        "objectiveMessageId": "VQn"
+      }
+    }
+  ],
+
+  "hints": {
+    "categories": {
+      "CATEGORY_NAVIGATION": "Navigation menu items",
+      "CATEGORY_ACHIEVEMENTS": "Achievements page",
+      "CATEGORY_REFERRALS": "Referrals page",
+      "CATEGORY_ENCYCLOPEDIA": "Encyclopedia page",
+      "CATEGORY_MAP": "Map (buildings, construction, exchange, headquarters, evaluate, achievements landmarks)",
+      "CATEGORY_PRODUCTION": "Production panel (resource production)",
+      "CATEGORY_RETAIL": "Retail panel (resource retailing)",
+      "CATEGORY_EXCHANGE": "Exchange panel (market trading)",
+      "CATEGORY_HEADQUARTERS": "Headquarters (register, accounting, overview)",
+      "CATEGORY_NEW_BUILDING": "New building construction menu",
+      "CATEGORY_BUILDING": "Building menu (upgrade hints)",
+      "CATEGORY_CHAT": "Chat (help channel)",
+      "CATEGORY_WAREHOUSE": "Warehouse page",
+      "CATEGORY_SELL": "Sell order panel"
+    },
+    "hintProperties": {
+      "category": "tt.CATEGORY_* enum — which area the hint targets",
+      "anchor": "string|number|array|function — identifies the target element: building index, resource kind, UI anchor name, or predicate function on building object",
+      "copy": "React-intl message object with id and defaultMessage",
+      "delay": "seconds before hint appears",
+      "overlay": "React component to show as modal overlay",
+      "except": "function(pathname) — routes where hint should NOT show",
+      "voiceOverId": "al.* key for tutorial voice-over audio",
+      "values": "object with template values (e.g. {quantity: 50})",
+      "track": "whether to send analytics tracking events"
+    },
+    "state": {
+      "file": "chunk_$Ke.js",
+      "reducer": "Yin (hints reducer)",
+      "shape": {
+        "hints": "object keyed by CATEGORY — each is an array of hint objects",
+        "encyclopediaAcknowledged": false,
+        "showConstructionSlots": false,
+        "dismissedHints": [],
+        "areHintsVisible": true,
+        "paDismissed": false
+      },
+      "actions": {
+        "dNt": "addHint(hint)",
+        "Kin": "removeHint(hintId)",
+        "Xin": "removeHints(hintIds)",
+        "Qin": "dismissAllHints",
+        "Jin": "showConstructionSlots — enables construction slots UI"
+      }
+    }
+  },
+
+  "voiceOvers": {
+    "audioPath": "audio/vo-tutorial/{voiceOverId}",
+    "system": {
+      "file": "chunk_Ee.js",
+      "class": "Ea (SoundManager)",
+      "methods": {
+        "playTutorialVoiceOver(voiceOverId, options)": "Plays a tutorial voice-over audio file",
+        "preloadTutorialVoiceOvers()": "Preloads all tutorial voice-overs",
+        "loadTutorialVoiceOver(voiceOverId)": "Loads audio from audio/vo-tutorial/{id} and caches in tutorialVoiceOvers Map",
+        "playingTutorialVoiceOver": "boolean flag set during playback"
+      },
+      "volume": 0.7,
+      "muteSupport": "tutorialVoiceOvers Map is muted/unmuted alongside sounds"
+    },
+    "ids": [
+      { "id": "AQuickTutorial", "trigger": "Classic tutorial RESEARCH stage — first hint overlay" },
+      { "id": "ProduceApples", "trigger": "Classic tutorial PRODUCING stage — open production panel" },
+      { "id": "SellTheApplesYouProduced", "trigger": "Classic tutorial RETAILING stage — open retail panel" },
+      { "id": "YourHqIsWhere", "trigger": "Classic tutorial DONE stage — HQ overview overlay" },
+      { "id": "CongratulationsYouFinishedTheTutorial", "trigger": "When tutorial complete overlay closes (chunk_S1.js)" },
+      { "id": "GoToTheMap", "trigger": "Menu-map hint active, not on map, delay 50ms (chunk_AHn.js)" },
+      { "id": "WellDoneYouAreProducingApples", "trigger": "After starting apple production with tutorial hint active (chunk_Fci.js)" },
+      { "id": "NiceYouAreSellingApplesInRetail", "trigger": "After starting apple retail with tutorial hint active (chunk_Fci.js)" },
+      { "id": "CreateACompanyName", "trigger": "On company creation form mount (chunk_POi.js)" },
+      { "id": "FindTheFarmOnYourMap", "trigger": "Map hint anchor === 0 changes (chunk_zTr.js)" },
+      { "id": "FindTheGroceryStoreOnYourMap", "trigger": "Map hint anchor === 1 changes (chunk_zTr.js)" },
+      { "id": "FindTheHQOnYourMap", "trigger": "Map hint anchor === 'headquarters' changes (chunk_zTr.js)" },
+      { "id": "FindTheAccountingTab", "trigger": "When HQ overlay closes (chunk_edi.js)" },
+      { "id": "OpenTheHamburgerMenu", "trigger": "When inactive AND hint for encyclopedia exists (chunk_i$n.js)" },
+      { "id": "GoToTheEncyclopedia", "trigger": "When active AND encyclopedia hint exists (chunk_i$n.js)" },
+      { "id": "BuyWaterFromTheExchange", "trigger": "Exchange hint anchor includes WATER (chunk_t$i.js)" },
+      { "id": "BuySeedsFromTheExchange", "trigger": "Exchange hint anchor includes SEEDS (chunk_t$i.js)" },
+      { "id": "ApplesAreProducedOnTheFarm", "trigger": "Encyclopedia page for APPLES with hint active (chunk_zAn.js)" },
+      { "id": "GoToTheExchange", "trigger": "Encyclopedia acknowledged AND map hint anchor='exchange' (chunk_zAn.js)" }
+    ]
+  },
+
+  "tutorialAchievements": {
+    "note": "Achievements are loaded from server API (YRt → /api/v2/achievements). The achievement with id='tutorial' exists and is rendered specially (with glow effect in chunk_dKn.js RKn component).",
+    "knownAchievementIds": [
+      { "id": "tutorial", "note": "Awarded when tutorial completes; rendered with special glow effect (o = achievement.id === 'tutorial')" },
+      { "id": "Builder", "note": "Highlighted in AchievementsSuggestion" },
+      { "id": "Employer", "note": "Highlighted in AchievementsSuggestion" },
+      { "id": "RetailSeller", "note": "Highlighted in AchievementsSuggestion" },
+      { "id": "MarketSeller", "note": "Highlighted in AchievementsSuggestion" },
+      { "id": "MarketBuyer", "note": "Highlighted in AchievementsSuggestion" }
+    ],
+    "collectAction": "POST to oJr (collect endpoint) with achievement.id → dispatches IZe (REMOVE_ACHIEVEMENT)",
+    "bonusActions": "POST to sJr with achievement.id and bonus type ('production' or 'sales') — dispatches a5r/s5r for bonus counters"
+  },
+
+  "tutorialRelatedURLs": {
+    "end_tutorial": "/start_playing/",
+    "start_tutorial": "/tutorial/",
+    "start_tutorial_realm": "/tutorial/{realmId}/",
+    "start_in_tutorial_direct": "/start-in-tutorial/{realmId}/",
+    "tutorial_finished": "/tutorial-finished/",
+    "sourceFile": "chunk_Mor_2.js (routes definition)"
+  },
+
+  "onboardingRedesignFeatureFlag": {
+    "id": "onboardingRedesign",
+    "name": "Onboarding redesign",
+    "visibility": "PublicHidden",
+    "file": "chunk_Isr.js",
+    "effect": "When active, replaces classic tutorial with FTUE system; shows post-tutorial suggestions; changes production time display to 5s; disables +/- amount buttons"
+  },
+
+  "analytics": {
+    "stageTracking": "su('New tutorial', {stage: d}) — event: 'custom_event', event_name: 'tutorial.{stageId}'"
+  }
+}

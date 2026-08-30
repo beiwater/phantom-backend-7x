@@ -1,0 +1,217 @@
+{
+  "meta": {
+    "source": "Decompiled Sim Companies JS (2026-05-28)",
+    "files": ["chunk_Eta.js", "chunk_EYn_2.js", "chunk_Eoe.js", "chunk_DKn_2.js", "chunk_HSr.js", "chunk_FOr.js", "chunk_ovi.js", "chunk_jNn.js", "chunk_tH.js", "chunk_lg_2.js", "entry.js"],
+    "description": "Complete SimBoost system — premium currency, spending actions, production/sales speed bonus, resource production events, recreation bonus, and acceleration."
+  },
+
+  "simBoostCurrency": {
+    "name": "SimBoosts",
+    "symbol": "SB",
+    "description": "Premium currency purchased with real money. Used to speed up or unlock various game actions.",
+    "acquisition": [
+      "Purchase packages with real money",
+      "Achievements reward",
+      "Referral rewards (when referred company makes SB purchase)",
+      "Daily reward track",
+      "Selling collectibles on exchange",
+      "Redeem bonus codes",
+      "Newspaper rewards",
+      "Veteran rewards",
+      "Course giveaways",
+      "Twitter contests",
+      "SimBoosts gifts from other players"
+    ],
+    "exchange": {
+      "description": "SimBoosts can be exchanged for cash",
+      "dailyLimit": "Based on realm phase: 2,000/day (phase 1), 4,000/day (phase 2), 6,000/day (phase 3), ... max 10,000/day",
+      "limitResets": "Daily"
+    }
+  },
+
+  "simBoostSpendingActions": {
+    "description": "All actions that consume SimBoosts, identified by single-character codes used in analytics and transaction history.",
+    "actions": {
+      "a": { "id": "SimboostsSpendActions.a", "name": "Newspaper Ads", "description": "Purchase or renew advertising slots in the in-game newspaper" },
+      "b": { "id": "SimboostsSpendActions.b", "name": "Building Slot Unlock", "description": "Unlock an additional building slot beyond the default limit" },
+      "c": { "id": "SimboostsSpendActions.c", "name": "Construction Speedup", "description": "Rush/instantly complete a building construction or upgrade" },
+      "d": { "id": "SimboostsSpendActions.d", "name": "Display Case Unlock", "description": "Unlock an additional display case slot on your profile" },
+      "e": { "id": "SimboostsSpendActions.e", "name": "Executive Unlock", "description": "Unlock an additional executive slot" },
+      "f": { "id": "SimboostsSpendActions.f", "name": "Simboosts Realm Transfer", "description": "Transfer SimBoosts to another game realm/server" },
+      "g": { "id": "SimboostsSpendActions.g", "name": "Tag Unlock", "description": "Unlock an additional company tag slot (cost: 200 SB)" },
+      "h": { "id": "SimboostsSpendActions.h", "name": "Executive Hiring", "description": "Rush/speed up the executive hiring/search process" },
+      "i": { "id": "SimboostsSpendActions.i", "name": "Building Auction Slot Unlock", "description": "Unlock a slot to participate in building auctions" },
+      "j": { "id": "SimboostsSpendActions.j", "name": "Building Placement Speedup", "description": "Speed up building placement/movement on the map" },
+      "k": { "id": "SimboostsSpendActions.k", "name": "Recreation Building Upkeep", "description": "Pay for automatic upkeep of recreation buildings. Costs: [15, 25, 40] SB for 1st/2nd/3rd order" },
+      "l": { "id": "SimboostsSpendActions.l", "name": "Building Auctions Promote", "description": "Promote/feature your building auction listing" },
+      "m": { "id": "messageNewspaperReward", "name": "Newspaper Reward", "description": "Sponsor a newspaper reward slot" },
+      "n": { "id": "Navigation.redeemCode", "name": "Redeem Code", "description": "Redeem a bonus/promo code (can give SimBoosts, cash, or resources)" },
+      "o": { "id": "SimboostsSpendActions.o", "name": "Restaurant Reconstruction Speedup", "description": "Rush the reconstruction/remodel of a restaurant building" },
+      "p": { "id": "messageDailyRewardTrack", "name": "Daily Reward Track", "description": "Advance or unlock the daily reward track for SimBoost rewards" },
+      "q": { "id": "SimboostsSpendActions.q", "name": "HQ Building Unlock", "description": "Unlock additional HQ (Headquarters) buildings or skins" },
+      "r": { "id": "SimboostsSpendActions.r", "name": "Executive Strike", "description": "Apply a strike action against an executive" },
+      "s": { "id": "SimboostsSpendActions.s", "name": "Executive Settling", "description": "Rush/speed up executive settling time" },
+      "t": { "id": "SimboostsSpendActions.t", "name": "Executive Training", "description": "Rush/speed up executive training" },
+      "u": { "id": "SimboostsSpendActions.u", "name": "Production or Sale Bonus Realign", "description": "Realign the production/sales speed bonus slider. Cost: 75 SB (from positive) or 100 SB (from negative) per percentage point moved" },
+      "v": { "id": "SimboostsSpendActions.v", "name": "Company Name Change", "description": "Change your company name" },
+      "w": { "id": "SimboostsSpendActions.w", "name": "Twitter Contest", "description": "SimBoosts rewarded from Twitter/social contests" },
+      "x": { "id": "SimboostsSpendActions.x", "name": "Exchange for Cash", "description": "Exchange SimBoosts for in-game cash money" },
+      "y": { "id": "SimboostsSpendActions.y", "name": "Similar Auctions Research", "description": "Research similar building auctions for comparison" },
+      "z": { "id": "SimboostsSpendActions.z", "name": "Robots Installation Speedup", "description": "Rush the installation of robots on a building" },
+      "1": { "id": "SimboostsSpendActions.1", "name": "NFT Ads", "description": "Purchase NFT advertising (legacy, removed)" },
+      "2": { "id": "SimboostsSpendActions.2", "name": "Adjustment By Admin", "description": "SimBoost balance adjustment by game administrators" },
+      "3": { "id": "SimboostsSpendActions.3", "name": "Achievement", "description": "SimBoosts rewarded for completing achievements" },
+      "4": { "id": "SimboostsSpendActions.4", "name": "Course Giveaway", "description": "SimBoosts received from course promotions/giveaways" },
+      "5": { "id": "SimboostsSpendActions.5", "name": "Purchase", "description": "SimBoosts acquired through real-money purchase packages" },
+      "6": { "id": "SimboostsSpendActions.6", "name": "Sale Compensation", "description": "Compensation SimBoosts from sales/promotions" },
+      "7": { "id": "SimboostsSpendActions.7", "name": "Simboosts Gift", "description": "SimBoosts received as a gift from another player" },
+      "8": { "id": "SimboostsSpendActions.8", "name": "Collectibles Trading", "description": "SimBoosts from buying/selling collectibles on the exchange" },
+      "9": { "id": "SimboostsSpendActions.9", "name": "Veteran Reward", "description": "SimBoosts rewarded for account age/veteran status" },
+      "0": { "id": "SimboostsSpendActions.0", "name": "Payment Reversal", "description": "SimBoosts deducted due to payment refund/reversal" },
+      "A": { "id": "SimboostsSpendActions.aa", "name": "Gift Basket", "description": "Send a gift basket to another company" },
+      "B": { "id": "SimboostsSpendActions.welcomeBackBonus", "name": "Welcome Back Bonus", "description": "SimBoosts bonus for returning players" },
+      "C": { "id": "SimboostsSpendActions.paUnlock", "name": "Personal Assistant Unlock", "description": "Unlock the Personal Assistant feature" },
+      "D": { "id": "SimboostsSpendActions.potentialCandidateResearch", "name": "Potential Candidate Research", "description": "Research potential executive candidates" },
+      "E": { "id": "SimboostsSpendActions.poacherResearch", "name": "Poacher Research", "description": "Research executive poaching targets" },
+      "F": { "id": "SimboostsSpendActions.marketFee", "name": "Market Fee", "description": "Market/exchange transaction fee paid in SimBoosts" }
+    }
+  },
+
+  "productionSalesSpeedBonus": {
+    "name": "Production / Sales Speed Bonus",
+    "description": "A persistent bonus system where points can be allocated between production speed and sales speed. Earned every 5 company levels.",
+    "acquisition": "Earned every 5th company level (level 5, 10, 15, 20, ... up to level 60)",
+    "bonusPerLevel": 3,
+    "maxBase": "3% per 5 levels. e.g. at level 15: +9% total bonus points to distribute",
+    "mechanics": {
+      "productionModifier": {
+        "name": "Production Speed Bonus",
+        "description": "Increases production speed. Reduces production time.",
+        "range": "Slider position. Minimum -3%. Maximum = initial bonus + 3% (from sales side).",
+        "formula": "effectiveTime = baseTime * (1 - (productionModifier + recreationBonus) / 100)",
+        "effect": "Each +1% reduces production time by ~1% (applied as multiplier: 1 / (1 - modifier/100))"
+      },
+      "salesModifier": {
+        "name": "Sales Speed Bonus",
+        "description": "Increases sales speed. More units sold per hour.",
+        "range": "Slider position. Minimum -3%. Maximum = initial bonus + 3% (from production side).",
+        "formula": "effectiveUnitsSold = baseUnitsSold * (1 + (salesModifier + recreationBonus) / 100)",
+        "effect": "Each +1% increases sales speed by 1%."
+      },
+      "totalRange": "Total productionModifier + salesModifier = fixed pool. The sum is constant; slider transfers points between them.",
+      "realign": {
+        "description": "Move points between production and sales speed bonus using the slider in Headquarters > SimBoosts.",
+        "costPerPointPositive": 75,
+        "costPerPointNegative": 100,
+        "note": "Cost was halved from 150/200 to 75/100 in a 2024 update.",
+        "apiEndpoint": "POST /api/v2/companies/me/bonus/",
+        "payload": { "production": "integer (negative = move to production, positive = move to sales)" }
+      }
+    }
+  },
+
+  "resourceProductionModifiers": {
+    "name": "Resource Production Modifiers (Events)",
+    "description": "Temporary buffs or debuffs affecting production speed of specific resources. Also known as 'market events' or 'production events'.",
+    "source": "Server-driven events fetched from API. Shown on Encyclopedia > Events page.",
+    "apiEndpoint": "GET /api/v3/encyclopedia/events/{realmId}",
+    "dataStructure": {
+      "kind": "Resource type identifier (dbLetter, e.g. 'ORANGES', 'SEEDS', 'APPLES')",
+      "speedModifier": "Integer percentage (positive = boost, negative = penalty)",
+      "since": "ISO datetime when the modifier starts",
+      "until": "ISO datetime when the modifier ends"
+    },
+    "duration": "Variable — defined by server. Events have a 'since' and 'until' date. Typically days to weeks.",
+    "stacking": {
+      "rule": "ONE modifier per resource at a time. A new event for the same resource replaces the existing one.",
+      "description": "The system finds the modifier whose time range contains the current time. There is at most one active modifier per resource kind."
+    },
+    "formula": {
+      "productionPerHour": "producedPerHourRaw * ((speedModifier / 100) + 1) * (AVERAGE_SALARY / SALARY_MID[economyState]) ** salaryModifier",
+      "description": "speedModifier is applied as a multiplier: e.g. +50% speedModifier means 1.5x base production. -30% means 0.7x base production.",
+      "code": "anHour = i.producedPerHourRaw * ((o?.speedModifier ?? 0) / 100 + 1) * (Ji.AVERAGE_SALARY / Ji.SALARY_MID[e]) ** t.salaryModifier"
+    },
+    "display": {
+      "positiveColor": "DarkLemonLime (green)",
+      "negativeColor": "OrangePeel (orange)",
+      "icons": "chartMixedUpCircleDollar (positive), chartLineDown (negative)"
+    },
+    "limits": "No cooldowns. Events are server-scheduled and apply automatically. Players cannot control them."
+  },
+
+  "recreationBonus": {
+    "name": "Recreation Bonus",
+    "description": "Additional production and sales speed bonus from active recreation buildings.",
+    "calculation": "Sum of sizes (levels) of all recreation buildings that are currently being upkept (busy with upkeep).",
+    "formula": "recreationBonus = sum of size for each recreation building where: building.category === RECREATION && building.busy && building.busy.upkeep && !building.position.startsWith('Fp') (not in reposition queue)",
+    "effect": {
+      "production": "Added to productionModifier: effectiveProductionModifier = productionModifier + recreationBonus",
+      "sales": "Added to salesModifier: effectiveSalesModifier = salesModifier + recreationBonus",
+      "executiveSalaryImpact": "The combined (salesModifier + recreationBonus) affects executive salary cost: costPerPercent = |salesModifier + recreationBonus| * 0.02"
+    },
+    "upkeep": {
+      "description": "Recreation buildings can be set to auto-upkeep. Each upkeep order costs SimBoosts.",
+      "costs": [15, 25, 40],
+      "note": "gO = [15, 25, 40] — costs for 1st, 2nd, 3rd recreation building upkeep order respectively."
+    }
+  },
+
+  "acceleration": {
+    "name": "Acceleration",
+    "description": "A speed multiplier applied to all production and sales operations, based on company level.",
+    "source": "Company level. Stored in user.levelInfo.acceleration.multiplier.",
+    "formula": {
+      "productionTime": "effectiveSeconds = baseSeconds / acceleration.multiplier",
+      "description": "Acceleration divides the final production/sales time. e.g. acceleration 2.0 means everything runs 2x faster."
+    },
+    "note": "This is NOT a SimBoost feature but part of the overall game speed system. Included for completeness."
+  },
+
+  "completeProductionFormula": {
+    "description": "Full production time calculation combining all modifiers",
+    "steps": [
+      {
+        "step": 1,
+        "name": "Base hourly rate",
+        "formula": "anHour = producedPerHourRaw * (1 + speedModifier/100) * salaryMultiplier",
+        "source": "Resource base rate × event modifier × economy salary modifier"
+      },
+      {
+        "step": 2,
+        "name": "Production time (hours)",
+        "formula": "hours = quantity / anHour",
+        "source": "Required quantity divided by units per hour"
+      },
+      {
+        "step": 3,
+        "name": "Apply production speed bonus",
+        "formula": "hours = hours * (1 - (productionModifier + recreationBonus) / 100)",
+        "source": "Reduce time by production bonus percentage"
+      },
+      {
+        "step": 4,
+        "name": "Apply acceleration",
+        "formula": "seconds = hours * 3600 / acceleration",
+        "source": "Speed up by level-based acceleration multiplier"
+      }
+    ]
+  },
+
+  "completeSalesFormula": {
+    "description": "Sales speed calculation combining all modifiers",
+    "steps": [
+      {
+        "step": 1,
+        "name": "Base units sold per hour",
+        "formula": "baseUnitsPerHour = modeledUnitsSoldAnHour from economy state",
+        "source": "Market demand based on economy state and resource"
+      },
+      {
+        "step": 2,
+        "name": "Apply sales speed bonus",
+        "formula": "effectiveUnitsPerHour = baseUnitsPerHour * (1 + (salesModifier + recreationBonus + floor(skillCMO/3)) / 100)",
+        "source": "Increase sales rate by combined sales bonus and CMO executive skill"
+      }
+    ]
+  }
+}

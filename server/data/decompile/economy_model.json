@@ -1,0 +1,3257 @@
+{
+  "states": {
+    "0": "Recession — Production costs are lower, but retail selling prices are also lower",
+    "1": "Normal — Balanced economy with standard production costs and selling prices",
+    "2": "Boom — Production costs are higher, but you can retail at higher prices"
+  },
+  "models": {
+    "1": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.00035971238877671166,
+        "modeledProductionCostPerUnit": 0.14892092895355866,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.0003895681864071938,
+        "modeledProductionCostPerUnit": 0.1612812291725782,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.00041981056397398167,
+        "modeledProductionCostPerUnit": 0.1738015734852284,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "2": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.0006472608791607003,
+        "modeledProductionCostPerUnit": 0.22826903427556022,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.0006927577303864013,
+        "modeledProductionCostPerUnit": 0.24437745795572777,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.0007383318975993639,
+        "modeledProductionCostPerUnit": 0.2605178904546215,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "3": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.007956656285975621,
+        "modeledProductionCostPerUnit": 1.3234742787740026,
+        "modeledStoreWages": 151.8,
+        "modeledUnitsSoldAnHour": 110
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.008217493995122272,
+        "modeledProductionCostPerUnit": 1.3858094303634345,
+        "modeledStoreWages": 151.8,
+        "modeledUnitsSoldAnHour": 110
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.008473295191580672,
+        "modeledProductionCostPerUnit": 1.44769772339317,
+        "modeledStoreWages": 151.8,
+        "modeledUnitsSoldAnHour": 110
+      }
+    },
+    "4": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.008378244840992382,
+        "modeledProductionCostPerUnit": 1.3671086942182373,
+        "modeledStoreWages": 151.8,
+        "modeledUnitsSoldAnHour": 90
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.008647570615670862,
+        "modeledProductionCostPerUnit": 1.4303223605902136,
+        "modeledStoreWages": 151.8,
+        "modeledUnitsSoldAnHour": 90
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.00891148604117326,
+        "modeledProductionCostPerUnit": 1.4930504763260029,
+        "modeledStoreWages": 151.8,
+        "modeledUnitsSoldAnHour": 90
+      }
+    },
+    "5": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.009815984260809504,
+        "modeledProductionCostPerUnit": 1.6771922574517373,
+        "modeledStoreWages": 151.8,
+        "modeledUnitsSoldAnHour": 80
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.010146722009585872,
+        "modeledProductionCostPerUnit": 1.7581615627211524,
+        "modeledStoreWages": 151.8,
+        "modeledUnitsSoldAnHour": 80
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.010471425781758723,
+        "modeledProductionCostPerUnit": 1.8386047785296857,
+        "modeledStoreWages": 151.8,
+        "modeledUnitsSoldAnHour": 80
+      }
+    },
+    "6": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.0027023028010543172,
+        "modeledProductionCostPerUnit": 0.37645485987857846,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.002776188816924674,
+        "modeledProductionCostPerUnit": 0.3909417622681449,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.0028480693698462022,
+        "modeledProductionCostPerUnit": 0.4052355032109343,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "7": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.093871423707193,
+        "modeledProductionCostPerUnit": 24.42435003892025,
+        "modeledStoreWages": 151.8,
+        "modeledUnitsSoldAnHour": 35
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.09873545210512771,
+        "modeledProductionCostPerUnit": 26.107063782608222,
+        "modeledStoreWages": 151.8,
+        "modeledUnitsSoldAnHour": 35
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.10360149011498175,
+        "modeledProductionCostPerUnit": 27.80284566441405,
+        "modeledStoreWages": 151.8,
+        "modeledUnitsSoldAnHour": 35
+      }
+    },
+    "8": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.021782310884529647,
+        "modeledProductionCostPerUnit": 6.560739232246618,
+        "modeledStoreWages": 151.8,
+        "modeledUnitsSoldAnHour": 110
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.02309206140870684,
+        "modeledProductionCostPerUnit": 7.046581956294532,
+        "modeledStoreWages": 151.8,
+        "modeledUnitsSoldAnHour": 110
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.024408383699800515,
+        "modeledProductionCostPerUnit": 7.537239875561723,
+        "modeledStoreWages": 151.8,
+        "modeledUnitsSoldAnHour": 110
+      }
+    },
+    "9": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.004686999747628333,
+        "modeledProductionCostPerUnit": 0.7041533150198044,
+        "modeledStoreWages": 151.8,
+        "modeledUnitsSoldAnHour": 340
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.004825017092868805,
+        "modeledProductionCostPerUnit": 0.7292769680471267,
+        "modeledStoreWages": 151.8,
+        "modeledUnitsSoldAnHour": 340
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.004958924107641794,
+        "modeledProductionCostPerUnit": 0.7538837273750104,
+        "modeledStoreWages": 151.8,
+        "modeledUnitsSoldAnHour": 340
+      }
+    },
+    "10": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.031939943947957385,
+        "modeledProductionCostPerUnit": 15.598165187108206,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.035091282876724146,
+        "modeledProductionCostPerUnit": 17.151731206376134,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.038330885132251816,
+        "modeledProductionCostPerUnit": 18.74997322165764,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "11": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.05480224882248012,
+        "modeledProductionCostPerUnit": 22.019145846634075,
+        "modeledStoreWages": 379.5,
+        "modeledUnitsSoldAnHour": 103
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.05923092127223874,
+        "modeledProductionCostPerUnit": 24.00011652274248,
+        "modeledStoreWages": 379.5,
+        "modeledUnitsSoldAnHour": 103
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.06374553595360781,
+        "modeledProductionCostPerUnit": 26.026618391472763,
+        "modeledStoreWages": 379.5,
+        "modeledUnitsSoldAnHour": 103
+      }
+    },
+    "12": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.05453842856592886,
+        "modeledProductionCostPerUnit": 21.891720662719823,
+        "modeledStoreWages": 379.5,
+        "modeledUnitsSoldAnHour": 105
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.05894138193606232,
+        "modeledProductionCostPerUnit": 23.86026902336927,
+        "modeledStoreWages": 379.5,
+        "modeledUnitsSoldAnHour": 105
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.06342960723923502,
+        "modeledProductionCostPerUnit": 25.874024822430698,
+        "modeledStoreWages": 379.5,
+        "modeledUnitsSoldAnHour": 105
+      }
+    },
+    "13": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.0005730652373388453,
+        "modeledProductionCostPerUnit": 0.20309675148108994,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.0006136673297947944,
+        "modeledProductionCostPerUnit": 0.21874175863532477,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.0006545823695340638,
+        "modeledProductionCostPerUnit": 0.23457798854728104,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "14": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.016392875165325393,
+        "modeledProductionCostPerUnit": 5.56686477028074,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.01750234326356938,
+        "modeledProductionCostPerUnit": 5.959031259598084,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.018613651775828247,
+        "modeledProductionCostPerUnit": 6.352783333413982,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "15": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.015923056630880176,
+        "modeledProductionCostPerUnit": 5.1145404810531385,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.01694048982229516,
+        "modeledProductionCostPerUnit": 5.4548090892767025,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.017956000937008033,
+        "modeledProductionCostPerUnit": 5.795299411570548,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "16": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.00994982277483476,
+        "modeledProductionCostPerUnit": 3.920971747599134,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.01073484167488349,
+        "modeledProductionCostPerUnit": 4.235145999073738,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.011528006925307442,
+        "modeledProductionCostPerUnit": 4.552831213323878,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "17": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.020781366308401276,
+        "modeledProductionCostPerUnit": 7.383700103514156,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.02225507513773714,
+        "modeledProductionCostPerUnit": 7.926662255503538,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.02373534065631082,
+        "modeledProductionCostPerUnit": 8.47316252993377,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "18": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.029026865079174673,
+        "modeledProductionCostPerUnit": 10.53951717864706,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.031131902327128647,
+        "modeledProductionCostPerUnit": 11.330053866277764,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.03324910005320308,
+        "modeledProductionCostPerUnit": 12.126642445675298,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "19": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.012647511435159827,
+        "modeledProductionCostPerUnit": 6.018881701103188,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.013861944464545807,
+        "modeledProductionCostPerUnit": 6.601446467448817,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.015107297198442237,
+        "modeledProductionCostPerUnit": 7.199221042832577,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "20": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.16179322207042274,
+        "modeledProductionCostPerUnit": 61.47775538339865,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.17408164523862016,
+        "modeledProductionCostPerUnit": 66.18993994261048,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.1864587389271114,
+        "modeledProductionCostPerUnit": 70.9385025143814,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "21": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.07312251566905718,
+        "modeledProductionCostPerUnit": 27.68220829953111,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.07865675647379852,
+        "modeledProductionCostPerUnit": 29.814921072905186,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.08423299933658221,
+        "modeledProductionCostPerUnit": 31.96588175460587,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "22": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.11993003420185322,
+        "modeledProductionCostPerUnit": 43.502134337506796,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.12861564724234822,
+        "modeledProductionCostPerUnit": 46.73308309140033,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.13734549737781446,
+        "modeledProductionCostPerUnit": 49.985019258335846,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "23": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.16179245472568812,
+        "modeledProductionCostPerUnit": 60.11399294904886,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.1738051384686086,
+        "modeledProductionCostPerUnit": 64.6888629290434,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.1858989317002293,
+        "modeledProductionCostPerUnit": 69.30081050954078,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "24": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.8174552306259395,
+        "modeledProductionCostPerUnit": 306.0610153417686,
+        "modeledStoreWages": 189.75,
+        "modeledUnitsSoldAnHour": 2
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.8786144000373325,
+        "modeledProductionCostPerUnit": 329.33500966377494,
+        "modeledStoreWages": 189.75,
+        "modeledUnitsSoldAnHour": 2
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.9401822028309115,
+        "modeledProductionCostPerUnit": 352.7852135475178,
+        "modeledStoreWages": 189.75,
+        "modeledUnitsSoldAnHour": 2
+      }
+    },
+    "25": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 1.0082745504308024,
+        "modeledProductionCostPerUnit": 376.7145254694643,
+        "modeledStoreWages": 189.75,
+        "modeledUnitsSoldAnHour": 0.8
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 1.0835514408330698,
+        "modeledProductionCostPerUnit": 405.3539264590962,
+        "modeledStoreWages": 189.75,
+        "modeledUnitsSoldAnHour": 0.8
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 1.159330234584344,
+        "modeledProductionCostPerUnit": 434.2126665027337,
+        "modeledStoreWages": 189.75,
+        "modeledUnitsSoldAnHour": 0.8
+      }
+    },
+    "26": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 1.5691405121121074,
+        "modeledProductionCostPerUnit": 592.6567143980969,
+        "modeledStoreWages": 189.75,
+        "modeledUnitsSoldAnHour": 1.2
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 1.6876114585927768,
+        "modeledProductionCostPerUnit": 638.1754481232036,
+        "modeledStoreWages": 189.75,
+        "modeledUnitsSoldAnHour": 1.2
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 1.806956074039177,
+        "modeledProductionCostPerUnit": 684.0749931167466,
+        "modeledStoreWages": 189.75,
+        "modeledUnitsSoldAnHour": 1.2
+      }
+    },
+    "27": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.7201712121519996,
+        "modeledProductionCostPerUnit": 272.96812469426237,
+        "modeledStoreWages": 189.75,
+        "modeledUnitsSoldAnHour": 2
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.774758363447735,
+        "modeledProductionCostPerUnit": 294.1621171806931,
+        "modeledStoreWages": 189.75,
+        "modeledUnitsSoldAnHour": 2
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.8297903706539643,
+        "modeledProductionCostPerUnit": 315.558865731908,
+        "modeledStoreWages": 189.75,
+        "modeledUnitsSoldAnHour": 2
+      }
+    },
+    "28": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 1.2225264120610222,
+        "modeledProductionCostPerUnit": 464.7056364772277,
+        "modeledStoreWages": 189.75,
+        "modeledUnitsSoldAnHour": 1.8
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 1.3154602064174634,
+        "modeledProductionCostPerUnit": 500.8252761109699,
+        "modeledStoreWages": 189.75,
+        "modeledUnitsSoldAnHour": 1.8
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 1.4091580179634662,
+        "modeledProductionCostPerUnit": 537.2893854315035,
+        "modeledStoreWages": 189.75,
+        "modeledUnitsSoldAnHour": 1.8
+      }
+    },
+    "29": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.19176423856665117,
+        "modeledProductionCostPerUnit": 86.00626099714304,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.20906502387778717,
+        "modeledProductionCostPerUnit": 93.76566320918754,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.22670290482394245,
+        "modeledProductionCostPerUnit": 101.67625281353818,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "30": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.2703491840801648,
+        "modeledProductionCostPerUnit": 158.55979646301665,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.30267846389621533,
+        "modeledProductionCostPerUnit": 177.52091907513025,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.33649647329352683,
+        "modeledProductionCostPerUnit": 197.3551815866535,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "31": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.2973841024881812,
+        "modeledProductionCostPerUnit": 174.4157761093183,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.33294631028583677,
+        "modeledProductionCostPerUnit": 195.27301098264326,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.37014612062287944,
+        "modeledProductionCostPerUnit": 217.0906997453188,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "32": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.3717301281102266,
+        "modeledProductionCostPerUnit": 218.0197201366479,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.416182887857296,
+        "modeledProductionCostPerUnit": 244.0912637283041,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.4626826507785994,
+        "modeledProductionCostPerUnit": 271.3633746816485,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "33": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.23980825918447443,
+        "modeledProductionCostPerUnit": 99.28061930237241,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.2597121242714625,
+        "modeledProductionCostPerUnit": 107.52081944838548,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.27987370931598776,
+        "modeledProductionCostPerUnit": 115.86771565681893,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "34": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.19620675751457,
+        "modeledProductionCostPerUnit": 81.22959761103198,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.21249173804028748,
+        "modeledProductionCostPerUnit": 87.97157954867903,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.22898758034944452,
+        "modeledProductionCostPerUnit": 94.80085826467004,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "35": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.15651794867799013,
+        "modeledProductionCostPerUnit": 91.7977768996412,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.17523490015044044,
+        "modeledProductionCostPerUnit": 102.77526893823331,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.19481374769625234,
+        "modeledProductionCostPerUnit": 114.258263023852,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "40": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.005601575818940184,
+        "modeledProductionCostPerUnit": 0.7571683838709796,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.005750067035781922,
+        "modeledProductionCostPerUnit": 0.7850766743502376,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.005894307540375595,
+        "modeledProductionCostPerUnit": 0.81257142338727,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "41": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.015601353020668004,
+        "modeledProductionCostPerUnit": 2.2205691778690246,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.016036965472801666,
+        "modeledProductionCostPerUnit": 2.3037569015196806,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.016460343765803787,
+        "modeledProductionCostPerUnit": 2.3857091209686176,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "42": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.008453451433618569,
+        "modeledProductionCostPerUnit": 2.7054472790506323,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.008991564229600466,
+        "modeledProductionCostPerUnit": 2.8845827576236185,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.009528504914546748,
+        "modeledProductionCostPerUnit": 3.0637735045723677,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "43": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.017126315192031748,
+        "modeledProductionCostPerUnit": 6.17403432021729,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.018359155160839396,
+        "modeledProductionCostPerUnit": 6.634071518004573,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.019598565986367496,
+        "modeledProductionCostPerUnit": 7.097451938128264,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "44": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.001437739564446382,
+        "modeledProductionCostPerUnit": 0.49609673908957386,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.0015366670044376723,
+        "modeledProductionCostPerUnit": 0.5316409126731829,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.0016358662502429005,
+        "modeledProductionCostPerUnit": 0.5673668007238595,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "45": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.01786349532792241,
+        "modeledProductionCostPerUnit": 7.197232184577424,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.019305341775841752,
+        "modeledProductionCostPerUnit": 7.783333040870458,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.02076383933273504,
+        "modeledProductionCostPerUnit": 8.376465829998903,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "46": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.09020809678160922,
+        "modeledProductionCostPerUnit": 13.99074899295244,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.09295673918305337,
+        "modeledProductionCostPerUnit": 14.557519454523423,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.09563577868621252,
+        "modeledProductionCostPerUnit": 15.116805921562005,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "47": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.6104290342564718,
+        "modeledProductionCostPerUnit": 231.60891452504933,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.6567250288328685,
+        "modeledProductionCostPerUnit": 249.37310556447778,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.7033573895770164,
+        "modeledProductionCostPerUnit": 267.2773270466818,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "48": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.28244504250558594,
+        "modeledProductionCostPerUnit": 113.29493477503979,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.30517556532849976,
+        "modeledProductionCostPerUnit": 122.88732430327396,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.3282385827480974,
+        "modeledProductionCostPerUnit": 132.66121230752154,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "49": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 1.5258723596765205,
+        "modeledProductionCostPerUnit": 472.3582396556638,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 1.620053937111845,
+        "modeledProductionCostPerUnit": 506.084641749638,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 1.7144793808965904,
+        "modeledProductionCostPerUnit": 540.0444782316547,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "50": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.45565133321003354,
+        "modeledProductionCostPerUnit": 156.2695343392206,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.48687874681198523,
+        "modeledProductionCostPerUnit": 168.16425278196093,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.5183196123499535,
+        "modeledProductionCostPerUnit": 180.18004663162057,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "51": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 1.0841078526883412,
+        "modeledProductionCostPerUnit": 400.2431000828141,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 1.1640925592728224,
+        "modeledProductionCostPerUnit": 430.7417714245457,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 1.2446256091563936,
+        "modeledProductionCostPerUnit": 461.5041127736023,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "52": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.7308140591684127,
+        "modeledProductionCostPerUnit": 310.8250747345954,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.7933925097425543,
+        "modeledProductionCostPerUnit": 339.47164501709165,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.8573165860935565,
+        "modeledProductionCostPerUnit": 368.9075804724285,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "53": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 4.560052235449811,
+        "modeledProductionCostPerUnit": 1687.8849361990797,
+        "modeledStoreWages": 417.45000000000005,
+        "modeledUnitsSoldAnHour": 2
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 4.897457779940566,
+        "modeledProductionCostPerUnit": 1817.5537839187427,
+        "modeledStoreWages": 417.45000000000005,
+        "modeledUnitsSoldAnHour": 2
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 5.237370934404523,
+        "modeledProductionCostPerUnit": 1948.4615006172346,
+        "modeledStoreWages": 417.45000000000005,
+        "modeledUnitsSoldAnHour": 2
+      }
+    },
+    "54": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 8.788636563235729,
+        "modeledProductionCostPerUnit": 3197.2704512105124,
+        "modeledStoreWages": 417.45000000000005,
+        "modeledUnitsSoldAnHour": 0.5
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 9.427646261288189,
+        "modeledProductionCostPerUnit": 3441.633210109271,
+        "modeledStoreWages": 417.45000000000005,
+        "modeledUnitsSoldAnHour": 0.5
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 10.071182507322568,
+        "modeledProductionCostPerUnit": 3688.3101754550285,
+        "modeledStoreWages": 417.45000000000005,
+        "modeledUnitsSoldAnHour": 0.5
+      }
+    },
+    "55": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 2.9467500182603947,
+        "modeledProductionCostPerUnit": 1128.4344845949863,
+        "modeledStoreWages": 417.45000000000005,
+        "modeledUnitsSoldAnHour": 2
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 3.172768281418329,
+        "modeledProductionCostPerUnit": 1219.8990021740833,
+        "modeledStoreWages": 417.45000000000005,
+        "modeledUnitsSoldAnHour": 2
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 3.4013459074022707,
+        "modeledProductionCostPerUnit": 1312.729496460404,
+        "modeledStoreWages": 417.45000000000005,
+        "modeledUnitsSoldAnHour": 2
+      }
+    },
+    "56": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 5.752700571774589,
+        "modeledProductionCostPerUnit": 2163.8843446509118,
+        "modeledStoreWages": 417.45000000000005,
+        "modeledUnitsSoldAnHour": 0.5
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 6.186137630842201,
+        "modeledProductionCostPerUnit": 2339.553506039372,
+        "modeledStoreWages": 417.45000000000005,
+        "modeledUnitsSoldAnHour": 0.5
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 6.624539912971594,
+        "modeledProductionCostPerUnit": 2517.941412795971,
+        "modeledStoreWages": 417.45000000000005,
+        "modeledUnitsSoldAnHour": 0.5
+      }
+    },
+    "57": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 6.89809996565229,
+        "modeledProductionCostPerUnit": 2800.8186015539704,
+        "modeledStoreWages": 417.45000000000005,
+        "modeledUnitsSoldAnHour": 1
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 7.460707968859187,
+        "modeledProductionCostPerUnit": 3045.215378262768,
+        "modeledStoreWages": 417.45000000000005,
+        "modeledUnitsSoldAnHour": 1
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 8.032890692332312,
+        "modeledProductionCostPerUnit": 3295.057741481298,
+        "modeledStoreWages": 417.45000000000005,
+        "modeledUnitsSoldAnHour": 1
+      }
+    },
+    "58": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.2145518064862712,
+        "modeledProductionCostPerUnit": 118.43259718042171,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.23861786719825268,
+        "modeledProductionCostPerUnit": 131.71706269343548,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.2636307905547629,
+        "modeledProductionCostPerUnit": 145.52419638622914,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "59": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.13536299192940082,
+        "modeledProductionCostPerUnit": 60.71030188033625,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.14757531097255566,
+        "modeledProductionCostPerUnit": 66.1875269711912,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.16002557987572405,
+        "modeledProductionCostPerUnit": 71.77147257426223,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "60": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.02147551883013843,
+        "modeledProductionCostPerUnit": 3.031204059575944,
+        "modeledStoreWages": 341.55,
+        "modeledUnitsSoldAnHour": 25
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.022069348330737128,
+        "modeledProductionCostPerUnit": 3.136225735914774,
+        "modeledStoreWages": 341.55,
+        "modeledUnitsSoldAnHour": 25
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.02264495194191814,
+        "modeledProductionCostPerUnit": 3.239185049272398,
+        "modeledStoreWages": 341.55,
+        "modeledUnitsSoldAnHour": 25
+      }
+    },
+    "61": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.059706390575262266,
+        "modeledProductionCostPerUnit": 9.0442889484398,
+        "modeledStoreWages": 341.55,
+        "modeledUnitsSoldAnHour": 20
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.06148171668974752,
+        "modeledProductionCostPerUnit": 9.394549459952708,
+        "modeledStoreWages": 341.55,
+        "modeledUnitsSoldAnHour": 20
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.06320918648256162,
+        "modeledProductionCostPerUnit": 9.739492806669688,
+        "modeledStoreWages": 341.55,
+        "modeledUnitsSoldAnHour": 20
+      }
+    },
+    "62": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.0595893971700014,
+        "modeledProductionCostPerUnit": 10.562846754036281,
+        "modeledStoreWages": 341.55,
+        "modeledUnitsSoldAnHour": 45
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.0616774897944069,
+        "modeledProductionCostPerUnit": 11.127709656118052,
+        "modeledStoreWages": 341.55,
+        "modeledUnitsSoldAnHour": 45
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.06373774889035827,
+        "modeledProductionCostPerUnit": 11.695561405456298,
+        "modeledStoreWages": 341.55,
+        "modeledUnitsSoldAnHour": 45
+      }
+    },
+    "63": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.10267849505389884,
+        "modeledProductionCostPerUnit": 16.566368979138637,
+        "modeledStoreWages": 341.55,
+        "modeledUnitsSoldAnHour": 30
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.10593777598939177,
+        "modeledProductionCostPerUnit": 17.286602160066415,
+        "modeledStoreWages": 341.55,
+        "modeledUnitsSoldAnHour": 30
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.10912349811624834,
+        "modeledProductionCostPerUnit": 18.000994008796457,
+        "modeledStoreWages": 341.55,
+        "modeledUnitsSoldAnHour": 30
+      }
+    },
+    "64": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.14967121715111928,
+        "modeledProductionCostPerUnit": 22.967675422490018,
+        "modeledStoreWages": 341.55,
+        "modeledUnitsSoldAnHour": 20
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.15418093353842224,
+        "modeledProductionCostPerUnit": 23.87120299919537,
+        "modeledStoreWages": 341.55,
+        "modeledUnitsSoldAnHour": 20
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.15857159912648722,
+        "modeledProductionCostPerUnit": 24.761483373752256,
+        "modeledStoreWages": 341.55,
+        "modeledUnitsSoldAnHour": 20
+      }
+    },
+    "65": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.018266278731175024,
+        "modeledProductionCostPerUnit": 6.794271587953286,
+        "modeledStoreWages": 341.55,
+        "modeledUnitsSoldAnHour": 30
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.019632049806918853,
+        "modeledProductionCostPerUnit": 7.3977210046962965,
+        "modeledStoreWages": 341.55,
+        "modeledUnitsSoldAnHour": 30
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.02102300936689944,
+        "modeledProductionCostPerUnit": 8.015589322079672,
+        "modeledStoreWages": 341.55,
+        "modeledUnitsSoldAnHour": 30
+      }
+    },
+    "66": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.0011666052658007827,
+        "modeledProductionCostPerUnit": 0.1368713983386238,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.001193339667654275,
+        "modeledProductionCostPerUnit": 0.140778358888291,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.0012191047284678337,
+        "modeledProductionCostPerUnit": 0.14458739330172948,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "67": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.01580596186052483,
+        "modeledProductionCostPerUnit": 6.012056632869996,
+        "modeledStoreWages": 265.65,
+        "modeledUnitsSoldAnHour": 400
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.01700874955079077,
+        "modeledProductionCostPerUnit": 6.484413034180247,
+        "modeledStoreWages": 265.65,
+        "modeledUnitsSoldAnHour": 400
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.018222368093853268,
+        "modeledProductionCostPerUnit": 6.961906140233547,
+        "modeledStoreWages": 265.65,
+        "modeledUnitsSoldAnHour": 400
+      }
+    },
+    "68": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.0480293825327823,
+        "modeledProductionCostPerUnit": 17.326584414397228,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.05148923616393041,
+        "modeledProductionCostPerUnit": 18.618214607918375,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.05496763697049069,
+        "modeledProductionCostPerUnit": 19.919253003562584,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "69": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 9.651097492574104,
+        "modeledProductionCostPerUnit": 3484.03837109075,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 10.346821519077272,
+        "modeledProductionCostPerUnit": 3743.918276108228,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 11.046303579283439,
+        "modeledProductionCostPerUnit": 4005.6999413792314,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "70": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 1.171979187382826,
+        "modeledProductionCostPerUnit": 414.50045675944665,
+        "modeledStoreWages": 341.55,
+        "modeledUnitsSoldAnHour": 3
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 1.254733304893077,
+        "modeledProductionCostPerUnit": 445.2390620197452,
+        "modeledStoreWages": 341.55,
+        "modeledUnitsSoldAnHour": 3
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 1.3379028282176826,
+        "modeledProductionCostPerUnit": 476.2005787312076,
+        "modeledStoreWages": 341.55,
+        "modeledUnitsSoldAnHour": 3
+      }
+    },
+    "71": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 2.4362710363814073,
+        "modeledProductionCostPerUnit": 874.2521322995151,
+        "modeledStoreWages": 341.55,
+        "modeledUnitsSoldAnHour": 2
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 2.6108349112010596,
+        "modeledProductionCostPerUnit": 939.3094443646374,
+        "modeledStoreWages": 341.55,
+        "modeledUnitsSoldAnHour": 2
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 2.786314327525317,
+        "modeledProductionCostPerUnit": 1004.838889058023,
+        "modeledStoreWages": 341.55,
+        "modeledUnitsSoldAnHour": 2
+      }
+    },
+    "72": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.004623471772874365,
+        "modeledProductionCostPerUnit": 0.9784896816680227,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.004817200713909978,
+        "modeledProductionCostPerUnit": 1.033879075757962,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.0050088487869892825,
+        "modeledProductionCostPerUnit": 1.0891275205179614,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "73": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.06909270830709047,
+        "modeledProductionCostPerUnit": 16.546109282630642,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.07237286758847418,
+        "modeledProductionCostPerUnit": 17.527308799208352,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.07562569399700918,
+        "modeledProductionCostPerUnit": 18.506856930588448,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "74": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.024404598446938926,
+        "modeledProductionCostPerUnit": 11.8847750515231,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.026805422390552103,
+        "modeledProductionCostPerUnit": 13.065399941247822,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.029272927054156343,
+        "modeledProductionCostPerUnit": 14.279731883099764,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "75": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.007091317840588088,
+        "modeledProductionCostPerUnit": 3.429813665615728,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.007783784845180185,
+        "modeledProductionCostPerUnit": 3.7663921354828185,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.00849471658864714,
+        "modeledProductionCostPerUnit": 4.112080218137468,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "76": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.0702197573038314,
+        "modeledProductionCostPerUnit": 33.02304416068427,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.07687908575171126,
+        "modeledProductionCostPerUnit": 36.179183177834226,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.08370062885820144,
+        "modeledProductionCostPerUnit": 39.41420075079581,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "77": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 3.07913947623342,
+        "modeledProductionCostPerUnit": 1479.4815628903875,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 3.377841893964666,
+        "modeledProductionCostPerUnit": 1624.6882461884995,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 3.684521627621585,
+        "modeledProductionCostPerUnit": 1773.9232116184858,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "78": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 2.361869304691623,
+        "modeledProductionCostPerUnit": 1107.9873463098074,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 2.5853455324409946,
+        "modeledProductionCostPerUnit": 1214.3491020673948,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 2.8143555217983107,
+        "modeledProductionCostPerUnit": 1323.4631976208875,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "79": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 1.2113998066238363,
+        "modeledProductionCostPerUnit": 447.63822694155067,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 1.3008169540618206,
+        "modeledProductionCostPerUnit": 481.3289314736296,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 1.3907688762232313,
+        "modeledProductionCostPerUnit": 515.2571344350594,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "80": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 6.450771670973834,
+        "modeledProductionCostPerUnit": 2532.206502203341,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 6.958578989164872,
+        "modeledProductionCostPerUnit": 2744.1903150234416,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 7.473416203318437,
+        "modeledProductionCostPerUnit": 2960.4601703457884,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "81": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 6.979904573476434,
+        "modeledProductionCostPerUnit": 2706.1701510848534,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 7.5224487860599885,
+        "modeledProductionCostPerUnit": 2931.119260108793,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 8.07221249011619,
+        "modeledProductionCostPerUnit": 3160.4920469603717,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "82": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 1.8186262240734092,
+        "modeledProductionCostPerUnit": 807.9473834625043,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 1.981899993722968,
+        "modeledProductionCostPerUnit": 889.0032512541426,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 2.1499271991520326,
+        "modeledProductionCostPerUnit": 973.2652377887845,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "83": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.03788662889523503,
+        "modeledProductionCostPerUnit": 18.27249498392215,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.04157571963897262,
+        "modeledProductionCostPerUnit": 20.065052487924447,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.045363108653393304,
+        "modeledProductionCostPerUnit": 21.90645495096019,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "84": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 11.121256546092946,
+        "modeledProductionCostPerUnit": 5211.376788985771,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 12.172489232956814,
+        "modeledProductionCostPerUnit": 5712.947822616763,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 13.249996246423732,
+        "modeledProductionCostPerUnit": 6227.672993187358,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "85": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 8.869272319897402,
+        "modeledProductionCostPerUnit": 4481.64655488864,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 9.77785120499478,
+        "modeledProductionCostPerUnit": 4961.925962896368,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 10.718220703968697,
+        "modeledProductionCostPerUnit": 5460.65584338218,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "86": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 13.494728570201662,
+        "modeledProductionCostPerUnit": 5779.008209684527,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 14.658606173379441,
+        "modeledProductionCostPerUnit": 6315.799406152318,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 15.848283134262962,
+        "modeledProductionCostPerUnit": 6867.825487119003,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "87": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.715367012707723,
+        "modeledProductionCostPerUnit": 284.71378285964937,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.7724649310347518,
+        "modeledProductionCostPerUnit": 308.5540630779644,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.8303480576422929,
+        "modeledProductionCostPerUnit": 332.8066500986114,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "88": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 15.186187554961595,
+        "modeledProductionCostPerUnit": 5981.438615190975,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 16.385615384029467,
+        "modeledProductionCostPerUnit": 6481.116871033805,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 17.60138094307381,
+        "modeledProductionCostPerUnit": 6989.981565389164,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "89": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 6.047645272750748,
+        "modeledProductionCostPerUnit": 2499.5926723132065,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 6.550116799348526,
+        "modeledProductionCostPerUnit": 2721.6946570060445,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 7.06187760656485,
+        "modeledProductionCostPerUnit": 2949.179399441685,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "90": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 124.45655901448232,
+        "modeledProductionCostPerUnit": 53039.08408929955,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 135.12407942981028,
+        "modeledProductionCostPerUnit": 57809.529242414545,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 145.99852221167927,
+        "modeledProductionCostPerUnit": 62691.19945689371,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "91": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 134.69169576712605,
+        "modeledProductionCostPerUnit": 58557.42174864268,
+        "modeledStoreWages": 645.15,
+        "modeledUnitsSoldAnHour": 1
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 146.4827870434139,
+        "modeledProductionCostPerUnit": 63971.32521944506,
+        "modeledStoreWages": 645.15,
+        "modeledUnitsSoldAnHour": 1
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 158.5298378151299,
+        "modeledProductionCostPerUnit": 69527.99432898259,
+        "modeledStoreWages": 645.15,
+        "modeledUnitsSoldAnHour": 1
+      }
+    },
+    "92": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 760.5212233786567,
+        "modeledProductionCostPerUnit": 339396.4018208805,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 828.9320060013681,
+        "modeledProductionCostPerUnit": 371522.42084055237,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 898.9627238538293,
+        "modeledProductionCostPerUnit": 404539.94431727397,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "93": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 192.55246446317497,
+        "modeledProductionCostPerUnit": 84956.74362741587,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 209.67178857161454,
+        "modeledProductionCostPerUnit": 92944.80504460703,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 227.18703497787553,
+        "modeledProductionCostPerUnit": 101153.83491247233,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "94": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 957.1712811400706,
+        "modeledProductionCostPerUnit": 427463.2187616599,
+        "modeledStoreWages": 645.15,
+        "modeledUnitsSoldAnHour": 1
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 1043.3463637988102,
+        "modeledProductionCostPerUnit": 468066.8359275615,
+        "modeledStoreWages": 645.15,
+        "modeledUnitsSoldAnHour": 1
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 1131.5890435301503,
+        "modeledProductionCostPerUnit": 509822.1963158665,
+        "modeledStoreWages": 645.15,
+        "modeledUnitsSoldAnHour": 1
+      }
+    },
+    "95": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 262.3844933110772,
+        "modeledProductionCostPerUnit": 117914.49282217186,
+        "modeledStoreWages": 645.15,
+        "modeledUnitsSoldAnHour": 1
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 286.1840844922776,
+        "modeledProductionCostPerUnit": 129421.73354727181,
+        "modeledStoreWages": 645.15,
+        "modeledUnitsSoldAnHour": 1
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 310.61205045315023,
+        "modeledProductionCostPerUnit": 141295.8589481298,
+        "modeledStoreWages": 645.15,
+        "modeledUnitsSoldAnHour": 1
+      }
+    },
+    "96": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 91.33107300357611,
+        "modeledProductionCostPerUnit": 41489.74045268213,
+        "modeledStoreWages": 645.15,
+        "modeledUnitsSoldAnHour": 1
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 99.70501453558225,
+        "modeledProductionCostPerUnit": 45536.191330114205,
+        "modeledStoreWages": 645.15,
+        "modeledUnitsSoldAnHour": 1
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 108.29969456516848,
+        "modeledProductionCostPerUnit": 49712.62344415295,
+        "modeledStoreWages": 645.15,
+        "modeledUnitsSoldAnHour": 1
+      }
+    },
+    "97": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 37.652943523072466,
+        "modeledProductionCostPerUnit": 17513.118609185498,
+        "modeledStoreWages": 645.15,
+        "modeledUnitsSoldAnHour": 1
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 41.186777401805664,
+        "modeledProductionCostPerUnit": 19211.02508482617,
+        "modeledStoreWages": 645.15,
+        "modeledUnitsSoldAnHour": 1
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 44.811453811985565,
+        "modeledProductionCostPerUnit": 20957.48558506819,
+        "modeledStoreWages": 645.15,
+        "modeledUnitsSoldAnHour": 1
+      }
+    },
+    "98": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 1.0448969794204614,
+        "modeledProductionCostPerUnit": 420.8201217791812,
+        "modeledStoreWages": 189.75,
+        "modeledUnitsSoldAnHour": 1
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 1.1293732190169494,
+        "modeledProductionCostPerUnit": 456.9590044458487,
+        "modeledStoreWages": 189.75,
+        "modeledUnitsSoldAnHour": 1
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 1.215184828319913,
+        "modeledProductionCostPerUnit": 493.89970247489845,
+        "modeledStoreWages": 189.75,
+        "modeledUnitsSoldAnHour": 1
+      }
+    },
+    "99": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 62.00401265930539,
+        "modeledProductionCostPerUnit": 26875.980514202518,
+        "modeledStoreWages": 645.15,
+        "modeledUnitsSoldAnHour": 1
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 67.4274892656665,
+        "modeledProductionCostPerUnit": 29489.08364542424,
+        "modeledStoreWages": 645.15,
+        "modeledUnitsSoldAnHour": 1
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 72.99356954986705,
+        "modeledProductionCostPerUnit": 32197.94936807411,
+        "modeledStoreWages": 645.15,
+        "modeledUnitsSoldAnHour": 1
+      }
+    },
+    "100": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 1094.4789502092506,
+        "modeledProductionCostPerUnit": 487374.40669411514,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 1192.7192877589114,
+        "modeledProductionCostPerUnit": 533533.8070013912,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 1293.2921421430297,
+        "modeledProductionCostPerUnit": 580992.3531076846,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "101": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.26907811342796484,
+        "modeledProductionCostPerUnit": 94.29300320910632,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.2878856076980508,
+        "modeledProductionCostPerUnit": 101.09473647925276,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.30675271879844873,
+        "modeledProductionCostPerUnit": 107.93033695330517,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "102": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.0031827458286481517,
+        "modeledProductionCostPerUnit": 1.1651455145971734,
+        "modeledStoreWages": 189.75,
+        "modeledUnitsSoldAnHour": 80
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.003415339593778958,
+        "modeledProductionCostPerUnit": 1.2512595715460795,
+        "modeledStoreWages": 189.75,
+        "modeledUnitsSoldAnHour": 80
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.003649035021420298,
+        "modeledProductionCostPerUnit": 1.3378325161749713,
+        "modeledStoreWages": 189.75,
+        "modeledUnitsSoldAnHour": 80
+      }
+    },
+    "103": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.009120622021295741,
+        "modeledProductionCostPerUnit": 3.1374566263259,
+        "modeledStoreWages": 189.75,
+        "modeledUnitsSoldAnHour": 60
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.009745984419983037,
+        "modeledProductionCostPerUnit": 3.3592180214001557,
+        "modeledStoreWages": 189.75,
+        "modeledUnitsSoldAnHour": 60
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.01037250442465246,
+        "modeledProductionCostPerUnit": 3.581776732911478,
+        "modeledStoreWages": 189.75,
+        "modeledUnitsSoldAnHour": 60
+      }
+    },
+    "104": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.0013048634241621833,
+        "modeledProductionCostPerUnit": 0.4097826147199488,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.0013863190174904626,
+        "modeledProductionCostPerUnit": 0.43638445855156044,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.001467501514362057,
+        "modeledProductionCostPerUnit": 0.4629642757923372,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "105": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.002002129754147992,
+        "modeledProductionCostPerUnit": 0.6518684314472183,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.002131869643570253,
+        "modeledProductionCostPerUnit": 0.6959168410737753,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.002261487417760351,
+        "modeledProductionCostPerUnit": 0.7400382429586758,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "106": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.01651424978952973,
+        "modeledProductionCostPerUnit": 2.3704627396742812,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.016979847263696703,
+        "modeledProductionCostPerUnit": 2.4653900265216233,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.017433471188114627,
+        "modeledProductionCostPerUnit": 2.5591764780875215,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "107": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.025575245849786113,
+        "modeledProductionCostPerUnit": 10.155587208610278,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.0276109016962989,
+        "modeledProductionCostPerUnit": 10.99514427518313,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.029672485509883648,
+        "modeledProductionCostPerUnit": 11.847287352329747,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "108": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.0161717325913024,
+        "modeledProductionCostPerUnit": 5.007986887264768,
+        "modeledStoreWages": 189.75,
+        "modeledUnitsSoldAnHour": 120
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.017176103717141112,
+        "modeledProductionCostPerUnit": 5.428119994457215,
+        "modeledStoreWages": 189.75,
+        "modeledUnitsSoldAnHour": 120
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.01819459702524144,
+        "modeledProductionCostPerUnit": 5.857395310305694,
+        "modeledStoreWages": 189.75,
+        "modeledUnitsSoldAnHour": 120
+      }
+    },
+    "109": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.13044007850686368,
+        "modeledProductionCostPerUnit": 54.61080455081742,
+        "modeledStoreWages": 189.75,
+        "modeledUnitsSoldAnHour": 30
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.1414072759065603,
+        "modeledProductionCostPerUnit": 59.345257310556754,
+        "modeledStoreWages": 189.75,
+        "modeledUnitsSoldAnHour": 30
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.1525539737428541,
+        "modeledProductionCostPerUnit": 64.16575499004281,
+        "modeledStoreWages": 189.75,
+        "modeledUnitsSoldAnHour": 30
+      }
+    },
+    "110": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.24475197927581513,
+        "modeledProductionCostPerUnit": 93.70469910367272,
+        "modeledStoreWages": 189.75,
+        "modeledUnitsSoldAnHour": 40
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.26350740210429063,
+        "modeledProductionCostPerUnit": 101.15883912297762,
+        "modeledStoreWages": 189.75,
+        "modeledUnitsSoldAnHour": 40
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.2824484645583024,
+        "modeledProductionCostPerUnit": 108.7014702384616,
+        "modeledStoreWages": 189.75,
+        "modeledUnitsSoldAnHour": 40
+      }
+    },
+    "111": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 3.2746640254695074,
+        "modeledProductionCostPerUnit": 1251.5039454899588,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 3.525184687829361,
+        "modeledProductionCostPerUnit": 1351.3528745519184,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 3.778244046013953,
+        "modeledProductionCostPerUnit": 1452.474843258704,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "112": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 2.7786105791361364,
+        "modeledProductionCostPerUnit": 1120.309039116139,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 3.003512791296535,
+        "modeledProductionCostPerUnit": 1216.591915995765,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 3.231969820852355,
+        "modeledProductionCostPerUnit": 1314.8601553111473,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "113": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.26978429158253375,
+        "modeledProductionCostPerUnit": 111.69069671516897,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.2921761398053953,
+        "modeledProductionCostPerUnit": 120.96092187943366,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.31485792298048626,
+        "modeledProductionCostPerUnit": 130.35118011392132,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "114": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 1.1373568596487593,
+        "modeledProductionCostPerUnit": 450.0799357108209,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 1.2275071140565947,
+        "modeledProductionCostPerUnit": 486.57244362623067,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 1.3186745148650265,
+        "modeledProductionCostPerUnit": 523.5464882892187,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "115": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.4632014786361744,
+        "modeledProductionCostPerUnit": 76.25805714851508,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.4782290677152668,
+        "modeledProductionCostPerUnit": 79.83152692280328,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.4929634697406685,
+        "modeledProductionCostPerUnit": 83.38150652712969,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "116": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.15667036680489477,
+        "modeledProductionCostPerUnit": 25.547332274047974,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.1617032831221393,
+        "modeledProductionCostPerUnit": 26.72865574200417,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.16663517174401804,
+        "modeledProductionCostPerUnit": 27.901665483532415,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "117": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.02716312370500713,
+        "modeledProductionCostPerUnit": 4.447784327589622,
+        "modeledStoreWages": 645.15,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.028038477701024404,
+        "modeledProductionCostPerUnit": 4.644175593378594,
+        "modeledStoreWages": 645.15,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.02889457851252995,
+        "modeledProductionCostPerUnit": 4.838645440465237,
+        "modeledStoreWages": 645.15,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "118": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.0038668378537599253,
+        "modeledProductionCostPerUnit": 0.49698423783360896,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.003964170070253748,
+        "modeledProductionCostPerUnit": 0.513897821987704,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.0040584641921276865,
+        "modeledProductionCostPerUnit": 0.5305113673170679,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "119": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.07915340440267221,
+        "modeledProductionCostPerUnit": 20.333909694131275,
+        "modeledStoreWages": 151.8,
+        "modeledUnitsSoldAnHour": 100
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.0831965820630771,
+        "modeledProductionCostPerUnit": 21.668055696201822,
+        "modeledStoreWages": 151.8,
+        "modeledUnitsSoldAnHour": 100
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.08722919014910514,
+        "modeledProductionCostPerUnit": 23.006719725631527,
+        "modeledStoreWages": 151.8,
+        "modeledUnitsSoldAnHour": 100
+      }
+    },
+    "120": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.010590596932105841,
+        "modeledProductionCostPerUnit": 1.499320615679024,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.010884986039264744,
+        "modeledProductionCostPerUnit": 1.558288637215739,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.011171612273476997,
+        "modeledProductionCostPerUnit": 1.6165132179375876,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "121": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.3010036854630962,
+        "modeledProductionCostPerUnit": 102.80449463965789,
+        "modeledStoreWages": 645.15,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.3215916763639164,
+        "modeledProductionCostPerUnit": 111.10484999328038,
+        "modeledStoreWages": 645.15,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.3424071927720108,
+        "modeledProductionCostPerUnit": 119.52958557615369,
+        "modeledStoreWages": 645.15,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "122": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.19585073147614443,
+        "modeledProductionCostPerUnit": 68.46473147673622,
+        "modeledStoreWages": 151.8,
+        "modeledUnitsSoldAnHour": 30
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.20951715003660626,
+        "modeledProductionCostPerUnit": 73.5153317447319,
+        "modeledStoreWages": 151.8,
+        "modeledUnitsSoldAnHour": 30
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.22324686279514794,
+        "modeledProductionCostPerUnit": 78.59533732571877,
+        "modeledStoreWages": 151.8,
+        "modeledUnitsSoldAnHour": 30
+      }
+    },
+    "123": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.44821271146853675,
+        "modeledProductionCostPerUnit": 159.03103379479182,
+        "modeledStoreWages": 151.8,
+        "modeledUnitsSoldAnHour": 10
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.48007095614232465,
+        "modeledProductionCostPerUnit": 171.9774151587316,
+        "modeledStoreWages": 151.8,
+        "modeledUnitsSoldAnHour": 10
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.5122997290313998,
+        "modeledProductionCostPerUnit": 185.11598993227733,
+        "modeledStoreWages": 151.8,
+        "modeledUnitsSoldAnHour": 10
+      }
+    },
+    "124": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.07962872841025133,
+        "modeledProductionCostPerUnit": 18.945949161708363,
+        "modeledStoreWages": 151.8,
+        "modeledUnitsSoldAnHour": 15
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.08338665867769919,
+        "modeledProductionCostPerUnit": 20.09088128559387,
+        "modeledStoreWages": 151.8,
+        "modeledUnitsSoldAnHour": 15
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.08711715207761611,
+        "modeledProductionCostPerUnit": 21.23520644406057,
+        "modeledStoreWages": 151.8,
+        "modeledUnitsSoldAnHour": 15
+      }
+    },
+    "125": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.08975948829249263,
+        "modeledProductionCostPerUnit": 16.89245070832409,
+        "modeledStoreWages": 151.8,
+        "modeledUnitsSoldAnHour": 15
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.09308911316302905,
+        "modeledProductionCostPerUnit": 17.69129787320276,
+        "modeledStoreWages": 151.8,
+        "modeledUnitsSoldAnHour": 15
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.09635468627870655,
+        "modeledProductionCostPerUnit": 18.480832213319133,
+        "modeledStoreWages": 151.8,
+        "modeledUnitsSoldAnHour": 15
+      }
+    },
+    "126": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.10006218868465078,
+        "modeledProductionCostPerUnit": 27.05564531910737,
+        "modeledStoreWages": 151.8,
+        "modeledUnitsSoldAnHour": 10
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.10544057868625505,
+        "modeledProductionCostPerUnit": 28.81633560579997,
+        "modeledStoreWages": 151.8,
+        "modeledUnitsSoldAnHour": 10
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.11080211503771163,
+        "modeledProductionCostPerUnit": 30.580190541276366,
+        "modeledStoreWages": 151.8,
+        "modeledUnitsSoldAnHour": 10
+      }
+    },
+    "127": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.7886227809604395,
+        "modeledProductionCostPerUnit": 253.23826071143023,
+        "modeledStoreWages": 151.8,
+        "modeledUnitsSoldAnHour": 10
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.8391977205507947,
+        "modeledProductionCostPerUnit": 272.1983540854805,
+        "modeledStoreWages": 151.8,
+        "modeledUnitsSoldAnHour": 10
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.8900619032963407,
+        "modeledProductionCostPerUnit": 291.3377876697846,
+        "modeledStoreWages": 151.8,
+        "modeledUnitsSoldAnHour": 10
+      }
+    },
+    "128": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.1623572742082658,
+        "modeledProductionCostPerUnit": 39.99338778998053,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.17030292216285742,
+        "modeledProductionCostPerUnit": 42.54766811076815,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.17821537682062785,
+        "modeledProductionCostPerUnit": 45.10847488110718,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "129": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 2.3949330469904724,
+        "modeledProductionCostPerUnit": 1301.8137012401812,
+        "modeledStoreWages": 645.15,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 2.661019290483073,
+        "modeledProductionCostPerUnit": 1464.6718224271067,
+        "modeledStoreWages": 645.15,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 2.940748198824688,
+        "modeledProductionCostPerUnit": 1636.5365742618942,
+        "modeledStoreWages": 645.15,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "130": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 2.106519892672926,
+        "modeledProductionCostPerUnit": 1223.6913011426147,
+        "modeledStoreWages": 645.15,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 2.3570040173857527,
+        "modeledProductionCostPerUnit": 1380.694744516906,
+        "modeledStoreWages": 645.15,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 2.621038004532034,
+        "modeledProductionCostPerUnit": 1546.62091524684,
+        "modeledStoreWages": 645.15,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "131": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 2.444440664728491,
+        "modeledProductionCostPerUnit": 1438.0083529777407,
+        "modeledStoreWages": 645.15,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 2.7388443758727177,
+        "modeledProductionCostPerUnit": 1623.0358321055742,
+        "modeledStoreWages": 645.15,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 3.049264590044103,
+        "modeledProductionCostPerUnit": 1818.5651502869255,
+        "modeledStoreWages": 645.15,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "132": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 2.693072531528546,
+        "modeledProductionCostPerUnit": 1360.6340543764206,
+        "modeledStoreWages": 645.15,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 2.9707149489812257,
+        "modeledProductionCostPerUnit": 1525.8676015591511,
+        "modeledStoreWages": 645.15,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 3.2617008038430293,
+        "modeledProductionCostPerUnit": 1700.0178184651747,
+        "modeledStoreWages": 645.15,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "133": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.051188496190833946,
+        "modeledProductionCostPerUnit": 9.689998507598462,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.05310464313822265,
+        "modeledProductionCostPerUnit": 10.21388366463396,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.05499592166027943,
+        "modeledProductionCostPerUnit": 10.736849930390553,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "134": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.08105660496095848,
+        "modeledProductionCostPerUnit": 27.830671023453462,
+        "modeledStoreWages": 645.15,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.08661070778474494,
+        "modeledProductionCostPerUnit": 29.87055025723062,
+        "modeledStoreWages": 645.15,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.09218820296931218,
+        "modeledProductionCostPerUnit": 31.921999474334033,
+        "modeledStoreWages": 645.15,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "135": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.02729500900341436,
+        "modeledProductionCostPerUnit": 9.588543099364351,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.029209141118524483,
+        "modeledProductionCostPerUnit": 10.297340510524693,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.03113239197332533,
+        "modeledProductionCostPerUnit": 11.010253891961046,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "136": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.007585614219595696,
+        "modeledProductionCostPerUnit": 0.962516358338825,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.007774051131741621,
+        "modeledProductionCostPerUnit": 0.9945590282820665,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.00795647801929904,
+        "modeledProductionCostPerUnit": 1.0260060679558467,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "137": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.22429799003643594,
+        "modeledProductionCostPerUnit": 68.40199024080067,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.23796566681280146,
+        "modeledProductionCostPerUnit": 73.59858470960538,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.25172603084243367,
+        "modeledProductionCostPerUnit": 78.85908445073842,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "138": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 1.18892159494102,
+        "modeledProductionCostPerUnit": 755.7035021369716,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 1.3439452803450094,
+        "modeledProductionCostPerUnit": 856.2462448781176,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 1.5080006347927055,
+        "modeledProductionCostPerUnit": 962.7160457317293,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "139": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.03558324791732778,
+        "modeledProductionCostPerUnit": 5.753246593382974,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.036716871621180695,
+        "modeledProductionCostPerUnit": 6.021552060347769,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.037828156950347976,
+        "modeledProductionCostPerUnit": 6.288160516276592,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "140": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.4059114692309673,
+        "modeledProductionCostPerUnit": 131.18093681651303,
+        "modeledStoreWages": 151.8,
+        "modeledUnitsSoldAnHour": 15
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.4320751867188788,
+        "modeledProductionCostPerUnit": 140.6298577066403,
+        "modeledStoreWages": 151.8,
+        "modeledUnitsSoldAnHour": 15
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.4583198059070685,
+        "modeledProductionCostPerUnit": 150.1296805236153,
+        "modeledStoreWages": 151.8,
+        "modeledUnitsSoldAnHour": 15
+      }
+    },
+    "141": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.13156882287550573,
+        "modeledProductionCostPerUnit": 24.744669158115787,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.1364612294293919,
+        "modeledProductionCostPerUnit": 26.07484102403296,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.14128877594113665,
+        "modeledProductionCostPerUnit": 27.40243753564914,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "142": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.9330220346093517,
+        "modeledProductionCostPerUnit": 433.8016721897065,
+        "modeledStoreWages": 645.15,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 1.0211361858000747,
+        "modeledProductionCostPerUnit": 482.13660359234376,
+        "modeledStoreWages": 645.15,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 1.11269397848286,
+        "modeledProductionCostPerUnit": 532.7463697389973,
+        "modeledStoreWages": 645.15,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "143": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.8722279929379774,
+        "modeledProductionCostPerUnit": 387.57643378551154,
+        "modeledStoreWages": 645.15,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.951243407396712,
+        "modeledProductionCostPerUnit": 433.89562047411584,
+        "modeledStoreWages": 645.15,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 1.0339280137263374,
+        "modeledProductionCostPerUnit": 482.7431578955248,
+        "modeledStoreWages": 645.15,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "144": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.021797073001285274,
+        "modeledProductionCostPerUnit": 8.435213774383472,
+        "modeledStoreWages": 265.65,
+        "modeledUnitsSoldAnHour": 70
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.023485004300521344,
+        "modeledProductionCostPerUnit": 9.10169862822773,
+        "modeledStoreWages": 265.65,
+        "modeledUnitsSoldAnHour": 70
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.025188763888031845,
+        "modeledProductionCostPerUnit": 9.775138675279907,
+        "modeledStoreWages": 265.65,
+        "modeledUnitsSoldAnHour": 70
+      }
+    },
+    "145": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.23781575473213756,
+        "modeledProductionCostPerUnit": 123.06965307388118,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.2627397196987319,
+        "modeledProductionCostPerUnit": 135.96780494409376,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.2884782543409873,
+        "modeledProductionCostPerUnit": 149.2874966214609,
+        "modeledStoreWages": null,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "146": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.014641104010023547,
+        "modeledProductionCostPerUnit": 2.837830037953344,
+        "modeledStoreWages": 227.7,
+        "modeledUnitsSoldAnHour": 50
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.015202095790618575,
+        "modeledProductionCostPerUnit": 2.989368583787052,
+        "modeledStoreWages": 227.7,
+        "modeledUnitsSoldAnHour": 50
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.01575544518231109,
+        "modeledProductionCostPerUnit": 3.1403129966045134,
+        "modeledStoreWages": 227.7,
+        "modeledUnitsSoldAnHour": 50
+      }
+    },
+    "147": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.054467283285283837,
+        "modeledProductionCostPerUnit": 17.917971874476574,
+        "modeledStoreWages": 227.7,
+        "modeledUnitsSoldAnHour": 40
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.05804296445981941,
+        "modeledProductionCostPerUnit": 19.229819239298102,
+        "modeledStoreWages": 227.7,
+        "modeledUnitsSoldAnHour": 40
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.061633601965749615,
+        "modeledProductionCostPerUnit": 20.5508027491059,
+        "modeledStoreWages": 227.7,
+        "modeledUnitsSoldAnHour": 40
+      }
+    },
+    "148": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.08312990150585367,
+        "modeledProductionCostPerUnit": 16.015781374926302,
+        "modeledStoreWages": 227.7,
+        "modeledUnitsSoldAnHour": 12
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.08630433278541373,
+        "modeledProductionCostPerUnit": 16.96111872082079,
+        "modeledStoreWages": 227.7,
+        "modeledUnitsSoldAnHour": 12
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.08945250850381463,
+        "modeledProductionCostPerUnit": 17.915586928124746,
+        "modeledStoreWages": 227.7,
+        "modeledUnitsSoldAnHour": 12
+      }
+    },
+    "149": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.881609268312481,
+        "modeledProductionCostPerUnit": 412.44516132505004,
+        "modeledStoreWages": 645.15,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.9654845524734763,
+        "modeledProductionCostPerUnit": 459.46428775375654,
+        "modeledStoreWages": 645.15,
+        "modeledUnitsSoldAnHour": 0
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 1.0528322577023512,
+        "modeledProductionCostPerUnit": 508.7838319328375,
+        "modeledStoreWages": 645.15,
+        "modeledUnitsSoldAnHour": 0
+      }
+    },
+    "150": {
+      "state_0": {
+        "quality": {
+          "0": {
+            "buildingLevelsNeededPerUnitPerHour": 0.9941841180091202,
+            "modeledProductionCostPerUnit": 81.62062060639829,
+            "modeledStoreWages": 265.65,
+            "modeledUnitsSoldAnHour": 5
+          },
+          "1": {
+            "buildingLevelsNeededPerUnitPerHour": 2.9527268304870873,
+            "modeledProductionCostPerUnit": 242.41324320100298,
+            "modeledStoreWages": 265.65,
+            "modeledUnitsSoldAnHour": 2.5
+          },
+          "2": {
+            "buildingLevelsNeededPerUnitPerHour": 6.820103049542564,
+            "modeledProductionCostPerUnit": 559.9174573598923,
+            "modeledStoreWages": 265.65,
+            "modeledUnitsSoldAnHour": 1.25
+          },
+          "3": {
+            "buildingLevelsNeededPerUnitPerHour": 14.4653789170327,
+            "modeledProductionCostPerUnit": 1187.5800298230952,
+            "modeledStoreWages": 265.65,
+            "modeledUnitsSoldAnHour": 0.625
+          },
+          "4": {
+            "buildingLevelsNeededPerUnitPerHour": 29.586919351951416,
+            "modeledProductionCostPerUnit": 2429.029669246413,
+            "modeledStoreWages": 265.65,
+            "modeledUnitsSoldAnHour": 0.3125
+          },
+          "5": {
+            "buildingLevelsNeededPerUnitPerHour": 59.501919462845855,
+            "modeledProductionCostPerUnit": 4884.994143292937,
+            "modeledStoreWages": 265.65,
+            "modeledUnitsSoldAnHour": 0.15625
+          },
+          "6": {
+            "buildingLevelsNeededPerUnitPerHour": 118.68570000792876,
+            "modeledProductionCostPerUnit": 9743.869687991828,
+            "modeledStoreWages": 265.65,
+            "modeledUnitsSoldAnHour": 0.078125
+          },
+          "7": {
+            "buildingLevelsNeededPerUnitPerHour": 235.77076358586285,
+            "modeledProductionCostPerUnit": 19356.330176807358,
+            "modeledStoreWages": 265.65,
+            "modeledUnitsSoldAnHour": 0.0390625
+          },
+          "8": {
+            "buildingLevelsNeededPerUnitPerHour": 467.3858375584476,
+            "modeledProductionCostPerUnit": 38371.486159479966,
+            "modeledStoreWages": 265.65,
+            "modeledUnitsSoldAnHour": 0.01953125
+          },
+          "9": {
+            "buildingLevelsNeededPerUnitPerHour": 925.5158209782302,
+            "modeledProductionCostPerUnit": 75983.08434111437,
+            "modeledStoreWages": 265.65,
+            "modeledUnitsSoldAnHour": 0.009765625
+          },
+          "10": {
+            "buildingLevelsNeededPerUnitPerHour": 1831.5854006082022,
+            "modeledProductionCostPerUnit": 150369.6693431676,
+            "modeledStoreWages": 265.65,
+            "modeledUnitsSoldAnHour": 0.0048828125
+          },
+          "11": {
+            "buildingLevelsNeededPerUnitPerHour": 3623.353727290139,
+            "modeledProductionCostPerUnit": 297470.43283104885,
+            "modeledStoreWages": 265.65,
+            "modeledUnitsSoldAnHour": 0.00244140625
+          },
+          "12": {
+            "buildingLevelsNeededPerUnitPerHour": 7166.1586573391805,
+            "modeledProductionCostPerUnit": 588327.9629805675,
+            "modeledStoreWages": 265.65,
+            "modeledUnitsSoldAnHour": 0.001220703125
+          }
+        }
+      },
+      "state_1": {
+        "quality": {
+          "0": {
+            "buildingLevelsNeededPerUnitPerHour": 1.0100441229107604,
+            "modeledProductionCostPerUnit": 83.08402442211386,
+            "modeledStoreWages": 265.65,
+            "modeledUnitsSoldAnHour": 5
+          },
+          "1": {
+            "buildingLevelsNeededPerUnitPerHour": 2.999831045044959,
+            "modeledProductionCostPerUnit": 246.7595525336782,
+            "modeledStoreWages": 265.65,
+            "modeledUnitsSoldAnHour": 2.5
+          },
+          "2": {
+            "buildingLevelsNeededPerUnitPerHour": 6.928902683167816,
+            "modeledProductionCostPerUnit": 569.956407535701,
+            "modeledStoreWages": 265.65,
+            "modeledUnitsSoldAnHour": 1.25
+          },
+          "3": {
+            "buildingLevelsNeededPerUnitPerHour": 14.696141988351565,
+            "modeledProductionCostPerUnit": 1208.8725553417567,
+            "modeledStoreWages": 265.65,
+            "modeledUnitsSoldAnHour": 0.625
+          },
+          "4": {
+            "buildingLevelsNeededPerUnitPerHour": 30.058913097824234,
+            "modeledProductionCostPerUnit": 2472.5805668021085,
+            "modeledStoreWages": 265.65,
+            "modeledUnitsSoldAnHour": 0.3125
+          },
+          "5": {
+            "buildingLevelsNeededPerUnitPerHour": 60.45114075620902,
+            "modeledProductionCostPerUnit": 4972.578861663514,
+            "modeledStoreWages": 265.65,
+            "modeledUnitsSoldAnHour": 0.15625
+          },
+          "6": {
+            "buildingLevelsNeededPerUnitPerHour": 120.5790673930866,
+            "modeledProductionCostPerUnit": 9918.570835511953,
+            "modeledStoreWages": 265.65,
+            "modeledUnitsSoldAnHour": 0.078125
+          },
+          "7": {
+            "buildingLevelsNeededPerUnitPerHour": 239.53196374828687,
+            "modeledProductionCostPerUnit": 19703.376391704303,
+            "modeledStoreWages": 265.65,
+            "modeledUnitsSoldAnHour": 0.0390625
+          },
+          "8": {
+            "buildingLevelsNeededPerUnitPerHour": 474.84194306280665,
+            "modeledProductionCostPerUnit": 39059.46156132416,
+            "modeledStoreWages": 265.65,
+            "modeledUnitsSoldAnHour": 0.01953125
+          },
+          "9": {
+            "buildingLevelsNeededPerUnitPerHour": 940.2803753413142,
+            "modeledProductionCostPerUnit": 77345.41085527845,
+            "modeledStoreWages": 265.65,
+            "modeledUnitsSoldAnHour": 0.009765625
+          },
+          "10": {
+            "buildingLevelsNeededPerUnitPerHour": 1860.804287638494,
+            "modeledProductionCostPerUnit": 153065.69819286038,
+            "modeledStoreWages": 265.65,
+            "modeledUnitsSoldAnHour": 0.0048828125
+          },
+          "11": {
+            "buildingLevelsNeededPerUnitPerHour": 3681.156308154412,
+            "modeledProductionCostPerUnit": 302803.8812076151,
+            "modeledStoreWages": 265.65,
+            "modeledUnitsSoldAnHour": 0.00244140625
+          },
+          "12": {
+            "buildingLevelsNeededPerUnitPerHour": 7280.478841470594,
+            "modeledProductionCostPerUnit": 598876.2947565505,
+            "modeledStoreWages": 265.65,
+            "modeledUnitsSoldAnHour": 0.001220703125
+          }
+        }
+      },
+      "state_2": {
+        "quality": {
+          "0": {
+            "buildingLevelsNeededPerUnitPerHour": 1.0251748618841585,
+            "modeledProductionCostPerUnit": 84.49085467618023,
+            "modeledStoreWages": 265.65,
+            "modeledUnitsSoldAnHour": 5
+          },
+          "1": {
+            "buildingLevelsNeededPerUnitPerHour": 3.044769339795951,
+            "modeledProductionCostPerUnit": 250.93783838825536,
+            "modeledStoreWages": 265.65,
+            "modeledUnitsSoldAnHour": 2.5
+          },
+          "2": {
+            "buildingLevelsNeededPerUnitPerHour": 7.032699552525327,
+            "modeledProductionCostPerUnit": 579.6072630785965,
+            "modeledStoreWages": 265.65,
+            "modeledUnitsSoldAnHour": 1.25
+          },
+          "3": {
+            "buildingLevelsNeededPerUnitPerHour": 14.916294240414503,
+            "modeledProductionCostPerUnit": 1229.3419355384224,
+            "modeledStoreWages": 265.65,
+            "modeledUnitsSoldAnHour": 0.625
+          },
+          "4": {
+            "buildingLevelsNeededPerUnitPerHour": 30.509203889672555,
+            "modeledProductionCostPerUnit": 2514.4478351631237,
+            "modeledStoreWages": 265.65,
+            "modeledUnitsSoldAnHour": 0.3125
+          },
+          "5": {
+            "buildingLevelsNeededPerUnitPerHour": 61.356715483766884,
+            "modeledProductionCostPerUnit": 5056.777652369387,
+            "modeledStoreWages": 265.65,
+            "modeledUnitsSoldAnHour": 0.15625
+          },
+          "6": {
+            "buildingLevelsNeededPerUnitPerHour": 122.38537501173082,
+            "modeledProductionCostPerUnit": 10086.518231242397,
+            "modeledStoreWages": 265.65,
+            "modeledUnitsSoldAnHour": 0.078125
+          },
+          "7": {
+            "buildingLevelsNeededPerUnitPerHour": 243.12021849582823,
+            "modeledProductionCostPerUnit": 20037.006186456147,
+            "modeledStoreWages": 265.65,
+            "modeledUnitsSoldAnHour": 0.0390625
+          },
+          "8": {
+            "buildingLevelsNeededPerUnitPerHour": 481.95520606898054,
+            "modeledProductionCostPerUnit": 39720.840600365846,
+            "modeledStoreWages": 265.65,
+            "modeledUnitsSoldAnHour": 0.01953125
+          },
+          "9": {
+            "buildingLevelsNeededPerUnitPerHour": 954.3660341738195,
+            "modeledProductionCostPerUnit": 78655.07134369649,
+            "modeledStoreWages": 265.65,
+            "modeledUnitsSoldAnHour": 0.009765625
+          },
+          "10": {
+            "buildingLevelsNeededPerUnitPerHour": 1888.6796480491848,
+            "modeledProductionCostPerUnit": 155657.50156992683,
+            "modeledStoreWages": 265.65,
+            "modeledUnitsSoldAnHour": 0.0048828125
+          },
+          "11": {
+            "buildingLevelsNeededPerUnitPerHour": 3736.30104287991,
+            "modeledProductionCostPerUnit": 307931.1444100727,
+            "modeledStoreWages": 265.65,
+            "modeledUnitsSoldAnHour": 0.00244140625
+          },
+          "12": {
+            "buildingLevelsNeededPerUnitPerHour": 7389.542418449966,
+            "modeledProductionCostPerUnit": 609016.8397742813,
+            "modeledStoreWages": 265.65,
+            "modeledUnitsSoldAnHour": 0.001220703125
+          }
+        }
+      }
+    },
+    "151": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.32914503765802516,
+        "modeledProductionCostPerUnit": 107.89335327083445,
+        "modeledStoreWages": 265.65,
+        "modeledUnitsSoldAnHour": 30
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.3506680661576384,
+        "modeledProductionCostPerUnit": 115.70671384590469,
+        "modeledStoreWages": 265.65,
+        "modeledUnitsSoldAnHour": 30
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.3722650619531084,
+        "modeledProductionCostPerUnit": 123.56322635748833,
+        "modeledStoreWages": 265.65,
+        "modeledUnitsSoldAnHour": 30
+      }
+    },
+    "152": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.38786175628722414,
+        "modeledProductionCostPerUnit": 121.66836559453718,
+        "modeledStoreWages": 151.8,
+        "modeledUnitsSoldAnHour": 40
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.41211825164833177,
+        "modeledProductionCostPerUnit": 130.32691085774997,
+        "modeledStoreWages": 151.8,
+        "modeledUnitsSoldAnHour": 40
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.4364311073023231,
+        "modeledProductionCostPerUnit": 139.02943122134178,
+        "modeledStoreWages": 151.8,
+        "modeledUnitsSoldAnHour": 40
+      }
+    },
+    "153": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.12226109435656624,
+        "modeledProductionCostPerUnit": 32.862982552890024,
+        "modeledStoreWages": 265.65,
+        "modeledUnitsSoldAnHour": 22
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.1287968546744835,
+        "modeledProductionCostPerUnit": 35.03287146034512,
+        "modeledStoreWages": 265.65,
+        "modeledUnitsSoldAnHour": 22
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.1353178753293631,
+        "modeledProductionCostPerUnit": 37.20952718282326,
+        "modeledStoreWages": 265.65,
+        "modeledUnitsSoldAnHour": 22
+      }
+    },
+    "154": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.1287182526735332,
+        "modeledProductionCostPerUnit": 29.95807111695399,
+        "modeledStoreWages": 265.65,
+        "modeledUnitsSoldAnHour": 18
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.1346621314850427,
+        "modeledProductionCostPerUnit": 31.786743075133828,
+        "modeledStoreWages": 265.65,
+        "modeledUnitsSoldAnHour": 18
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.140566068226494,
+        "modeledProductionCostPerUnit": 33.61721304367,
+        "modeledStoreWages": 265.65,
+        "modeledUnitsSoldAnHour": 18
+      }
+    },
+    "155": {
+      "state_0": {
+        "buildingLevelsNeededPerUnitPerHour": 0.18256075788628257,
+        "modeledProductionCostPerUnit": 64.95297114949169,
+        "modeledStoreWages": 265.65,
+        "modeledUnitsSoldAnHour": 70
+      },
+      "state_1": {
+        "buildingLevelsNeededPerUnitPerHour": 0.1955294911242329,
+        "modeledProductionCostPerUnit": 69.77942123482245,
+        "modeledStoreWages": 265.65,
+        "modeledUnitsSoldAnHour": 70
+      },
+      "state_2": {
+        "buildingLevelsNeededPerUnitPerHour": 0.2085644725110135,
+        "modeledProductionCostPerUnit": 74.63487031342102,
+        "modeledStoreWages": 265.65,
+        "modeledUnitsSoldAnHour": 70
+      }
+    }
+  }
+}
