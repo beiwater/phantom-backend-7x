@@ -1,4 +1,5 @@
 import { db } from '../db/database.ts';
+import { getProductionQualityCap } from './research.ts';
 import { getBuildingById, formatBuilding } from './buildings.ts';
 import { getResourceDef, calculateProductionTime } from './constants.ts';
 import { consumeResource, addResource, getWarehouseItem } from './warehouse.ts';
@@ -8,6 +9,7 @@ export interface QueueRow {
   building_id: number;
   company_id: number;
   kind: number;
+  quality: number;
   amount: number;
   duration_seconds: number;
   started_at: string;
@@ -36,11 +38,12 @@ export function resolveFinishedProduction(companyId: number) {
   const finished = db.prepare(`
     SELECT * FROM production_queues
     WHERE company_id = ? AND finishes_at <= ? AND resolved = 0
-  `).all(companyId, now) as unknown as QueueRow[];
+  `).all(companyId, now) as unknown as Array<QueueRow & { quality?: number }>;
 
   for (const q of finished) {
     db.prepare('UPDATE production_queues SET resolved = 1 WHERE id = ?').run(q.id);
-    addResource(q.company_id, q.kind, 0, q.amount, { workers: 10, admin: 1 });
+    // Legacy committed sqlite may lack the quality column: default 0.
+    addResource(q.company_id, q.kind, q.quality ?? 0, q.amount, { workers: 10, admin: 1 });
   }
 }
 
@@ -87,13 +90,15 @@ export function queueProduction(companyId: number, buildingId: number, resourceK
   }
 
   const duration = calculateProductionTime(resourceKind, amount, building.size);
+  // Quality achievable at queue time, driven by the research quality cap (#39).
+  const quality = getProductionQualityCap(companyId, resourceKind);
   const now = new Date();
   const finishDate = new Date(now.getTime() + duration * 1000);
 
   const res = db.prepare(`
-    INSERT INTO production_queues (building_id, company_id, kind, amount, duration_seconds, started_at, finishes_at, resolved)
-    VALUES (?, ?, ?, ?, ?, ?, ?, 0)
-  `).run(buildingId, companyId, resourceKind, amount, duration, now.toISOString(), finishDate.toISOString());
+    INSERT INTO production_queues (building_id, company_id, kind, quality, amount, duration_seconds, started_at, finishes_at, resolved)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)
+  `).run(buildingId, companyId, resourceKind, quality, amount, duration, now.toISOString(), finishDate.toISOString());
 
   // Update building busy_until
   db.prepare('UPDATE buildings SET busy_until = ? WHERE id = ?').run(finishDate.toISOString(), buildingId);

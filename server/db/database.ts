@@ -66,6 +66,7 @@ db.exec(`
     building_id INTEGER,
     company_id INTEGER,
     kind INTEGER,
+    quality INTEGER DEFAULT 0,
     amount REAL,
     duration_seconds REAL,
     started_at TEXT,
@@ -191,6 +192,13 @@ db.exec(`
     last_login TEXT
   );
 `);
+
+// Migration: legacy committed databases predate the production_queues.quality
+// column (#39). CREATE TABLE IF NOT EXISTS does not alter existing tables.
+const pqColumns = db.prepare("PRAGMA table_info(production_queues)").all() as Array<{ name: string }>;
+if (!pqColumns.some(c => c.name === 'quality')) {
+  db.exec('ALTER TABLE production_queues ADD COLUMN quality INTEGER DEFAULT 0');
+}
 
 export function hashPassword(password: string): string {
   return crypto.createHash('sha256').update(password).digest('hex');

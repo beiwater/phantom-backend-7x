@@ -1,4 +1,5 @@
 import { db } from '../db/database.ts';
+import { getResourceDef } from './constants.ts';
 
 export interface ResearchRow {
   id: number;
@@ -23,6 +24,35 @@ const DISCIPLINES: Record<number, string> = {
   12: 'Recipes research'
 };
 
+// Coarse mapping: producedAt building letter -> research discipline.
+// Assumptions: extraction buildings (Oil rig, Mine, Quarry) -> Mining; Refinery/Gas station -> Chemistry;
+// generic Factory -> Materials; food/drink production (Brewery, Bakery, Food processing, Restaurant) -> Recipes;
+// Water reservoir/Power plant -> Energy; Orchards (e) grouped with Farms under Plant research.
+export const DISCIPLINE_BY_PRODUCED_AT: Record<string, number> = {
+  E: 4, W: 2, P: 1, e: 1, F: 11, O: 3, R: 6, S: 6, M: 3, Y: 10,
+  L: 4, T: 2, Q: 3, '1': 8, '6': 12, j: 12, k: 12, m: 12, A: 9, a: 9
+};
+
+
+export function getDisciplineForResource(resourceKind: number): number {
+  const def = getResourceDef(resourceKind);
+  const letter = def?.producedAt != null ? String(def.producedAt) : undefined;
+  return (letter && DISCIPLINE_BY_PRODUCED_AT[letter]) || DEFAULT_DISCIPLINE;
+}
+
+// Quality cap achievable for a resource given the company's research in the
+// relevant discipline. Returns 0 when the company has no research rows at all
+// (distinct from the display default of 10 patents in getCompanyResearch).
+export function getProductionQualityCap(companyId: number, resourceKind: number): number {
+  const discipline = getDisciplineForResource(resourceKind);
+  const row = db.prepare(`
+    SELECT patents FROM research WHERE company_id = ? AND discipline = ?
+  `).get(companyId, discipline) as unknown as { patents: number } | undefined;
+
+  if (!row) return 0;
+  return Math.min(12, Math.floor(row.patents / 2) + 1);
+}
+
 export function getCompanyResearch(companyId: number) {
   const rows = db.prepare(`
     SELECT * FROM research WHERE company_id = ?
@@ -46,7 +76,14 @@ export function getCompanyResearch(companyId: number) {
   return { research: researchMap };
 }
 
+// Level gate (research unlocks at level >= 10 in the real game) intentionally
+// skipped: company.ts featureFlags has no research.enabled flag, and the
+// private server starts players at level 5 with everything enabled.
 export function applyResearch(companyId: number, discipline: number, pointsToApply: number) {
+  if (!Number.isFinite(pointsToApply) || pointsToApply <= 0) {
+    throw new Error('pointsToApply must be a finite positive number');
+  }
+
   const existing = db.prepare(`
     SELECT * FROM research WHERE company_id = ? AND discipline = ?
   `).get(companyId, discipline) as unknown as ResearchRow | undefined;
