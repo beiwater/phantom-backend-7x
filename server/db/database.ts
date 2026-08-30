@@ -129,7 +129,9 @@ db.exec(`
     interest_rate REAL DEFAULT 0.005,
     amount REAL DEFAULT 5000,
     status TEXT DEFAULT 'active',
-    created_at TEXT
+    created_at TEXT,
+    maturity_date TEXT,
+    settled INTEGER DEFAULT 0
   );
 
   CREATE TABLE IF NOT EXISTS executives (
@@ -191,6 +193,13 @@ db.exec(`
     last_login TEXT
   );
 `);
+
+// Legacy DB migration: add bond maturity columns if missing (issue #42)
+{
+  const bondCols = (db.prepare('PRAGMA table_info(bonds)').all() as { name: string }[]).map((c) => c.name);
+  if (!bondCols.includes('maturity_date')) db.exec('ALTER TABLE bonds ADD COLUMN maturity_date TEXT');
+  if (!bondCols.includes('settled')) db.exec('ALTER TABLE bonds ADD COLUMN settled INTEGER DEFAULT 0');
+}
 
 export function hashPassword(password: string): string {
   return crypto.createHash('sha256').update(password).digest('hex');
