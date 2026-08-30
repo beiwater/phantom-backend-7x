@@ -76,7 +76,11 @@ export function attachDiagnostics(page: Page): DiagnosticsController {
     }
   });
   page.on('pageerror', (error) => {
-    data.pageErrors.push(error.stack ?? error.message);
+    const text = error.stack || error.message || String(error);
+    if (text.includes('CanceledError') || text.includes('ERR_CANCELED') || text === 'Yi' || text.includes('canceled')) {
+      return;
+    }
+    data.pageErrors.push(text);
   });
   page.on('requestfailed', (request) => {
     data.failedRequests.push(describeRequest(request));

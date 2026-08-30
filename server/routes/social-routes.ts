@@ -143,7 +143,7 @@ export async function handleSocialRoutes(
     const issueId = Number(newspaperIssueMatch[2]);
     const now = new Date().toISOString();
 
-    return sendJson(res, {
+    sendJson(res, {
       id: issueId,
       issueId,
       realmId,
@@ -171,6 +171,7 @@ export async function handleSocialRoutes(
         }
       ]
     });
+    return true;
   }
 
   // 10. Newspaper issue list
@@ -178,7 +179,7 @@ export async function handleSocialRoutes(
   if (newspaperListMatch) {
     const realmId = Number(newspaperListMatch[1]);
     const now = new Date().toISOString();
-    return sendJson(res, [
+    sendJson(res, [
       {
         id: 1,
         issueId: 1,
@@ -190,15 +191,17 @@ export async function handleSocialRoutes(
         ]
       }
     ]);
+    return true;
   }
 
   // 11. Newspaper Sponsor Params
   if (pathname === '/api/v2/newspaper/sponsor-params/') {
-    return sendJson(res, {
+    sendJson(res, {
       sponsorCost: 500,
       sponsorBonus: 100,
       sponsorMinValuation: 100000
     });
+    return true;
   }
 
   // 12. Polls

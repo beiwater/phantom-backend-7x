@@ -17,7 +17,7 @@ Use the specialist project skills together:
 - `compatibility-api`: infer and implement the exact original-client API contract from Network/HAR/frontend consumption.
 - `missing-api-recorder`: capture missing/fake APIs and schema/state observations during exploration.
 - `economy-integrity`: audit money, SimBoosts, inventory, ownership, idempotency, and multi-state transactions.
-
+- `code-standards`: enforce code formatting, anti-reinvention reuse rules, comments, ~500-line modularity boundaries, and verified Git delivery timing.
 Primary tracking issues: #57 defines the continuous repair workflow; #58 defines the missing API/data recorder.
 
 ## Continuous loop

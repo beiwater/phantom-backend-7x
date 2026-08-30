@@ -11,6 +11,7 @@ Use the project skills under `.codex/skills/` as the canonical workflow:
 - [`compatibility-api`](./skills/compatibility-api/SKILL.md) — infer and implement original frontend API contracts from Network/HAR/frontend usage.
 - [`missing-api-recorder`](./skills/missing-api-recorder/SKILL.md) — record missing/fake APIs, schema mismatches, empty fallbacks, loading failures, and state inconsistencies.
 - [`economy-integrity`](./skills/economy-integrity/SKILL.md) — audit money, SimBoosts, inventory, rewards, idempotency, ownership, and transactional state changes.
+- [`code-standards`](./skills/code-standards/SKILL.md) — enforce code formatting, anti-reinvention reuse rules, comments, ~500-line modularity boundaries, and verified Git delivery timing.
 
 Core loop:
 

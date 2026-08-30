@@ -32,7 +32,7 @@
       window.amplitude = { getInstance: function() { return { init: function() {}, logEvent: function() {}, setUserProperties: function() {}, setUserId: function() {} }; } };
       window.Rollbar = { error: function() {}, info: function() {}, warning: function() {} };
       window.addEventListener('unhandledrejection', function(event) {
-        if (event.reason && (event.reason.name === 'CanceledError' || event.reason.__CANCEL__ || event.reason.message === 'canceled')) {
+        if (event.reason && (event.reason.name === 'CanceledError' || event.reason.__CANCEL__ || event.reason.message === 'canceled' || event.reason.code === 'ERR_CANCELED' || event.reason.name === 'Yi' || String(event.reason).includes('canceled') || String(event.reason).includes('ERR_CANCELED'))) {
           event.preventDefault();
           event.stopPropagation();
         }

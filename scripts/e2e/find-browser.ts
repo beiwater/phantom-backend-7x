@@ -40,10 +40,14 @@ function addCandidate(candidates: string[], candidate: string | undefined): void
 function addKnownBrowserLocations(candidates: string[]): void {
   const repositoryRoot = process.cwd();
   const homeCache = path.join(os.homedir(), '.cache');
+  const macCache = path.join(os.homedir(), 'Library', 'Caches');
   const explicitPaths = [
     process.env.E2E_BROWSER_PATH,
     process.env.PUPPETEER_EXECUTABLE_PATH,
     process.env.CHROME_PATH,
+    '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+    '/Applications/Chromium.app/Contents/MacOS/Chromium',
+    '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
   ];
 
   for (const explicitPath of explicitPaths) {
@@ -55,6 +59,8 @@ function addKnownBrowserLocations(candidates: string[]): void {
     path.join(repositoryRoot, 'node_modules', 'puppeteer', '.local-chromium'),
     path.join(homeCache, 'ms-playwright'),
     path.join(homeCache, 'puppeteer'),
+    path.join(macCache, 'ms-playwright'),
+    path.join(macCache, 'puppeteer'),
     '/opt/phantom-browsers',
     '/usr/bin',
     '/usr/local/bin',
@@ -110,7 +116,16 @@ export function findBrowserExecutable(): string {
     }
   }
 
-  for (const root of ['/opt/phantom-browsers', '/usr/lib', '/usr/local/lib']) {
+  const scanRoots = [
+    path.join(os.homedir(), 'Library', 'Caches', 'ms-playwright'),
+    path.join(os.homedir(), 'Library', 'Caches', 'puppeteer'),
+    path.join(os.homedir(), '.cache', 'ms-playwright'),
+    path.join(os.homedir(), '.cache', 'puppeteer'),
+    '/opt/phantom-browsers',
+    '/usr/lib',
+    '/usr/local/lib',
+  ];
+  for (const root of scanRoots) {
     const match = findNamedExecutable(root, 0);
     if (match) {
       return match;

@@ -1,14 +1,19 @@
 import { mkdirSync, mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, resolve } from 'node:path';
 import { spawn } from 'node:child_process';
 
 const repositoryRoot = resolve(dirname(new URL(import.meta.url).pathname), '../..');
 const port = Number.parseInt(process.env.E2E_PORT ?? '3100', 10);
 const requestedDataDirectory = process.env.E2E_DATA_DIR?.trim();
-const runDirectory = '/opt/phantom-e2e-runs';
-mkdirSync(runDirectory, { recursive: true });
+let runDirectory = process.env.E2E_RUN_DIR || '/opt/phantom-e2e-runs';
+try {
+  mkdirSync(runDirectory, { recursive: true });
+} catch {
+  runDirectory = resolve(tmpdir(), 'phantom-e2e-runs');
+  mkdirSync(runDirectory, { recursive: true });
+}
 const dataDirectory = requestedDataDirectory || mkdtempSync(resolve(runDirectory, 'simcompanies-e2e-'));
-
 if (!Number.isInteger(port) || port < 1 || port > 65535) {
   throw new Error(`Invalid E2E_PORT: ${process.env.E2E_PORT}`);
 }

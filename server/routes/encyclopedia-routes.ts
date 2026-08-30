@@ -122,10 +122,11 @@ export async function handleEncyclopediaRoutes(
   const pagesMatch = pathname.match(/^\/api\/v3\/pages\/[^/]+\/([^/]+)\/$/);
   if (pagesMatch) {
     const pageKey = pagesMatch[1];
-    return sendJson(res, {
+    sendJson(res, {
       title: pageKey.toUpperCase(),
       content: `<h2>Sim Companies 指南: ${pageKey}</h2><p>私人服务器版本文库与游戏机制文档已全面在线。</p>`
     });
+    return true;
   }
 
   // 7. EVA & Wealth Rankings
@@ -156,27 +157,31 @@ export async function handleEncyclopediaRoutes(
         value: comp.money + 150000
       });
     }
-    return sendJson(res, rankings);
+    sendJson(res, rankings);
+    return true;
   }
 
   // 8. Encyclopedia Events
   if (pathname.includes('/encyclopedia/events/')) {
-    return sendJson(res, { events: [] });
+    sendJson(res, { events: [] });
+    return true;
   }
 
   // 9. Encyclopedia Supporters MUST return { supporters: [] }
   if (pathname.includes('/encyclopedia/supporters/')) {
-    return sendJson(res, { supporters: [] });
+    sendJson(res, { supporters: [] });
+    return true;
   }
 
   // 10. Certificates and Tags
   if (pathname.includes('/certificates/')) {
-    return sendJson(res, []);
+    sendJson(res, []);
+    return true;
   }
   if (pathname.includes('/tags/')) {
-    return sendJson(res, []);
+    sendJson(res, []);
+    return true;
   }
-
   // 11. Stats / Top Leaderboards
   const statsMatch = pathname.match(/^\/api\/v4\/[^/]+\/\d+\/stats\/top\/([^/]+)\/$/);
   if (statsMatch) {
