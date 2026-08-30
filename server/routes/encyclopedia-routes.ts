@@ -38,6 +38,12 @@ export async function handleEncyclopediaRoutes(
     return true;
   }
 
+  // Production Modifiers (MUST return object with resourceProductionModifiers array!)
+  if (pathname.includes('/production-modifiers/')) {
+    sendJson(res, { resourceProductionModifiers: [] });
+    return true;
+  }
+
   // Encyclopedia Resource Detail
   const encResMatch = pathname.match(/^\/api\/v4\/[^/]+\/\d+\/encyclopedia\/resources\/(\d+)\/(\d+)\/$/) ||
                       pathname.match(/^\/api\/v4\/[^/]+\/\d+\/encyclopedia\/resources\/(\d+)\/$/);
@@ -73,13 +79,13 @@ export async function handleEncyclopediaRoutes(
     return sendJson(res, []);
   }
 
-  if (pathname.includes('/resources-retail-info/')) {
-    sendJson(res, { 1: { saturation: 0.5 }, 2: { saturation: 0.5 }, 3: { saturation: 0.5 } });
-    return true;
+  // Encyclopedia Events
+  if (pathname.includes('/encyclopedia/events/')) {
+    return sendJson(res, { events: [] });
   }
 
-  if (pathname.includes('/players/research/')) {
-    sendJson(res, { research: {} });
+  if (pathname.includes('/resources-retail-info/')) {
+    sendJson(res, { 1: { saturation: 0.5 }, 2: { saturation: 0.5 }, 3: { saturation: 0.5 } });
     return true;
   }
 
