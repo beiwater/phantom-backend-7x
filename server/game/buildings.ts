@@ -13,6 +13,7 @@ export interface BuildingRow {
   cost: number;
   category: string;
   created_at: string;
+  busy_until: string | null;
 }
 
 const BUILDING_NAMES: Record<string, string> = {

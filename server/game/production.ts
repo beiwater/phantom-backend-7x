@@ -70,6 +70,20 @@ export function queueProduction(companyId: number, buildingId: number, resourceK
     throw new Error(`Unknown resource kind: ${resourceKind}`);
   }
 
+  // Reject queueing while the building is busy with unresolved work
+  const now = new Date();
+  const busyUntilMs = building.busy_until ? new Date(building.busy_until).getTime() : 0;
+  if (busyUntilMs > now.getTime()) {
+    const pending = db.prepare(`
+      SELECT COUNT(*) AS count
+      FROM production_queues
+      WHERE building_id = ? AND resolved = 0
+    `).get(buildingId) as { count: number };
+    if (pending.count > 0) {
+      throw new Error('Building is busy');
+    }
+  }
+
   // Check and consume input materials
   if (resDef.producedFrom) {
     for (const [reqKindStr, reqPerUnit] of Object.entries(resDef.producedFrom)) {
@@ -92,7 +106,6 @@ export function queueProduction(companyId: number, buildingId: number, resourceK
   const duration = calculateProductionTime(resourceKind, amount, building.size);
   // Quality achievable at queue time, driven by the research quality cap (#39).
   const quality = getProductionQualityCap(companyId, resourceKind);
-  const now = new Date();
   const finishDate = new Date(now.getTime() + duration * 1000);
 
   const res = db.prepare(`
@@ -100,8 +113,9 @@ export function queueProduction(companyId: number, buildingId: number, resourceK
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)
   `).run(buildingId, companyId, resourceKind, quality, amount, duration, now.toISOString(), finishDate.toISOString());
 
-  // Update building busy_until
-  db.prepare('UPDATE buildings SET busy_until = ? WHERE id = ?').run(finishDate.toISOString(), buildingId);
+  // Extend building busy_until past any existing busy window
+  const busyUntil = new Date(Math.max(busyUntilMs, finishDate.getTime()));
+  db.prepare('UPDATE buildings SET busy_until = ? WHERE id = ?').run(busyUntil.toISOString(), buildingId);
 
   const updatedBuilding = getBuildingById(buildingId);
   const queue = getBuildingQueue(companyId, buildingId);
@@ -147,5 +161,15 @@ export function cancelQueueItem(companyId: number, buildingId: number, queueId: 
     throw err;
   }
 
+  // Recompute busy_until from the latest remaining unresolved queue item
+  const latest = db.prepare(`
+    SELECT finishes_at FROM production_queues
+    WHERE building_id = ? AND resolved = 0
+    ORDER BY finishes_at DESC, id DESC
+    LIMIT 1
+  `).get(buildingId) as { finishes_at: string } | undefined;
+  db.prepare('UPDATE buildings SET busy_until = ? WHERE id = ?').run(
+    latest ? latest.finishes_at : null, buildingId
+  );
   return getBuildingQueue(companyId, buildingId);
 }
