@@ -164,7 +164,7 @@ async function runTreeRecursiveCrawlerE2E(round: number = 8) {
       await emailInput.type(testEmail);
       await passwordInput.type('Password123!');
       await passwordInput.press('Enter');
-      await page.waitForNetworkIdle({ idleTime: 500, timeout: 6000 }).catch(() => {});
+      await page.waitForNetworkIdle({ idleTime: 500, timeout: 8000 }).catch(() => {});
     }
 
     await page.waitForSelector('a[href*="/b/"]', { timeout: 10000 });
