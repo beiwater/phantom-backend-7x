@@ -1,5 +1,6 @@
 import { db } from '../db/database.ts';
-import { CONSTANTS_BUILDINGS } from './constants.ts';
+import { CONSTANTS_BUILDINGS, CONSTRUCTION_MATERIALS, DEMOLITION_REFUND_RATE } from './constants.ts';
+import { getWarehouseItem, consumeResource } from './warehouse.ts';
 import { updateCompanyMoney, getCompanyById } from './company.ts';
 
 export interface BuildingRow {
@@ -88,12 +89,32 @@ export function getBuildingById(buildingId: number): BuildingRow | null {
   return row || null;
 }
 
+export function getConstructionMaterials(sizeUnits: number): Array<{ kind: number; amount: number }> {
+  return CONSTRUCTION_MATERIALS.map(m => ({ kind: m.kind, amount: m.perUnit * sizeUnits }));
+}
+
+// Check all requirements, then consume; throws a clear error on any shortage
+function requireMaterials(companyId: number, requirements: Array<{ kind: number; amount: number }>) {
+  for (const req of requirements) {
+    const stock = getWarehouseItem(companyId, req.kind, 0);
+    if (!stock || stock.amount < req.amount) {
+      throw new Error(`Insufficient materials: need ${req.amount} of resource #${req.kind}`);
+    }
+  }
+  for (const req of requirements) {
+    consumeResource(companyId, req.kind, 0, req.amount);
+  }
+}
+
 export function constructBuilding(companyId: number, kind: string, position: string) {
   const meta = getBuildingMeta(kind);
   const comp = getCompanyById(companyId);
   if (!comp || comp.money < meta.cost) {
     throw new Error('Not enough money to construct building');
   }
+
+  // Check and consume construction materials before deducting money
+  requireMaterials(companyId, getConstructionMaterials(1));
 
   // Deduct money
   const newMoney = updateCompanyMoney(companyId, -meta.cost);
@@ -127,19 +148,24 @@ export function upgradeBuilding(companyId: number, buildingId: number, sizeDelta
   const unitCost = meta.cost || 5000;
 
   if (sizeDelta > 0) {
-    // Upgrade
+    // Upgrade: cost scales with the target size, charged once for the whole delta
+    const cost = unitCost * sizeDelta;
     const comp = getCompanyById(companyId);
-    if (!comp || comp.money < unitCost) {
+    if (!comp || comp.money < cost) {
       throw new Error('Not enough money to upgrade building');
     }
-    const newMoney = updateCompanyMoney(companyId, -unitCost);
+
+    // Check and consume construction materials before deducting money
+    requireMaterials(companyId, getConstructionMaterials(sizeDelta));
+
+    const newMoney = updateCompanyMoney(companyId, -cost);
     const newSize = building.size + sizeDelta;
     db.prepare('UPDATE buildings SET size = ? WHERE id = ?').run(newSize, buildingId);
     const updated = getBuildingById(buildingId);
 
     return {
       building: updated ? formatBuilding(updated) : null,
-      cost: unitCost,
+      cost,
       moneyUpdate: newMoney
     };
   } else {
@@ -162,12 +188,17 @@ export function demolishBuilding(companyId: number, buildingId: number) {
     throw new Error('Building not found');
   }
 
+  // Refund a proportional share of the building cost
+  const refund = Math.round(building.cost * DEMOLITION_REFUND_RATE);
+  const moneyUpdate = updateCompanyMoney(companyId, refund);
+
   db.prepare('DELETE FROM buildings WHERE id = ?').run(buildingId);
   db.prepare('DELETE FROM production_queues WHERE building_id = ?').run(buildingId);
   db.prepare('DELETE FROM retail_orders WHERE building_id = ?').run(buildingId);
 
   return {
     success: true,
+    moneyUpdate,
     building: {
       id: building.id,
       position: String(building.position),
