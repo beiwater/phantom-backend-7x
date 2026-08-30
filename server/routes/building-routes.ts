@@ -50,30 +50,37 @@ export async function handleBuildingRoutes(
   const v1BusyMatch = pathname.match(/^\/api\/v1\/buildings\/(\d+)\/busy\/$/) ||
                       pathname.match(/^\/api\/v1\/busy\/(\d+)\/$/);
   if (v1BusyMatch && method === 'POST') {
-    const buildingId = Number(v1BusyMatch[1]);
-    const building = getBuildingById(buildingId);
-    const effectiveCompanyId = building ? building.company_id : (currentCompanyId || 4259175);
-
-    const body = await readJsonBody<{
-      kind?: number;
-      amount?: number;
-      limitQuality?: number | null;
-    }>(req);
-
-    if (body.kind && body.amount) {
-      try {
-        queueProduction(effectiveCompanyId, buildingId, body.kind, body.amount);
-      } catch (e) {}
+    if (!currentCompanyId) {
+      sendJson(res, { error: 'Unauthorized' }, 401);
+      return true;
     }
+    const buildingId = Number(v1BusyMatch[1]);
 
-    const updated = getBuildingById(buildingId);
-    return sendJson(res, {
-      message: "Production started successfully",
-      money: 0,
-      building: updated ? formatBuilding(updated) : null,
-      followerErrors: [],
-      simboostsDelta: 0
-    });
+    try {
+      const body = await readJsonBody<{
+        kind?: number;
+        amount?: number;
+        limitQuality?: number | null;
+      }>(req);
+
+      if (!body.kind || !body.amount) {
+        sendJson(res, { error: 'kind and amount are required' }, 400);
+        return true;
+      }
+
+      const result = queueProduction(currentCompanyId, buildingId, body.kind, body.amount);
+      sendJson(res, {
+        message: "Production started successfully",
+        money: 0,
+        building: result.building,
+        followerErrors: [],
+        simboostsDelta: 0
+      });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      sendJson(res, { error: msg }, 400);
+    }
+    return true;
   }
 
   // Buildings list & construct
