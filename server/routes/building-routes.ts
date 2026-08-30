@@ -46,8 +46,9 @@ export async function handleBuildingRoutes(
   method: string,
   currentCompanyId: number | null
 ): Promise<boolean> {
-  // v1 Busy / Start Production endpoint
-  const v1BusyMatch = pathname.match(/^\/api\/v1\/busy\/(\d+)\/$/);
+  // v1 Busy / Start Production endpoint: /api/v1/buildings/:id/busy/ or /api/v1/busy/:id/
+  const v1BusyMatch = pathname.match(/^\/api\/v1\/buildings\/(\d+)\/busy\/$/) ||
+                      pathname.match(/^\/api\/v1\/busy\/(\d+)\/$/);
   if (v1BusyMatch && method === 'POST') {
     const buildingId = Number(v1BusyMatch[1]);
     const building = getBuildingById(buildingId);
