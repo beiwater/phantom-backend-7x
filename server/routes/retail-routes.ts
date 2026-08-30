@@ -24,12 +24,35 @@ export async function handleRetailRoutes(
   currentCompanyId: number | null
 ): Promise<boolean> {
   // 1. Retail / Sales orders list or create
-  if (pathname === '/api/v1/sales-orders/' || pathname === '/api/v2/sales-orders/') {
+  const buildingSalesOrdersMatch = pathname.match(/^\/api\/v2\/companies\/buildings\/(\d+)\/sales-orders\/(?:(\d+)\/)?$/);
+  if (pathname === '/api/v1/sales-orders/' || pathname === '/api/v2/sales-orders/' || buildingSalesOrdersMatch) {
+    const buildingId = buildingSalesOrdersMatch ? Number(buildingSalesOrdersMatch[1]) : undefined;
+    const orderId = buildingSalesOrdersMatch && buildingSalesOrdersMatch[2] ? Number(buildingSalesOrdersMatch[2]) : undefined;
+    const companyId = currentCompanyId || 4259175;
+
     if (method === 'GET') {
-      const companyId = currentCompanyId || 4259175;
-      const orders = db.prepare(`
-        SELECT * FROM retail_orders WHERE company_id = ? ORDER BY id DESC
-      `).all(companyId) as unknown as RetailDbRow[];
+      if (orderId) {
+        const o = db.prepare('SELECT * FROM retail_orders WHERE id = ?').get(orderId) as RetailDbRow | undefined;
+        if (!o) {
+          sendJson(res, { error: 'Order not found' }, 404);
+          return true;
+        }
+        sendJson(res, {
+          id: o.id,
+          building: o.building_id,
+          resource: { kind: o.resource_kind },
+          units: o.units,
+          sellingPrice: o.selling_price,
+          costTotal: o.cost_total,
+          finishedAt: o.finished_at,
+          createdAt: o.created_at
+        });
+        return true;
+      }
+
+      const orders = buildingId
+        ? (db.prepare('SELECT * FROM retail_orders WHERE company_id = ? AND building_id = ? ORDER BY id DESC').all(companyId, buildingId) as unknown as RetailDbRow[])
+        : (db.prepare('SELECT * FROM retail_orders WHERE company_id = ? ORDER BY id DESC').all(companyId) as unknown as RetailDbRow[]);
 
       sendJson(res, orders.map(o => ({
         id: o.id,
@@ -45,18 +68,15 @@ export async function handleRetailRoutes(
     }
 
     if (method === 'POST') {
-      if (!currentCompanyId) {
-        sendJson(res, { error: 'Unauthorized' }, 401);
-        return true;
-      }
       const body = await readJsonBody<{
-        building: number;
+        building?: number;
         resource: number;
         units: number;
         sellingPrice?: number;
       }>(req);
 
-      const item = getWarehouseItem(currentCompanyId, body.resource);
+      const targetBuildingId = buildingId || body.building || 1;
+      const item = getWarehouseItem(companyId, body.resource);
       if (!item || item.amount < body.units) {
         sendJson(res, { error: 'Insufficient stock in warehouse to retail' }, 400);
         return true;
@@ -71,8 +91,8 @@ export async function handleRetailRoutes(
         VALUES (?, ?, ?, ?, ?, ?, ?)
       `);
       const result = stmt.run(
-        body.building,
-        currentCompanyId,
+        targetBuildingId,
+        companyId,
         body.resource,
         body.units,
         retailPrice,
@@ -82,7 +102,7 @@ export async function handleRetailRoutes(
 
       sendJson(res, {
         id: Number(result.lastInsertRowid),
-        building: body.building,
+        building: targetBuildingId,
         resource: { kind: body.resource },
         units: body.units,
         sellingPrice: retailPrice,
