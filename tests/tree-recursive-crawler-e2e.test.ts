@@ -134,10 +134,10 @@ async function runTreeRecursiveCrawlerE2E(round: number = 8) {
     }
 
     // ----------------------------------------------------
-    // Tree Level 1: Authentication Branch (Sign In via UI DOM)
+    // Tree Level 1: Authentication Branch (Signup via UI DOM)
     // ----------------------------------------------------
-    console.log('\n[Tree Level 1] Navigating to Sign In page via DOM / UI...');
-    await page.goto(`${baseUrl}/zh-cn/signin/`, { waitUntil: 'networkidle2' });
+    console.log('\n[Tree Level 1] Navigating to Signup page via DOM / UI...');
+    await page.goto(`${baseUrl}/zh-cn/signup/`, { waitUntil: 'networkidle2' });
 
     for (const b of await page.$$('button')) {
       const text = await b.evaluate(el => el.textContent || '');
@@ -146,13 +146,23 @@ async function runTreeRecursiveCrawlerE2E(round: number = 8) {
         break;
       }
     }
+
+    for (const b of await page.$$('button')) {
+      const text = await b.evaluate(el => el.textContent || '');
+      if (text.includes('使用邮箱地址') || text.includes('邮箱')) {
+        await b.click();
+        break;
+      }
+    }
     await page.waitForNetworkIdle({ idleTime: 200, timeout: 3000 }).catch(() => {});
 
-    const emailInput = await page.$('input[type="email"]');
-    const passwordInput = await page.$('input[type="password"]');
+    const emailInput = await page.$('input[type="email"], input[name="email"]');
+    const passwordInput = await page.$('input[type="password"], input[name="password"]');
+
+    const testEmail = `tree_crawler_${Date.now()}@domain.local`;
     if (emailInput && passwordInput) {
-      await emailInput.type('admin@simcompanies.local');
-      await passwordInput.type('admin123');
+      await emailInput.type(testEmail);
+      await passwordInput.type('Password123!');
       await passwordInput.press('Enter');
       await page.waitForNetworkIdle({ idleTime: 500, timeout: 6000 }).catch(() => {});
     }
