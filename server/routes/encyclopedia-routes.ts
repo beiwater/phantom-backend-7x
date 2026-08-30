@@ -130,7 +130,7 @@ export async function handleEncyclopediaRoutes(
     return sendJson(res, { events: [] });
   }
 
-  // Encyclopedia Supporters
+  // Encyclopedia Supporters MUST return { supporters: [] }
   if (pathname.includes('/encyclopedia/supporters/')) {
     return sendJson(res, { supporters: [] });
   }
@@ -138,17 +138,37 @@ export async function handleEncyclopediaRoutes(
   // Stats / Leaderboard
   const statsMatch = pathname.match(/^\/api\/v4\/[^/]+\/\d+\/stats\/top\/([^/]+)\/$/);
   if (statsMatch) {
+    const statType = statsMatch[1];
     const comp = currentCompanyId ? getCompanyById(currentCompanyId) : null;
     const list = [
-      { id: 1, company: { id: 999901, company: 'Solaris Energy Ltd', logo: '', realmId: 0, deleted: false }, value: 850000, rank: 0 },
-      { id: 2, company: { id: 999902, company: 'AeroTech Systems', logo: '', realmId: 0, deleted: false }, value: 520000, rank: 1 },
-      { id: 3, company: { id: 999903, company: 'Titan Industries', logo: '', realmId: 0, deleted: false }, value: 310000, rank: 2 }
+      {
+        id: 1,
+        company: { id: 999901, company: 'Solaris Energy Ltd', logo: '', realmId: 0, deleted: false },
+        contest: { id: 1, name: 'Harvest Competition' },
+        value: 850000,
+        rank: 0
+      },
+      {
+        id: 2,
+        company: { id: 999902, company: 'AeroTech Systems', logo: '', realmId: 0, deleted: false },
+        contest: { id: 1, name: 'Harvest Competition' },
+        value: 520000,
+        rank: 1
+      },
+      {
+        id: 3,
+        company: { id: 999903, company: 'Titan Industries', logo: '', realmId: 0, deleted: false },
+        contest: { id: 1, name: 'Harvest Competition' },
+        value: 310000,
+        rank: 2
+      }
     ];
 
     if (comp) {
       list.unshift({
         id: comp.company_id,
         company: { id: comp.company_id, company: comp.name, logo: comp.logo || '', realmId: comp.realm_id, deleted: false },
+        contest: { id: 1, name: 'Harvest Competition' },
         value: comp.money,
         rank: 0
       });
