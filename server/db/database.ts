@@ -183,6 +183,18 @@ db.exec(`
     sent_at TEXT
   );
 
+
+  CREATE TABLE IF NOT EXISTS loans (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    company_id INTEGER,
+    principal REAL,
+    interest_rate REAL DEFAULT 0.1,
+    remaining REAL,
+    status TEXT DEFAULT 'active',
+    created_at TEXT,
+    due_at TEXT
+  );
+
   CREATE TABLE IF NOT EXISTS player_devices (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     player_id INTEGER,
