@@ -146,18 +146,10 @@ async function runTreeRecursiveCrawlerE2E(round: number = 8) {
         break;
       }
     }
-
-    for (const b of await page.$$('button')) {
-      const text = await b.evaluate(el => el.textContent || '');
-      if (text.includes('使用邮箱地址') || text.includes('邮箱')) {
-        await b.click();
-        break;
-      }
-    }
     await page.waitForNetworkIdle({ idleTime: 200, timeout: 3000 }).catch(() => {});
 
-    const emailInput = await page.$('input[type="email"], input[name="email"]');
-    const passwordInput = await page.$('input[type="password"], input[name="password"]');
+    const emailInput = await page.$('input[type="email"]');
+    const passwordInput = await page.$('input[type="password"]');
     if (emailInput && passwordInput) {
       await emailInput.type('admin@simcompanies.local');
       await passwordInput.type('admin123');
