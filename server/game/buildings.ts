@@ -98,9 +98,26 @@ export function getBuildingMeta(kind: string) {
 
 export function formatBuilding(b: BuildingRow) {
   const meta = getBuildingMeta(b.kind);
+  const busyUntilMs = b.busy_until ? new Date(b.busy_until).getTime() : 0;
+  const isConstructingOrUpgrading = busyUntilMs > Date.now();
+
+  let busyObj: any = getProductionBusy(b.id);
+  if (!busyObj && isConstructingOrUpgrading) {
+    const startedMs = b.created_at ? new Date(b.created_at).getTime() : (busyUntilMs - 10000);
+    const duration = Math.max(1, Math.round((busyUntilMs - startedMs) / 1000)) || 10;
+    busyObj = {
+      id: b.id,
+      started: new Date(startedMs).toISOString(),
+      duration,
+      category: 'b',
+      expanding: true,
+      canFetch: false
+    };
+  }
+
   return {
     id: b.id,
-    busy: getProductionBusy(b.id),
+    busy: busyObj,
     category: b.category || meta.category || 'production',
     company: {
       id: b.company_id,
@@ -111,7 +128,7 @@ export function formatBuilding(b: BuildingRow) {
     costUnits: 2,
     country: "AU",
     created: b.created_at || new Date().toISOString(),
-    isUnderConstruction: false,
+    isUnderConstruction: isConstructingOrUpgrading,
     kind: b.kind,
     level: b.size || 1,
     name: b.name || meta.name || 'Building',
