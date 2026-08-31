@@ -5,7 +5,7 @@ export const RETAIL_PRODUCTS: Record<string, number[]> = {
   T: [19, 20, 21, 22],          // Hardware / Tools
   C: [50, 51, 52, 53],          // Car dealership
   H: [102, 103, 104],           // Hardware store
-  F: [16, 17, 18],              // Fashion store
+  F: [17, 18, 115, 116, 117, 118], // Fashion store
 };
 
 export function getRetailProductsForBuilding(buildingKind: string): number[] {

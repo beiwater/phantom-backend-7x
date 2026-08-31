@@ -45,11 +45,12 @@ const RESEARCH_RESOURCE_BY_DISCIPLINE: Record<number, number> = {
 // Assumptions: extraction buildings (Oil rig, Mine, Quarry) -> Mining; Refinery/Gas station -> Chemistry;
 // generic Factory -> Materials; food/drink production (Brewery, Bakery, Food processing, Restaurant) -> Recipes;
 // Water reservoir/Power plant -> Energy; Orchards (e) grouped with Farms under Plant research.
+export const DEFAULT_DISCIPLINE = 10; // Materials research fallback
 export const DISCIPLINE_BY_PRODUCED_AT: Record<string, number> = {
   E: 4, W: 2, P: 1, e: 1, F: 11, O: 3, R: 6, S: 6, M: 3, Y: 10,
-  L: 4, T: 2, Q: 3, '1': 8, '6': 12, j: 12, k: 12, m: 12, A: 9, a: 9
+  L: 4, T: 2, Q: 3, '1': 8, '6': 12, j: 12, k: 12, m: 12, A: 9, a: 9,
+  '0': 8, '7': 9, '8': 9, '9': 9, D: 8, o: 9, x: 4, g: 6, i: 9, v: 8
 };
-
 
 export function getDisciplineForResource(resourceKind: number): number {
   const def = getResourceDef(resourceKind);

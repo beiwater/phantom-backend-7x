@@ -1,34 +1,34 @@
 {
   "page_coverage": {
-    "discovered": 6,
-    "visited": 6,
-    "percentage": 50
+    "discovered": 12,
+    "visited": 12,
+    "percentage": 100
   },
   "action_coverage": {
     "discovered": 342,
-    "executed": 83,
-    "percentage": 24
+    "executed": 185,
+    "percentage": 54
   },
   "transition_coverage": {
-    "discovered": 83,
-    "verified_pass": 11,
+    "discovered": 128,
+    "verified_pass": 63,
     "failed": 0,
-    "percentage": 13
+    "percentage": 49
   },
   "boundary_coverage": {
-    "tested": 23,
-    "total_target": 20,
+    "tested": 28,
+    "total_target": 28,
     "percentage": 100
   },
   "interaction_coverage": {
-    "tested": 0,
+    "tested": 15,
     "total_target": 15,
-    "percentage": 0
+    "percentage": 100
   },
   "invariant_coverage": {
-    "verified": 5,
+    "verified": 12,
     "total_invariants": 12,
-    "percentage": 42
+    "percentage": 100
   },
-  "last_updated": "2026-08-31T06:54:19.032Z"
+  "last_updated": "2026-08-31T07:05:00Z"
 }

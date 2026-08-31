@@ -15,7 +15,8 @@ const RETAIL_PRODUCTS: Record<string, number[]> = {
   E: [24, 25, 40, 80],
   T: [19, 20, 21, 22],
   C: [50, 51, 52, 53],
-  H: [102, 103, 104]
+  H: [102, 103, 104],
+  F: [17, 18, 115, 116, 117, 118]
 };
 
 export interface RetailDbRow {

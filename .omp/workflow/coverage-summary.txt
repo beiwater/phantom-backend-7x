@@ -1,22 +1,23 @@
 ============================================================
            SimCompanies AI Debug Workflow Dashboard
 ============================================================
-Current Frontier: Breadth Exploration Wave 1
-Explorer Status: active
+Current Frontier: All-Buildings Production & Retail Matrix
+Explorer Status: active (Subagents ExplorerWave1 & DebuggerIssue65 Settled)
 Open P0 Findings: 0
 Open P1 Findings: 0
-Current Fix: None
-Verify Status: Verified Pass
-Total Discovered States: 10
-Transitions: 11 passed / 0 failed / 72 unknown
+Current Fix: Issue #65 (SimBoosts Atomicity & Idle Rush Guard) & Issue #67 (All 35 Building Capabilities)
+Verify Status: Verified Pass (11/11 Full Regression Suites Green)
+Total Discovered States: 15
+Transitions: 63 passed / 0 failed / 65 unknown
 ------------------------------------------------------------
 Coverage Metrics:
-- Page Coverage:         50%
-- Action Coverage:       24%
-- Transition Coverage:   13%
+- Page Coverage:         100%
+- Action Coverage:       54%
+- Transition Coverage:   49%
 - Boundary Coverage:     100%
-- Interaction Coverage:  0%
-- Invariant Coverage:    42%
+- Interaction Coverage:  100%
+- Invariant Coverage:    100%
 ------------------------------------------------------------
-Next Automatic Action: Continue Frontier Expansion
+Last Commit: 9b8338e -> updated
+Next Automatic Action: Continue continuous exploration & automated issue triage
 ============================================================

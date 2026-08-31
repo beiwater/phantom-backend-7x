@@ -1,11 +1,11 @@
 {
-  "run_id": "RUN-20260831-01",
+  "run_id": "RUN-20260831-02",
   "started_at": "2026-08-31T06:40:00Z",
-  "current_phase": "breadth_exploration",
-  "active_frontier": "STATE-headquarters-58ebaae766b9",
+  "current_phase": "continuous_loop",
+  "active_frontier": "all_buildings_production_retail",
   "active_finding": null,
-  "active_fix": null,
-  "last_verified_transition": "0",
-  "graph_revision": 84,
-  "updated_at": "2026-08-31T06:54:19.034Z"
+  "active_fix": "Issue #65 & Issue #67",
+  "last_verified_transition": "verify_all_35_building_kinds_production_and_retail",
+  "graph_revision": 12,
+  "updated_at": "2026-08-31T07:05:00Z"
 }
