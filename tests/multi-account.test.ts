@@ -1,4 +1,5 @@
 import puppeteer, { Page } from 'puppeteer';
+import { findBrowserExecutable } from '../scripts/e2e/find-browser.ts';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -16,7 +17,7 @@ async function runMultiAccountTest() {
   console.log(' Starting SimCompanies Multi-Account & Account Pages E2E Test');
   console.log('================================================================');
 
-  const baseUrl = 'http://127.0.0.1:3000';
+  const baseUrl = process.env.BASE_URL || `http://127.0.0.1:${process.env.PORT || '3100'}`;
 
   // ----------------------------------------------------------------
   // PART 1: Multi-User Registration & Authentication API Isolation
@@ -131,6 +132,7 @@ async function runMultiAccountTest() {
   console.log('\n[Part 3] Real Browser UI Navigation for Account Pages...');
 
   const browser = await puppeteer.launch({
+    executablePath: findBrowserExecutable(),
     headless: true,
     args: ['--no-sandbox', '--disable-setuid-sandbox', '--window-size=1440,900']
   });

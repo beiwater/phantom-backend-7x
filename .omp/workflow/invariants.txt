@@ -1,0 +1,26 @@
+# Global & Subsystem Business Invariants
+
+## Global Economy
+INV-MONEY-NON-NEGATIVE: Player balance must never drop below zero unless explicitly structured as a loan/bond.
+INV-MONEY-NOT-NAN: Player money must never evaluate to NaN, null, or undefined in responses or UI.
+INV-MONEY-CONSERVATION: Cash deductions and credits must match authorized transactions exactly with ledger balance changes.
+INV-SIMBOOST-ACCURACY: SimBoosts balance must decrement only on valid unlock/speedup actions and never underflow.
+
+## Inventory & Warehouse
+INV-INVENTORY-NON-NEGATIVE: Warehouse resource quantities must never be negative.
+INV-INVENTORY-CONSERVATION: Production input consumption and market order fulfillments must strictly decrement available stock.
+INV-RESOURCE-COMPATIBILITY: Production inputs and retail sales must only accept resources valid for that building type.
+
+## Building & Construction
+INV-BUILDING-SLOT-LIMIT: Company cannot construct buildings on locked or non-existent slots.
+INV-CONSTRUCTION-BUSY-GUARD: A building actively under construction or upgrade cannot initiate production or repeat upgrade requests.
+INV-IDLE-RUSH-GUARD: Construction rush on an already completed/idle building must not charge cash or SimBoosts.
+
+## Production Lifecycle
+INV-PRODUCTION-IDEMPOTENCY: Finished production can only be collected once; duplicate collect requests must return 400/409 without double-crediting.
+INV-PRODUCTION-INPUT-CHECK: Starting production must fail if required input materials or hourly cash wages are insufficient.
+
+## Security & Auth
+INV-AUTH-OWNERSHIP: Operations on company buildings, warehouse, orders, and executives must belong to the authenticated user session.
+INV-SESSION-EXPIRATION: Expired sessions must be rejected with 401 Unauthorized.
+INV-PERSISTENCE-AFTER-REFRESH: All committed game mutations must persist unchanged across browser refreshes and server reboots.

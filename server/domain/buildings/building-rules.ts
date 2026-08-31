@@ -1,7 +1,9 @@
 import {
   getBuildingMeta,
   getConstructionMaterials,
-  DEMOLITION_REFUND_RATE
+  DEMOLITION_REFUND_RATE,
+  BUILDING_NAMES,
+  CANONICAL_BUILDINGS
 } from '../../game-data/buildings.ts';
 import { ValidationError, ConflictError } from '../../errors/domain-error.ts';
 
@@ -41,6 +43,9 @@ export function validateConstructionPosition(
 export function estimateConstructionCost(kind: string, sizeUnits: number = 1): ConstructionCostEstimate {
   if (sizeUnits <= 0) {
     throw new ValidationError(`Construction size must be positive: ${sizeUnits}`);
+  }
+  if (!BUILDING_NAMES[kind] && !CANONICAL_BUILDINGS[kind]) {
+    throw new ValidationError(`Unknown building kind: ${kind}`);
   }
   const meta = getBuildingMeta(kind);
   const cost = meta.cost * sizeUnits;

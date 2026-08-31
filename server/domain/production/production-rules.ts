@@ -25,9 +25,9 @@ export function validateProductionRequest(
     throw new ValidationError(`Unknown resource kind: ${resourceKind}`);
   }
 
-  if (def.producedAt && def.producedAt !== buildingKind) {
+  if (!def.producedAt || def.producedAt !== buildingKind) {
     throw new ValidationError(
-      `Resource ${resourceKind} cannot be produced in building type '${buildingKind}', requires '${def.producedAt}'`
+      `Resource ${resourceKind} cannot be produced in building type '${buildingKind}', requires '${def.producedAt || 'unproducible'}'`
     );
   }
 

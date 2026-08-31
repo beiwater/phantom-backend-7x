@@ -1,4 +1,5 @@
 import puppeteer from 'puppeteer';
+import { findBrowserExecutable } from '../scripts/e2e/find-browser.ts';
 
 type AuthCompany = {
   simBoosts: number;
@@ -22,7 +23,7 @@ function isAuthData(value: unknown): value is AuthData {
 }
 
 async function testSlotUnlock() {
-  const baseUrl = 'http://127.0.0.1:3000';
+  const baseUrl = process.env.BASE_URL || `http://127.0.0.1:${process.env.PORT || '3100'}`;
   const email = `unlock_test_${Date.now()}@domain.local`;
   const password = 'Password123!';
 
@@ -53,6 +54,7 @@ async function testSlotUnlock() {
   }
 
   const browser = await puppeteer.launch({
+    executablePath: findBrowserExecutable(),
     headless: true,
     args: ['--no-sandbox', '--disable-setuid-sandbox', '--window-size=1440,900']
   });

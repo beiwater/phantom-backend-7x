@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import puppeteer from 'puppeteer';
+import { findBrowserExecutable } from '../scripts/e2e/find-browser.ts';
 
-const baseUrl = 'http://127.0.0.1:3000';
+const baseUrl = process.env.BASE_URL || `http://127.0.0.1:${process.env.PORT || '3100'}`;
 
 async function runAvatarProfileTest() {
   const suffix = Date.now();
@@ -30,6 +31,7 @@ async function runAvatarProfileTest() {
   assert.equal(authData.authCompany.company, `Avatar-Smoke ${suffix}`);
 
   const browser = await puppeteer.launch({
+    executablePath: findBrowserExecutable(),
     headless: true,
     args: ['--no-sandbox', '--disable-setuid-sandbox']
   });

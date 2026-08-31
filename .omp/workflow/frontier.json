@@ -1,0 +1,3112 @@
+{
+  "queue": [
+    {
+      "state_id": "STATE-headquarters-58ebaae766b9",
+      "action": {
+        "id": "ACT-STATE-headquarters-58ebaae766b9-1",
+        "name": "$100,000",
+        "selector": "#js-animation-money",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-headquarters-58ebaae766b9",
+      "action": {
+        "id": "ACT-STATE-headquarters-58ebaae766b9-2",
+        "name": "250",
+        "selector": "#js-animation-simboosts",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-headquarters-58ebaae766b9",
+      "action": {
+        "id": "ACT-STATE-headquarters-58ebaae766b9-3",
+        "name": "Lv. 0 (0%)",
+        "selector": "a[href=\"/zh-cn/encyclopedia/0/levels/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-headquarters-58ebaae766b9",
+      "action": {
+        "id": "ACT-STATE-headquarters-58ebaae766b9-4",
+        "name": "总览",
+        "selector": "a[href=\"/zh-cn/headquarters/overview/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-headquarters-58ebaae766b9",
+      "action": {
+        "id": "ACT-STATE-headquarters-58ebaae766b9-5",
+        "name": "财务",
+        "selector": "#menu-accounting",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-headquarters-58ebaae766b9",
+      "action": {
+        "id": "ACT-STATE-headquarters-58ebaae766b9-6",
+        "name": "Simboosts",
+        "selector": "a[href=\"/zh-cn/headquarters/simboosts/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-headquarters-58ebaae766b9",
+      "action": {
+        "id": "ACT-STATE-headquarters-58ebaae766b9-7",
+        "name": "库存一览",
+        "selector": "a[href=\"/zh-cn/headquarters/warehouse/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-headquarters-58ebaae766b9",
+      "action": {
+        "id": "ACT-STATE-headquarters-58ebaae766b9-8",
+        "name": "入库",
+        "selector": "a[href=\"/zh-cn/headquarters/warehouse/incoming-contracts/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-headquarters-58ebaae766b9",
+      "action": {
+        "id": "ACT-STATE-headquarters-58ebaae766b9-9",
+        "name": "出库",
+        "selector": "a[href=\"/zh-cn/headquarters/warehouse/outgoing-contracts/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-headquarters-58ebaae766b9",
+      "action": {
+        "id": "ACT-STATE-headquarters-58ebaae766b9-10",
+        "name": "科研行业",
+        "selector": "a[href=\"/zh-cn/headquarters/warehouse/research/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-headquarters-58ebaae766b9",
+      "action": {
+        "id": "ACT-STATE-headquarters-58ebaae766b9-11",
+        "name": "兑换 40",
+        "selector": "button:contains(\"兑换 40\")",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-headquarters-58ebaae766b9",
+      "action": {
+        "id": "ACT-STATE-headquarters-58ebaae766b9-12",
+        "name": "地图",
+        "selector": "#menu-map",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-headquarters-58ebaae766b9",
+      "action": {
+        "id": "ACT-STATE-headquarters-58ebaae766b9-13",
+        "name": "仓库",
+        "selector": "#js-animation-warehouse-bottom-menu",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-headquarters-58ebaae766b9",
+      "action": {
+        "id": "ACT-STATE-headquarters-58ebaae766b9-14",
+        "name": "搜索",
+        "selector": "a[href=\"/zh-cn/search/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-headquarters-58ebaae766b9",
+      "action": {
+        "id": "ACT-STATE-headquarters-58ebaae766b9-15",
+        "name": "聊天",
+        "selector": "#menu-chat",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-headquarters-58ebaae766b9",
+      "action": {
+        "id": "ACT-STATE-headquarters-58ebaae766b9-16",
+        "name": "交易所",
+        "selector": "#menu-exchange",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-overview_landscape-05249c6e9f5f",
+      "action": {
+        "id": "ACT-STATE-overview_landscape-05249c6e9f5f-0",
+        "name": "0",
+        "selector": "a[href=\"/zh-cn/game-notifications/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-overview_landscape-05249c6e9f5f",
+      "action": {
+        "id": "ACT-STATE-overview_landscape-05249c6e9f5f-1",
+        "name": "$100,000",
+        "selector": "#js-animation-money",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-overview_landscape-05249c6e9f5f",
+      "action": {
+        "id": "ACT-STATE-overview_landscape-05249c6e9f5f-2",
+        "name": "250",
+        "selector": "#js-animation-simboosts",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-overview_landscape-05249c6e9f5f",
+      "action": {
+        "id": "ACT-STATE-overview_landscape-05249c6e9f5f-3",
+        "name": "Lv. 0 (0%)",
+        "selector": "a[href=\"/zh-cn/encyclopedia/0/levels/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-overview_landscape-05249c6e9f5f",
+      "action": {
+        "id": "ACT-STATE-overview_landscape-05249c6e9f5f-4",
+        "name": "$4.95 USD",
+        "selector": "a[href=\"/zh-cn/checkout/package/simboosts_small/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-overview_landscape-05249c6e9f5f",
+      "action": {
+        "id": "ACT-STATE-overview_landscape-05249c6e9f5f-6",
+        "name": "$9.95 USD",
+        "selector": "a[href=\"/zh-cn/checkout/package/simboosts_medium/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-overview_landscape-05249c6e9f5f",
+      "action": {
+        "id": "ACT-STATE-overview_landscape-05249c6e9f5f-8",
+        "name": "$19.95 USD",
+        "selector": "a[href=\"/zh-cn/checkout/package/simboosts_large/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-overview_landscape-05249c6e9f5f",
+      "action": {
+        "id": "ACT-STATE-overview_landscape-05249c6e9f5f-10",
+        "name": "$49.95 USD",
+        "selector": "a[href=\"/zh-cn/checkout/package/simboosts_xlarge/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-overview_landscape-05249c6e9f5f",
+      "action": {
+        "id": "ACT-STATE-overview_landscape-05249c6e9f5f-12",
+        "name": "Sim Companies Times",
+        "selector": "a[href=\"/zh-cn/newspaper/0/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-overview_landscape-05249c6e9f5f",
+      "action": {
+        "id": "ACT-STATE-overview_landscape-05249c6e9f5f-13",
+        "name": "Stripe",
+        "selector": "a:contains(\"Stripe\")",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-overview_landscape-05249c6e9f5f",
+      "action": {
+        "id": "ACT-STATE-overview_landscape-05249c6e9f5f-15",
+        "name": "地图",
+        "selector": "#menu-map",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-overview_landscape-05249c6e9f5f",
+      "action": {
+        "id": "ACT-STATE-overview_landscape-05249c6e9f5f-16",
+        "name": "仓库",
+        "selector": "#js-animation-warehouse-bottom-menu",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-overview_landscape-05249c6e9f5f",
+      "action": {
+        "id": "ACT-STATE-overview_landscape-05249c6e9f5f-17",
+        "name": "搜索",
+        "selector": "a[href=\"/zh-cn/search/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-overview_landscape-05249c6e9f5f",
+      "action": {
+        "id": "ACT-STATE-overview_landscape-05249c6e9f5f-18",
+        "name": "聊天",
+        "selector": "#menu-chat",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-overview_landscape-05249c6e9f5f",
+      "action": {
+        "id": "ACT-STATE-overview_landscape-05249c6e9f5f-19",
+        "name": "交易所",
+        "selector": "#menu-exchange",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-encyclopedia-29639c31d31a",
+      "action": {
+        "id": "ACT-STATE-encyclopedia-29639c31d31a-0",
+        "name": "0",
+        "selector": "a[href=\"/zh-cn/game-notifications/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-encyclopedia-29639c31d31a",
+      "action": {
+        "id": "ACT-STATE-encyclopedia-29639c31d31a-1",
+        "name": "$100,000",
+        "selector": "#js-animation-money",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-encyclopedia-29639c31d31a",
+      "action": {
+        "id": "ACT-STATE-encyclopedia-29639c31d31a-2",
+        "name": "250",
+        "selector": "#js-animation-simboosts",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-encyclopedia-29639c31d31a",
+      "action": {
+        "id": "ACT-STATE-encyclopedia-29639c31d31a-3",
+        "name": "Lv. 0 (0%)",
+        "selector": "a[href=\"/zh-cn/encyclopedia/0/levels/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-encyclopedia-29639c31d31a",
+      "action": {
+        "id": "ACT-STATE-encyclopedia-29639c31d31a-4",
+        "name": "排名（CV）",
+        "selector": "a[href=\"/zh-cn/encyclopedia/0/ranking/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-encyclopedia-29639c31d31a",
+      "action": {
+        "id": "ACT-STATE-encyclopedia-29639c31d31a-5",
+        "name": "排名（EVA）",
+        "selector": "a[href=\"/zh-cn/encyclopedia/0/eva-ranking/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-encyclopedia-29639c31d31a",
+      "action": {
+        "id": "ACT-STATE-encyclopedia-29639c31d31a-6",
+        "name": "公司等级",
+        "selector": "a[href=\"/zh-cn/encyclopedia/0/levels/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-encyclopedia-29639c31d31a",
+      "action": {
+        "id": "ACT-STATE-encyclopedia-29639c31d31a-7",
+        "name": "合同订单",
+        "selector": "a[href=\"/zh-cn/pages/guide-for-beginners/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-encyclopedia-29639c31d31a",
+      "action": {
+        "id": "ACT-STATE-encyclopedia-29639c31d31a-8",
+        "name": "季节性",
+        "selector": "a[href=\"/zh-cn/encyclopedia/0/seasons/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-encyclopedia-29639c31d31a",
+      "action": {
+        "id": "ACT-STATE-encyclopedia-29639c31d31a-9",
+        "name": "债券",
+        "selector": "a[href=\"/zh-cn/pages/bonds-guide/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-encyclopedia-29639c31d31a",
+      "action": {
+        "id": "ACT-STATE-encyclopedia-29639c31d31a-10",
+        "name": "科研行业",
+        "selector": "a[href=\"/zh-cn/pages/research-guide/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-encyclopedia-29639c31d31a",
+      "action": {
+        "id": "ACT-STATE-encyclopedia-29639c31d31a-11",
+        "name": "公司高管",
+        "selector": "a[href=\"/zh-cn/pages/executives-guide/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-encyclopedia-29639c31d31a",
+      "action": {
+        "id": "ACT-STATE-encyclopedia-29639c31d31a-12",
+        "name": "政府订单",
+        "selector": "a[href=\"/zh-cn/pages/government-orders/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-encyclopedia-29639c31d31a",
+      "action": {
+        "id": "ACT-STATE-encyclopedia-29639c31d31a-13",
+        "name": "建筑拍卖",
+        "selector": "a[href=\"/zh-cn/pages/building-auctions/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-encyclopedia-29639c31d31a",
+      "action": {
+        "id": "ACT-STATE-encyclopedia-29639c31d31a-14",
+        "name": "购买订单",
+        "selector": "a[href=\"/zh-cn/market/resources/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-encyclopedia-29639c31d31a",
+      "action": {
+        "id": "ACT-STATE-encyclopedia-29639c31d31a-15",
+        "name": "地图",
+        "selector": "#menu-map",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-encyclopedia-29639c31d31a",
+      "action": {
+        "id": "ACT-STATE-encyclopedia-29639c31d31a-16",
+        "name": "仓库",
+        "selector": "#js-animation-warehouse-bottom-menu",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-encyclopedia-29639c31d31a",
+      "action": {
+        "id": "ACT-STATE-encyclopedia-29639c31d31a-17",
+        "name": "搜索",
+        "selector": "a[href=\"/zh-cn/search/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-encyclopedia-29639c31d31a",
+      "action": {
+        "id": "ACT-STATE-encyclopedia-29639c31d31a-18",
+        "name": "聊天",
+        "selector": "#menu-chat",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-encyclopedia-29639c31d31a",
+      "action": {
+        "id": "ACT-STATE-encyclopedia-29639c31d31a-19",
+        "name": "交易所",
+        "selector": "#menu-exchange",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-overview_landscape-12e8f55b95e7",
+      "action": {
+        "id": "ACT-STATE-overview_landscape-12e8f55b95e7-0",
+        "name": "0",
+        "selector": "a[href=\"/zh-cn/game-notifications/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-overview_landscape-12e8f55b95e7",
+      "action": {
+        "id": "ACT-STATE-overview_landscape-12e8f55b95e7-1",
+        "name": "$100,000",
+        "selector": "#js-animation-money",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-overview_landscape-12e8f55b95e7",
+      "action": {
+        "id": "ACT-STATE-overview_landscape-12e8f55b95e7-2",
+        "name": "250",
+        "selector": "#js-animation-simboosts",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-overview_landscape-12e8f55b95e7",
+      "action": {
+        "id": "ACT-STATE-overview_landscape-12e8f55b95e7-3",
+        "name": "Lv. 0 (0%)",
+        "selector": "a[href=\"/zh-cn/encyclopedia/0/levels/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-overview_landscape-12e8f55b95e7",
+      "action": {
+        "id": "ACT-STATE-overview_landscape-12e8f55b95e7-4",
+        "name": "Farmlvl 1",
+        "selector": "a[href=\"/zh-cn/b/5/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-overview_landscape-12e8f55b95e7",
+      "action": {
+        "id": "ACT-STATE-overview_landscape-12e8f55b95e7-5",
+        "name": "Grocery storelvl 1",
+        "selector": "a[href=\"/zh-cn/b/6/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-overview_landscape-12e8f55b95e7",
+      "action": {
+        "id": "ACT-STATE-overview_landscape-12e8f55b95e7-6",
+        "name": "解锁 50",
+        "selector": "div:contains(\"解锁 50\")",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-overview_landscape-12e8f55b95e7",
+      "action": {
+        "id": "ACT-STATE-overview_landscape-12e8f55b95e7-7",
+        "name": "地块",
+        "selector": "div:contains(\"地块\")",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-overview_landscape-12e8f55b95e7",
+      "action": {
+        "id": "ACT-STATE-overview_landscape-12e8f55b95e7-8",
+        "name": "Linux-x86_64 Chrome Headless 141",
+        "selector": "a[href=\"/zh-cn/headquarters/overview/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-overview_landscape-12e8f55b95e7",
+      "action": {
+        "id": "ACT-STATE-overview_landscape-12e8f55b95e7-9",
+        "name": "交易所",
+        "selector": "a[href=\"/zh-cn/market/resources/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-overview_landscape-12e8f55b95e7",
+      "action": {
+        "id": "ACT-STATE-overview_landscape-12e8f55b95e7-11",
+        "name": "地图",
+        "selector": "#menu-map",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-overview_landscape-12e8f55b95e7",
+      "action": {
+        "id": "ACT-STATE-overview_landscape-12e8f55b95e7-12",
+        "name": "仓库",
+        "selector": "#js-animation-warehouse-bottom-menu",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-overview_landscape-12e8f55b95e7",
+      "action": {
+        "id": "ACT-STATE-overview_landscape-12e8f55b95e7-13",
+        "name": "搜索",
+        "selector": "a[href=\"/zh-cn/search/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-overview_landscape-12e8f55b95e7",
+      "action": {
+        "id": "ACT-STATE-overview_landscape-12e8f55b95e7-14",
+        "name": "聊天",
+        "selector": "#menu-chat",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-warehouse-1cc464b6e905",
+      "action": {
+        "id": "ACT-STATE-warehouse-1cc464b6e905-0",
+        "name": "0",
+        "selector": "a[href=\"/zh-cn/game-notifications/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-warehouse-1cc464b6e905",
+      "action": {
+        "id": "ACT-STATE-warehouse-1cc464b6e905-1",
+        "name": "$100,000",
+        "selector": "#js-animation-money",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-warehouse-1cc464b6e905",
+      "action": {
+        "id": "ACT-STATE-warehouse-1cc464b6e905-2",
+        "name": "250",
+        "selector": "#js-animation-simboosts",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-warehouse-1cc464b6e905",
+      "action": {
+        "id": "ACT-STATE-warehouse-1cc464b6e905-3",
+        "name": "Lv. 0 (0%)",
+        "selector": "a[href=\"/zh-cn/encyclopedia/0/levels/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-warehouse-1cc464b6e905",
+      "action": {
+        "id": "ACT-STATE-warehouse-1cc464b6e905-4",
+        "name": "总览",
+        "selector": "a[href=\"/zh-cn/headquarters/overview/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-warehouse-1cc464b6e905",
+      "action": {
+        "id": "ACT-STATE-warehouse-1cc464b6e905-5",
+        "name": "财务",
+        "selector": "#menu-accounting",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-warehouse-1cc464b6e905",
+      "action": {
+        "id": "ACT-STATE-warehouse-1cc464b6e905-6",
+        "name": "Simboosts",
+        "selector": "a[href=\"/zh-cn/headquarters/simboosts/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-warehouse-1cc464b6e905",
+      "action": {
+        "id": "ACT-STATE-warehouse-1cc464b6e905-7",
+        "name": "库存一览",
+        "selector": "a[href=\"/zh-cn/headquarters/warehouse/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-warehouse-1cc464b6e905",
+      "action": {
+        "id": "ACT-STATE-warehouse-1cc464b6e905-8",
+        "name": "入库",
+        "selector": "a[href=\"/zh-cn/headquarters/warehouse/incoming-contracts/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-warehouse-1cc464b6e905",
+      "action": {
+        "id": "ACT-STATE-warehouse-1cc464b6e905-9",
+        "name": "出库",
+        "selector": "a[href=\"/zh-cn/headquarters/warehouse/outgoing-contracts/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-warehouse-1cc464b6e905",
+      "action": {
+        "id": "ACT-STATE-warehouse-1cc464b6e905-10",
+        "name": "科研行业",
+        "selector": "a[href=\"/zh-cn/headquarters/warehouse/research/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-warehouse-1cc464b6e905",
+      "action": {
+        "id": "ACT-STATE-warehouse-1cc464b6e905-11",
+        "name": "显示所有",
+        "selector": "button:contains(\"显示所有\")",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-warehouse-1cc464b6e905",
+      "action": {
+        "id": "ACT-STATE-warehouse-1cc464b6e905-12",
+        "name": "地图",
+        "selector": "#menu-map",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-warehouse-1cc464b6e905",
+      "action": {
+        "id": "ACT-STATE-warehouse-1cc464b6e905-13",
+        "name": "仓库",
+        "selector": "#js-animation-warehouse-bottom-menu",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-warehouse-1cc464b6e905",
+      "action": {
+        "id": "ACT-STATE-warehouse-1cc464b6e905-14",
+        "name": "搜索",
+        "selector": "a[href=\"/zh-cn/search/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-warehouse-1cc464b6e905",
+      "action": {
+        "id": "ACT-STATE-warehouse-1cc464b6e905-15",
+        "name": "聊天",
+        "selector": "#menu-chat",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-warehouse-1cc464b6e905",
+      "action": {
+        "id": "ACT-STATE-warehouse-1cc464b6e905-16",
+        "name": "交易所",
+        "selector": "#menu-exchange",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-overview_landscape-3cf578da11e8",
+      "action": {
+        "id": "ACT-STATE-overview_landscape-3cf578da11e8-0",
+        "name": "0",
+        "selector": "a[href=\"/zh-cn/game-notifications/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-overview_landscape-3cf578da11e8",
+      "action": {
+        "id": "ACT-STATE-overview_landscape-3cf578da11e8-1",
+        "name": "$100,000",
+        "selector": "#js-animation-money",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-overview_landscape-3cf578da11e8",
+      "action": {
+        "id": "ACT-STATE-overview_landscape-3cf578da11e8-2",
+        "name": "250",
+        "selector": "#js-animation-simboosts",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-overview_landscape-3cf578da11e8",
+      "action": {
+        "id": "ACT-STATE-overview_landscape-3cf578da11e8-3",
+        "name": "Lv. 0 (0%)",
+        "selector": "a[href=\"/zh-cn/encyclopedia/0/levels/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-overview_landscape-3cf578da11e8",
+      "action": {
+        "id": "ACT-STATE-overview_landscape-3cf578da11e8-4",
+        "name": "地图",
+        "selector": "#menu-map",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-overview_landscape-3cf578da11e8",
+      "action": {
+        "id": "ACT-STATE-overview_landscape-3cf578da11e8-5",
+        "name": "仓库",
+        "selector": "#js-animation-warehouse-bottom-menu",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-overview_landscape-3cf578da11e8",
+      "action": {
+        "id": "ACT-STATE-overview_landscape-3cf578da11e8-6",
+        "name": "搜索",
+        "selector": "a[href=\"/zh-cn/search/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-overview_landscape-3cf578da11e8",
+      "action": {
+        "id": "ACT-STATE-overview_landscape-3cf578da11e8-7",
+        "name": "聊天",
+        "selector": "#menu-chat",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-overview_landscape-3cf578da11e8",
+      "action": {
+        "id": "ACT-STATE-overview_landscape-3cf578da11e8-8",
+        "name": "交易所",
+        "selector": "#menu-exchange",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-messages-9d477833186c",
+      "action": {
+        "id": "ACT-STATE-messages-9d477833186c-0",
+        "name": "0",
+        "selector": "a[href=\"/zh-cn/game-notifications/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-messages-9d477833186c",
+      "action": {
+        "id": "ACT-STATE-messages-9d477833186c-1",
+        "name": "$100,000",
+        "selector": "#js-animation-money",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-messages-9d477833186c",
+      "action": {
+        "id": "ACT-STATE-messages-9d477833186c-2",
+        "name": "250",
+        "selector": "#js-animation-simboosts",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-messages-9d477833186c",
+      "action": {
+        "id": "ACT-STATE-messages-9d477833186c-3",
+        "name": "Lv. 0 (0%)",
+        "selector": "a[href=\"/zh-cn/encyclopedia/0/levels/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-messages-9d477833186c",
+      "action": {
+        "id": "ACT-STATE-messages-9d477833186c-4",
+        "name": "[ZH] 游戏",
+        "selector": "a[href=\"/zh-cn/messages/chatroom_[ZH] 游戏/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-messages-9d477833186c",
+      "action": {
+        "id": "ACT-STATE-messages-9d477833186c-5",
+        "name": "[ZH] 交易",
+        "selector": "a[href=\"/zh-cn/messages/chatroom_[ZH] 交易/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-messages-9d477833186c",
+      "action": {
+        "id": "ACT-STATE-messages-9d477833186c-6",
+        "name": "[ZH] 帮助",
+        "selector": "a[href=\"/zh-cn/messages/chatroom_[ZH] 帮助/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-messages-9d477833186c",
+      "action": {
+        "id": "ACT-STATE-messages-9d477833186c-7",
+        "name": "[EN] Game",
+        "selector": "a[href=\"/zh-cn/messages/chatroom_[EN] Game/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-messages-9d477833186c",
+      "action": {
+        "id": "ACT-STATE-messages-9d477833186c-8",
+        "name": "[EN] Sales",
+        "selector": "a[href=\"/zh-cn/messages/chatroom_[EN] Sales/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-messages-9d477833186c",
+      "action": {
+        "id": "ACT-STATE-messages-9d477833186c-9",
+        "name": "地图",
+        "selector": "#menu-map",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-messages-9d477833186c",
+      "action": {
+        "id": "ACT-STATE-messages-9d477833186c-10",
+        "name": "仓库",
+        "selector": "#js-animation-warehouse-bottom-menu",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-messages-9d477833186c",
+      "action": {
+        "id": "ACT-STATE-messages-9d477833186c-11",
+        "name": "搜索",
+        "selector": "a[href=\"/zh-cn/search/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-messages-9d477833186c",
+      "action": {
+        "id": "ACT-STATE-messages-9d477833186c-12",
+        "name": "聊天",
+        "selector": "#menu-chat",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-messages-9d477833186c",
+      "action": {
+        "id": "ACT-STATE-messages-9d477833186c-13",
+        "name": "交易所",
+        "selector": "#menu-exchange",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-0",
+        "name": "0",
+        "selector": "a[href=\"/zh-cn/game-notifications/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-1",
+        "name": "$100,000",
+        "selector": "#js-animation-money",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-2",
+        "name": "250",
+        "selector": "#js-animation-simboosts",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-3",
+        "name": "Lv. 0 (0%)",
+        "selector": "a[href=\"/zh-cn/encyclopedia/0/levels/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-4",
+        "name": "$1.00",
+        "selector": "a[href=\"/zh-cn/market/resource/2/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-19",
+        "name": "电力",
+        "selector": "a[href=\"/zh-cn/market/resource/1/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-20",
+        "name": "水",
+        "selector": "a[href=\"/zh-cn/market/resource/2/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-21",
+        "name": "苹果",
+        "selector": "a[href=\"/zh-cn/market/resource/3/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-22",
+        "name": "运输单位",
+        "selector": "a[href=\"/zh-cn/market/resource/13/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-23",
+        "name": "种子",
+        "selector": "a[href=\"/zh-cn/market/resource/66/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-26",
+        "name": "橘子",
+        "selector": "a[href=\"/zh-cn/market/resource/4/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-27",
+        "name": "葡萄",
+        "selector": "a[href=\"/zh-cn/market/resource/5/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-28",
+        "name": "谷物",
+        "selector": "a[href=\"/zh-cn/market/resource/6/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-29",
+        "name": "甘蔗",
+        "selector": "a[href=\"/zh-cn/market/resource/72/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-30",
+        "name": "棉花",
+        "selector": "a[href=\"/zh-cn/market/resource/40/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-31",
+        "name": "牛",
+        "selector": "a[href=\"/zh-cn/market/resource/115/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-32",
+        "name": "猪",
+        "selector": "a[href=\"/zh-cn/market/resource/116/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-33",
+        "name": "咖啡豆",
+        "selector": "a[href=\"/zh-cn/market/resource/118/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-34",
+        "name": "可可",
+        "selector": "a[href=\"/zh-cn/market/resource/136/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-35",
+        "name": "蔬菜",
+        "selector": "a[href=\"/zh-cn/market/resource/120/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-36",
+        "name": "动物饲料",
+        "selector": "a[href=\"/zh-cn/market/resource/139/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-37",
+        "name": "面团",
+        "selector": "a[href=\"/zh-cn/market/resource/137/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-38",
+        "name": "酱汁",
+        "selector": "a[href=\"/zh-cn/market/resource/138/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-39",
+        "name": "牛排",
+        "selector": "a[href=\"/zh-cn/market/resource/7/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-40",
+        "name": "香肠",
+        "selector": "a[href=\"/zh-cn/market/resource/8/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-41",
+        "name": "鸡蛋",
+        "selector": "a[href=\"/zh-cn/market/resource/9/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-42",
+        "name": "牛奶",
+        "selector": "a[href=\"/zh-cn/market/resource/117/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-43",
+        "name": "咖啡粉",
+        "selector": "a[href=\"/zh-cn/market/resource/119/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-44",
+        "name": "面粉",
+        "selector": "a[href=\"/zh-cn/market/resource/133/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-45",
+        "name": "面包",
+        "selector": "a[href=\"/zh-cn/market/resource/121/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-46",
+        "name": "苹果派",
+        "selector": "a[href=\"/zh-cn/market/resource/123/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-47",
+        "name": "橙汁",
+        "selector": "a[href=\"/zh-cn/market/resource/124/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-48",
+        "name": "苹果汁",
+        "selector": "a[href=\"/zh-cn/market/resource/125/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-49",
+        "name": "姜汁啤酒",
+        "selector": "a[href=\"/zh-cn/market/resource/126/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-50",
+        "name": "披萨",
+        "selector": "a[href=\"/zh-cn/market/resource/127/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-51",
+        "name": "面条",
+        "selector": "a[href=\"/zh-cn/market/resource/128/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-52",
+        "name": "黄油",
+        "selector": "a[href=\"/zh-cn/market/resource/134/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-53",
+        "name": "芝士",
+        "selector": "a[href=\"/zh-cn/market/resource/122/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-54",
+        "name": "巧克力",
+        "selector": "a[href=\"/zh-cn/market/resource/140/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-55",
+        "name": "糖",
+        "selector": "a[href=\"/zh-cn/market/resource/135/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-56",
+        "name": "汉堡包",
+        "selector": "a[href=\"/zh-cn/market/resource/129/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-57",
+        "name": "千层面",
+        "selector": "a[href=\"/zh-cn/market/resource/130/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-58",
+        "name": "肉丸",
+        "selector": "a[href=\"/zh-cn/market/resource/131/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-59",
+        "name": "鸡尾酒",
+        "selector": "a[href=\"/zh-cn/market/resource/132/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-60",
+        "name": "植物油",
+        "selector": "a[href=\"/zh-cn/market/resource/141/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-61",
+        "name": "沙拉",
+        "selector": "a[href=\"/zh-cn/market/resource/142/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-62",
+        "name": "咖喱角",
+        "selector": "a[href=\"/zh-cn/market/resource/143/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-63",
+        "name": "南瓜汤",
+        "selector": "a[href=\"/zh-cn/market/resource/149/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-64",
+        "name": "木材",
+        "selector": "a[href=\"/zh-cn/market/resource/106/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-65",
+        "name": "钢筋混凝土",
+        "selector": "a[href=\"/zh-cn/market/resource/101/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-66",
+        "name": "砖块",
+        "selector": "a[href=\"/zh-cn/market/resource/102/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-67",
+        "name": "水泥",
+        "selector": "a[href=\"/zh-cn/market/resource/103/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-68",
+        "name": "黏土",
+        "selector": "a[href=\"/zh-cn/market/resource/104/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-69",
+        "name": "石灰石",
+        "selector": "a[href=\"/zh-cn/market/resource/105/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-70",
+        "name": "钢筋",
+        "selector": "a[href=\"/zh-cn/market/resource/107/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-71",
+        "name": "木板",
+        "selector": "a[href=\"/zh-cn/market/resource/108/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-72",
+        "name": "窗户",
+        "selector": "a[href=\"/zh-cn/market/resource/109/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-73",
+        "name": "工具",
+        "selector": "a[href=\"/zh-cn/market/resource/110/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-74",
+        "name": "建筑预构件",
+        "selector": "a[href=\"/zh-cn/market/resource/111/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-75",
+        "name": "棉布",
+        "selector": "a[href=\"/zh-cn/market/resource/41/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-76",
+        "name": "皮革",
+        "selector": "a[href=\"/zh-cn/market/resource/46/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-77",
+        "name": "内衣",
+        "selector": "a[href=\"/zh-cn/market/resource/60/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-78",
+        "name": "手套",
+        "selector": "a[href=\"/zh-cn/market/resource/61/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-79",
+        "name": "裙子",
+        "selector": "a[href=\"/zh-cn/market/resource/62/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-80",
+        "name": "高跟鞋",
+        "selector": "a[href=\"/zh-cn/market/resource/63/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-81",
+        "name": "手袋",
+        "selector": "a[href=\"/zh-cn/market/resource/64/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-82",
+        "name": "运动鞋",
+        "selector": "a[href=\"/zh-cn/market/resource/65/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-83",
+        "name": "名牌手表",
+        "selector": "a[href=\"/zh-cn/market/resource/70/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-84",
+        "name": "项链",
+        "selector": "a[href=\"/zh-cn/market/resource/71/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-85",
+        "name": "原油",
+        "selector": "a[href=\"/zh-cn/market/resource/10/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-86",
+        "name": "汽油",
+        "selector": "a[href=\"/zh-cn/market/resource/11/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-87",
+        "name": "柴油",
+        "selector": "a[href=\"/zh-cn/market/resource/12/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-89",
+        "name": "乙醇",
+        "selector": "a[href=\"/zh-cn/market/resource/73/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-90",
+        "name": "甲烷",
+        "selector": "a[href=\"/zh-cn/market/resource/74/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-91",
+        "name": "火箭燃料",
+        "selector": "a[href=\"/zh-cn/market/resource/83/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-92",
+        "name": "处理器",
+        "selector": "a[href=\"/zh-cn/market/resource/20/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-93",
+        "name": "电子元件",
+        "selector": "a[href=\"/zh-cn/market/resource/21/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-94",
+        "name": "电池",
+        "selector": "a[href=\"/zh-cn/market/resource/22/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-95",
+        "name": "显示屏",
+        "selector": "a[href=\"/zh-cn/market/resource/23/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-96",
+        "name": "智能手机",
+        "selector": "a[href=\"/zh-cn/market/resource/24/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-97",
+        "name": "平板电脑",
+        "selector": "a[href=\"/zh-cn/market/resource/25/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-98",
+        "name": "笔记本电脑",
+        "selector": "a[href=\"/zh-cn/market/resource/26/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-99",
+        "name": "显示器",
+        "selector": "a[href=\"/zh-cn/market/resource/27/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-100",
+        "name": "电视机",
+        "selector": "a[href=\"/zh-cn/market/resource/28/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-101",
+        "name": "精密电子元件",
+        "selector": "a[href=\"/zh-cn/market/resource/79/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-102",
+        "name": "无人机",
+        "selector": "a[href=\"/zh-cn/market/resource/98/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-103",
+        "name": "机器人",
+        "selector": "a[href=\"/zh-cn/market/resource/114/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-104",
+        "name": "车载电脑",
+        "selector": "a[href=\"/zh-cn/market/resource/47/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-105",
+        "name": "电动马达",
+        "selector": "a[href=\"/zh-cn/market/resource/48/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-106",
+        "name": "豪华车内饰",
+        "selector": "a[href=\"/zh-cn/market/resource/49/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-107",
+        "name": "基本内饰",
+        "selector": "a[href=\"/zh-cn/market/resource/50/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-108",
+        "name": "车身",
+        "selector": "a[href=\"/zh-cn/market/resource/51/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-109",
+        "name": "内燃机",
+        "selector": "a[href=\"/zh-cn/market/resource/52/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-110",
+        "name": "经济电动车",
+        "selector": "a[href=\"/zh-cn/market/resource/53/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-111",
+        "name": "豪华电动车",
+        "selector": "a[href=\"/zh-cn/market/resource/54/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-112",
+        "name": "经济燃油车",
+        "selector": "a[href=\"/zh-cn/market/resource/55/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-113",
+        "name": "豪华燃油车",
+        "selector": "a[href=\"/zh-cn/market/resource/56/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-114",
+        "name": "卡车",
+        "selector": "a[href=\"/zh-cn/market/resource/57/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-115",
+        "name": "推土机",
+        "selector": "a[href=\"/zh-cn/market/resource/112/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-116",
+        "name": "机身",
+        "selector": "a[href=\"/zh-cn/market/resource/77/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-117",
+        "name": "机翼",
+        "selector": "a[href=\"/zh-cn/market/resource/78/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-118",
+        "name": "飞行计算机",
+        "selector": "a[href=\"/zh-cn/market/resource/80/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-119",
+        "name": "座舱",
+        "selector": "a[href=\"/zh-cn/market/resource/81/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-120",
+        "name": "姿态控制器",
+        "selector": "a[href=\"/zh-cn/market/resource/82/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-121",
+        "name": "燃料储罐",
+        "selector": "a[href=\"/zh-cn/market/resource/84/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-122",
+        "name": "固体燃料助推器",
+        "selector": "a[href=\"/zh-cn/market/resource/85/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-123",
+        "name": "火箭发动机",
+        "selector": "a[href=\"/zh-cn/market/resource/86/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-124",
+        "name": "隔热板",
+        "selector": "a[href=\"/zh-cn/market/resource/87/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-125",
+        "name": "离子推进器",
+        "selector": "a[href=\"/zh-cn/market/resource/88/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-126",
+        "name": "喷气发动机",
+        "selector": "a[href=\"/zh-cn/market/resource/89/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-129",
+        "name": "矿物",
+        "selector": "a[href=\"/zh-cn/market/resource/14/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-130",
+        "name": "铝土矿",
+        "selector": "a[href=\"/zh-cn/market/resource/15/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-131",
+        "name": "硅材",
+        "selector": "a[href=\"/zh-cn/market/resource/16/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-132",
+        "name": "化合物",
+        "selector": "a[href=\"/zh-cn/market/resource/17/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-133",
+        "name": "铝材",
+        "selector": "a[href=\"/zh-cn/market/resource/18/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-134",
+        "name": "塑料",
+        "selector": "a[href=\"/zh-cn/market/resource/19/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-135",
+        "name": "铁矿石",
+        "selector": "a[href=\"/zh-cn/market/resource/42/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-136",
+        "name": "钢材",
+        "selector": "a[href=\"/zh-cn/market/resource/43/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-137",
+        "name": "沙子",
+        "selector": "a[href=\"/zh-cn/market/resource/44/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-138",
+        "name": "玻璃",
+        "selector": "a[href=\"/zh-cn/market/resource/45/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-139",
+        "name": "金矿石",
+        "selector": "a[href=\"/zh-cn/market/resource/68/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-140",
+        "name": "金条",
+        "selector": "a[href=\"/zh-cn/market/resource/69/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-141",
+        "name": "碳纤维",
+        "selector": "a[href=\"/zh-cn/market/resource/75/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-142",
+        "name": "碳纤复合材",
+        "selector": "a[href=\"/zh-cn/market/resource/76/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-143",
+        "name": "作物研究",
+        "selector": "a[href=\"/zh-cn/market/resource/29/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-144",
+        "name": "能源研究",
+        "selector": "a[href=\"/zh-cn/market/resource/30/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-145",
+        "name": "采矿研究",
+        "selector": "a[href=\"/zh-cn/market/resource/31/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-146",
+        "name": "电器研究",
+        "selector": "a[href=\"/zh-cn/market/resource/32/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-147",
+        "name": "畜牧研究",
+        "selector": "a[href=\"/zh-cn/market/resource/33/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-148",
+        "name": "化学研究",
+        "selector": "a[href=\"/zh-cn/market/resource/34/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-149",
+        "name": "软件",
+        "selector": "a[href=\"/zh-cn/market/resource/35/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-150",
+        "name": "汽车研究",
+        "selector": "a[href=\"/zh-cn/market/resource/58/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-151",
+        "name": "时装研究",
+        "selector": "a[href=\"/zh-cn/market/resource/59/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-152",
+        "name": "航空航天研究",
+        "selector": "a[href=\"/zh-cn/market/resource/100/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-153",
+        "name": "材料研究",
+        "selector": "a[href=\"/zh-cn/market/resource/113/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-154",
+        "name": "食谱",
+        "selector": "a[href=\"/zh-cn/market/resource/145/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-155",
+        "name": "南瓜",
+        "selector": "a[href=\"/zh-cn/market/resource/146/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-156",
+        "name": "圣诞爆竹",
+        "selector": "a[href=\"/zh-cn/market/resource/67/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-157",
+        "name": "圣诞装饰品",
+        "selector": "a[href=\"/zh-cn/market/resource/144/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-158",
+        "name": "杰克灯笼",
+        "selector": "a[href=\"/zh-cn/market/resource/147/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-159",
+        "name": "女巫服",
+        "selector": "a[href=\"/zh-cn/market/resource/148/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-160",
+        "name": "树",
+        "selector": "a[href=\"/zh-cn/market/resource/150/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-161",
+        "name": "复活节兔兔",
+        "selector": "a[href=\"/zh-cn/market/resource/151/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-162",
+        "name": "斋月糖果",
+        "selector": "a[href=\"/zh-cn/market/resource/152/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-163",
+        "name": "巧克力冰淇淋",
+        "selector": "a[href=\"/zh-cn/market/resource/153/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-164",
+        "name": "苹果冰淇淋",
+        "selector": "a[href=\"/zh-cn/market/resource/154/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-165",
+        "name": "奶油鸡蛋",
+        "selector": "a[href=\"/zh-cn/market/resource/155/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-166",
+        "name": "<<",
+        "selector": "a[href=\"/zh-cn/market/resource/12/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-167",
+        "name": ">>",
+        "selector": "a[href=\"/zh-cn/market/resource/73/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-169",
+        "name": "地图",
+        "selector": "#menu-map",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-170",
+        "name": "仓库",
+        "selector": "#js-animation-warehouse-bottom-menu",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-171",
+        "name": "搜索",
+        "selector": "a[href=\"/zh-cn/search/\"]",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-172",
+        "name": "聊天",
+        "selector": "#menu-chat",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    },
+    {
+      "state_id": "STATE-market-70b53113c8b7",
+      "action": {
+        "id": "ACT-STATE-market-70b53113c8b7-173",
+        "name": "交易所",
+        "selector": "#menu-exchange",
+        "action_type": "click",
+        "enabled": true
+      },
+      "priority": 40,
+      "attempts": 0
+    }
+  ]
+}

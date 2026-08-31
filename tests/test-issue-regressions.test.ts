@@ -15,7 +15,7 @@ type AuthCompany = {
   maxTags: number;
 };
 
-const baseUrl = 'http://127.0.0.1:3000';
+const baseUrl = process.env.BASE_URL || `http://127.0.0.1:${process.env.PORT || '3100'}`;
 
 async function readJson(response: Response): Promise<any> {
   return response.json();

@@ -186,6 +186,11 @@ export async function handleRetailRoutes(
         sendJson(res, { error: 'Invalid resource, units, or selling price' }, 400);
         return true;
       }
+      const allowedProducts = RETAIL_PRODUCTS[targetBuilding.kind] || [];
+      if (!allowedProducts.includes(resourceKind)) {
+        sendJson(res, { error: `Resource #${resourceKind} cannot be sold in retail building of type '${targetBuilding.kind}'` }, 400);
+        return true;
+      }
 
       const requestedQuality = body.quality === undefined
         ? (defaultProduct?.kind === resourceKind ? defaultProduct.quality : 0)

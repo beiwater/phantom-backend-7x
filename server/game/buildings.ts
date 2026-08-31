@@ -171,6 +171,9 @@ function validateConstructionMaterials(companyId: number, sizeUnits: number) {
 
 export function constructBuilding(companyId: number, kind: string, position: string, replaceExisting = false) {
   const meta = getBuildingMeta(kind);
+  if (!BUILDING_NAMES[kind] && !CONSTANTS_BUILDINGS[kind]) {
+    throw new Error(`Unknown building kind: ${kind}`);
+  }
   const comp = getCompanyById(companyId);
   if (!comp || comp.money < meta.cost) {
     throw new Error('Not enough money to construct building');

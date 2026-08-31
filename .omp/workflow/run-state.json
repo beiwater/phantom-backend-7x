@@ -1,0 +1,11 @@
+{
+  "run_id": "RUN-20260831-01",
+  "started_at": "2026-08-31T06:40:00Z",
+  "current_phase": "breadth_exploration",
+  "active_frontier": "STATE-headquarters-58ebaae766b9",
+  "active_finding": null,
+  "active_fix": null,
+  "last_verified_transition": "0",
+  "graph_revision": 84,
+  "updated_at": "2026-08-31T06:54:19.034Z"
+}

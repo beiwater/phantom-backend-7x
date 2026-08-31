@@ -92,6 +92,9 @@ export function queueProduction(companyId: number, buildingId: number, resourceK
   if (!resDef) {
     throw new Error(`Unknown resource kind: ${resourceKind}`);
   }
+  if (!resDef.producedAt || resDef.producedAt !== building.kind) {
+    throw new Error(`Resource ${resourceKind} cannot be produced in building type '${building.kind}'`);
+  }
 
   // Reject queueing while the building is busy with unresolved work
   const now = new Date();
