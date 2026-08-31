@@ -96,7 +96,8 @@ export function sendJson(
     'x-timestamp': String(Date.now()),
     'Access-Control-Allow-Origin': allowOrigin,
     'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-CSRFToken',
-    'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS'
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
+    ...(status === 501 ? { 'x-backend-stub': 'true' } : {})
   };
   if (allowOrigin && allowOrigin !== '*') {
     headers['Access-Control-Allow-Credentials'] = 'true';

@@ -59,7 +59,6 @@ function activePrincipal(companyId: number): number {
 
 export function getActiveLoans(companyId: number): LoanRow[] {
   ensureTable();
-  settleDueLoans(companyId);
   const rows = db.prepare(
     `SELECT * FROM loans WHERE company_id = ? ORDER BY created_at ASC, id ASC`
   ).all(companyId) as unknown as LoanRow[];
@@ -90,7 +89,7 @@ export function takeLoan(companyId: number, amount: number) {
     const loanId = Number(res.lastInsertRowid);
     const newMoney = updateCompanyMoney(companyId, amt);
     db.prepare('COMMIT').run();
-    return { loanId, money: newMoney, cap, activePrincipal: current + amt };
+    return { loanId, money: newMoney, moneyDelta: amt, cap, activePrincipal: current + amt };
   } catch (err) {
     db.prepare('ROLLBACK').run();
     throw err;
@@ -117,16 +116,15 @@ export function repayLoan(companyId: number, loanId: number, amount: number) {
     const status = newRemaining <= 0 ? 'repaid' : 'active';
     db.prepare('UPDATE loans SET remaining = ?, status = ? WHERE id = ?').run(newRemaining, status, loanId);
     db.prepare('COMMIT').run();
-    return { loanId, paid: pay, remaining: newRemaining, status, money: newMoney };
+    return { loanId, paid: pay, remaining: newRemaining, status, money: newMoney, moneyDelta: -pay };
   } catch (err) {
     db.prepare('ROLLBACK').run();
     throw err;
   }
 }
 
-// Lazy settlement: overdue active loans with remaining > 0 deduct what the company can
-// afford from its money (updateCompanyMoney clamps at 0) and accrue one term of interest,
-// pushing the due date forward. Settled loans never block reads.
+// Overdue loans are settled by an explicit scheduler or mutation path, never by
+// a read helper. This keeps GET requests side-effect free.
 export function settleDueLoans(companyId?: number) {
   ensureTable();
   const now = new Date().toISOString();

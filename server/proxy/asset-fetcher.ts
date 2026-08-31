@@ -23,16 +23,19 @@ const MIME_TYPES: Record<string, string> = {
 };
 
 export async function serveOrFetchAsset(urlPath: string, res: ServerResponse): Promise<boolean> {
-  // Normalize path removing /static/ prefix if present
+  // Normalize path removing /static/ prefix if present.
   let cleanRelPath = urlPath.replace(/^\/static\//, '').replace(/^\//, '');
-  
-  // Also handle query parameters if any
+
   const queryIndex = cleanRelPath.indexOf('?');
   if (queryIndex !== -1) {
     cleanRelPath = cleanRelPath.slice(0, queryIndex);
   }
 
-  const localFilePath = path.join(CONFIG.STATIC_DIR, cleanRelPath);
+  const staticRoot = path.resolve(CONFIG.STATIC_DIR);
+  const localFilePath = path.resolve(staticRoot, cleanRelPath);
+  if (localFilePath !== staticRoot && !localFilePath.startsWith(`${staticRoot}${path.sep}`)) {
+    return false;
+  }
   const ext = path.extname(cleanRelPath).toLowerCase();
   const mime = MIME_TYPES[ext] || 'application/octet-stream';
 

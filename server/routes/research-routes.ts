@@ -47,7 +47,10 @@ export async function handleResearchRoutes(
 
   const resourceAbilityMatch = pathname.match(/^\/api\/v2\/companies\/(\d+|me)\/resource-ability\/(\d+)\/$/);
   if (resourceAbilityMatch) {
-    if (!currentCompanyId) {
+    const requestedCompanyId = resourceAbilityMatch[1] === 'me'
+      ? currentCompanyId
+      : Number(resourceAbilityMatch[1]);
+    if (!currentCompanyId || requestedCompanyId !== currentCompanyId) {
       sendJson(res, { error: 'Unauthorized' }, 401);
       return true;
     }

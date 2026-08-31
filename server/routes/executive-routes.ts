@@ -16,17 +16,26 @@ export async function handleExecutiveRoutes(
   method: string,
   currentCompanyId: number | null
 ): Promise<boolean> {
-  const effectiveCompanyId = currentCompanyId || 4259175;
 
   // Current executives list (v3 & v4)
+  const executiveCompanyMatch = pathname.match(/^\/api\/v(3|4)\/(?:companies|executives\/company)\/(\d+|me)\/executives\/?$/) ||
+    pathname.match(/^\/api\/v4\/executives\/company\/(\d+|me)\/$/);
   if (
     pathname === '/api/v4/executives/' ||
-    pathname.match(/^\/api\/v4\/executives\/company\/(\d+|me)\/$/) ||
-    pathname.match(/^\/api\/v3\/companies\/(\d+|me)\/executives\/$/)
+    executiveCompanyMatch
   ) {
+    const requestedCompanyId = executiveCompanyMatch
+      ? (executiveCompanyMatch[2] || executiveCompanyMatch[1]) === 'me'
+        ? currentCompanyId
+        : Number(executiveCompanyMatch[2] || executiveCompanyMatch[1])
+      : currentCompanyId;
+    if (!currentCompanyId || requestedCompanyId !== currentCompanyId) {
+      sendJson(res, { error: 'Unauthorized' }, 401);
+      return true;
+    }
     sendJson(res, {
-      executives: getCompanyExecutives(effectiveCompanyId),
-      candidates: getExecutiveCandidates(effectiveCompanyId),
+      executives: getCompanyExecutives(currentCompanyId),
+      candidates: getExecutiveCandidates(currentCompanyId),
       offers: [],
       achievements: []
     });
@@ -47,7 +56,11 @@ export async function handleExecutiveRoutes(
 
   // Candidates list
   if (pathname === '/api/v4/executives/candidates/') {
-    sendJson(res, getExecutiveCandidates(effectiveCompanyId));
+    if (!currentCompanyId) {
+      sendJson(res, { error: 'Unauthorized' }, 401);
+      return true;
+    }
+    sendJson(res, getExecutiveCandidates(currentCompanyId));
     return true;
   }
 

@@ -65,6 +65,9 @@ export function updateCompanyMoney(companyId: number, delta: number): number {
   }
 
   const newMoney = Math.round((currentMoney + delta) * 100) / 100;
+  if (!Number.isFinite(newMoney)) {
+    throw new Error('Money balance is invalid');
+  }
   if (newMoney < 0) {
     throw new Error('Insufficient funds');
   }
@@ -92,6 +95,9 @@ export function updateCompanySimBoosts(companyId: number, delta: number): number
   }
 
   const newSB = currentSB + delta;
+  if (!Number.isFinite(newSB)) {
+    throw new Error('SimBoost balance is invalid');
+  }
   if (newSB < 0) {
     throw new Error('Insufficient SimBoosts');
   }
@@ -109,6 +115,8 @@ export function createCompanyForPlayer(playerId: number, name: string, realmId: 
   const initialMoney = CONFIG.INITIAL_MONEY || 100000;
   const initialSimboosts = CONFIG.INITIAL_SIMBOOSTS || 250;
   const initialLevel = CONFIG.INITIAL_LEVEL || 5;
+  db.exec('BEGIN IMMEDIATE');
+  try {
 
   db.prepare(`
     INSERT INTO companies (company_id, player_id, name, money, simboosts, level, rating, experience, realm_id, logo, personal_assistant, note, created_at)
@@ -148,29 +156,45 @@ export function createCompanyForPlayer(playerId: number, name: string, realmId: 
       VALUES (?, ?, 0, ?, 0, 0, 0, 0, 1.0, ?)
     `).run(companyId, s.kind, s.amount, now);
   }
+    db.exec('COMMIT');
+    return getCompanyById(companyId);
+  } catch (err) {
+    db.exec('ROLLBACK');
+    throw err;
+  }
 
-  return getCompanyById(companyId);
 }
 
 export function resetCompany(companyId: number) {
   const comp = getCompanyById(companyId);
-  if (!comp) return;
+  if (!comp) throw new Error('Company not found');
 
-  db.prepare('DELETE FROM buildings WHERE company_id = ?').run(companyId);
-  db.prepare('DELETE FROM production_queues WHERE company_id = ?').run(companyId);
-  db.prepare('DELETE FROM warehouse WHERE company_id = ?').run(companyId);
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    db.prepare('DELETE FROM buildings WHERE company_id = ?').run(companyId);
+    db.prepare('DELETE FROM production_queues WHERE company_id = ?').run(companyId);
+    db.prepare('DELETE FROM retail_orders WHERE company_id = ?').run(companyId);
+    db.prepare('DELETE FROM warehouse WHERE company_id = ?').run(companyId);
+    db.prepare('DELETE FROM display_case WHERE company_id = ?').run(companyId);
 
-  const now = new Date().toISOString();
-  db.prepare(`
-    UPDATE companies
-    SET money = ?, level = 1, experience = 0, created_at = ?
-    WHERE company_id = ?
-  `).run(CONFIG.INITIAL_MONEY, now, companyId);
+    const now = new Date().toISOString();
+    const updated = db.prepare(`
+      UPDATE companies
+      SET money = ?, level = 1, experience = 0, created_at = ?
+      WHERE company_id = ?
+    `).run(CONFIG.INITIAL_MONEY, now, companyId);
+    if (updated.changes !== 1) throw new Error('Company not found');
 
-  db.prepare(`
-    INSERT INTO buildings (company_id, position, kind, size, name, cost, category, created_at)
-    VALUES (?, '0', 'P', 1, 'Farm', 6900, 'production', ?)
-  `).run(companyId, now);
+    db.prepare(`
+      INSERT INTO buildings (company_id, position, kind, size, name, cost, category, created_at)
+      VALUES (?, '0', 'P', 1, 'Farm', 6900, 'production', ?)
+    `).run(companyId, now);
+    seedDefaultDisplayCase(companyId);
+    db.exec('COMMIT');
+  } catch (err) {
+    db.exec('ROLLBACK');
+    throw err;
+  }
 }
 
 export function updatePlayerPreferences(playerId: number, prefs: { theme?: string; language?: string }) {

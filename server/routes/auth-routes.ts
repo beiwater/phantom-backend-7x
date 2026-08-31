@@ -162,11 +162,15 @@ export async function handleAuthRoutes(
   // Administration overhead is a numeric multiplier in the original API.
   // The private server currently has no executive/admin ledger, so its
   // persisted company model has the neutral multiplier of 1.
-  if (
-    pathname === '/api/v2/companies/me/administration-overhead/' ||
-    pathname === '/api/v2/companies/me/administration-overhead/plus-one/' ||
-    pathname.match(/^\/api\/v2\/companies\/\d+\/administration-overhead\/(?:plus-one\/)?$/)
-  ) {
+  const administrationOverheadMatch = pathname.match(/^\/api\/v2\/companies\/(\d+|me)\/administration-overhead\/(?:plus-one\/)?$/);
+  if (administrationOverheadMatch) {
+    const requestedCompanyId = administrationOverheadMatch[1] === 'me'
+      ? currentCompanyId
+      : Number(administrationOverheadMatch[1]);
+    if (!currentCompanyId || requestedCompanyId !== currentCompanyId) {
+      sendJson(res, { error: 'Unauthorized' }, 401);
+      return true;
+    }
     sendJson(res, 1);
     return true;
   }
@@ -174,16 +178,26 @@ export async function handleAuthRoutes(
   // Player Companies
   const playerCompaniesMatch = pathname.match(/^\/api\/v2\/players\/(\d+|me)\/companies\/$/);
   if (playerCompaniesMatch) {
-    const pId = playerCompaniesMatch[1] === 'me' ? (currentPlayerId || 2920233) : Number(playerCompaniesMatch[1]);
-    sendJson(res, getPlayerCompanies(pId));
+    const requestedPlayerId = playerCompaniesMatch[1] === 'me'
+      ? currentPlayerId
+      : Number(playerCompaniesMatch[1]);
+    if (!currentPlayerId || requestedPlayerId !== currentPlayerId) {
+      sendJson(res, { error: 'Unauthorized' }, 401);
+      return true;
+    }
+    sendJson(res, getPlayerCompanies(currentPlayerId));
     return true;
   }
 
   // Preferences
   if (pathname === '/api/v2/player-preferences/' || pathname.match(/^\/api\/v2\/players\/(\d+|me)\/preferences\/$/)) {
     if (method === 'POST') {
+      if (!currentPlayerId) {
+        sendJson(res, { error: 'Unauthorized' }, 401);
+        return true;
+      }
       const body = await readJsonBody<{ theme?: string; language?: string }>(req);
-      if (currentPlayerId) updatePlayerPreferences(currentPlayerId, body);
+      updatePlayerPreferences(currentPlayerId, body);
       sendJson(res, { status: 'ok' });
       return true;
     }
@@ -216,8 +230,14 @@ export async function handleAuthRoutes(
   // Personal Data
   const personalDataMatch = pathname.match(/^\/api\/v2\/players\/(\d+|me)\/personal-data\/$/);
   if (personalDataMatch) {
-    const pId = personalDataMatch[1] === 'me' ? (currentPlayerId || 2920233) : Number(personalDataMatch[1]);
-    sendJson(res, getPersonalData(pId));
+    const requestedPlayerId = personalDataMatch[1] === 'me'
+      ? currentPlayerId
+      : Number(personalDataMatch[1]);
+    if (!currentPlayerId || requestedPlayerId !== currentPlayerId) {
+      sendJson(res, { error: 'Unauthorized' }, 401);
+      return true;
+    }
+    sendJson(res, getPersonalData(currentPlayerId));
     return true;
   }
 

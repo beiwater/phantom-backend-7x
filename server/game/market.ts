@@ -1,6 +1,6 @@
 import { db } from '../db/database.ts';
 import { getResourceDef, CONSTANTS_RESOURCES } from './constants.ts';
-import { consumeResource, consumeResourceExact, consumeResourceExactWithTransactions, addResource, getWarehouseItemById, getWarehouseItem, getWarehouseItemExact } from './warehouse.ts';
+import { consumeResourceExact, consumeResourceExactWithTransactions, addResource, getWarehouseItemById, getWarehouseItemExact } from './warehouse.ts';
 import { updateCompanyMoney, getCompanyById } from './company.ts';
 
 export interface MarketOrderRow {
@@ -164,31 +164,35 @@ export function postMarketOrder(
 }
 
 export function cancelMarketOrder(companyId: number, orderId: number) {
-  const order = db.prepare('SELECT * FROM market_orders WHERE id = ?').get(orderId) as unknown as MarketOrderRow | undefined;
-  if (!order) {
-    throw new Error('Market order not found');
-  }
-  if (order.seller_id !== companyId) {
-    throw new Error('You can only cancel your own market orders');
-  }
-  if (order.active !== 1 || order.quantity <= 0) {
-    throw new Error('Market order is no longer active');
-  }
-
-  db.exec('BEGIN');
+  db.exec('BEGIN IMMEDIATE');
+  let order: MarketOrderRow | null = null;
   try {
-    // Refund remaining goods to warehouse
-    addResource(companyId, order.kind, order.quality, order.quantity);
+    order = db.prepare(`
+      SELECT * FROM market_orders
+      WHERE id = ? AND seller_id = ? AND active = 1 AND quantity > 0
+    `).get(orderId, companyId) as unknown as MarketOrderRow | null;
+    if (!order) {
+      throw new Error('Market order not found or no longer active');
+    }
 
-    // NOTE: the 3% listing fee (order.fees) is intentionally NOT refunded,
-    // matching SimCompanies behavior where listing fees are non-refundable.
-    db.prepare('UPDATE market_orders SET active = 0 WHERE id = ?').run(orderId);
+    // Mark inactive before refunding; the transaction rolls back if the refund fails.
+    const updatedOrder = db.prepare(`
+      UPDATE market_orders SET active = 0
+      WHERE id = ? AND seller_id = ? AND active = 1 AND quantity > 0
+    `).run(orderId, companyId);
+    if (updatedOrder.changes !== 1) {
+      throw new Error('Market order is no longer active');
+    }
+    addResource(companyId, order.kind, order.quality, order.quantity);
     db.exec('COMMIT');
   } catch (err: unknown) {
     db.exec('ROLLBACK');
     throw err;
   }
 
+  if (!order) {
+    throw new Error('Market order was cancelled without a loaded order');
+  }
   const updated = db.prepare('SELECT * FROM market_orders WHERE id = ?').get(orderId) as unknown as MarketOrderRow;
   const company = getCompanyById(companyId);
   const warehouse = db.prepare('SELECT * FROM warehouse WHERE company_id = ? AND kind = ? AND quality = ?')

@@ -2,7 +2,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { sendJson, readJsonBody } from './utils.ts';
 import { db } from '../db/database.ts';
 import { getCompanyById } from '../game/company.ts';
-import { takeLoan, repayLoan, getActiveLoans, settleDueLoans } from '../game/loans.ts';
+import { takeLoan, repayLoan, getActiveLoans } from '../game/loans.ts';
 
 export async function handleFinanceRoutes(
   req: IncomingMessage,
@@ -11,10 +11,22 @@ export async function handleFinanceRoutes(
   method: string,
   currentCompanyId: number | null
 ): Promise<boolean> {
-  const effectiveCompanyId = currentCompanyId || 4259175;
+  const requestedCompanyMatch = pathname.match(/\/companies\/(\d+|me)\//);
+  const authorizeRequestedCompany = (): number | null => {
+    if (!currentCompanyId) {
+      sendJson(res, { error: 'Unauthorized' }, 401);
+      return null;
+    }
+    if (requestedCompanyMatch && requestedCompanyMatch[1] !== 'me' && Number(requestedCompanyMatch[1]) !== currentCompanyId) {
+      sendJson(res, { error: 'Unauthorized' }, 401);
+      return null;
+    }
+    return currentCompanyId;
+  };
 
   // 1. Custom Reports (FPA): /api/v2/fpa/custom-reports/
   if (pathname === '/api/v2/fpa/custom-reports/') {
+    if (!authorizeRequestedCompany()) return true;
     sendJson(res, {
       reports: [],
       categories: ['Production', 'Retail', 'Financial', 'Warehouse', 'Market'],
@@ -26,8 +38,10 @@ export async function handleFinanceRoutes(
   // 2. Administration Overhead: /api/v2/companies/:id/administration-overhead/
   const adminOverheadMatch = pathname.match(/^\/api\/v2\/companies\/(\d+|me)\/administration-overhead\/$/);
   if (adminOverheadMatch) {
-    const comp = getCompanyById(effectiveCompanyId);
-    const bldCount = (db.prepare('SELECT COUNT(*) as count FROM buildings WHERE company_id = ?').get(effectiveCompanyId) as { count: number })?.count || 2;
+    const companyId = authorizeRequestedCompany();
+    if (companyId === null) return true;
+    const bldRow = db.prepare('SELECT COUNT(*) AS count FROM buildings WHERE company_id = ?').get(companyId) as { count?: number } | undefined;
+    const bldCount = Number(bldRow?.count) || 0;
     const overhead = Math.max(0, (bldCount - 1) * 0.035);
     sendJson(res, {
       administrationOverhead: overhead,
@@ -38,33 +52,16 @@ export async function handleFinanceRoutes(
     return true;
   }
 
-  // 3. Take a loan
   const loanTakeMatch = pathname.match(/^\/api\/v2\/companies\/(\d+|me)\/loans\/$/);
-  if (loanTakeMatch && method === 'POST') {
-    if (!currentCompanyId) {
-      sendJson(res, { error: 'Unauthorized' }, 401);
-      return true;
-    }
-    const body = await readJsonBody<{ amount: number }>(req);
-    try {
-      sendJson(res, takeLoan(currentCompanyId, body.amount));
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      sendJson(res, { error: msg }, 400);
-    }
-    return true;
-  }
-
-  // 4. Repay a loan
   const loanRepayMatch = pathname.match(/^\/api\/v2\/companies\/(\d+|me)\/loans\/(\d+)\/repay\/$/);
-  if (loanRepayMatch && method === 'POST') {
-    if (!currentCompanyId) {
-      sendJson(res, { error: 'Unauthorized' }, 401);
-      return true;
-    }
+  const loanListMatch = pathname.match(/^\/api\/v2\/companies\/(\d+|me)\/loans\/$/);
+
+  if (loanTakeMatch && method === 'POST') {
+    const companyId = authorizeRequestedCompany();
+    if (companyId === null) return true;
     const body = await readJsonBody<{ amount: number }>(req);
     try {
-      sendJson(res, repayLoan(currentCompanyId, Number(loanRepayMatch[2]), body.amount));
+      sendJson(res, takeLoan(companyId, Number(body.amount)));
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       sendJson(res, { error: msg }, 400);
@@ -72,22 +69,30 @@ export async function handleFinanceRoutes(
     return true;
   }
 
-  // 5. List loans for this company
-  const loanListMatch = pathname.match(/^\/api\/v2\/companies\/(\d+|me)\/loans\/$/);
-  if (loanListMatch && method === 'GET') {
-    if (!currentCompanyId) {
-      sendJson(res, { error: 'Unauthorized' }, 401);
-      return true;
+  if (loanRepayMatch && method === 'POST') {
+    const companyId = authorizeRequestedCompany();
+    if (companyId === null) return true;
+    const body = await readJsonBody<{ amount: number }>(req);
+    try {
+      sendJson(res, repayLoan(companyId, Number(loanRepayMatch[2]), Number(body.amount)));
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      sendJson(res, { error: msg }, 400);
     }
-    sendJson(res, getActiveLoans(currentCompanyId));
+    return true;
+  }
+  if (loanListMatch && method === 'GET') {
+    const companyId = authorizeRequestedCompany();
+    if (companyId === null) return true;
+    sendJson(res, getActiveLoans(companyId));
     return true;
   }
 
   // 6. Balance Sheet
   if (pathname.startsWith('/api/') && pathname.includes('/balance-sheet/')) {
-    if (currentCompanyId) settleDueLoans(currentCompanyId);
-    const comp = currentCompanyId ? getCompanyById(currentCompanyId) : null;
-    const companyId = currentCompanyId || 0;
+    const companyId = authorizeRequestedCompany();
+    if (companyId === null) return true;
+    const comp = getCompanyById(companyId);
 
     const invRow = db.prepare(
       'SELECT COALESCE(SUM(amount * cost_market), 0) AS total FROM warehouse WHERE company_id = ?'
@@ -110,11 +115,9 @@ export async function handleFinanceRoutes(
     const liabilities = Number(liabRow?.total) || 0;
 
     const money = comp ? Number(comp.money) || 0 : 0;
-    const totalAssets = money + inventory + buildings + bondsHeld;
+    const realTotalAssets = money + inventory + buildings + bondsHeld;
     const date = new Date().toISOString();
     const nowFrom = new Date(Date.now() - 86400000).toISOString();
-    const bldVal = Math.max(buildings, 17250);
-    const realTotalAssets = money + inventory + bldVal + bondsHeld;
     sendJson(res, {
       date,
       dateFrom: nowFrom,
@@ -128,8 +131,7 @@ export async function handleFinanceRoutes(
       valuationAllowance: 0,
       deposits: 0,
       investmentInBonds: bondsHeld,
-      buildings: bldVal,
-      constructionInProgress: 0,
+      buildings,
       patents: 0,
       bondsPayable: liabilities,
       contributedCapital: 100000,
@@ -145,97 +147,36 @@ export async function handleFinanceRoutes(
   }
 
   // 7. Income Statement
+  // Historical revenue is not reconstructible from the current schema without
+  // a journal. Do not expose synthetic percentages as accounting data.
   if (pathname.startsWith('/api/') && pathname.includes('/income-statement/')) {
-    const comp = getCompanyById(effectiveCompanyId);
-    const money = comp ? Number(comp.money) || 0 : 100000;
-    const nowTo = new Date().toISOString();
-    const nowFrom = new Date(Date.now() - 86400000).toISOString();
-    const netInc = Math.round(money * 0.10);
+    if (authorizeRequestedCompany() === null) return true;
     sendJson(res, {
-      isComputed: true,
-      date: nowTo,
-      dateFrom: nowFrom,
-      sales: Math.round(money * 0.45),
-      cogs: Math.round(money * 0.25),
-      freightOut: 0,
-      constructionCosts: 0,
-      marketFees: Math.round(money * 0.01),
-      salariesCosts: Math.round(money * 0.08),
-      trainingCosts: 0,
-      poachingCosts: 0,
-      gameIncome: 0,
-      executiveRoyalties: 0,
-      gainOnSale: 0,
-      patentConversion: 0,
-      accountingOverhead: Math.round(money * 0.02),
-      donations: 0,
-      bondInterestIncome: 0,
-      bondInterestExpense: 0,
-      bondWriteoffs: 0,
-      bondDefaults: 0,
-      otherComprehensiveIncome: 0,
-      revenue: Math.round(money * 0.45),
-      wages: Math.round(money * 0.08),
-      adminOverhead: Math.round(money * 0.02),
-      netProfit: netInc,
-      netIncome: netInc,
-      economicValueAdded: 1500
-    });
+      error: 'Income statement ledger is not available',
+      code: 'API_NOT_IMPLEMENTED'
+    }, 501);
     return true;
   }
 
   // 8. Cashflow Statement
   if (pathname.startsWith('/api/') && (pathname.includes('/cashflow-statement/') || pathname.includes('/cashflow/'))) {
-    const comp = getCompanyById(effectiveCompanyId);
-    const money = comp ? Number(comp.money) || 0 : 100000;
+    if (authorizeRequestedCompany() === null) return true;
     sendJson(res, {
-      operatingCashflow: Math.round(money * 0.12),
-      investingCashflow: -Math.round(money * 0.05),
-      financingCashflow: 0,
-      netCashChange: Math.round(money * 0.07)
-    });
+      error: 'Cashflow ledger is not available',
+      code: 'API_NOT_IMPLEMENTED'
+    }, 501);
     return true;
   }
   // 9. Past Finances & Overview: /api/v2/companies/:id/past-finances/, /api/v2/companies/:id/past-finances-overview/
   if (pathname.startsWith('/api/') && (pathname.includes('/past-finances/') || pathname.includes('/past-finances-overview/'))) {
-    const comp = getCompanyById(effectiveCompanyId);
-    const money = comp ? Number(comp.money) || 0 : 100000;
-    const days = [];
-    const now = Date.now();
-    for (let i = 0; i < 14; i++) {
-      const date = new Date(now - i * 86400 * 1000).toISOString().split('T')[0];
-      const currentAssets = Math.round(money * (0.85 + i * 0.01)) + 28000;
-      const nonCurrentAssets = 45000;
-      const liabilities = 0;
-      const total = currentAssets + nonCurrentAssets - liabilities;
-      days.push({
-        date,
-        money: Math.round(money * (0.85 + i * 0.01)),
-        buildings: nonCurrentAssets,
-        inventory: 28000,
-        equity: total,
-        currentAssets,
-        nonCurrentAssets,
-        liabilities,
-        total,
-        economicValueAdded: 9000,
-        evaProfit: 21000,
-        evaRank: 0,
-        rank: 1
-      });
-    }
-    sendJson(res, days);
+    if (authorizeRequestedCompany() === null) return true;
+    sendJson(res, {
+      error: 'Historical finance ledger is not available',
+      code: 'API_NOT_IMPLEMENTED'
+    }, 501);
     return true;
   }
 
-  // 10. Display Case Items: /api/v2/companies/:id/display-case/
-  const displayCaseMatch = pathname.match(/^\/api\/v2\/companies\/(\d+|me)\/display-case\/(?:\d+\/)?$/);
-  if (displayCaseMatch) {
-    sendJson(res, [
-      { id: 1, position: 0, title: "Founder Trophy", image: "images/collectibles/trophy_gold.png", description: "Awarded for founding the private enterprise." }
-    ]);
-    return true;
-  }
 
   return false;
 }

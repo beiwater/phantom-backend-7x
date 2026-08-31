@@ -65,7 +65,6 @@ export function resolveFinishedProduction(companyId: number) {
 }
 
 export function getBuildingQueue(companyId: number, buildingId: number) {
-  resolveFinishedProduction(companyId);
 
   const rows = db.prepare(`
     SELECT * FROM production_queues

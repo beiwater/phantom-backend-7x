@@ -30,7 +30,8 @@ export function getSession(token: string): { playerId: number; companyId: number
   `).get(token) as unknown as SessionRecord | undefined;
 
   if (!row) return null;
-  if (row.expires_at && Date.parse(row.expires_at) <= Date.now()) {
+  const expiresAt = Date.parse(row.expires_at);
+  if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
     db.prepare('DELETE FROM sessions WHERE session_token = ?').run(token);
     return null;
   }
@@ -46,8 +47,13 @@ export function destroySession(token: string): void {
 }
 
 export function switchSessionCompany(token: string, newCompanyId: number): void {
-  if (!token) return;
-  db.prepare('UPDATE sessions SET active_company_id = ? WHERE session_token = ?').run(newCompanyId, token);
+  if (!token || !Number.isSafeInteger(newCompanyId) || newCompanyId <= 0) return;
+  const session = db.prepare('SELECT player_id FROM sessions WHERE session_token = ?').get(token) as { player_id?: number } | undefined;
+  if (!session?.player_id) return;
+  const ownedCompany = db.prepare('SELECT 1 FROM companies WHERE company_id = ? AND player_id = ?').get(newCompanyId, session.player_id);
+  if (!ownedCompany) throw new Error('Company does not belong to session player');
+  db.prepare('UPDATE sessions SET active_company_id = ? WHERE session_token = ? AND player_id = ?')
+    .run(newCompanyId, token, session.player_id);
 }
 
 export function extractSessionToken(req: IncomingMessage): string | null {

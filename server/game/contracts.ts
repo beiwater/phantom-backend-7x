@@ -163,30 +163,52 @@ export function acceptContract(buyerCompanyId: number, contractId: number) {
 }
 
 export function rejectContract(companyId: number, contractId: number) {
-  const c = db.prepare('SELECT * FROM contracts WHERE id = ?').get(contractId) as unknown as ContractRow | undefined;
-  if (!c || c.status !== 'pending') {
-    throw new Error('Contract not found');
-  }
-  if (c.recipient_company_id !== companyId && c.sender_company_id !== companyId) {
-    throw new Error('Unauthorized');
-  }
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    const c = db.prepare('SELECT * FROM contracts WHERE id = ?').get(contractId) as unknown as ContractRow | undefined;
+    if (!c || c.status !== 'pending') {
+      throw new Error('Contract not found');
+    }
+    if (c.recipient_company_id !== companyId && c.sender_company_id !== companyId) {
+      throw new Error('Unauthorized');
+    }
 
-  // Refund goods back to sender warehouse
-  addResource(c.sender_company_id, c.kind, c.quality, c.amount);
-
-  db.prepare(`UPDATE contracts SET status = 'rejected' WHERE id = ?`).run(contractId);
-  return { success: true };
+    const rejected = db.prepare(`
+      UPDATE contracts SET status = 'rejected'
+      WHERE id = ? AND status = 'pending'
+    `).run(contractId);
+    if (rejected.changes !== 1) {
+      throw new Error('Contract is no longer available');
+    }
+    addResource(c.sender_company_id, c.kind, c.quality, c.amount);
+    db.exec('COMMIT');
+    return { success: true };
+  } catch (err) {
+    db.exec('ROLLBACK');
+    throw err;
+  }
 }
 
 export function cancelContract(senderCompanyId: number, contractId: number) {
-  const c = db.prepare('SELECT * FROM contracts WHERE id = ?').get(contractId) as unknown as ContractRow | undefined;
-  if (!c || c.status !== 'pending' || c.sender_company_id !== senderCompanyId) {
-    throw new Error('Contract not found');
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    const c = db.prepare('SELECT * FROM contracts WHERE id = ?').get(contractId) as unknown as ContractRow | undefined;
+    if (!c || c.status !== 'pending' || c.sender_company_id !== senderCompanyId) {
+      throw new Error('Contract not found');
+    }
+
+    const cancelled = db.prepare(`
+      UPDATE contracts SET status = 'cancelled'
+      WHERE id = ? AND sender_company_id = ? AND status = 'pending'
+    `).run(contractId, senderCompanyId);
+    if (cancelled.changes !== 1) {
+      throw new Error('Contract is no longer available');
+    }
+    addResource(senderCompanyId, c.kind, c.quality, c.amount);
+    db.exec('COMMIT');
+    return { success: true };
+  } catch (err) {
+    db.exec('ROLLBACK');
+    throw err;
   }
-
-  // Refund goods back to sender warehouse
-  addResource(senderCompanyId, c.kind, c.quality, c.amount);
-
-  db.prepare(`UPDATE contracts SET status = 'cancelled' WHERE id = ?`).run(contractId);
-  return { success: true };
 }

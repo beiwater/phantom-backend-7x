@@ -122,17 +122,29 @@ export function addResource(
   const existing = db.prepare(`
     SELECT * FROM warehouse WHERE company_id = ? AND kind = ? AND quality = ?
   `).get(companyId, kind, quality) as unknown as WarehouseRow | undefined;
-
   const now = new Date().toISOString();
+  const incomingCost = Number(cost.market ?? 1);
+  if (!Number.isFinite(amount) || amount <= 0) {
+    throw new Error('Resource amount must be a positive finite number');
+  }
+  if (!Number.isFinite(incomingCost) || incomingCost < 0) {
+    throw new Error('Resource cost must be a non-negative finite number');
+  }
 
   if (existing) {
-    const newAmount = (Number(existing.amount) || 0) + amount;
+    const existingAmount = Number(existing.amount) || 0;
+    const existingCost = Number(existing.cost_market);
+    const safeExistingCost = Number.isFinite(existingCost) && existingCost >= 0 ? existingCost : 1;
+    const newAmount = existingAmount + amount;
+    const weightedCost = newAmount > 0
+      ? ((existingAmount * safeExistingCost) + (amount * incomingCost)) / newAmount
+      : incomingCost;
     db.prepare(`
       UPDATE warehouse
-      SET amount = ?, updated_at = ?
+      SET amount = ?, cost_market = ?, updated_at = ?
       WHERE id = ?
-    `).run(newAmount, now, existing.id);
-    return { ...existing, amount: newAmount, updated_at: now };
+    `).run(newAmount, weightedCost, now, existing.id);
+    return { ...existing, amount: newAmount, cost_market: weightedCost, updated_at: now };
   } else {
     const res = db.prepare(`
       INSERT INTO warehouse (company_id, kind, quality, amount, cost_workers, cost_admin, cost_material1, cost_material2, cost_market, updated_at)
@@ -146,7 +158,7 @@ export function addResource(
       cost.admin || 0,
       cost.material1 || 0,
       cost.material2 || 0,
-      cost.market || 1.0,
+      cost.market ?? 1.0,
       now
     );
     return {
@@ -159,7 +171,7 @@ export function addResource(
       cost_admin: cost.admin || 0,
       cost_material1: cost.material1 || 0,
       cost_material2: cost.material2 || 0,
-      cost_market: cost.market || 1.0,
+      cost_market: cost.market ?? 1.0,
       updated_at: now
     };
   }

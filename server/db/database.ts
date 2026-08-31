@@ -214,6 +214,23 @@ db.exec(`
   );
 `);
 
+// Query paths for ownership, queues, inventory, and active listings are all
+// company/resource scoped; keep those lookups indexed in fresh and migrated DBs.
+db.exec(`
+  CREATE INDEX IF NOT EXISTS idx_companies_player_id ON companies(player_id);
+  CREATE INDEX IF NOT EXISTS idx_buildings_company_position ON buildings(company_id, position);
+  CREATE INDEX IF NOT EXISTS idx_production_queues_company_building_resolved
+    ON production_queues(company_id, building_id, resolved);
+  CREATE INDEX IF NOT EXISTS idx_warehouse_company_kind_quality
+    ON warehouse(company_id, kind, quality);
+  CREATE INDEX IF NOT EXISTS idx_market_orders_active_kind_quality_price
+    ON market_orders(active, kind, quality, price);
+  CREATE INDEX IF NOT EXISTS idx_contracts_recipient_status
+    ON contracts(recipient_company_id, status);
+  CREATE INDEX IF NOT EXISTS idx_bonds_status_buyer_seller
+    ON bonds(status, buyer_company_id, seller_company_id);
+`);
+
 // Legacy databases used `token` for the session primary key while the
 // session service consistently reads and writes `session_token`.
 const sessionColumns = db.prepare('PRAGMA table_info(sessions)').all() as Array<{ name: string }>;
@@ -275,8 +292,55 @@ for (const company of companiesWithoutDisplayCase) {
   seedDefaultDisplayCase(company.company_id);
 }
 
+const PASSWORD_HASH_PREFIX = 'scrypt$';
+
 export function hashPassword(password: string): string {
-  return crypto.createHash('sha256').update(password).digest('hex');
+  const salt = crypto.randomBytes(16);
+  const derivedKey = crypto.scryptSync(password, salt, 64);
+  return `${PASSWORD_HASH_PREFIX}${salt.toString('hex')}$${derivedKey.toString('hex')}`;
+}
+
+function verifyPassword(password: string, storedHash: string): boolean {
+  if (storedHash.startsWith(PASSWORD_HASH_PREFIX)) {
+    const [, saltHex, digestHex] = storedHash.split('$');
+    if (!saltHex || !digestHex || !/^[0-9a-f]+$/i.test(saltHex) || !/^[0-9a-f]+$/i.test(digestHex)) return false;
+    const expected = Buffer.from(digestHex, 'hex');
+    const actual = crypto.scryptSync(password, Buffer.from(saltHex, 'hex'), expected.length);
+    return expected.length === actual.length && crypto.timingSafeEqual(expected, actual);
+  }
+
+  // One-time compatibility for databases created before the scrypt migration.
+  // Successful legacy logins are upgraded below; new rows never use SHA-256.
+  const legacyHash = crypto.createHash('sha256').update(password).digest('hex');
+  return storedHash === legacyHash;
+}
+
+const plaintextPlayers = db.prepare(`
+  SELECT id, password FROM players
+  WHERE password IS NOT NULL AND password <> ''
+`).all() as Array<{ id: number; password: string }>;
+for (const player of plaintextPlayers) {
+  db.prepare('UPDATE players SET password_hash = ?, password = NULL WHERE id = ?')
+    .run(hashPassword(player.password), player.id);
+}
+
+function adminBootstrapPassword(): string {
+  const configured = process.env.ADMIN_PASSWORD;
+  if (configured !== undefined && configured.length < 12) {
+    throw new Error('ADMIN_PASSWORD must be at least 12 characters');
+  }
+  return configured || crypto.randomBytes(32).toString('base64url');
+}
+
+const adminPlayer = db.prepare(`
+  SELECT id, password_hash FROM players WHERE email = 'admin@simcompanies.local'
+`).get() as { id: number; password_hash?: string } | undefined;
+if (adminPlayer?.password_hash && verifyPassword('admin123', adminPlayer.password_hash)) {
+  db.prepare('UPDATE players SET password_hash = ?, password = NULL WHERE id = ?')
+    .run(hashPassword(adminBootstrapPassword()), adminPlayer.id);
+  if (!process.env.ADMIN_PASSWORD) {
+    console.warn('Rotated the insecure default admin password; set ADMIN_PASSWORD before the next fresh bootstrap.');
+  }
 }
 
 export function seedMarketOrders() {
@@ -301,6 +365,9 @@ export function seedMarketOrders() {
 }
 
 export function registerPlayer(email: string, password: string, companyName?: string) {
+  if (typeof password !== 'string' || password.length < 8) {
+    throw new Error('Password must be at least 8 characters');
+  }
   const existing = db.prepare('SELECT * FROM players WHERE email = ?').get(email);
   if (existing) throw new Error('Email already registered');
 
@@ -383,13 +450,18 @@ export function authenticatePlayer(email: string, password: string) {
   const player = db.prepare('SELECT * FROM players WHERE email = ?').get(email) as PlayerDbRow | undefined;
   if (!player) throw new Error('User not found');
 
-  const hashed = hashPassword(password);
-  if (player.password_hash !== hashed && player.password !== password) throw new Error('Invalid password');
+  const storedHash = typeof player.password_hash === 'string' ? player.password_hash : '';
+  if (!storedHash || !verifyPassword(password, storedHash)) throw new Error('Invalid password');
+  if (!storedHash.startsWith(PASSWORD_HASH_PREFIX)) {
+    db.prepare('UPDATE players SET password_hash = ?, password = NULL WHERE id = ?')
+      .run(hashPassword(password), player.id);
+  }
 
-  const company = db.prepare('SELECT * FROM companies WHERE player_id = ? ORDER BY id ASC LIMIT 1').get(player.player_id) as { company_id: number } | undefined;
+  const company = db.prepare('SELECT * FROM companies WHERE player_id = ? ORDER BY id ASC LIMIT 1').get(player.player_id) as { company_id?: number } | undefined;
+  if (!company?.company_id) throw new Error('Company not found');
   return {
     playerId: player.player_id,
-    companyId: company ? company.company_id : 4259175
+    companyId: company.company_id
   };
 }
 
@@ -397,7 +469,7 @@ export function registerOrAuthenticatePlayer(email?: string, password?: string, 
   if (!email || email.trim() === '') {
     const randomId = Math.floor(100000 + Math.random() * 900000);
     const guestEmail = `guest_${randomId}@simcompanies.local`;
-    const guestPass = password || 'guest123';
+    const guestPass = password || 'guest1234';
     const guestCompany = companyName || `Company ${randomId}`;
     return registerPlayer(guestEmail, guestPass, guestCompany);
   }
@@ -405,15 +477,11 @@ export function registerOrAuthenticatePlayer(email?: string, password?: string, 
   const cleanEmail = email.trim();
   const existing = db.prepare('SELECT * FROM players WHERE email = ?').get(cleanEmail) as PlayerDbRow | undefined;
   if (existing) {
-    if (password) {
-      return authenticatePlayer(cleanEmail, password);
-    } else {
-      const comp = db.prepare('SELECT company_id FROM companies WHERE player_id = ? ORDER BY id ASC LIMIT 1').get(existing.player_id) as { company_id: number } | undefined;
-      return { playerId: existing.player_id, companyId: comp ? comp.company_id : 4259175 };
-    }
+    if (!password) throw new Error('Password is required');
+    return authenticatePlayer(cleanEmail, password);
   }
 
-  return registerPlayer(cleanEmail, password || 'Password123!', companyName);
+  return registerPlayer(cleanEmail, password || '', companyName);
 }
 
 // Seed default player and company if empty
@@ -422,10 +490,14 @@ const row = countStmt.get() as { count: number };
 if (row.count === 0) {
   console.log('Seeding initial private server game database...');
   const now = new Date().toISOString();
+  const adminPassword = adminBootstrapPassword();
+  if (!process.env.ADMIN_PASSWORD) {
+    console.warn('No ADMIN_PASSWORD was provided; generated a random admin password for this bootstrap.');
+  }
   db.prepare(`
     INSERT INTO players (player_id, email, password_hash, is_admin, created_at)
     VALUES (?, ?, ?, 1, ?)
-  `).run(2920233, 'admin@simcompanies.local', hashPassword('admin123'), now);
+  `).run(2920233, 'admin@simcompanies.local', hashPassword(adminPassword), now);
 
   db.prepare(`
     INSERT INTO companies (company_id, player_id, name, money, simboosts, level, rating, experience, realm_id, logo, personal_assistant, note, created_at)

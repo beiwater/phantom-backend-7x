@@ -19,6 +19,15 @@ import { handleResearchRoutes } from './routes/research-routes.ts';
 import { handleAchievementRoutes } from './routes/achievement-routes.ts';
 import { handleSimboostRoutes } from './routes/simboost-routes.ts';
 import { handleRetailRoutes } from './routes/retail-routes.ts';
+// A small compatibility manifest keeps method errors distinct from unknown routes.
+const methodManifest: Array<{ pattern: RegExp; methods: string[] }> = [
+  { pattern: /^\/api\/v2\/time-millis\/$/, methods: ['GET'] },
+  { pattern: /^\/api\/time\/$/, methods: ['GET'] },
+  { pattern: /^\/api\/v2\/auth\/email\/(?:auth|connect|reset)\/$/, methods: ['POST'] },
+  { pattern: /^\/api\/v2\/auth\/device\/(?:auth|connect)\/$/, methods: ['POST'] },
+  { pattern: /^\/api\/v2\/companies\/me\/buildings\/$/, methods: ['GET', 'POST'] },
+  { pattern: /^\/api\/v2\/market-order\/(?:take\/)?$/, methods: ['POST'] }
+];
 
 export async function handleRequest(req: IncomingMessage, res: ServerResponse) {
   const parsedUrl = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
@@ -52,6 +61,17 @@ export async function handleRequest(req: IncomingMessage, res: ServerResponse) {
     }
     res.writeHead(204, headers);
     res.end();
+    return;
+  }
+
+  const methodEntry = methodManifest.find(entry => entry.pattern.test(pathname));
+  if (methodEntry && !methodEntry.methods.includes(method)) {
+    sendJson(res, {
+      error: 'Method not allowed',
+      code: 'METHOD_NOT_ALLOWED',
+      method,
+      path: pathname
+    }, 405, { Allow: methodEntry.methods.join(', ') });
     return;
   }
 
@@ -101,7 +121,7 @@ export async function handleRequest(req: IncomingMessage, res: ServerResponse) {
   if (await handleRetailRoutes(req, res, pathname, method, currentCompanyId)) {
     return;
   }
-  if (await handleWarehouseRoutes(req, res, pathname, method)) {
+  if (await handleWarehouseRoutes(req, res, pathname, method, currentCompanyId)) {
     return;
   }
   if (await handleMarketRoutes(req, res, pathname, method, currentCompanyId)) {
@@ -135,16 +155,14 @@ export async function handleRequest(req: IncomingMessage, res: ServerResponse) {
 
   // 4. Fallback for unhandled API requests
   if (pathname.startsWith('/api/')) {
-    console.warn(`[API Not Implemented] ${method} ${pathname}`);
+    console.warn(`[API Not Found] ${method} ${pathname}`);
     return sendJson(res, {
-      error: 'API route is not implemented',
-      code: 'API_NOT_IMPLEMENTED',
+      error: 'API route not found',
+      code: 'API_NOT_FOUND',
       method,
       path: pathname
     }, 404);
   }
-
-  // 5. HTML Page rendering (SPA catch-all)
   const htmlPath = path.join(CONFIG.HTML_DIR, 'index.html');
   if (fs.existsSync(htmlPath)) {
     const htmlContent = fs.readFileSync(htmlPath, 'utf-8');

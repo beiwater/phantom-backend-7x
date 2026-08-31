@@ -13,9 +13,8 @@ import {
   getBuildingQueue,
   queueProduction,
   cancelQueueItem,
-  resolveFinishedProduction
 } from '../game/production.ts';
-import { consumeResource, addResource, getWarehouseItem } from '../game/warehouse.ts';
+import { addResource } from '../game/warehouse.ts';
 import { updateCompanyMoney, getCompanyById } from '../game/company.ts';
 import { getResourceDef, calculateProductionTime } from '../game/constants.ts';
 const RETAIL_PRODUCTS: Record<string, number[]> = {
@@ -217,7 +216,6 @@ export async function handleBuildingRoutes(
         sendJson(res, { error: 'Building not found' }, 404);
         return true;
       }
-      resolveFinishedProduction(building.company_id);
       sendJson(res, formatBuilding(building));
       return true;
     }
@@ -237,7 +235,7 @@ export async function handleBuildingRoutes(
       const body = await readJsonBody<{ size?: number; name?: string; rebuild?: boolean }>(req);
       try {
         if (body.rebuild) {
-          const result = constructBuilding(currentCompanyId, building.kind, building.position);
+          const result = constructBuilding(currentCompanyId, building.kind, building.position, true);
           sendJson(res, {
             ...(result.building || {}),
             building: result.building,
@@ -253,7 +251,8 @@ export async function handleBuildingRoutes(
           sendJson(res, updated ? formatBuilding(updated) : null);
           return true;
         }
-        const sizeDelta = body.size !== undefined ? Number(body.size) : 1;
+        const targetSize = body.size !== undefined ? Number(body.size) : building.size + 1;
+        const sizeDelta = targetSize - building.size;
         const result = upgradeBuilding(currentCompanyId, buildingId, sizeDelta);
         sendJson(res, {
           building: result.building,
@@ -288,7 +287,6 @@ export async function handleBuildingRoutes(
       sendJson(res, { error: 'Building not found' }, 404);
       return true;
     }
-    resolveFinishedProduction(b.company_id);
     sendJson(res, formatBuilding(b));
     return true;
   }
@@ -337,7 +335,6 @@ export async function handleBuildingRoutes(
     }
 
     if (method === 'GET') {
-      resolveFinishedProduction(currentCompanyId);
       sendJson(res, getBuildingQueue(currentCompanyId, buildingId));
       return true;
     }
@@ -387,76 +384,45 @@ export async function handleBuildingRoutes(
       return true;
     }
     const requestedId = Number(takeOrderMatch[1]);
-    // The original frontend sends the building id. Keep queue-id lookup as a
-    // compatibility path for older clients and existing integrations.
-    const item = db.prepare(`
+    type ProductionTakeRow = {
+      id: number;
+      building_id: number;
+      company_id: number;
+      kind: number;
+      quality: number;
+      amount: number;
+      finishes_at: string;
+      resolved: number;
+    };
+    const itemByBuilding = db.prepare(`
       SELECT * FROM production_queues
       WHERE building_id = ? AND company_id = ? AND resolved = 0
       ORDER BY id DESC
       LIMIT 1
-    `).get(requestedId, currentCompanyId) as {
-      id: number;
-      building_id: number;
-      company_id: number;
-      kind: number;
-      quality: number;
-      amount: number;
-      finishes_at: string;
-      resolved: number;
-    } | undefined || db.prepare(`
+    `).get(requestedId, currentCompanyId) as ProductionTakeRow | undefined;
+    const itemByQueue = db.prepare(`
       SELECT * FROM production_queues
       WHERE id = ? AND company_id = ? AND resolved = 0
-    `).get(requestedId, currentCompanyId) as {
-      id: number;
-      building_id: number;
-      company_id: number;
-      kind: number;
-      quality: number;
-      amount: number;
-      finishes_at: string;
-      resolved: number;
-    } | undefined;
+    `).get(requestedId, currentCompanyId) as ProductionTakeRow | undefined;
+    const item = itemByBuilding ?? itemByQueue;
 
-    if (!item || item.company_id !== currentCompanyId) {
-      const targetBuilding = getBuildingById(requestedId);
-      const alreadyResolved = targetBuilding && targetBuilding.company_id === currentCompanyId
-        ? db.prepare(`
-            SELECT id FROM production_queues
-            WHERE building_id = ? AND company_id = ? AND resolved = 1
-            ORDER BY id DESC
-            LIMIT 1
-          `).get(requestedId, currentCompanyId)
-        : undefined;
-
-      if (alreadyResolved) {
-        sendJson(res, {
-          success: true,
-          moneyUpdate: getCompanyById(currentCompanyId)?.money || 0,
-          achievements: [],
-          levelInfo: null,
-          newBusy: null,
-          resourceTransactions: []
-        });
-        return true;
-      }
-
+    if (!item) {
       sendJson(res, { error: 'Order not found' }, 400);
       return true;
     }
-    if (new Date(item.finishes_at).getTime() > Date.now()) {
+    const finishTime = Date.parse(item.finishes_at);
+    if (!Number.isFinite(finishTime) || finishTime > Date.now()) {
       sendJson(res, { error: 'Production not finished yet' }, 400);
       return true;
     }
-    if (item.resolved === 1) {
-      sendJson(res, { error: 'Order already claimed' }, 400);
-      return true;
-    }
 
-    db.exec('BEGIN');
+    db.exec('BEGIN IMMEDIATE');
     try {
-      // Delete-first guard: only one request can claim the order
-      const claimed = db.prepare('UPDATE production_queues SET resolved = 1 WHERE id = ? AND resolved = 0').run(item.id);
-      if (claimed.changes === 0) {
+      const claimed = db.prepare(`
+        UPDATE production_queues SET resolved = 1
+        WHERE id = ? AND company_id = ? AND resolved = 0
+      `).run(item.id, currentCompanyId);
+      if (claimed.changes !== 1) {
         throw new Error('Order already claimed');
       }
       addResource(item.company_id, item.kind, item.quality ?? 0, item.amount);
@@ -465,11 +431,14 @@ export async function handleBuildingRoutes(
         WHERE building_id = ? AND company_id = ? AND resolved = 0
         ORDER BY finishes_at DESC, id DESC
         LIMIT 1
-      `).get(item.building_id, currentCompanyId) as { finishes_at: string } | undefined;
-      db.prepare('UPDATE buildings SET busy_until = ? WHERE id = ?').run(
-        latest?.finishes_at || null,
-        item.building_id
-      );
+      `).get(item.building_id, currentCompanyId) as { finishes_at?: string } | undefined;
+      const updatedBuilding = db.prepare(`
+        UPDATE buildings SET busy_until = ?
+        WHERE id = ? AND company_id = ?
+      `).run(latest?.finishes_at || null, item.building_id, currentCompanyId);
+      if (updatedBuilding.changes !== 1) {
+        throw new Error('Building not found');
+      }
       db.exec('COMMIT');
     } catch (err: unknown) {
       db.exec('ROLLBACK');
@@ -478,9 +447,10 @@ export async function handleBuildingRoutes(
       return true;
     }
 
+    const company = getCompanyById(currentCompanyId);
     sendJson(res, {
       success: true,
-      moneyUpdate: getCompanyById(currentCompanyId)?.money || 0,
+      moneyUpdate: company?.money ?? 0,
       achievements: [],
       levelInfo: null,
       newBusy: null,

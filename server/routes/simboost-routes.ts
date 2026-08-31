@@ -4,7 +4,6 @@ import {
   getPaymentPackagesList,
   getPaymentPricingInfo,
   getPlayerBonusesList,
-  processPackagePurchase,
   exchangeSimBoosts,
   unlockDisplayCaseSlot,
   unlockExecutiveSlot,
@@ -61,29 +60,18 @@ export async function handleSimboostRoutes(
   // 4. Can Purchase Check: /api/v2/payment/can-purchase/:sku/
   const canPurchaseMatch = pathname.match(/^\/api\/v2\/payment\/can-purchase\/([a-zA-Z0-9_-]+)\/$/);
   if (canPurchaseMatch && method === 'GET') {
-    sendJson(res, { canPurchase: true });
+    sendJson(res, { canPurchase: false, available: false, reason: 'Payment provider is not configured' });
     return true;
   }
 
   // 5. Payment Checkout: /api/v2/payment/ or /api/v2/payment-stripe/
   if ((pathname === '/api/v2/payment/' || pathname === '/api/v2/payment-stripe/') && method === 'POST') {
-    if (!currentCompanyId) {
-      sendJson(res, { error: 'Unauthorized' }, 401);
-      return true;
-    }
-    const body = await readJsonBody<{ sku?: string }>(req);
-    const sku = body.sku || 'simboosts_small';
-    const result = processPackagePurchase(currentCompanyId, sku);
-    sendJson(res, {
-      ...result,
-      sessionId: "local-simulated-stripe-session"
-    });
+    sendJson(res, { error: 'Payment provider is not configured', code: 'API_NOT_IMPLEMENTED' }, 501);
     return true;
   }
 
-  // 6. Payment Stripe Sync: /api/v2/payment-stripe/sync
   if (pathname === '/api/v2/payment-stripe/sync' && method === 'POST') {
-    sendJson(res, { success: true });
+    sendJson(res, { error: 'Payment provider is not configured', code: 'API_NOT_IMPLEMENTED' }, 501);
     return true;
   }
 

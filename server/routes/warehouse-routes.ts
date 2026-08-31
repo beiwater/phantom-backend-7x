@@ -1,20 +1,23 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { sendJson } from './utils.ts';
 import { getWarehouseResources } from '../game/warehouse.ts';
-import { resolveFinishedProduction } from '../game/production.ts';
 
 export async function handleWarehouseRoutes(
   _req: IncomingMessage,
   res: ServerResponse,
   pathname: string,
-  _method: string
+  _method: string,
+  currentCompanyId: number | null
 ): Promise<boolean> {
   // 1. Warehouse resources list: /api/v2/resources/:companyId/ or /api/v3/resources/:companyId/
   const warehouseMatch = pathname.match(/^\/api\/v[23]\/resources\/(\d+)\/$/);
   if (warehouseMatch) {
     const compId = Number(warehouseMatch[1]);
-    resolveFinishedProduction(compId);
-    sendJson(res, getWarehouseResources(compId));
+    if (!currentCompanyId || compId !== currentCompanyId) {
+      sendJson(res, { error: 'Unauthorized' }, 401);
+      return true;
+    }
+    sendJson(res, getWarehouseResources(currentCompanyId));
     return true;
   }
 

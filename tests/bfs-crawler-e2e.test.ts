@@ -62,6 +62,70 @@ interface BFSNode {
   url: string;
   name: string;
   depth: number;
+  path: string[];
+}
+
+function normalizePath(value: string): string {
+  const pathValue = value.replace(/\/+$/, '');
+  return pathValue || '/';
+}
+
+async function waitForPageTransition(page: Page) {
+  await page.waitForNetworkIdle({ idleTime: 200, timeout: 3000 }).catch(() => {});
+}
+
+async function clickVisibleLink(page: Page, targetPath: string): Promise<void> {
+  const expectedPath = normalizePath(targetPath);
+  const links = await page.$$('a[href]');
+  for (const link of links) {
+    const details = await link.evaluate(element => {
+      const rect = element.getBoundingClientRect();
+      const anchor = element as HTMLAnchorElement;
+      return {
+        visible: rect.width > 0 && rect.height > 0,
+        path: new URL(anchor.href, window.location.href).pathname
+      };
+    });
+    if (details.visible && normalizePath(details.path) === expectedPath) {
+      const beforeUrl = page.url();
+      const beforeText = await page.evaluate(() => document.body.innerText);
+      await link.click();
+      await waitForPageTransition(page);
+      const afterUrl = page.url();
+      const afterText = await page.evaluate(() => document.body.innerText);
+      if (afterUrl === beforeUrl && beforeText === afterText) {
+        throw new Error(`Navigation link produced no visible transition: ${targetPath}`);
+      }
+      return;
+    }
+  }
+  throw new Error(`Visible navigation link was not found: ${targetPath}`);
+}
+
+async function returnToRoot(page: Page, rootPath: string): Promise<void> {
+  const expectedRoot = normalizePath(rootPath);
+  for (let attempt = 0; attempt < 20; attempt++) {
+    if (normalizePath(new URL(page.url()).pathname) === expectedRoot) return;
+
+    try {
+      await clickVisibleLink(page, rootPath);
+      continue;
+    } catch {
+      const before = page.url();
+      await page.goBack({ waitUntil: 'networkidle2', timeout: 5000 }).catch(() => {});
+      if (page.url() === before) break;
+    }
+  }
+  if (normalizePath(new URL(page.url()).pathname) !== expectedRoot) {
+    throw new Error(`Could not return to crawler root: ${page.url()}`);
+  }
+}
+
+async function navigateByVisibleClicks(page: Page, pathFromRoot: string[], rootPath: string): Promise<void> {
+  await returnToRoot(page, rootPath);
+  for (const targetPath of pathFromRoot) {
+    await clickVisibleLink(page, targetPath);
+  }
 }
 
 async function runBFSCrawler(maxDepth: number = 3) {
@@ -77,7 +141,7 @@ async function runBFSCrawler(maxDepth: number = 3) {
   const baseUrl = 'http://127.0.0.1:3000';
   const browser = await puppeteer.launch({
     headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox', '--window-size=1440,900', '--disable-web-security']
+    args: ['--no-sandbox', '--disable-setuid-sandbox', '--window-size=1440,900']
   });
 
   const page = await browser.newPage();
@@ -95,9 +159,24 @@ async function runBFSCrawler(maxDepth: number = 3) {
     }
   });
 
+  const stubEndpoints = new Set<string>();
+  page.on('response', response => {
+    const responseHeaders = response.headers();
+    if (response.status() === 501 || responseHeaders['x-backend-stub'] === 'true') {
+      const request = response.request();
+      stubEndpoints.add(`${request.method()} ${new URL(response.url()).pathname}`);
+    }
+  });
+
   let totalDiscoveredButtons = 0;
   let totalExercisedButtons = 0;
   let totalVisitedPages = 0;
+  let totalAttemptedPages = 0;
+  let unreachableNodes = 0;
+  const unreachablePaths = new Set<string>();
+  const discoveredButtonIds = new Set<string>();
+  const exercisedButtonIds = new Set<string>();
+  const failedButtonIds = new Set<string>();
   let step = 1;
 
   try {
@@ -153,11 +232,8 @@ async function runBFSCrawler(maxDepth: number = 3) {
     const normalizedRootUrl = '/zh-cn/landscape/';
     visitedUrls.add(normalizedRootUrl);
     visitedUrls.add('/zh-cn/');
-    visitedUrls.add('/zh-cn/signup/');
-    visitedUrls.add('/zh-cn/signin/');
-
     let currentQueue: BFSNode[] = [
-      { url: '/zh-cn/landscape/', name: 'Landscape Map', depth: 1 }
+      { url: normalizedRootUrl, name: 'Landscape Map', depth: 1, path: [] }
     ];
 
     for (let currentDepth = 1; currentDepth <= maxDepth; currentDepth++) {
@@ -169,46 +245,81 @@ async function runBFSCrawler(maxDepth: number = 3) {
 
       for (const node of currentQueue) {
         console.log(`\n>>> [BFS LEVEL ${currentDepth} NODE] Traversing: "${node.name}" (${node.url}) ...`);
+        totalAttemptedPages++;
+
+        try {
+          await navigateByVisibleClicks(page, node.path, normalizedRootUrl);
+        } catch (navigationErr: unknown) {
+          unreachableNodes++;
+          unreachablePaths.add(node.url);
+          console.error(`  -> Navigation failed and node was excluded: ${node.url}`, navigationErr instanceof Error ? navigationErr.message : String(navigationErr));
+          continue;
+        }
         totalVisitedPages++;
-
-        const targetUrl = node.url.startsWith('http') ? node.url : `${baseUrl}${node.url}`;
-        await page.goto(targetUrl, { waitUntil: 'networkidle2', timeout: 30000 });
         await new Promise(r => setTimeout(r, 1000));
-
         const integrity = await assertDOMIntegrity(page, node.name);
         console.log(`  -> Scientific DOM Check Passed (Visible elements: ${integrity.visibleCount}, Sample: "${integrity.snippet.slice(0, 60)}...")`);
         await takeTimestampedScreenshot(page, roundDir, currentDepth, step++, node.name);
 
         // ----------------------------------------------------
-        // Step A: Discover all interactive buttons & controls on CURRENT page
+        // Step A: Discover and exercise non-destructive controls
         // ----------------------------------------------------
         const buttonHandles = await page.$$('button, div[role="button"], [class*="btn"]:not(a), [role="tab"]');
-        console.log(`  -> Found ${buttonHandles.length} actionable button/tab controls on current page.`);
-        totalDiscoveredButtons += buttonHandles.length;
+        const buttonDescriptors: Array<{ tag: string; text: string; isVisible: boolean; disabled: boolean }> = [];
+        for (const button of buttonHandles) {
+          const descriptor = await button.evaluate(el => ({
+            tag: el.tagName,
+            text: el.textContent?.trim().replace(/\s+/g, ' ') || '',
+            isVisible: el.getBoundingClientRect().width > 0 && el.getBoundingClientRect().height > 0,
+            disabled: (el as HTMLButtonElement).disabled === true
+          }));
+          if (
+            descriptor.isVisible &&
+            !descriptor.disabled &&
+            descriptor.text.length > 0 &&
+            !['登出', '删除', 'Demolish', 'Sign out', '重置', '全部接受'].some(k => descriptor.text.includes(k))
+          ) {
+            buttonDescriptors.push(descriptor);
+          }
+        }
+        totalDiscoveredButtons += buttonDescriptors.length;
+        console.log(`  -> Found ${buttonDescriptors.length} actionable button/tab controls on current page.`);
 
-        // Exercise actionable non-destructive buttons (e.g. tabs, filters, view switches, dropdowns)
-        for (let i = 0; i < Math.min(buttonHandles.length, 12); i++) {
+        for (const descriptor of buttonDescriptors.slice(0, 12)) {
+          const buttonId = `${page.url()}::${descriptor.tag}::${descriptor.text}`;
+          discoveredButtonIds.add(buttonId);
           try {
-            const btn = buttonHandles[i];
-            const btnInfo = await btn.evaluate(el => {
-              const text = el.textContent?.trim().replace(/\s+/g, ' ') || '';
-              const isVisible = el.getBoundingClientRect().width > 0 && el.getBoundingClientRect().height > 0;
-              const disabled = (el as HTMLButtonElement).disabled;
-              return { text, isVisible, disabled };
-            });
-
-            if (
-              btnInfo.isVisible &&
-              !btnInfo.disabled &&
-              btnInfo.text.length > 0 &&
-              !['登出', '删除', 'Demolish', 'Sign out', '重置', '全部接受'].some(k => btnInfo.text.includes(k))
-            ) {
-              await btn.click().catch(() => {});
-              totalExercisedButtons++;
-              await page.waitForNetworkIdle({ idleTime: 150, timeout: 1500 }).catch(() => {});
+            const currentButtons = await page.$$('button, div[role="button"], [class*="btn"]:not(a), [role="tab"]');
+            let targetButton = null;
+            for (const button of currentButtons) {
+              const current = await button.evaluate(el => ({
+                tag: el.tagName,
+                text: el.textContent?.trim().replace(/\s+/g, ' ') || '',
+                visible: el.getBoundingClientRect().width > 0 && el.getBoundingClientRect().height > 0,
+                disabled: (el as HTMLButtonElement).disabled === true
+              }));
+              if (current.tag === descriptor.tag && current.text === descriptor.text && current.visible && !current.disabled) {
+                targetButton = button;
+                break;
+              }
             }
-          } catch {
-            // Ignore click on detached element
+            if (!targetButton) throw new Error(`Button was not found: ${buttonId}`);
+
+            const beforeUrl = page.url();
+            const beforeText = await page.evaluate(() => document.body.innerText);
+            await targetButton.click();
+            await waitForPageTransition(page);
+            const afterUrl = page.url();
+            const afterText = await page.evaluate(() => document.body.innerText);
+            if (beforeUrl === afterUrl && beforeText === afterText) {
+              throw new Error(`Button produced no visible transition: ${buttonId}`);
+            }
+
+            exercisedButtonIds.add(buttonId);
+            totalExercisedButtons++;
+          } catch (buttonErr: unknown) {
+            failedButtonIds.add(buttonId);
+            console.error(`  -> Button failed and was excluded from coverage: ${buttonId}`, buttonErr instanceof Error ? buttonErr.message : String(buttonErr));
           }
         }
 
@@ -246,7 +357,8 @@ async function runBFSCrawler(maxDepth: number = 3) {
             nextQueue.push({
               url: cleanPath,
               name: linkName,
-              depth: currentDepth + 1
+              depth: currentDepth + 1,
+              path: [...node.path, cleanPath]
             });
           }
         }
@@ -261,12 +373,35 @@ async function runBFSCrawler(maxDepth: number = 3) {
       }
     }
 
+    const report = {
+      pages: {
+        attempted: totalAttemptedPages,
+        visited: totalVisitedPages,
+        unreachable: unreachableNodes,
+        unreachablePaths: [...unreachablePaths]
+      },
+      buttons: {
+        discovered: discoveredButtonIds.size,
+        exercised: exercisedButtonIds.size,
+        failed: failedButtonIds.size,
+        failedIds: [...failedButtonIds]
+      },
+      runtimeErrors: unhandledErrors,
+      stubs: {
+        count: stubEndpoints.size,
+        endpoints: [...stubEndpoints]
+      }
+    };
+    fs.writeFileSync(path.join(roundDir, 'report.json'), JSON.stringify(report, null, 2));
     console.log('\n================================================================');
     console.log(' BREADTH-FIRST SEARCH (BFS) TRAVERSAL SUMMARY');
     console.log('================================================================');
-    console.log(` Total Distinct Pages Visited: ${totalVisitedPages}`);
-    console.log(` Total Actionable Buttons Discovered: ${totalDiscoveredButtons}`);
-    console.log(` Total Actionable Buttons Exercised: ${totalExercisedButtons}`);
+    console.log(` Total Pages: attempted=${report.pages.attempted}, visited=${report.pages.visited}, unreachable=${report.pages.unreachable}`);
+    console.log(` Buttons: discovered=${report.buttons.discovered}, exercised=${report.buttons.exercised}, failed=${report.buttons.failed}`);
+    console.log(` Total Actionable Button Observations: ${totalDiscoveredButtons}`);
+    console.log(` Stub endpoints: ${report.stubs.count}`);
+    report.stubs.endpoints.forEach(endpoint => console.log(`   - ${endpoint}`));
+    console.log(` Total Successful Button Actions: ${totalExercisedButtons}`);
     console.log(` Total Unhandled Runtime Errors: ${unhandledErrors.length}`);
     if (unhandledErrors.length > 0) {
       console.log(' Unhandled Errors:');

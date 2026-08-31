@@ -20,20 +20,18 @@ async function test() {
 
   // 1. Test building upgrade PATCH
   console.log('--- 1. Testing Building Upgrade PATCH ---');
-  // First ensure building exists at position 0
-  const buildRes = await fetch(`${base}/api/v2/companies/me/buildings/`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({ kind: 'P', position: 'B0' })
-  });
-  const buildData = await buildRes.json();
-  console.log('Construct Building response status:', buildRes.status, 'Building ID:', buildData?.id || buildData?.building?.id);
-  const bId = buildData?.id || buildData?.building?.id || 1;
+  // Use the seeded level-1 Farm; ordinary construction must not replace an occupied slot.
+  const buildRes = await fetch(`${base}/api/v2/companies/me/buildings/`, { headers });
+  const existingBuildings = await buildRes.json();
+  const existingFarm = existingBuildings.find(building => building.kind === 'P');
+  const bId = existingFarm?.id;
+  if (!bId) throw new Error('Seeded Farm was not returned');
+  console.log('Seeded Farm status:', buildRes.status, 'Building ID:', bId);
 
   const patchRes = await fetch(`${base}/api/v2/companies/me/buildings/${bId}/`, {
     method: 'PATCH',
     headers,
-    body: JSON.stringify({ size: 1 })
+    body: JSON.stringify({ size: 2 })
   });
   const patchData = await patchRes.json();
   console.log('Upgrade Building PATCH status:', patchRes.status);

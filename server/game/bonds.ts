@@ -39,7 +39,6 @@ export function formatBond(b: BondRow) {
 }
 
 export function getBondsOwned(companyId: number) {
-  settleMaturedBonds();
   const rows = db.prepare(`
     SELECT * FROM bonds
     WHERE buyer_company_id = ? AND status = 'active'
@@ -50,7 +49,6 @@ export function getBondsOwned(companyId: number) {
 }
 
 export function getBondsSold(companyId: number) {
-  settleMaturedBonds();
   const rows = db.prepare(`
     SELECT * FROM bonds
     WHERE seller_company_id = ? AND status = 'active'
@@ -60,36 +58,38 @@ export function getBondsSold(companyId: number) {
   return rows.map(formatBond);
 }
 
+function seedBondMarketListings() {
+  const countRow = db.prepare(`
+    SELECT COUNT(*) AS count FROM bonds
+    WHERE buyer_company_id IS NULL AND status = 'active'
+  `).get() as { count?: number } | undefined;
+  if (Number(countRow?.count) > 0) return;
+
+  const now = new Date().toISOString();
+  const seedBonds = [
+    { seller: 999901, amount: 50000, rate: 0.005 },
+    { seller: 999902, amount: 100000, rate: 0.0055 },
+    { seller: 999903, amount: 25000, rate: 0.0045 }
+  ];
+  const insert = db.prepare(`
+    INSERT INTO bonds (seller_company_id, buyer_company_id, interest_rate, amount, status, created_at)
+    VALUES (?, NULL, ?, ?, 'active', ?)
+  `);
+  for (const bond of seedBonds) {
+    insert.run(bond.seller, bond.rate, bond.amount, now);
+  }
+}
+
+seedBondMarketListings();
+
 export function getBondMarketListings() {
-  settleMaturedBonds();
   const rows = db.prepare(`
     SELECT * FROM bonds
     WHERE buyer_company_id IS NULL AND status = 'active'
     ORDER BY interest_rate DESC LIMIT 50
   `).all() as unknown as BondRow[];
 
-  if (rows.length === 0) {
-    const now = new Date().toISOString();
-    const seedBonds = [
-      { seller: 999901, amount: 50000, rate: 0.005 },
-      { seller: 999902, amount: 100000, rate: 0.0055 },
-      { seller: 999903, amount: 25000, rate: 0.0045 }
-    ];
-    for (const sb of seedBonds) {
-      db.prepare(`
-        INSERT INTO bonds (seller_company_id, buyer_company_id, interest_rate, amount, status, created_at)
-        VALUES (?, NULL, ?, ?, 'active', ?)
-      `).run(sb.seller, sb.rate, sb.amount, now);
-    }
-  }
-
-  const current = db.prepare(`
-    SELECT * FROM bonds
-    WHERE buyer_company_id IS NULL AND status = 'active'
-    ORDER BY interest_rate DESC LIMIT 50
-  `).all() as unknown as BondRow[];
-
-  return current.map(formatBond);
+  return rows.map(formatBond);
 }
 export function settleMaturedBonds() {
   const now = new Date().toISOString();
@@ -99,9 +99,8 @@ export function settleMaturedBonds() {
       AND maturity_date IS NOT NULL AND maturity_date <= ?
   `).all(now) as unknown as BondRow[];
   if (due.length === 0) return;
-
   for (const b of due) {
-    // Lazy settlement on read; per-bond transaction keeps money + bond row consistent (issue #42)
+    // Each settlement keeps money and the bond status in one transaction.
     db.exec('BEGIN');
     try {
       const payout = Math.round(b.amount * (1 + b.interest_rate) * 100) / 100;
@@ -156,18 +155,18 @@ export function issueBonds(sellerCompanyId: number, amount: number, interestRate
 }
 
 export function buyBonds(buyerCompanyId: number, bondId: number) {
-  const b = db.prepare('SELECT * FROM bonds WHERE id = ?').get(bondId) as unknown as BondRow | undefined;
-  if (!b || b.status !== 'active' || b.buyer_company_id !== null) {
-    throw new Error('Bond is no longer available');
-  }
-
-  const buyer = getCompanyById(buyerCompanyId);
-  if (!buyer || buyer.money < b.amount) {
-    throw new Error('Not enough money to buy bond');
-  }
-
-  db.exec('BEGIN');
+  db.exec('BEGIN IMMEDIATE');
   try {
+    const bond = db.prepare('SELECT * FROM bonds WHERE id = ?').get(bondId) as unknown as BondRow | undefined;
+    if (!bond || bond.status !== 'active' || bond.buyer_company_id !== null) {
+      throw new Error('Bond is no longer available');
+    }
+
+    const buyer = getCompanyById(buyerCompanyId);
+    if (!buyer || !Number.isFinite(Number(buyer.money)) || Number(buyer.money) < bond.amount) {
+      throw new Error('Not enough money to buy bond');
+    }
+
     const claimed = db.prepare(`
       UPDATE bonds SET buyer_company_id = ?
       WHERE id = ? AND status = 'active' AND buyer_company_id IS NULL
@@ -176,11 +175,11 @@ export function buyBonds(buyerCompanyId: number, bondId: number) {
       throw new Error('Bond is no longer available');
     }
 
-    const newMoney = updateCompanyMoney(buyerCompanyId, -b.amount);
+    const newMoney = updateCompanyMoney(buyerCompanyId, -bond.amount);
     // Seeded NPC listings have no company ledger. Real issuers receive the
     // face value only when a buyer actually purchases the bond.
-    if (getCompanyById(b.seller_company_id)) {
-      updateCompanyMoney(b.seller_company_id, b.amount);
+    if (bond.seller_company_id !== 999900 && getCompanyById(bond.seller_company_id)) {
+      updateCompanyMoney(bond.seller_company_id, bond.amount);
     }
     db.exec('COMMIT');
 
@@ -188,7 +187,7 @@ export function buyBonds(buyerCompanyId: number, bondId: number) {
     return {
       bond: formatBond(updated),
       money: newMoney,
-      moneyDelta: -b.amount
+      moneyDelta: -bond.amount
     };
   } catch (err) {
     db.exec('ROLLBACK');
@@ -197,30 +196,45 @@ export function buyBonds(buyerCompanyId: number, bondId: number) {
 }
 
 export function callBonds(sellerCompanyId: number, bondId: number) {
-  const b = db.prepare('SELECT * FROM bonds WHERE id = ?').get(bondId) as unknown as BondRow | undefined;
-  if (!b || b.status !== 'active' || b.seller_company_id !== sellerCompanyId) {
-    throw new Error('Bond not found');
-  }
-  // Early call only before maturity; matured/defaulted bonds settle via settleMaturedBonds (issue #42)
-  if (b.maturity_date && b.maturity_date <= new Date().toISOString()) {
-    throw new Error('Bond has matured and can no longer be called early');
-  }
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    const bond = db.prepare('SELECT * FROM bonds WHERE id = ?').get(bondId) as unknown as BondRow | undefined;
+    if (!bond || bond.status !== 'active' || bond.seller_company_id !== sellerCompanyId) {
+      throw new Error('Bond not found');
+    }
+    if (bond.maturity_date && bond.maturity_date <= new Date().toISOString()) {
+      throw new Error('Bond has matured and can no longer be called early');
+    }
 
-  const seller = getCompanyById(sellerCompanyId);
-  if (!seller || seller.money < b.amount) {
-    throw new Error('Not enough money to call bond early');
+    const seller = getCompanyById(sellerCompanyId);
+    if (!seller) {
+      throw new Error('Company not found');
+    }
+
+    let newSellerMoney = Number(seller.money) || 0;
+    if (bond.buyer_company_id) {
+      if (newSellerMoney < bond.amount) {
+        throw new Error('Not enough money to call bond early');
+      }
+      newSellerMoney = updateCompanyMoney(sellerCompanyId, -bond.amount);
+      updateCompanyMoney(bond.buyer_company_id, bond.amount);
+    }
+    const updated = db.prepare(`
+      UPDATE bonds SET status = 'called'
+      WHERE id = ? AND seller_company_id = ? AND status = 'active'
+    `).run(bondId, sellerCompanyId);
+    if (updated.changes !== 1) {
+      throw new Error('Bond is no longer active');
+    }
+    db.exec('COMMIT');
+
+    return {
+      success: true,
+      money: newSellerMoney,
+      moneyDelta: -bond.amount
+    };
+  } catch (err) {
+    db.exec('ROLLBACK');
+    throw err;
   }
-
-  // Deduct face value from seller, return to buyer if held
-  const newSellerMoney = updateCompanyMoney(sellerCompanyId, -b.amount);
-  if (b.buyer_company_id) {
-    updateCompanyMoney(b.buyer_company_id, b.amount);
-  }
-
-  db.prepare(`UPDATE bonds SET status = 'called' WHERE id = ?`).run(bondId);
-
-  return {
-    success: true,
-    money: newSellerMoney
-  };
 }
