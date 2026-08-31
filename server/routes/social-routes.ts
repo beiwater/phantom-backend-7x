@@ -2,6 +2,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { readJsonBody, sendJson } from './utils.ts';
 import { db } from '../db/database.ts';
 import { getCompanyById } from '../game/company.ts';
+import { checkRateLimit } from '../security/rate-limiter.ts';
 
 export async function handleSocialRoutes(
   req: IncomingMessage,
@@ -160,6 +161,14 @@ export async function handleSocialRoutes(
   if ((pathname === '/api/v2/message/' || pathname === '/api/v2/messages/') && method === 'POST') {
     if (!currentCompanyId) {
       sendJson(res, { error: 'Unauthorized' }, 401);
+      return true;
+    }
+
+    const rateCheck = checkRateLimit(`chat:msg:${currentCompanyId}`, 40, 60000);
+    if (!rateCheck.allowed) {
+      sendJson(res, { error: 'Message rate limit exceeded. Please wait before posting again.', code: 'RATE_LIMITED' }, 429, {
+        'Retry-After': String(Math.ceil(rateCheck.resetMs / 1000))
+      });
       return true;
     }
 

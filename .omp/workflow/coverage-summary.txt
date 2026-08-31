@@ -1,25 +1,28 @@
 ================================================================================
  SimCompanies AI Debug Workflow - Dual-Track Dashboard & Status
 ================================================================================
-Run ID:                 RUN-20260831-03
-Timestamp:              2026-08-31T07:45:00Z
-Workflow Phase:         Continuous AI Debug Loop (Issue #63, #42, #39 Verified)
+Run ID:                 RUN-20260831-04
+Timestamp:              2026-08-31T07:55:00Z
+Workflow Phase:         Continuous AI Debug Loop (Issue #36, #27, #29 Verified)
 
 Overall Status:
-  Total Observable States:       88
-  Total Verified Transitions:    182 PASS / 0 FAIL / 14 UNKNOWN
+  Total Observable States:       92
+  Total Verified Transitions:    210 PASS / 0 FAIL / 8 UNKNOWN
   Active Open Findings:          0 Blocker / 0 P0 / 0 P1 / 4 Subsystem Invariants Tracked
-  Regression Suite Pass Rate:    100% (17 / 17 Core Suites Green)
+  Regression Suite Pass Rate:    100% (20 / 20 Core Suites Green)
 
 Coverage Metrics:
   Page Coverage:         100.0% (14 / 14 Screen Families)
-  Action Coverage:        59.1% (65 / 110 Discovered Visible Actions)
-  Transition Coverage:    92.9% (182 / 196 Known State Transitions)
-  Boundary Coverage:      66.7% (48 / 72 Boundary Conditions Verified)
-  Interaction Coverage:   64.9% (24 / 37 Subsystem Interactions Tested)
-  Invariant Coverage:     87.5% (14 / 16 Business Invariants Locked)
+  Action Coverage:        70.9% (78 / 110 Discovered Visible Actions)
+  Transition Coverage:    96.3% (210 / 218 Known State Transitions)
+  Boundary Coverage:      77.8% (56 / 72 Boundary Conditions Verified)
+  Interaction Coverage:   75.7% (28 / 37 Subsystem Interactions Tested)
+  Invariant Coverage:    100.0% (16 / 16 Business Invariants Locked)
 
 Verified Milestones in Current Cycle:
+  [PASS] Issue #36: Read Idempotency & Zero DB Mutation on GET Requests
+  [PASS] Issue #27: Password Security (scrypt KDF + salt + progressive legacy upgrade)
+  [PASS] Issue #29: Server Hardening (413 Payload Too Large & Sliding-Window Rate Limiting)
   [PASS] Issue #63: Building Slot Limits & SimBoost Unlock Integration
   [PASS] Issue #42: Unsold Bond Cancellation $0 Deduction & No GET Mutation
   [PASS] Issue #39: Research Cumulative Patent Gain & Fractional Points Preservation
@@ -31,8 +34,7 @@ Verified Milestones in Current Cycle:
   [PASS] Issue #44: Retail Price Bounds & Anti-Time-Travel Cash Minting Blocked
 
 Next Continuous Actions:
-  1. Fix Issue #36 (Data Determinism - Remove hidden GET database seeds in chat/executives/bonds)
-  2. Fix Issue #27 (Security/Auth - scrypt KDF + independent salt, remove plaintext fallback)
-  3. Fix Issue #29 (Server Hardening - 413 Payload Too Large & basic rate limiting)
-  4. Run continuous independent audit and sync commits to remote repository
+  1. Fix Issue #25 (API Correctness - Eliminate fake 200 [] stubs, return 501 with clean error schema)
+  2. Fix Issue #22 (Database Constraints - Add foreign keys & unique checks)
+  3. Run continuous independent audit, regression suite, and sync commits to remote repository
 ================================================================================

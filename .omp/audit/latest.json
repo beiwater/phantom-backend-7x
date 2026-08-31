@@ -1,7 +1,7 @@
 {
-  "audit_id": "AUDIT-RUN-1788162099519",
-  "audited_at": "2026-08-31T07:41:39.519Z",
-  "workflow_run_id": "RUN-20260831-02",
+  "audit_id": "AUDIT-RUN-1788162911883",
+  "audited_at": "2026-08-31T07:55:11.883Z",
+  "workflow_run_id": "RUN-20260831-03",
   "overall_trust_score": 44,
   "confidence": "LOW",
   "dual_coverage": {
@@ -21,7 +21,7 @@
     "transition_coverage": {
       "reported": 49,
       "evidence_backed": 31,
-      "reported_pass": 63,
+      "reported_pass": 182,
       "evidence_pass": 40,
       "total_discovered": 128,
       "status": "PARTIALLY_SUPPORTED"
@@ -61,7 +61,7 @@
       "verdict": "PARTIALLY_SUPPORTED",
       "impact": "May create false confidence that economy invariants hold across all unvisited subsystems.",
       "requiredAction": "Distinguish locally_verified vs globally_verified invariants. Recalculate evidence-backed invariant coverage to 58% (7/12).",
-      "auditedAt": "2026-08-31T07:41:39.519Z"
+      "auditedAt": "2026-08-31T07:55:11.883Z"
     },
     {
       "findingId": "AUDIT-0002",
@@ -71,7 +71,7 @@
       "verdict": "UNSUPPORTED",
       "impact": "Untested cross-system economic dependencies (e.g., Contracts x Inventory, Bonds x Rating) could fail in live play.",
       "requiredAction": "Expand denominator to 37 dependency pairs. Adjust evidence-backed interaction coverage to 27% (10/37).",
-      "auditedAt": "2026-08-31T07:41:39.519Z"
+      "auditedAt": "2026-08-31T07:55:11.883Z"
     },
     {
       "findingId": "AUDIT-0003",
@@ -81,7 +81,7 @@
       "verdict": "UNSUPPORTED",
       "impact": "Boundary conditions outside building construction could remain untested.",
       "requiredAction": "Set boundary denominator to full boundary space (72 conditions). Adjust evidence-backed boundary coverage to 39% (28/72).",
-      "auditedAt": "2026-08-31T07:41:39.519Z"
+      "auditedAt": "2026-08-31T07:55:11.883Z"
     },
     {
       "findingId": "AUDIT-0004",
@@ -91,7 +91,7 @@
       "verdict": "PARTIALLY_SUPPORTED",
       "impact": "Frontend state rendering or UI click handling might fail even if backend API returns 200.",
       "requiredAction": "Maintain evidence-backed transition coverage at 31% (40/128) until Explorer waves complete DOM-level verification for all 23 API transitions.",
-      "auditedAt": "2026-08-31T07:41:39.519Z"
+      "auditedAt": "2026-08-31T07:55:11.883Z"
     }
   ],
   "claims_count": 9,

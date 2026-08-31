@@ -8,11 +8,11 @@ const server = http.createServer(async (req, res) => {
   try {
     await handleRequest(req, res);
   } catch (err: unknown) {
-    console.error('Unhandled server error:', err);
     if (!res.headersSent) {
       if (err instanceof RequestBodyError) {
         sendJson(res, { error: err.message, code: 'INVALID_REQUEST_BODY' }, err.statusCode);
       } else {
+        console.error('Unhandled server error:', err);
         res.writeHead(500, { 'Content-Type': 'text/plain' });
         res.end('Internal Server Error');
       }

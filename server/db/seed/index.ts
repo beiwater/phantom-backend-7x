@@ -4,6 +4,7 @@ import { db } from '../connection.ts';
 import { CONFIG } from '../../config.ts';
 import { CONSTANTS_RESOURCES } from '../../game/constants.ts';
 import { hashPassword, verifyPassword } from '../migrations/index.ts';
+import { seedDefaultExecutives } from '../../game/executives.ts';
 
 export function seedDefaultDisplayCase(companyId: number, database: DatabaseSync = db): void {
   const existing = database.prepare('SELECT 1 FROM display_case WHERE company_id = ? LIMIT 1').get(companyId);
@@ -100,6 +101,7 @@ export function registerPlayer(
       insertPlayer.run(playerId, email, hashPassword(password), now);
       insertCompany.run(companyId, playerId, cName, CONFIG.INITIAL_MONEY, CONFIG.INITIAL_SIMBOOSTS, CONFIG.INITIAL_LEVEL, now);
       seedDefaultDisplayCase(companyId, database);
+      seedDefaultExecutives(companyId, database);
       insertBuilding.run(companyId, '0', 'P', 'Farm', 6900, 'production', now);
       insertBuilding.run(companyId, '1', 'G', 'Grocery store', 10350, 'sales', now);
       for (const s of seedStock) {
@@ -131,10 +133,10 @@ export function authenticatePlayer(
   database: DatabaseSync = db
 ): { playerId: number; companyId: number } {
   const player = database.prepare('SELECT * FROM players WHERE email = ?').get(email) as PlayerDbRow | undefined;
-  if (!player) throw new Error('User not found');
+  if (!player) throw new Error('Invalid email or password');
 
   const storedHash = typeof player.password_hash === 'string' ? player.password_hash : '';
-  if (!storedHash || !verifyPassword(password, storedHash)) throw new Error('Invalid password');
+  if (!storedHash || !verifyPassword(password, storedHash)) throw new Error('Invalid email or password');
   if (!storedHash.startsWith('scrypt$')) {
     database.prepare('UPDATE players SET password_hash = ?, password = NULL WHERE id = ?')
       .run(hashPassword(password), player.id);
@@ -192,6 +194,7 @@ export function seedInitialDatabase(database: DatabaseSync = db): void {
       VALUES (?, ?, ?, ?, ?, ?, 'BBB', 0, 0, '', 'old', 'Private Server Company', ?)
     `).run(4259175, 2920233, 'lifeline', CONFIG.INITIAL_MONEY, CONFIG.INITIAL_SIMBOOSTS, CONFIG.INITIAL_LEVEL, now);
     seedDefaultDisplayCase(4259175, database);
+    seedDefaultExecutives(4259175, database);
 
     database.prepare(`
       INSERT INTO buildings (company_id, position, kind, size, name, cost, category, created_at)

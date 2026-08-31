@@ -41,64 +41,52 @@ export function formatExecutive(e: ExecutiveRow) {
   };
 }
 
+export function seedDefaultExecutives(companyId: number, database: DatabaseSync = db) {
+  const existingCount = (database.prepare('SELECT COUNT(*) as count FROM executives WHERE company_id = ?').get(companyId) as { count: number })?.count || 0;
+  if (existingCount > 0) return;
+
+  const now = new Date().toISOString();
+  const defaults = [
+    { name: 'Alexander Wright', pos: 'coo', mgmt: 12, acc: 4, sci: 3, comm: 6, sal: 450 },
+    { name: 'Elena Rostova', pos: 'cfo', mgmt: 4, acc: 14, sci: 2, comm: 5, sal: 480 },
+    { name: 'David Chen', pos: 'cto', mgmt: 5, acc: 3, sci: 15, comm: 4, sal: 500 }
+  ];
+  for (const d of defaults) {
+    database.prepare(`
+      INSERT INTO executives (company_id, name, avatar, position, skill_management, skill_accounting, skill_science, skill_communication, salary, status, created_at)
+      VALUES (?, ?, 'images/avatars/female_01.png', ?, ?, ?, ?, ?, ?, 'employed', ?)
+    `).run(companyId, d.name, d.pos, d.mgmt, d.acc, d.sci, d.comm, d.sal, now);
+  }
+
+  const candidates = [
+    { name: 'Marcus Vance', mgmt: 8, acc: 6, sci: 7, comm: 9, sal: 320 },
+    { name: 'Sophia Sterling', mgmt: 11, acc: 5, sci: 4, comm: 10, sal: 360 },
+    { name: 'Lucas Meyer', mgmt: 4, acc: 10, sci: 11, comm: 5, sal: 340 }
+  ];
+  for (const c of candidates) {
+    database.prepare(`
+      INSERT INTO executives (company_id, name, avatar, position, skill_management, skill_accounting, skill_science, skill_communication, salary, status, created_at)
+      VALUES (?, ?, 'images/avatars/male_02.png', 'unassigned', ?, ?, ?, ?, ?, 'candidate', ?)
+    `).run(companyId, c.name, c.mgmt, c.acc, c.sci, c.comm, c.sal, now);
+  }
+}
+
 export function getCompanyExecutives(companyId: number) {
-  let rows = db.prepare(`
+  const rows = db.prepare(`
     SELECT * FROM executives
     WHERE company_id = ? AND status != 'candidate'
     ORDER BY id ASC
   `).all(companyId) as unknown as ExecutiveRow[];
 
-  if (rows.length === 0) {
-    const now = new Date().toISOString();
-    const defaults = [
-      { name: 'Alexander Wright', pos: 'coo', mgmt: 12, acc: 4, sci: 3, comm: 6, sal: 450 },
-      { name: 'Elena Rostova', pos: 'cfo', mgmt: 4, acc: 14, sci: 2, comm: 5, sal: 480 },
-      { name: 'David Chen', pos: 'cto', mgmt: 5, acc: 3, sci: 15, comm: 4, sal: 500 }
-    ];
-    for (const d of defaults) {
-      db.prepare(`
-        INSERT INTO executives (company_id, name, avatar, position, skill_management, skill_accounting, skill_science, skill_communication, salary, status, created_at)
-        VALUES (?, ?, 'images/avatars/female_01.png', ?, ?, ?, ?, ?, ?, 'employed', ?)
-      `).run(companyId, d.name, d.pos, d.mgmt, d.acc, d.sci, d.comm, d.sal, now);
-    }
-
-    rows = db.prepare(`
-      SELECT * FROM executives
-      WHERE company_id = ? AND status != 'candidate'
-      ORDER BY id ASC
-    `).all(companyId) as unknown as ExecutiveRow[];
-  }
-
   return rows.map(formatExecutive);
 }
 
 export function getExecutiveCandidates(companyId: number) {
-  let rows = db.prepare(`
+  const rows = db.prepare(`
     SELECT * FROM executives
     WHERE company_id = ? AND status = 'candidate'
     ORDER BY id DESC LIMIT 5
   `).all(companyId) as unknown as ExecutiveRow[];
-
-  if (rows.length === 0) {
-    const now = new Date().toISOString();
-    const candidates = [
-      { name: 'Marcus Vance', mgmt: 8, acc: 6, sci: 7, comm: 9, sal: 320 },
-      { name: 'Sophia Sterling', mgmt: 11, acc: 5, sci: 4, comm: 10, sal: 360 },
-      { name: 'Lucas Meyer', mgmt: 4, acc: 10, sci: 11, comm: 5, sal: 340 }
-    ];
-    for (const c of candidates) {
-      db.prepare(`
-        INSERT INTO executives (company_id, name, avatar, position, skill_management, skill_accounting, skill_science, skill_communication, salary, status, created_at)
-        VALUES (?, ?, 'images/avatars/male_02.png', 'unassigned', ?, ?, ?, ?, ?, 'candidate', ?)
-      `).run(companyId, c.name, c.mgmt, c.acc, c.sci, c.comm, c.sal, now);
-    }
-
-    rows = db.prepare(`
-      SELECT * FROM executives
-      WHERE company_id = ? AND status = 'candidate'
-      ORDER BY id DESC LIMIT 5
-    `).all(companyId) as unknown as ExecutiveRow[];
-  }
 
   return rows.map(formatExecutive);
 }

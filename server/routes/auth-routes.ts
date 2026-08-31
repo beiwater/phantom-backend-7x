@@ -6,6 +6,7 @@ import {
   switchSessionCompany
 } from '../auth/session.ts';
 import { registerPlayer, authenticatePlayer, registerOrAuthenticatePlayer, db } from '../db/database.ts';
+import { checkRateLimit } from '../security/rate-limiter.ts';
 import {
   getAuthData,
   getPlayerCompanies,
@@ -90,6 +91,15 @@ export async function handleAuthRoutes(
 
   // Email Login
   if (pathname === '/api/v2/auth/email/auth/' && method === 'POST') {
+    const ip = req.socket.remoteAddress || '127.0.0.1';
+    const rateCheck = checkRateLimit(`auth:login:${ip}`, 30, 60000);
+    if (!rateCheck.allowed) {
+      sendJson(res, { error: 'Too many login attempts. Please try again later.', code: 'RATE_LIMITED' }, 429, {
+        'Retry-After': String(Math.ceil(rateCheck.resetMs / 1000))
+      });
+      return true;
+    }
+
     const body = await readJsonBody<{ email: string; password: string }>(req);
     try {
       if (!body.email || !body.password) {
@@ -112,6 +122,15 @@ export async function handleAuthRoutes(
 
   // Email Register
   if (pathname === '/api/v2/auth/email/connect/' && method === 'POST') {
+    const ip = req.socket.remoteAddress || '127.0.0.1';
+    const rateCheck = checkRateLimit(`auth:register:${ip}`, 30, 60000);
+    if (!rateCheck.allowed) {
+      sendJson(res, { error: 'Too many registration attempts. Please try again later.', code: 'RATE_LIMITED' }, 429, {
+        'Retry-After': String(Math.ceil(rateCheck.resetMs / 1000))
+      });
+      return true;
+    }
+
     const body = await readJsonBody<{ email: string; password: string; company?: string; name?: string }>(req);
     try {
       const auth = registerOrAuthenticatePlayer(body.email, body.password, body.company || body.name);

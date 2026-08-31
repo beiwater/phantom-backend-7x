@@ -126,12 +126,6 @@ export function getRestaurantProperties(buildingId: number, companyId?: number |
     { resource: 142, quality: 0, price: 8.0 }   // Orange Juice
   ];
 
-  const now = new Date().toISOString();
-  db.prepare(`
-    INSERT INTO restaurant_properties (building_id, company_id, good_service, is_luxury, keep_open, menu_json, rating, occupancy, updated_at)
-    VALUES (?, ?, 1, 0, 1, ?, 4.2, 0.85, ?)
-  `).run(buildingId, companyId || building?.company_id || 1, JSON.stringify(defaultMenu), now);
-
   return {
     buildingId,
     goodService: true,

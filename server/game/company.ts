@@ -1,10 +1,10 @@
 import { db, seedDefaultDisplayCase } from '../db/database.ts';
 import { CONFIG } from '../config.ts';
 import { computeLevelInfo, getXpRequiredForLevel } from '../domain/leveling/level-rules.ts';
+import { seedDefaultExecutives } from './executives.ts';
 export interface CompanyRow {
   id: number;
   company_id: number;
-  player_id: number;
   name: string;
   money: number;
   simboosts: number;
@@ -123,6 +123,7 @@ export function createCompanyForPlayer(playerId: number, name: string, realmId: 
     VALUES (?, ?, ?, ?, ?, ?, 'BBB', 0, ?, '', 'old', 'Private Server Company', ?)
   `).run(companyId, playerId, name, initialMoney, initialSimboosts, initialLevel, realmId, now);
   seedDefaultDisplayCase(companyId);
+  seedDefaultExecutives(companyId);
 
   // Seed default Farm and Grocery store
   db.prepare(`
@@ -208,6 +209,7 @@ export function resetCompany(companyId: number) {
       VALUES (?, '0', 'P', 1, 'Farm', 6900, 'production', ?)
     `).run(companyId, now);
     seedDefaultDisplayCase(companyId);
+    seedDefaultExecutives(companyId);
     db.exec('COMMIT');
   } catch (err) {
     db.exec('ROLLBACK');

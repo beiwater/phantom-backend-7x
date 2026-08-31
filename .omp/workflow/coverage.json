@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-08-31T07:45:00Z",
+  "updated_at": "2026-08-31T07:55:00Z",
   "page_coverage": {
     "visited_screen_families": 14,
     "total_screen_families": 14,
@@ -22,21 +22,21 @@
     ]
   },
   "action_coverage": {
-    "executed_actions": 65,
+    "executed_actions": 78,
     "discovered_actions": 110,
-    "ratio": 0.5909
+    "ratio": 0.709
   },
   "transition_coverage": {
-    "verified_pass": 182,
+    "verified_pass": 210,
     "failed": 0,
-    "unknown": 14,
-    "total_known_edges": 196,
-    "ratio": 0.9285
+    "unknown": 8,
+    "total_known_edges": 218,
+    "ratio": 0.9633
   },
   "boundary_coverage": {
-    "tested_boundaries": 48,
+    "tested_boundaries": 56,
     "total_defined_boundaries": 72,
-    "ratio": 0.6667,
+    "ratio": 0.7778,
     "categories": {
       "slot_limits_enforced": true,
       "insufficient_funds_blocked": true,
@@ -48,13 +48,19 @@
       "research_cumulative_patents": true,
       "retail_extreme_price_blocked": true,
       "premature_fulfillment_blocked": true,
-      "cross_account_isolation_enforced": true
+      "cross_account_isolation_enforced": true,
+      "read_idempotency_zero_mutations": true,
+      "scrypt_random_salt_unique_hashes": true,
+      "legacy_sha256_progressive_upgrade": true,
+      "oversized_payload_413_rejection": true,
+      "malformed_json_400_rejection": true,
+      "burst_auth_mutation_429_rate_limited": true
     }
   },
   "interaction_coverage": {
-    "tested_interactions": 24,
+    "tested_interactions": 28,
     "total_target_interactions": 37,
-    "ratio": 0.6486,
+    "ratio": 0.7568,
     "examples": [
       "Building Construction -> Production Queue -> Warehouse Stock",
       "SimBoost Slot Unlock -> High Position Construction",
@@ -62,13 +68,16 @@
       "SimBoost Executive Slot Unlock -> 5th Executive Hire -> Training Cash Mutation",
       "Multi-Account Registration -> Cross-Account Personal-Data Protection",
       "Bonds Issuance -> Unsold Cancellation -> Market Buy Transfer -> Call Early Settlement",
-      "Research Patents Cumulative Points Split -> Patent Gains Equality"
+      "Research Patents Cumulative Points Split -> Patent Gains Equality",
+      "Sequential GET Invocations -> DB Table Snapshots Strict Equality",
+      "Legacy Password Login -> DB Scrypt Upgrade -> Subsequent Auth Flow",
+      "Burst API Mutation -> 429 Rate Limiter -> Normal API Read Unaffected"
     ]
   },
   "invariant_coverage": {
-    "verified_invariants": 14,
+    "verified_invariants": 16,
     "total_defined_invariants": 16,
-    "ratio": 0.875,
+    "ratio": 1.0,
     "verified_list": [
       "INV-MONEY-NON-NEGATIVE-ON-FAILED-TX",
       "INV-INVENTORY-CONSERVED-ON-PROD-START",
@@ -83,7 +92,9 @@
       "INV-EXECUTIVE-CAPACITY-ENFORCED",
       "INV-UNSOLD-BOND-CALL-ZERO-DEDUCTION",
       "INV-BOND-BUY-SELL-MONEY-CONSERVATION",
-      "INV-RESEARCH-CUMULATIVE-THRESHOLD-EQUALITY"
+      "INV-RESEARCH-CUMULATIVE-THRESHOLD-EQUALITY",
+      "INV-READ-GET-ZERO-DB-MUTATION",
+      "INV-SCRYPT-SALT-KDF-INTEGRITY"
     ]
   }
 }
