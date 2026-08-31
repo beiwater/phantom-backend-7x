@@ -41,16 +41,7 @@ export async function handleSocialRoutes(
       return true;
     }
     sendJson(res, {
-      notifications: [
-        {
-          id: 1,
-          title: '欢迎来到 Sim Companies 私人服务器',
-          body: '生产加速 10x，全功能子系统已完整就绪！',
-          date: new Date().toISOString(),
-          read: true,
-          type: 'system'
-        }
-      ],
+      notifications: [],
       unreadCount: 0
     });
     return true;
@@ -59,6 +50,15 @@ export async function handleSocialRoutes(
   // 3. Error Announcements: /api/v2/error-announcement/
   if (pathname === '/api/v2/error-announcement/') {
     sendJson(res, { announcement: null });
+    return true;
+  }
+
+  // 3b. Help Chatroom: /api/v2/help-chatroom/
+  if (pathname === '/api/v2/help-chatroom/' || pathname === '/api/v2/help-chatroom') {
+    sendJson(res, {
+      name: 'help',
+      image: '/static/images/chatroom/help.png'
+    });
     return true;
   }
 

@@ -36,6 +36,7 @@ async function runTests() {
     { url: '/api/v3/contracts-incoming/me/', method: 'GET', expectStatus: 200 },
     { url: '/api/v2/companies/me/past-finances-overview/', method: 'GET', expectStatus: 200 },
     { url: '/api/v2/companies/me/game-notifications/', method: 'GET', expectStatus: 200 },
+    { url: '/api/v2/help-chatroom/', method: 'GET', expectStatus: 200 },
     { url: '/api/v2/zh-cn/0/articles/top-by-reaction/1/', method: 'GET', expectStatus: 200 }
   ];
 
