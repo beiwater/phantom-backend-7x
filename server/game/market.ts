@@ -207,12 +207,18 @@ export function cancelMarketOrder(companyId: number, orderId: number) {
 
 export function takeMarketOrder(
   buyerCompanyId: number,
-  params: { resource: number; quantity: number; quality?: number; maxPrice: number; money?: number }
+  params: { resource: number; quantity: number; quality?: number; maxPrice?: number | null; money?: number }
 ) {
   const resourceKind = Number(params.resource);
   const quantityRequested = Number(params.quantity);
-  const maxPrice = Number(params.maxPrice);
   const minQuality = Number(params.quality ?? 0);
+
+  // P0-08: the client's "buy missing construction materials" flow
+  // (buyResources → POST /api/v2/market-order/take/) sends NO maxPrice at all
+  // — the purchase is bounded only by the company's cash. A missing maxPrice
+  // previously failed validation and the buy button always errored.
+  const hasMaxPrice = params.maxPrice !== undefined && params.maxPrice !== null;
+  const maxPrice = hasMaxPrice ? Number(params.maxPrice) : Number.POSITIVE_INFINITY;
 
   if (!Number.isSafeInteger(resourceKind) || resourceKind <= 0 || !getResourceDef(resourceKind)) {
     throw new Error('Unknown resource kind');
@@ -220,7 +226,7 @@ export function takeMarketOrder(
   if (!Number.isFinite(quantityRequested) || quantityRequested <= 0) {
     throw new Error('Invalid purchase quantity');
   }
-  if (!Number.isFinite(maxPrice) || maxPrice <= 0) {
+  if (hasMaxPrice && (!Number.isFinite(maxPrice) || maxPrice <= 0)) {
     throw new Error('Invalid maximum price');
   }
   if (!Number.isInteger(minQuality) || minQuality < 0 || minQuality > 12) {
@@ -234,11 +240,16 @@ export function takeMarketOrder(
       throw new Error('Buyer company not found');
     }
 
+    const priceCap = hasMaxPrice
+      ? maxPrice
+      : (Number.isFinite(Number(params.money)) && Number(params.money) > 0
+        ? Number(params.money)
+        : Number.MAX_SAFE_INTEGER);
     const orders = db.prepare(`
       SELECT * FROM market_orders
       WHERE kind = ? AND active = 1 AND price <= ? AND quality >= ? AND quantity > 0
       ORDER BY price ASC, quality DESC, id ASC
-    `).all(resourceKind, maxPrice, minQuality) as unknown as MarketOrderRow[];
+    `).all(resourceKind, priceCap, minQuality) as unknown as MarketOrderRow[];
 
     let quantityToBuy = quantityRequested;
     let totalCost = 0;
@@ -285,6 +296,14 @@ export function takeMarketOrder(
     }
 
     const newMoney = updateCompanyMoney(buyerCompanyId, -totalCost);
+    // P0-08: reclassify the buyer's generic 'g' ledger row (written by
+    // updateCompanyMoney) as a MARKET purchase ('m') so the accounting page
+    // reports it correctly.
+    db.prepare(`
+      UPDATE cash_ledger
+      SET category = 'm', description = ?, description_key = ?
+      WHERE id = (SELECT MAX(id) FROM cash_ledger WHERE company_id = ? AND category = 'g' AND amount = ?)
+    `).run(`Market purchase of ${totalBought} units of resource #${resourceKind}`, `market-${resourceKind}`, buyerCompanyId, -totalCost);
     for (const tx of transactions) {
       addResource(buyerCompanyId, tx.kind, tx.quality, tx.amount, { market: tx.price * tx.amount });
     }

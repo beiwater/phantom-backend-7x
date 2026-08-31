@@ -152,18 +152,19 @@ export async function handleSocialRoutes(
     }
   }
 
-  // 1. Contacts & Default Chatrooms (Must include unreadMessages: [])
+  // 1. Contacts & chatroom sidebar (official contract per HAR): each room carries
+  // `image` (icon URL), `datetime`, `db_letter`, `protectedForCountry: null`.
+  // Official payload lists only the rooms the company is subscribed to — rooms
+  // opted out via /api/v2/companies/chatrooms/:id/ POST are excluded entirely.
   if (pathname === '/api/v2/contacts/') {
     sendJson(res, {
-      chatrooms: [
-        { name: '[ZH] 游戏', language: 'zh-cn', category: 'game', icon: 'chat-23488b.png', db_letter: 'N', realmsShared: true, protectedForCountry: 'None', show_rules: false, unread: 0, date: new Date().toISOString() },
-        { name: '[ZH] 交易', language: 'zh-cn', category: 'sales', icon: 'chat-23488b.png', db_letter: '1', realmsShared: false, protectedForCountry: 'None', show_rules: false, unread: 0, date: new Date().toISOString() },
-        { name: '[ZH] 帮助', language: 'zh-cn', category: 'help', icon: 'chat-23488b.png', db_letter: 'H', realmsShared: true, protectedForCountry: 'None', show_rules: false, unread: 0, date: new Date().toISOString() },
-        { name: '[EN] Game', language: 'en', category: 'game', icon: 'chat-23488b.png', db_letter: 'E', realmsShared: true, protectedForCountry: 'None', show_rules: false, unread: 0, date: new Date().toISOString() },
-        { name: '[EN] Sales', language: 'en', category: 'sales', icon: 'chat-23488b.png', db_letter: 'S', realmsShared: false, protectedForCountry: 'None', show_rules: false, unread: 0, date: new Date().toISOString() }
-      ],
+      chatrooms: loadChatroomSubscriptions(currentCompanyId ?? -1)
+        .filter(room => !room.notSubscribed)
+        .map(({ notSubscribed, ...room }) => ({
+          ...room,
+          protectedForCountry: room.protectedForCountry ?? null
+        })),
       contacts: [],
-      unreadMessages: [],
       unreadMessagesOtherRealms: [],
       invisible: false,
       ignoringCompanies: [],

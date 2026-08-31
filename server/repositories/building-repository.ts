@@ -12,7 +12,7 @@ export interface BuildingEntity {
   cost: number;
   category: string;
   busyUntil: string | null;
-  createdAt: string;
+  upkeepActive: boolean;
 }
 
 export interface BuildingDbRow {
@@ -25,6 +25,7 @@ export interface BuildingDbRow {
   cost: number;
   category: string;
   busy_until: string | null;
+  upkeep_active: number | null;
   created_at: string;
 }
 
@@ -39,6 +40,7 @@ function mapBuildingRow(row: BuildingDbRow): BuildingEntity {
     cost: row.cost,
     category: row.category,
     busyUntil: row.busy_until,
+    upkeepActive: !!Number(row.upkeep_active),
     createdAt: row.created_at
   };
 }
@@ -67,15 +69,12 @@ export class BuildingRepository {
   }
 
   findByCompanyAndPosition(companyId: number, position: string): BuildingEntity | null {
+    // P0-07: "B<n>" star-unlocked lots are stored verbatim; they must NOT be
+    // matched against base position "<n>" (previously B0 collided with slot 0).
     const rawPos = String(position ?? '').trim();
-    const normPos = rawPos.toUpperCase().startsWith('B') && /^\d+$/.test(rawPos.slice(1))
-      ? rawPos.slice(1)
-      : rawPos;
-    const prefixedPos = /^\d+$/.test(rawPos) ? `B${rawPos}` : rawPos;
-
     const row = this.database.prepare(
-      'SELECT * FROM buildings WHERE company_id = ? AND (position = ? OR position = ? OR position = ?) LIMIT 1'
-    ).get(companyId, rawPos, normPos, prefixedPos) as BuildingDbRow | undefined;
+      'SELECT * FROM buildings WHERE company_id = ? AND position = ? LIMIT 1'
+    ).get(companyId, rawPos) as BuildingDbRow | undefined;
 
     return row ? mapBuildingRow(row) : null;
   }
@@ -150,6 +149,20 @@ export class BuildingRepository {
       WHERE id = ? AND company_id = ?
       RETURNING *
     `).get(newPosition, buildingId, companyId) as BuildingDbRow | undefined;
+
+    if (!result) {
+      throw new NotFoundError(`Building with id ${buildingId} not found for company ${companyId}`);
+    }
+    return mapBuildingRow(result);
+  }
+
+  updateUpkeep(buildingId: number, companyId: number, busyUntil: string | null, upkeepActive: boolean): BuildingEntity {
+    const result = this.database.prepare(`
+      UPDATE buildings
+      SET busy_until = ?, upkeep_active = ?
+      WHERE id = ? AND company_id = ?
+      RETURNING *
+    `).get(busyUntil, upkeepActive ? 1 : 0, buildingId, companyId) as BuildingDbRow | undefined;
 
     if (!result) {
       throw new NotFoundError(`Building with id ${buildingId} not found for company ${companyId}`);

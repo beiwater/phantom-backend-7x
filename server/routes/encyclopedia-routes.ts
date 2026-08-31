@@ -69,21 +69,34 @@ export async function handleEncyclopediaRoutes(
   }
 
   // 3. Resources Retail Info MUST be an ARRAY of objects with dbLetter and retailData array!
+  // P0-06: the frontend retail widget additionally reads TOP-LEVEL `saturation` and
+  // `averagePrice` per entry (see official HAR: entry = {quality, dbLetter,
+  // saturation, averagePrice, retailData}); without top-level averagePrice every
+  // display case renders null and the grocery sales area stays empty.
   if (pathname.startsWith('/api/') && pathname.includes('/resources-retail-info/')) {
     const today = new Date().toISOString().split('T')[0];
     const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
     const retailArray: Array<{
+      quality: number | null;
       dbLetter: number;
+      saturation: number;
+      averagePrice: number | null;
       retailData: Array<{ date: string; saturation: number; averagePrice: number }>;
     }> = [];
 
     for (const [k, def] of Object.entries(CONSTANTS_RESOURCES)) {
       const kind = Number(k);
+      const isRetail = def.unitsSoldAnHour > 0;
+      const saturation = 0.5;
+      const averagePrice = isRetail ? 2.5 : 0;
       retailArray.push({
+        quality: null,
         dbLetter: kind,
+        saturation,
+        averagePrice: isRetail ? averagePrice : null,
         retailData: [
-          { date: yesterday, saturation: 0.5, averagePrice: def.unitsSoldAnHour ? 2.5 : 0 },
-          { date: today, saturation: 0.5, averagePrice: def.unitsSoldAnHour ? 2.5 : 0 }
+          { date: yesterday, saturation, averagePrice },
+          { date: today, saturation, averagePrice }
         ]
       });
     }

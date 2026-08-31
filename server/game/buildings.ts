@@ -7,6 +7,7 @@ import {
 } from './constants.ts';
 import { getWarehouseItemExact, consumeResourceExactWithTransactions } from './warehouse.ts';
 import { updateCompanyMoney, getCompanyById } from './company.ts';
+import { extraSlotIndex } from '../domain/buildings/building-rules.ts';
 
 export interface BuildingRow {
   id: number;
@@ -181,9 +182,17 @@ export function constructBuilding(companyId: number, kind: string, position: str
 
   const baseSlots = Math.min(14, 4 + Math.floor((Number(comp.level) || 0) / 3));
   const maxSlots = baseSlots + (Number(comp.extra_building_slots) || 0);
-  const posNum = Number(String(position).replace(/^B/i, ''));
-  if (Number.isInteger(posNum) && posNum >= maxSlots) {
-    throw new Error(`Position ${position} is locked. You currently have ${maxSlots} slots unlocked. Unlock more building slots with SimBoosts.`);
+  // P0-07: "B<n>" lots are star-unlocked slots, unlocked when n < extra_building_slots.
+  const extraIndex = extraSlotIndex(String(position));
+  if (extraIndex !== null) {
+    if (extraIndex >= (Number(comp.extra_building_slots) || 0)) {
+      throw new Error(`Position ${position} is locked. You currently have ${maxSlots} slots unlocked. Unlock more building slots with SimBoosts.`);
+    }
+  } else {
+    const posNum = Number(String(position));
+    if (Number.isInteger(posNum) && posNum >= maxSlots) {
+      throw new Error(`Position ${position} is locked. You currently have ${maxSlots} slots unlocked. Unlock more building slots with SimBoosts.`);
+    }
   }
 
   const currentCount = (db.prepare('SELECT COUNT(*) as count FROM buildings WHERE company_id = ?').get(companyId) as { count: number }).count;

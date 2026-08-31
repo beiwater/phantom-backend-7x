@@ -5,6 +5,7 @@ import {
   startProductionUseCase,
   type StartProductionInput
 } from '../application/production/start-production.ts';
+import { startRetailUseCase } from '../application/production/start-retail.ts';
 import { cancelProductionUseCase } from '../application/production/cancel-production.ts';
 import { collectProductionUseCase } from '../application/production/collect-production.ts';
 import { getProductionQueueUseCase } from '../application/production/get-production-queue.ts';
@@ -13,15 +14,12 @@ import { constructBuildingUseCase } from '../application/buildings/construct-bui
 import { upgradeBuildingUseCase } from '../application/buildings/upgrade-building.ts';
 import { downgradeBuildingUseCase } from '../application/buildings/downgrade-building.ts';
 import { demolishBuildingUseCase } from '../application/buildings/demolish-building.ts';
+import { startRecreationUpkeepUseCase } from '../application/buildings/start-recreation-upkeep.ts';
+import { placeBuildingUseCase, liftBuildingUseCase } from '../application/buildings/place-building.ts';
 import { renameBuildingUseCase } from '../application/buildings/rename-building.ts';
 import { getCompanyBuildingsUseCase } from '../application/buildings/get-buildings.ts';
 import { getBuildingDetailsUseCase } from '../application/buildings/get-building-details.ts';
 import { buildingRepository } from '../repositories/building-repository.ts';
-import { normalizePosition } from '../domain/buildings/building-rules.ts';
-import {
-  toSimCompaniesBuildingDTO,
-  toSimCompaniesBuildingsListDTO
-} from '../compatibility/simcompanies/building-dto.ts';
 import {
   toSimCompaniesStartProductionDTO,
   toSimCompaniesCancelProductionDTO,
@@ -30,9 +28,19 @@ import {
   toSimCompaniesHistoryDTO
 } from '../compatibility/simcompanies/production-dto.ts';
 import { ValidationError } from '../errors/domain-error.ts';
+import {
+  toSimCompaniesBuildingDTO,
+  toSimCompaniesBuildingsListDTO
+} from '../compatibility/simcompanies/building-dto.ts';
+import { normalizePosition } from '../domain/buildings/building-rules.ts';
 
 export function registerBuildingRoutes(registry: RouteRegistry = globalRouteRegistry): void {
   // 1. v1 Busy / Start Production endpoints
+  //
+  // P1-09: the original client starts a recreation building's 7-day upkeep
+  // with an EMPTY body on this endpoint (bundle: startRecreation →
+  // oe().post(api_v1_busy(buildingId), {})). Dispatch to the recreation
+  // upkeep use case whenever kind/amount are absent.
   const startProductionHandler = async (
     _req: IncomingMessage,
     res: ServerResponse,
@@ -41,8 +49,50 @@ export function registerBuildingRoutes(registry: RouteRegistry = globalRouteRegi
     body: any
   ) => {
     const buildingId = Number(params.id);
-    if (!body?.kind || !body?.amount) {
-      throw new ValidationError('kind and amount are required');
+    const isRecreationStart = body === null || typeof body !== 'object' ||
+      (!('kind' in body) && !('amount' in body));
+    if (isRecreationStart) {
+      const upkeep = await startRecreationUpkeepUseCase(ctx, buildingId);
+      const buildingDTO = toSimCompaniesBuildingDTO(upkeep.building);
+      sendJson(res, {
+        building: buildingDTO,
+        simboostsDelta: upkeep.simboostsDelta,
+        simBoosts: upkeep.simboostsRemaining,
+        spent: upkeep.spent
+      });
+      return;
+    }
+    // P0-06: the retail sell widget (startRetail) POSTs { kind, amount, price,
+    // estimatedSecondsToFinish, forceQuality } on a SALES building. Route it to
+    // the retail use case instead of production validation (which rejects any
+    // resource not produced by the building kind).
+    const isRetailSell = body.price !== undefined &&
+      body.estimatedSecondsToFinish !== undefined;
+    if (isRetailSell) {
+      const retail = await startRetailUseCase(ctx, {
+        buildingId,
+        kind: Number(body.kind),
+        amount: Number(body.amount),
+        price: Number(body.price),
+        forceQuality: body.forceQuality !== undefined ? Number(body.forceQuality) : null
+      });
+      const buildingDTO = toSimCompaniesBuildingDTO(retail.building);
+      sendJson(res, {
+        message: 'Retail sale started successfully',
+        money: retail.revenue,
+        building: buildingDTO,
+        resourceTransactions: retail.resourceTransactions.map(tx => ({
+          kind: tx.kind,
+          db_letter: tx.kind,
+          dbLetter: tx.kind,
+          quality: tx.quality,
+          amount: tx.amount,
+          delta: -tx.amount
+        })),
+        followerErrors: [],
+        simboostsDelta: 0
+      });
+      return;
     }
     const result = await startProductionUseCase(ctx, {
       buildingId,
@@ -52,7 +102,6 @@ export function registerBuildingRoutes(registry: RouteRegistry = globalRouteRegi
     });
     sendJson(res, toSimCompaniesStartProductionDTO(result));
   };
-
   registry.register({
     method: 'POST',
     pattern: '/api/v1/buildings/:id/busy/',
@@ -151,10 +200,25 @@ export function registerBuildingRoutes(registry: RouteRegistry = globalRouteRegi
   });
 
   const constructBuildingHandler = async (_req: IncomingMessage, res: ServerResponse, ctx: any, _params: Record<string, string>, body: any) => {
-    const kind = body.kind || (typeof body.id === 'object' && body.id ? body.id.id : body.id) || 'P';
-    if (!body.position) {
+    if (body.position === undefined || body.position === null || body.position === '') {
       throw new ValidationError('Building position is required');
     }
+
+    // P1-10 (Reposition step 2): the client places a LIFTED existing building
+    // onto a chosen empty slot with { position, id } where id is a building
+    // id. Only place the building when id is a plain number; the legacy
+    // construction flow passes kind strings (or {id: {id}}) objects here.
+    if (typeof body.id === 'number' && Number.isInteger(body.id)) {
+      const placed = await placeBuildingUseCase(ctx!, {
+        buildingId: body.id,
+        position: String(body.position)
+      });
+      const placedDTO = toSimCompaniesBuildingDTO(placed);
+      sendJson(res, placedDTO);
+      return;
+    }
+
+    const kind = body.kind || (typeof body.id === 'object' && body.id ? body.id.id : body.id) || 'P';
     const result = await constructBuildingUseCase(ctx!, {
       kind: String(kind),
       position: String(body.position),
@@ -258,8 +322,21 @@ export function registerBuildingRoutes(registry: RouteRegistry = globalRouteRegi
     }
 
     if (body?.position !== undefined) {
-      const newPos = normalizePosition(body.position);
-      const updated = buildingRepository.updatePosition(buildingId, ctx.companyId, newPos);
+      // P1-10 (Reposition step 1): the client lifts the building with
+      // { position: 'l' }. Lifting releases the original slot so the building
+      // can be placed elsewhere; the lift itself must NOT collide with the
+      // occupancy check.
+      const rawPosition = String(body.position);
+      const isLift = normalizePosition(rawPosition) === 'l';
+      if (isLift) {
+        const lifted = await liftBuildingUseCase(ctx, buildingId);
+        sendJson(res, toSimCompaniesBuildingDTO(lifted));
+        return;
+      }
+      const updated = await placeBuildingUseCase(ctx, {
+        buildingId,
+        position: rawPosition
+      });
       sendJson(res, toSimCompaniesBuildingDTO(updated));
       return;
     }

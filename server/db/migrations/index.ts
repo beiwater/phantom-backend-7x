@@ -145,6 +145,11 @@ export function runMigrations(db: DatabaseSync): void {
     `);
   }
 
+  // P1-09: recreation upkeep flag. busy_until alone cannot distinguish an
+  // active upkeep from construction/upgrades, so persist an explicit marker.
+  const buildingCols = (db.prepare('PRAGMA table_info(buildings)').all() as { name: string }[]).map(c => c.name);
+  if (!buildingCols.includes('upkeep_active')) db.exec('ALTER TABLE buildings ADD COLUMN upkeep_active INTEGER DEFAULT 0');
+
   db.exec(`
     CREATE UNIQUE INDEX IF NOT EXISTS uq_buildings_company_position
       ON buildings(company_id, position);

@@ -7,7 +7,8 @@ import { eventBus } from '../../events/event-bus.ts';
 import {
   estimateConstructionCost,
   validateConstructionPosition,
-  normalizePosition
+  normalizePosition,
+  extraSlotIndex
 } from '../../domain/buildings/building-rules.ts';
 import { getBuildingMeta } from '../../game-data/buildings.ts';
 import { ConflictError, ValidationError } from '../../errors/domain-error.ts';
@@ -42,9 +43,18 @@ export async function constructBuildingUseCase(
     const baseSlots = Math.min(14, 4 + Math.floor((Number(comp.level) || 0) / 3));
     const maxSlots = baseSlots + (Number(comp.extraBuildingSlots) || 0);
 
-    const posNum = Number(normPosition);
-    if (Number.isInteger(posNum) && posNum >= maxSlots) {
-      throw new ValidationError(`Position ${position} is locked. You currently have ${maxSlots} slots unlocked. Unlock more building slots with SimBoosts.`);
+    // P0-07: "B<n>" lots are the star-unlocked slots. "B<n>" is unlocked when
+    // n < extraBuildingSlots; plain numeric positions stay below maxSlots.
+    const extraIndex = extraSlotIndex(normPosition);
+    if (extraIndex !== null) {
+      if (extraIndex >= (Number(comp.extraBuildingSlots) || 0)) {
+        throw new ValidationError(`Position ${position} is locked. You currently have ${maxSlots} slots unlocked. Unlock more building slots with SimBoosts.`);
+      }
+    } else {
+      const posNum = Number(normPosition);
+      if (Number.isInteger(posNum) && posNum >= maxSlots) {
+        throw new ValidationError(`Position ${position} is locked. You currently have ${maxSlots} slots unlocked. Unlock more building slots with SimBoosts.`);
+      }
     }
 
     // 1. Validate position and existing buildings

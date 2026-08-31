@@ -3,6 +3,7 @@ import { productionRepository } from '../../repositories/production-repository.t
 import { getBuildingMeta } from '../../game-data/buildings.ts';
 import { getResourceDef } from '../../game-data/resources.ts';
 import { finiteOr, computeFallbackUnitCost } from './production-dto.ts';
+import { RECREATION_UPKEEP_DURATION_SECONDS } from '../../application/buildings/start-recreation-upkeep.ts';
 
 export interface SimCompaniesBuildingDTO {
   id: number;
@@ -65,6 +66,19 @@ export function toSimCompaniesBuildingDTO(
         amountAvailableNow: canFetch ? Number(activeQueue.amount) || 0 : 0,
         image: resource?.image || ''
       }
+    };
+  } else if (isConstructingOrUpgrading && building.upkeepActive) {
+    // P1-09: active recreation upkeep. The client derives the +1%/size
+    // production & sales speed bonus from busy.upkeep being truthy and
+    // renders "funds last until started + duration" from these fields.
+    busyObj = {
+      id: building.id,
+      started: new Date(busyUntilMs - RECREATION_UPKEEP_DURATION_SECONDS * 1000).toISOString(),
+      duration: RECREATION_UPKEEP_DURATION_SECONDS,
+      accelerationFactor: 1,
+      category: 'u',
+      upkeep: true,
+      canFetch: false
     };
   } else if (isConstructingOrUpgrading) {
     const duration = 10;

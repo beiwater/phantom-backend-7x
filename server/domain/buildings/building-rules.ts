@@ -13,14 +13,18 @@ export interface ConstructionCostEstimate {
 }
 
 export function normalizePosition(position: string | number): string {
-  const str = String(position ?? '').trim();
-  if (str.toUpperCase().startsWith('B')) {
-    const rawNum = str.slice(1);
-    if (/^\d+$/.test(rawNum)) {
-      return rawNum;
-    }
-  }
-  return str;
+  return String(position ?? '').trim();
+}
+
+/**
+ * P0-07: the original client addresses star-unlocked lots as "B0", "B1", ...
+ * These are distinct landscape slots and MUST be stored verbatim. The previous
+ * normalization stripped the "B", so a build at "B0" collapsed onto base
+ * position "0" (already occupied) and every unlocked slot was unusable.
+ */
+export function extraSlotIndex(position: string): number | null {
+  const match = /^B(\d+)$/i.exec(String(position ?? '').trim());
+  return match ? Number(match[1]) : null;
 }
 
 export function validateConstructionPosition(
@@ -29,9 +33,12 @@ export function validateConstructionPosition(
   replaceExisting: boolean = false
 ): void {
   const normalized = normalizePosition(position);
-  const posNum = Number(normalized);
-  if (!Number.isInteger(posNum) || posNum < 0) {
-    throw new ValidationError(`Invalid building position: ${position}`);
+  const extraIndex = extraSlotIndex(normalized);
+  if (extraIndex === null) {
+    const posNum = Number(normalized);
+    if (!Number.isInteger(posNum) || posNum < 0) {
+      throw new ValidationError(`Invalid building position: ${position}`);
+    }
   }
 
   const normalizedExisting = existingPositions.map(normalizePosition);
