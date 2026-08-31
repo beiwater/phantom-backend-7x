@@ -7,9 +7,14 @@ export async function renameBuildingUseCase(
   buildingId: number,
   newName: string
 ): Promise<BuildingEntity> {
-  const cleanName = String(newName || '').trim();
+  // C-20: reject empty and oversized names before any persistence. Official
+  // client caps building names well below 64 chars; 64 is the server-side hard cap.
+  const cleanName = String(newName ?? '').trim();
   if (!cleanName) {
     throw new ValidationError('Building name cannot be empty');
+  }
+  if (cleanName.length > 64) {
+    throw new ValidationError('Building name must be at most 64 characters');
   }
 
   const building = buildingRepository.findById(buildingId);

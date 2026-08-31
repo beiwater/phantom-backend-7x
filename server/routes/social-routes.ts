@@ -4,6 +4,55 @@ import { db } from '../db/database.ts';
 import { getCompanyById } from '../game/company.ts';
 import { checkRateLimit } from '../security/rate-limiter.ts';
 
+interface ChatroomSubscriptionEntry {
+  name: string;
+  language: string;
+  category: string;
+  image: string;
+  db_letter: string;
+  realmsShared: boolean;
+  protectedForCountry: string | null;
+  show_rules?: boolean;
+  unread?: number;
+  datetime?: string;
+  notSubscribed?: boolean;
+}
+
+// Default chatroom catalog. `notSubscribed` mirrors the official payload:
+// only the rooms a company opted out of (persisted in company_settings)
+// carry the flag.
+const DEFAULT_CHATROOMS: Array<ChatroomSubscriptionEntry> = [
+  { name: 'Supporters', language: 'en', category: 'supporter', image: '/chat-icon/005F73/supporter.png', db_letter: 'P', realmsShared: true, protectedForCountry: null, notSubscribed: true },
+  { name: 'Game', language: 'en', category: 'game', image: '/chat-icon/005F73/game.png', db_letter: 'G', realmsShared: true, protectedForCountry: null, show_rules: true, unread: 0 },
+  { name: 'Help', language: 'en', category: 'help', image: '/chat-icon/005F73/help.png', db_letter: 'H', realmsShared: true, protectedForCountry: null, show_rules: true, unread: 0 },
+  { name: 'Sales', language: 'en', category: 'sales', image: '/chat-icon/005F73/sales.png', db_letter: 'S', realmsShared: false, protectedForCountry: null, show_rules: true, unread: 0 },
+  { name: 'Aerospace sales', language: 'en', category: 'sales', image: '/chat-icon/005F73/sales-as.png', db_letter: 'X', realmsShared: false, protectedForCountry: null, show_rules: true, unread: 0 },
+  { name: 'Social', language: 'en', category: 'social', image: '/chat-icon/005F73/social.png', db_letter: 'C', realmsShared: true, protectedForCountry: null, show_rules: false, unread: 0 },
+  { name: 'Roleplay', language: 'en', category: 'roleplay', image: '/chat-icon/005F73/roleplay.png', db_letter: 'R', realmsShared: true, protectedForCountry: null, notSubscribed: true },
+  { name: '[ZH] 游戏', language: 'zh-cn', category: 'game', image: '/chat-icon/234B8B/game.png', db_letter: 'N', realmsShared: true, protectedForCountry: null, show_rules: false, unread: 0 },
+  { name: '[ZH] 交易', language: 'zh-cn', category: 'sales', image: '/chat-icon/234B8B/sales.png', db_letter: 'k', realmsShared: false, protectedForCountry: null, show_rules: true, unread: 0 },
+  { name: '[ZH] 社交', language: 'zh-cn', category: 'social', image: '/chat-icon/234B8B/social.png', db_letter: 'n', realmsShared: true, protectedForCountry: null, show_rules: true, unread: 0 }
+];
+
+function loadChatroomSubscriptions(companyId: number): Array<ChatroomSubscriptionEntry> {
+  const row = db.prepare('SELECT value FROM company_settings WHERE company_id = ? AND key = ?')
+    .get(companyId, 'chatroom_subscriptions') as { value?: string } | undefined;
+  let unsubscribed: string[] = [];
+  if (row?.value) {
+    try {
+      const parsed: unknown = JSON.parse(row.value);
+      if (Array.isArray(parsed)) unsubscribed = parsed.map(String);
+    } catch {
+      unsubscribed = [];
+    }
+  }
+  const stamp = new Date().toISOString();
+  return DEFAULT_CHATROOMS.map(entry => {
+    const withStamp: ChatroomSubscriptionEntry = { ...entry, datetime: stamp };
+    return unsubscribed.includes(entry.db_letter) ? { ...withStamp, notSubscribed: true } : withStamp;
+  });
+}
+
 export async function handleSocialRoutes(
   req: IncomingMessage,
   res: ServerResponse,
@@ -11,7 +60,6 @@ export async function handleSocialRoutes(
   method: string,
   currentCompanyId: number | null
 ): Promise<boolean> {
-
   // Public profile articles by author.
   if (pathname.match(/^\/api\/v2\/newspaper\/articles-by-author\/\d+\/$/) && method === 'GET') {
     sendJson(res, []);
@@ -32,8 +80,14 @@ export async function handleSocialRoutes(
       return true;
     }
     if (method === 'POST') {
+      // C-1: only the owning company may write its bio. Writes must be
+      // session-authenticated and target the authenticated company itself.
+      if (!currentCompanyId || targetCompanyId !== currentCompanyId) {
+        sendJson(res, { error: 'Unauthorized' }, 401);
+        return true;
+      }
       const body = await readJsonBody<{ freeText?: string }>(req);
-      const newText = String(body.freeText ?? '').slice(0, 2000);
+      const newText = String(body?.freeText ?? '').slice(0, 2000);
       db.prepare('UPDATE companies SET note = ? WHERE company_id = ?').run(newText, targetCompanyId);
       sendJson(res, newText);
       return true;
@@ -177,11 +231,17 @@ export async function handleSocialRoutes(
     const messages = db.prepare(`
       SELECT * FROM chat_messages WHERE room = ? OR room = 'N' OR room = '1' ORDER BY id DESC LIMIT 50
     `).all(room) as Array<{ id: number; room: string; sender_id: number; sender_company: string; text: string; sent_at: string }>;
+    const realmByCompanyId = new Map<number, number>(
+      (db.prepare('SELECT company_id, realm_id FROM companies').all() as Array<{ company_id: number; realm_id: number }>)
+        .map(row => [row.company_id, row.realm_id])
+    );
 
     sendJson(res, messages.reverse().map(m => ({
       id: m.id,
       chatroom: m.room,
-      sender: { id: m.sender_id, company: m.sender_company, logo: '', certificates: 0, supporter: false },
+      // C-3: frontend resolves the realm badge via Kt[sender.realmId]; a
+      // missing realmId crashes the messages page with a TypeError.
+      sender: { id: m.sender_id, company: m.sender_company, logo: '', certificates: 0, supporter: false, realmId: realmByCompanyId.get(m.sender_id) ?? 0 },
       text: m.text,
       datetime: m.sent_at,
       pinned: false
@@ -204,11 +264,14 @@ export async function handleSocialRoutes(
       return true;
     }
 
-    const body = await readJsonBody<{ chatroom?: string; text?: string; recipient?: number }>(req);
+    // C-2: the original frontend bundle posts {chatroom, body}; older
+    // callers/tests use {chatroom, text}. Accept both spellings.
+    const body = await readJsonBody<{ chatroom?: string; text?: string; body?: string; recipient?: number }>(req);
     const room = typeof body.chatroom === 'string' && body.chatroom.trim()
       ? body.chatroom.trim()
       : 'N';
-    const text = typeof body.text === 'string' ? body.text.trim() : '';
+    const rawText = typeof body.text === 'string' ? body.text : typeof body.body === 'string' ? body.body : '';
+    const text = rawText.trim();
     if (room.length > 100 || text.length === 0 || text.length > 2000) {
       sendJson(res, { error: 'Chatroom and message text are invalid' }, 400);
       return true;
@@ -229,7 +292,7 @@ export async function handleSocialRoutes(
     sendJson(res, {
       id: Number(result.lastInsertRowid),
       chatroom: room,
-      sender: { id: comp.company_id, company: comp.name, logo: '', supporter: false },
+      sender: { id: comp.company_id, company: comp.name, logo: '', supporter: false, realmId: comp.realm_id ?? 0 },
       text,
       datetime: now
     });
@@ -238,6 +301,182 @@ export async function handleSocialRoutes(
 
   if (pathname === '/api/messages/' || pathname === '/api/messages_by_company/') {
     sendJson(res, { messages: [], contacts: [], unreadMessages: [] });
+    return true;
+  }
+
+  // 8b. Per-company chatroom subscriptions: /api/v2/companies/chatrooms/:companyId/
+  // C-10: the account-settings/chatrooms page and the messages sidebar consume
+  // this list; shape mirrors the official HAR payload. POST persists the
+  // subscription toggles as {added: [db_letter], deleted: [db_letter]}.
+  const chatroomSubsMatch = pathname.match(/^\/api\/v2\/companies\/chatrooms\/(\d+|me)\/?$/);
+  if (chatroomSubsMatch) {
+    const targetId = chatroomSubsMatch[1] === 'me' ? currentCompanyId : Number(chatroomSubsMatch[1]);
+    if (!targetId) {
+      sendJson(res, { error: 'Unauthorized' }, 401);
+      return true;
+    }
+    if (method === 'POST') {
+      const body = await readJsonBody<{ added?: string[]; deleted?: string[] }>(req);
+      const added = Array.isArray(body?.added) ? body.added.map(String) : [];
+      const deleted = Array.isArray(body?.deleted) ? body.deleted.map(String) : [];
+      let subs = loadChatroomSubscriptions(targetId);
+      for (const letter of added) {
+        subs = subs.map(s => (s.db_letter === letter ? { ...s, notSubscribed: false } : s));
+      }
+      for (const letter of deleted) {
+        subs = subs.map(s => (s.db_letter === letter ? { ...s, notSubscribed: true } : s));
+      }
+      db.prepare('INSERT INTO company_settings (company_id, key, value) VALUES (?, ?, ?) ON CONFLICT(company_id, key) DO UPDATE SET value = excluded.value')
+        .run(targetId, 'chatroom_subscriptions', JSON.stringify(subs.filter(s => s.notSubscribed).map(s => s.db_letter)));
+      sendJson(res, subs);
+      return true;
+    }
+    sendJson(res, loadChatroomSubscriptions(targetId));
+    return true;
+  }
+
+  // 8c. Private notes about other companies.
+  // C-11: GET /api/v2/companies/me/my-note/ returns the own bio string;
+  // GET /api/v2/companies/me/note/ lists notes written about other
+  // companies; /api/v2/companies/me/note/:aboutId/ reads, writes, prioritizes
+  // and deletes one entry. All writes are scoped to the session company.
+  const myNoteMatch = pathname.match(/^\/api\/v2\/companies\/me\/my-note\/?$/);
+  if (myNoteMatch) {
+    if (!currentCompanyId) {
+      sendJson(res, { error: 'Unauthorized' }, 401);
+      return true;
+    }
+    if (method === 'POST') {
+      const body = await readJsonBody<{ note?: string }>(req);
+      const noteText = String(body?.note ?? '').slice(0, 4000);
+      db.prepare('UPDATE companies SET note = ? WHERE company_id = ?').run(noteText, currentCompanyId);
+      sendJson(res, noteText);
+      return true;
+    }
+    const comp = getCompanyById(currentCompanyId);
+    sendJson(res, comp?.note ?? '');
+    return true;
+  }
+
+  const noteListMatch = pathname.match(/^\/api\/v2\/companies\/me\/note\/(\d+)?\/?$/);
+  if (noteListMatch) {
+    if (!currentCompanyId) {
+      sendJson(res, { error: 'Unauthorized' }, 401);
+      return true;
+    }
+    const aboutCompanyId = noteListMatch[1] ? Number(noteListMatch[1]) : null;
+
+    if (method === 'GET') {
+      if (aboutCompanyId) {
+        const row = db.prepare('SELECT note FROM company_notes WHERE company_id = ? AND about_company_id = ?')
+          .get(currentCompanyId, aboutCompanyId) as { note?: string } | undefined;
+        sendJson(res, { note: row?.note ?? '' });
+        return true;
+      }
+      const rows = db.prepare(`
+        SELECT cn.id, cn.note, cn.priority, c.company_id, c.name, c.realm_id, c.logo
+        FROM company_notes cn
+        JOIN companies c ON c.company_id = cn.about_company_id
+        WHERE cn.company_id = ?
+        ORDER BY cn.priority ASC, cn.id ASC
+      `).all(currentCompanyId) as Array<{ id: number; note: string; priority: number; company_id: number; name: string; realm_id: number; logo: string }>;
+      sendJson(res, rows.map(row => ({
+        id: row.id,
+        note: row.note,
+        about: {
+          id: row.company_id,
+          company: row.name,
+          logo: row.logo || '',
+          realmId: row.realm_id ?? 0,
+          deleted: false,
+          online: 'n/a'
+        }
+      })));
+      return true;
+    }
+
+    if (!aboutCompanyId) {
+      sendJson(res, { error: 'Company id required' }, 400);
+      return true;
+    }
+
+    if (method === 'POST') {
+      const body = await readJsonBody<{ note?: string }>(req);
+      const noteText = String(body?.note ?? '').slice(0, 4000);
+      const now = new Date().toISOString();
+      if (noteText === '') {
+        db.prepare('DELETE FROM company_notes WHERE company_id = ? AND about_company_id = ?').run(currentCompanyId, aboutCompanyId);
+        sendJson(res, { note: '' });
+        return true;
+      }
+      db.prepare(`
+        INSERT INTO company_notes (company_id, about_company_id, note, priority, created_at, updated_at)
+        VALUES (?, ?, ?, 0, ?, ?)
+        ON CONFLICT(company_id, about_company_id) DO UPDATE SET note = excluded.note, updated_at = excluded.updated_at
+      `).run(currentCompanyId, aboutCompanyId, noteText, now, now);
+      sendJson(res, { note: noteText });
+      return true;
+    }
+
+    if (method === 'PUT') {
+      const body = await readJsonBody<{ priority?: string }>(req);
+      const direction = String(body?.priority ?? '');
+      const row = db.prepare('SELECT id FROM company_notes WHERE company_id = ? AND about_company_id = ?')
+        .get(currentCompanyId, aboutCompanyId) as { id?: number } | undefined;
+      if (!row?.id) {
+        sendJson(res, { error: 'Note not found' }, 404);
+        return true;
+      }
+      if (direction === 'up') {
+        db.prepare('UPDATE company_notes SET priority = priority - 1 WHERE id = ?').run(row.id);
+      } else if (direction === 'down') {
+        db.prepare('UPDATE company_notes SET priority = priority + 1 WHERE id = ?').run(row.id);
+      }
+      sendJson(res, { success: true });
+      return true;
+    }
+
+    if (method === 'DELETE') {
+      db.prepare('DELETE FROM company_notes WHERE company_id = ? AND about_company_id = ?').run(currentCompanyId, aboutCompanyId);
+      sendJson(res, { success: true });
+      return true;
+    }
+  }
+
+  // 8d. Search: company name lookup and newspaper article substring search.
+  // C-6: /zh-cn/search/ and several contract/PM autocomplete widgets call
+  // these; both were 404 and replaced the page with an error boundary.
+  const companyListMatch = pathname.match(/^\/api\/v2\/companies\/list\/(\d+)\/([^/]+)\/$/);
+  if (companyListMatch && method === 'GET') {
+    const realmId = Number(companyListMatch[1]);
+    const query = decodeURIComponent(companyListMatch[2]).replace(/-/g, ' ').trim();
+    if (query.length < 1) {
+      sendJson(res, []);
+      return true;
+    }
+    const rows = db.prepare(`
+      SELECT company_id, name, realm_id, logo
+      FROM companies
+      WHERE realm_id = ?
+        AND lower(replace(name, '/', '-')) LIKE '%' || lower(replace(?, '-', ' ')) || '%'
+      ORDER BY company_id ASC
+      LIMIT 25
+    `).all(realmId, query) as Array<{ company_id: number; name: string; realm_id: number; logo: string }>;
+    sendJson(res, rows.map(row => ({
+      companyId: row.company_id,
+      company: row.name,
+      logo: row.logo || '',
+      realmId: row.realm_id ?? 0,
+      deleted: false
+    })));
+    return true;
+  }
+
+  const articlesSubstringMatch = pathname.match(/^\/api\/v2\/newspaper\/articles-by-substring\/(\d+)\/([^/]+)\/$/);
+  if (articlesSubstringMatch && method === 'GET') {
+    // No local newspaper article storage yet: return the shape the frontend
+    // search page consumes ({id, title, author, newspaper:{realmId, issueId}}).
+    sendJson(res, []);
     return true;
   }
 

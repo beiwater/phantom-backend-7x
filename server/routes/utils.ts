@@ -62,9 +62,17 @@ export function readJsonBody<T>(req: IncomingMessage): Promise<T> {
       }
 
       try {
-        const parsed = JSON.parse(data);
+        const parsed: unknown = JSON.parse(data);
+        // C-7: JSON `null` / scalar bodies (`null`, `42`, `"str"`) are not
+        // objects; handlers dereference fields on them. Reject with a 4xx
+        // RequestBodyError (mapped to err.statusCode in index.ts) instead of
+        // resolving null and crashing handlers into a 500.
+        if (parsed === null || typeof parsed !== 'object') {
+          fail(new RequestBodyError('Request body must be a JSON object', 400));
+          return;
+        }
         settled = true;
-        resolve(parsed);
+        resolve(parsed as T);
       } catch {
         fail(new RequestBodyError('Malformed JSON request body', 400));
       }

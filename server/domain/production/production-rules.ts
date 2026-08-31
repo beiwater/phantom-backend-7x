@@ -11,13 +11,24 @@ export interface ProductionRequirement {
 export function validateProductionRequest(
   buildingKind: string,
   resourceKind: number,
-  amount: number
+  amount: number,
+  quality?: number | null
 ): {
   durationSeconds: number;
   ingredients: ProductionRequirement[];
 } {
-  if (amount <= 0 || !Number.isFinite(amount)) {
-    throw new ValidationError(`Production amount must be a positive number: ${amount}`);
+  // C-19: fractional amounts would persist fractional inventory rows.
+  if (!Number.isSafeInteger(amount) || amount <= 0) {
+    throw new ValidationError(`Production amount must be a positive integer: ${amount}`);
+  }
+
+  // C-14: requested quality must be an integer within the official 0..12 band;
+  // resolveAchievableQuality only clamps downward against the research cap, so
+  // negative or out-of-range requests must be rejected here.
+  if (quality !== undefined && quality !== null) {
+    if (!Number.isInteger(quality) || quality < 0 || quality > 12) {
+      throw new ValidationError(`Production quality must be an integer between 0 and 12: ${quality}`);
+    }
   }
 
   const def = getResourceDef(resourceKind);

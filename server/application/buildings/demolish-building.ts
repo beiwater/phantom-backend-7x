@@ -5,7 +5,8 @@ import { companyRepository } from '../../repositories/company-repository.ts';
 import { warehouseRepository } from '../../repositories/warehouse-repository.ts';
 import { eventBus } from '../../events/event-bus.ts';
 import { estimateDemolitionRefund } from '../../domain/buildings/building-rules.ts';
-import { NotFoundError, ForbiddenError } from '../../errors/domain-error.ts';
+import { NotFoundError, ForbiddenError, ConflictError } from '../../errors/domain-error.ts';
+import { productionRepository } from '../../repositories/production-repository.ts';
 
 export interface DemolishBuildingResult {
   demolishedBuilding: BuildingEntity;
@@ -26,6 +27,13 @@ export async function demolishBuildingUseCase(
     }
     if (building.companyId !== ctx.companyId) {
       throw new ForbiddenError('You do not own this building');
+    }
+    // C-8: demolishing a building with unresolved production queue rows would
+    // orphan them (resolved=0 forever, inputs never refunded). Reject inside
+    // the same transaction; the player must cancel production first.
+    const activeQueues = productionRepository.findActiveByBuilding(building.id, ctx.companyId);
+    if (activeQueues.length > 0) {
+      throw new ConflictError('Building has an active production order; cancel it before demolishing');
     }
 
     // 2. Calculate refunds

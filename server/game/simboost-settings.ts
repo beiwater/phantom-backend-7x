@@ -33,9 +33,20 @@ export function ensureBoostSettingsTable(database = db): void {
       production_modifier INTEGER DEFAULT 0,
       sales_modifier INTEGER DEFAULT 0,
       exchanged_today INTEGER DEFAULT 0,
-      exchange_date TEXT DEFAULT ''
+      exchange_date TEXT DEFAULT '',
+      purchases_today INTEGER DEFAULT 0,
+      purchase_date TEXT DEFAULT ''
     );
   `);
+  // Migration for tables created before the C-5 daily purchase cap.
+  const cols = database.prepare("PRAGMA table_info(company_boost_settings)").all() as Array<{ name: string }>;
+  const names = new Set(cols.map(c => c.name));
+  if (!names.has('purchases_today')) {
+    database.exec('ALTER TABLE company_boost_settings ADD COLUMN purchases_today INTEGER DEFAULT 0');
+  }
+  if (!names.has('purchase_date')) {
+    database.exec('ALTER TABLE company_boost_settings ADD COLUMN purchase_date TEXT DEFAULT \'\'');
+  }
 }
 
 /**
@@ -117,6 +128,39 @@ export function recordExchange(companyId: number, cash: number, now: Date = new 
     throw new Error('Failed to record exchange usage');
   }
   return getExchangedToday(companyId, now);
+}
+
+/** Daily cap on completed boost-package purchases per company (C-5 money-faucet guard). */
+export const DAILY_PURCHASE_LIMIT = 20;
+
+/** Purchases made today (UTC bucket); 0 when the stored bucket is stale. */
+export function getPurchasesToday(companyId: number, now: Date = new Date()): number {
+  const row = db.prepare(
+    'SELECT purchases_today, purchase_date FROM company_boost_settings WHERE company_id = ?'
+  ).get(companyId) as { purchases_today: number; purchase_date: string } | undefined;
+  if (!row || row.purchase_date !== exchangeDateBucket(now)) {
+    return 0;
+  }
+  return Number(row.purchases_today) || 0;
+}
+
+/**
+ * Count one package purchase against the daily limit inside the caller's
+ * transaction. Stale buckets are reset atomically here.
+ */
+export function recordPurchase(companyId: number, now: Date = new Date()): number {
+  ensureRow(companyId);
+  const today = exchangeDateBucket(now);
+  const result = db.prepare(`
+    UPDATE company_boost_settings
+    SET purchases_today = CASE WHEN purchase_date = ? THEN purchases_today + 1 ELSE 1 END,
+        purchase_date = ?
+    WHERE company_id = ?
+  `).run(today, today, companyId);
+  if (result.changes !== 1) {
+    throw new Error('Failed to record purchase usage');
+  }
+  return getPurchasesToday(companyId, now);
 }
 
 /**

@@ -4,7 +4,7 @@ import { buildingRepository, type BuildingEntity } from '../../repositories/buil
 import { productionRepository, type ProductionQueueEntity } from '../../repositories/production-repository.ts';
 import { warehouseRepository, type ResourceTransactionEntity } from '../../repositories/warehouse-repository.ts';
 import { eventBus } from '../../events/event-bus.ts';
-import { NotFoundError, ForbiddenError, ValidationError } from '../../errors/domain-error.ts';
+import { NotFoundError, ForbiddenError, ValidationError, ConflictError } from '../../errors/domain-error.ts';
 import { validateProductionRequest, resolveAchievableQuality } from '../../domain/production/production-rules.ts';
 import { calculateProductionTime } from '../../game-data/buildings.ts';
 
@@ -35,17 +35,22 @@ export async function startProductionUseCase(
       throw new ForbiddenError('You do not own this building');
     }
 
+    // C-13: official contract rejects production on a busy building instead of
+    // silently chaining the new item behind the running queue.
     if (building.busyUntil && new Date(building.busyUntil).getTime() > Date.now()) {
       const activeQueues = productionRepository.findActiveByBuilding(building.id, ctx.companyId);
       if (activeQueues.length === 0) {
         throw new ValidationError('Building is still under construction or upgrade');
       }
+      throw new ConflictError('Building is busy with an active production order');
     }
+
     // 2. Validate production rules & ingredients
     const { ingredients } = validateProductionRequest(
       building.kind,
       input.kind,
-      input.amount
+      input.amount,
+      input.quality ?? null
     );
     // 3. Consume required ingredients atomically, tracking the weighted
     // average input quality and total cost basis (P0-02).

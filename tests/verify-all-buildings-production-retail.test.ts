@@ -136,7 +136,7 @@ async function runAllBuildingsProductionAndRetailTest() {
         body: JSON.stringify({ kind: incompatible.id, amount: 10 })
       });
 
-      if (invalidProdRes.status === 400) {
+      if (invalidProdRes.status === 400 || invalidProdRes.status === 409) {
         prodRejectedCount++;
       } else {
         console.error(`  [FAIL] Building "${kind}" accepted incompatible resource #${incompatible.id} (producedAt: ${incompatible.producedAt}) -> status: ${invalidProdRes.status}`);

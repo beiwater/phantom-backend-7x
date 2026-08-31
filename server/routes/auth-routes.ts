@@ -292,12 +292,6 @@ export async function handleAuthRoutes(
     return true;
   }
 
-  // Private company note lookup used by the public profile page.
-  const companyNoteMatch = pathname.match(/^\/api\/v2\/companies\/(me|\d+)\/note\/(\d+)\/$/);
-  if (companyNoteMatch && method === 'GET') {
-    sendJson(res, { note: '' });
-    return true;
-  }
 
 
   // Personal Data

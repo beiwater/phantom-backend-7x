@@ -94,6 +94,11 @@ export class CompanyRepository {
    * Atomically credit money to a company.
    */
   creditMoney(companyId: number, amount: number): number {
+    // C-18: non-finite amounts (Infinity/NaN) would corrupt the balance and
+    // serialize as null downstream; reject them at the write boundary.
+    if (!Number.isFinite(amount)) {
+      throw new Error(`creditMoney amount must be finite: ${amount}`);
+    }
     if (amount < 0) {
       throw new Error(`creditMoney amount must be non-negative: ${amount}`);
     }
@@ -114,6 +119,10 @@ export class CompanyRepository {
    * Atomically debit money from a company, failing if balance would drop below zero.
    */
   debitMoney(companyId: number, amount: number): number {
+    // C-18: reject non-finite amounts before they reach the balance.
+    if (!Number.isFinite(amount)) {
+      throw new Error(`debitMoney amount must be finite: ${amount}`);
+    }
     if (amount < 0) {
       throw new Error(`debitMoney amount must be non-negative: ${amount}`);
     }
@@ -138,6 +147,10 @@ export class CompanyRepository {
    * Atomically credit SimBoosts to a company.
    */
   creditSimboosts(companyId: number, amount: number): number {
+    // C-18: reject non-finite amounts before they reach the balance.
+    if (!Number.isFinite(amount)) {
+      throw new Error(`creditSimboosts amount must be finite: ${amount}`);
+    }
     if (amount < 0) {
       throw new Error(`creditSimboosts amount must be non-negative: ${amount}`);
     }
@@ -158,6 +171,10 @@ export class CompanyRepository {
    * Atomically debit SimBoosts from a company.
    */
   debitSimboosts(companyId: number, amount: number): number {
+    // C-18: reject non-finite amounts before they reach the balance.
+    if (!Number.isFinite(amount)) {
+      throw new Error(`debitSimboosts amount must be finite: ${amount}`);
+    }
     if (amount < 0) {
       throw new Error(`debitSimboosts amount must be non-negative: ${amount}`);
     }

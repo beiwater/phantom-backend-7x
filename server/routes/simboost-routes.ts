@@ -225,9 +225,16 @@ export async function handleSimboostRoutes(
       sendJson(res, { error: 'Unauthorized' }, 401);
       return true;
     }
-    const body = await readJsonBody<{ sku?: string }>(req);
-    const result = await purchasePaymentPackage(currentCompanyId, body.sku || 'sb-sb150');
-    sendJson(res, result);
+    try {
+      const body = await readJsonBody<{ sku?: string }>(req);
+      // C-5: the daily purchase cap rejects with an error here; surface it
+      // as 400 instead of an unhandled 500.
+      const result = await purchasePaymentPackage(currentCompanyId, body.sku || 'sb-sb150');
+      sendJson(res, result);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      sendJson(res, { error: msg }, 400);
+    }
     return true;
   }
 

@@ -337,8 +337,14 @@ export function getAuthData(playerId?: number | null, targetCompanyId?: number |
     return null;
   }
 
-  const safeMoney = typeof company.money === 'number' ? company.money : Number(company.money || 100000);
-  const safeSimBoosts = typeof company.simboosts === 'number' ? company.simboosts : Number(company.simboosts || 250);
+  // C-18: non-finite values serialize as JSON null (JSON.stringify(Infinity)
+  // -> "null"); the payload must always carry a numeric balance.
+  const safeMoney = typeof company.money === 'number'
+    ? (Number.isFinite(company.money) ? company.money : 0)
+    : Number(company.money || 100000);
+  const safeSimBoosts = typeof company.simboosts === 'number'
+    ? (Number.isFinite(company.simboosts) ? company.simboosts : 0)
+    : Number(company.simboosts || 250);
 
   return {
     authUser: {

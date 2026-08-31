@@ -9,9 +9,13 @@
    getCompanyBoostSettings,
    getExchangedToday,
    realignCompanyBonus,
+  recordExchange,
   exchangeMoneyForSimboosts,
-   EXCHANGE_CASH_PER_SIMBOOST,
-   EXCHANGE_DAILY_LIMIT
+  getPurchasesToday,
+  recordPurchase,
+  DAILY_PURCHASE_LIMIT,
+  EXCHANGE_CASH_PER_SIMBOOST,
+  EXCHANGE_DAILY_LIMIT
  } from './simboost-settings.ts';
 
 // Create the persisted settings table on module load (idempotent DDL).
@@ -100,6 +104,9 @@ export interface CompletedPurchase {
   supporter: boolean;
   starting: boolean;
   message?: string;
+  /** C-5: purchases made today after this grant, plus the active daily cap. */
+  purchasesToday?: number;
+  dailyPurchaseLimit?: number;
 }
 
 const PURCHASE_IDEMPOTENCY_WINDOW_MS = 5000;
@@ -125,8 +132,18 @@ export async function purchasePaymentPackage(companyId: number, sku: string, now
     return recent.result;
   }
 
+  // C-5: the private server grants boosts without a real payment gateway, so
+  // cap purchases per company per UTC day to close the unlimited money faucet
+  // (paired with the C-9 exchange cap on the cash->boosts direction). The cap
+  // check + grant + counter bump commit as one transaction; a rejected
+  // request mutates nothing.
   const result = await runInTransaction(async () => {
+    const purchasesToday = getPurchasesToday(companyId, new Date(now));
+    if (purchasesToday >= DAILY_PURCHASE_LIMIT) {
+      throw new Error(`Daily purchase limit of ${DAILY_PURCHASE_LIMIT} packages reached`);
+    }
     const newSimBoosts = updateCompanySimBoosts(companyId, pkg.simBoosts);
+    recordPurchase(companyId, new Date(now));
     return {
       payment: {
         sku: pkg.sku,
@@ -137,8 +154,10 @@ export async function purchasePaymentPackage(companyId: number, sku: string, now
       simBoosts: pkg.simBoosts,
       companySimboosts: newSimBoosts,
       supporter: pkg.isSupporter,
-      starting: pkg.starting
-    } satisfies CompletedPurchase;
+      starting: pkg.starting,
+      purchasesToday: purchasesToday + 1,
+      dailyPurchaseLimit: DAILY_PURCHASE_LIMIT
+    } satisfies CompletedPurchase & { purchasesToday: number; dailyPurchaseLimit: number };
   }, { immediate: true });
 
   recentPurchases.set(ledgerKey, { at: now, result });
@@ -174,9 +193,19 @@ export async function exchangeSimBoosts(companyId: number, amount: number) {
       throw new Error('Insufficient SimBoosts');
     }
 
+    // C-9: boosts->cash exchanges share the same per-UTC-day bucket as the
+    // official "fair" money->boosts exchange (simboostsExchangeLimit,
+    // phase-based, capped at 10000 cash/day) so neither direction of the
+    // exchange can mint cash past the daily cap.
     const cashAmount = amount * 100;
+    const alreadyExchanged = getExchangedToday(companyId);
+    if (alreadyExchanged + cashAmount > EXCHANGE_DAILY_LIMIT) {
+      throw new Error('You cannot exchange that many simboosts today');
+    }
+
     updateCompanySimBoosts(companyId, -amount);
     const newMoney = updateCompanyMoney(companyId, cashAmount);
+    const exchangedToday = recordExchange(companyId, cashAmount);
 
     const updatedComp = getCompanyById(companyId);
     return {
@@ -185,6 +214,7 @@ export async function exchangeSimBoosts(companyId: number, amount: number) {
       money: newMoney,
       moneyAdded: cashAmount,
       simBoostsDeducted: amount,
+      exchangedToday,
       message: `Exchanged ${amount} SimBoosts for $${cashAmount.toLocaleString()}`
     };
   }, { immediate: true });

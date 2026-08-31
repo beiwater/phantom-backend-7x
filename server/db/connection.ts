@@ -252,7 +252,35 @@ export function initializeDatabaseSchema(database: DatabaseSync = db): void {
       push_json TEXT DEFAULT '{}',
       updated_at TEXT
     );
+
+    CREATE TABLE IF NOT EXISTS company_notes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      company_id INTEGER NOT NULL,
+      about_company_id INTEGER NOT NULL,
+      note TEXT DEFAULT '',
+      priority INTEGER DEFAULT 0,
+      created_at TEXT,
+      updated_at TEXT,
+      UNIQUE (company_id, about_company_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_company_notes_owner
+      ON company_notes(company_id, about_company_id);
+
+    CREATE TABLE IF NOT EXISTS company_settings (
+      company_id INTEGER NOT NULL,
+      key TEXT NOT NULL,
+      value TEXT,
+      PRIMARY KEY (company_id, key)
+    );
   `);
+
+  // C-11: unique ownership constraint so note upserts (ON CONFLICT) work on
+  // databases created before the constraint existed.
+  const noteIndexes = (database.prepare('PRAGMA index_list(company_notes)').all() as Array<{ name: string; unique: number }>)
+    .filter(index => index.unique);
+  if (!noteIndexes.some(index => index.name === 'uq_company_notes_owner')) {
+    database.exec('CREATE UNIQUE INDEX IF NOT EXISTS uq_company_notes_owner ON company_notes(company_id, about_company_id)');
+  }
 
   // Create standard indices for performance and ownership checks
   database.exec(`

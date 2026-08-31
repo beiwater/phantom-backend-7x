@@ -51,6 +51,9 @@ export async function cancelProductionUseCase(
     }
 
     // 4. Refund ingredients back to warehouse
+    // NOTE: only recomputes the ingredient refund for an already-persisted
+    // queue row; re-validating persisted quality/amount here would brick
+    // cancellation of rows written before the C-14/C-19 fix.
     const { ingredients } = validateProductionRequest(
       building.kind,
       queueItem.kind,
