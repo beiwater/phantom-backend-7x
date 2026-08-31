@@ -111,7 +111,7 @@ export async function handleBondRoutes(
     }
     const body = await readJsonBody<{ amount?: number; interest?: number }>(req);
     try {
-      const result = issueBonds(currentCompanyId, Number(body.amount), Number(body.interest ?? 0.005));
+      const result = await issueBonds(currentCompanyId, Number(body.amount), Number(body.interest ?? 0.005));
       sendJson(res, result);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -129,7 +129,7 @@ export async function handleBondRoutes(
     }
     const bondId = Number(buyMatch[1]);
     try {
-      sendJson(res, buyBonds(currentCompanyId, bondId));
+      sendJson(res, await buyBonds(currentCompanyId, bondId));
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       sendJson(res, { error: msg }, 400);
@@ -146,7 +146,7 @@ export async function handleBondRoutes(
     }
     const bondId = Number(callMatch[1]);
     try {
-      sendJson(res, callBonds(currentCompanyId, bondId));
+      sendJson(res, await callBonds(currentCompanyId, bondId));
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       sendJson(res, { error: msg }, 400);

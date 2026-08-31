@@ -39,8 +39,8 @@ async function register(label: string): Promise<{ cookie: string; companyId: num
   const companyId = auth.authCompany.companyId;
 
   // Fund test company and seed materials
-  db.prepare('UPDATE companies SET money = 10000000 WHERE id = ?').run(companyId);
-  db.prepare('UPDATE companies SET money = 10000000 WHERE company_id = ?').run(companyId);
+  db.prepare('UPDATE companies SET money = 10000000, extra_building_slots = 500 WHERE id = ?').run(companyId);
+  db.prepare('UPDATE companies SET money = 10000000, extra_building_slots = 500 WHERE company_id = ?').run(companyId);
 
   // Seed construction materials (101: Planks, 102: Bricks, 108: Concrete, 111: Construction units)
   for (const m of [101, 102, 108, 111]) {
@@ -109,12 +109,11 @@ async function runAllBuildingsProductionAndRetailTest() {
       console.warn(`  [Warning] Building "${kind}" construction returned ${constructRes.status}:`, (await constructRes.text()).slice(0, 100));
       continue;
     }
-
     const constructData = await readJson(constructRes);
     const buildingId = constructData.building?.id || constructData.id;
     assert.ok(buildingId, `Building ID returned for kind "${kind}"`);
-
-    // 1. Test Valid Production
+    // Clear construction busy state to test production capability
+    db.prepare('UPDATE buildings SET busy_until = NULL WHERE id = ?').run(buildingId);
     const validProdRes = await fetch(`${baseUrl}/api/v2/companies/buildings/${buildingId}/queue/`, {
       method: 'POST',
       headers,
@@ -193,6 +192,8 @@ async function runAllBuildingsProductionAndRetailTest() {
     const constructData = await readJson(constructRes);
     const buildingId = constructData.building?.id || constructData.id;
     assert.ok(buildingId, `Sales building ID returned for kind "${kind}"`);
+    // Clear construction busy state to test retail capability
+    db.prepare('UPDATE buildings SET busy_until = NULL WHERE id = ?').run(buildingId);
 
     // 1. Test Incompatible Retail Rejection
     const incompatibleProduct = kind === 'G' ? 11 : (kind === 'S' ? 3 : 10);
@@ -202,11 +203,9 @@ async function runAllBuildingsProductionAndRetailTest() {
       body: JSON.stringify({
         building: buildingId,
         resource: incompatibleProduct,
-        units: 5,
-        sellingPrice: 100.0
+        units: 5
       })
     });
-
     if (invalidRetailRes.status === 400) {
       retailRejectedCount++;
     } else {

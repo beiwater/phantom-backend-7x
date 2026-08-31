@@ -36,6 +36,17 @@ export async function constructBuildingUseCase(
   const { cost, materials } = estimateConstructionCost(kind, 1);
 
   return runInTransaction(async txCtx => {
+    // 0. Validate building slot limits and locked positions
+    const comp = companyRepository.findById(ctx.companyId);
+    if (!comp) throw new NotFoundError(`Company ${ctx.companyId} not found`);
+    const baseSlots = Math.min(14, 4 + Math.floor((Number(comp.level) || 0) / 3));
+    const maxSlots = baseSlots + (Number(comp.extraBuildingSlots) || 0);
+
+    const posNum = Number(normPosition);
+    if (Number.isInteger(posNum) && posNum >= maxSlots) {
+      throw new ValidationError(`Position ${position} is locked. You currently have ${maxSlots} slots unlocked. Unlock more building slots with SimBoosts.`);
+    }
+
     // 1. Validate position and existing buildings
     const existingAtPos = buildingRepository.findByCompanyAndPosition(ctx.companyId, normPosition);
     if (existingAtPos) {
@@ -48,6 +59,10 @@ export async function constructBuildingUseCase(
       // Demolish existing building at position
       buildingRepository.delete(existingAtPos.id, ctx.companyId);
     } else {
+      const currentCount = buildingRepository.countByCompany(ctx.companyId);
+      if (currentCount >= maxSlots) {
+        throw new ValidationError(`Building slot limit reached (${currentCount}/${maxSlots}). Unlock more building slots with SimBoosts.`);
+      }
       validateConstructionPosition(normPosition, [], false);
     }
 

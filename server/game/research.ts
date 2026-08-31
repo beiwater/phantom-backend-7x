@@ -2,7 +2,7 @@ import { db } from '../db/database.ts';
 import { getResourceDef } from './constants.ts';
 import { getCompanyById } from './company.ts';
 import { consumeResourceExactWithTransactions, getWarehouseItemExact } from './warehouse.ts';
-
+import { runInTransaction } from '../db/transaction.ts';
 export interface ResearchRow {
   id: number;
   company_id: number;
@@ -100,16 +100,16 @@ export function getResourceResearchAbility(companyId: number, resourceKind: numb
   };
 }
 
-export function applyResourceResearch(companyId: number, resourceKind: number, points: number) {
+export async function applyResourceResearch(companyId: number, resourceKind: number, points: number) {
   if (!getResourceDef(resourceKind)) {
     throw new Error(`Unknown resource kind: ${resourceKind}`);
   }
-  if (!Number.isFinite(points) || points <= 0) {
-    throw new Error('Research points must be a finite positive number');
+  if (!Number.isSafeInteger(points) || points <= 0) {
+    throw new Error('Research points must be a positive integer');
   }
 
   const before = getResourceResearchAbility(companyId, resourceKind);
-  applyResearch(companyId, getDisciplineForResource(resourceKind), points);
+  await applyResearch(companyId, getDisciplineForResource(resourceKind), points);
   const after = getResourceResearchAbility(companyId, resourceKind);
 
   return {
@@ -147,7 +147,7 @@ export function getCompanyResearch(companyId: number) {
 // Level gate (research unlocks at level >= 10 in the real game) intentionally
 // skipped: company.ts featureFlags has no research.enabled flag, and the
 // private server starts players at level 5 with everything enabled.
-export function applyResearch(companyId: number, discipline: number, pointsToApply: number) {
+export async function applyResearch(companyId: number, discipline: number, pointsToApply: number) {
   if (!getCompanyById(companyId)) {
     throw new Error('Company not found');
   }
@@ -164,8 +164,7 @@ export function applyResearch(companyId: number, discipline: number, pointsToApp
     throw new Error(`Insufficient research resource #${researchKind}`);
   }
 
-  db.exec('BEGIN');
-  try {
+  return runInTransaction(async () => {
     const consumed = consumeResourceExactWithTransactions(companyId, researchKind, 0, pointsToApply);
     if (!consumed) {
       throw new Error(`Insufficient research resource #${researchKind}`);
@@ -175,9 +174,12 @@ export function applyResearch(companyId: number, discipline: number, pointsToApp
       SELECT * FROM research WHERE company_id = ? AND discipline = ?
     `).get(companyId, discipline) as unknown as ResearchRow | undefined;
 
+    const currentPoints = Number(existing?.points || 0);
+    const newPoints = currentPoints + pointsToApply;
+    // Cumulative patent threshold: exactly 1 patent per 50 total research points
+    const newPatents = Math.floor(newPoints / 50);
+
     if (existing) {
-      const newPoints = Number(existing.points) + pointsToApply;
-      const newPatents = Number(existing.patents) + Math.floor(pointsToApply / 50);
       db.prepare(`
         UPDATE research
         SET points = ?, patents = ?
@@ -187,13 +189,9 @@ export function applyResearch(companyId: number, discipline: number, pointsToApp
       db.prepare(`
         INSERT INTO research (company_id, discipline, points, patents)
         VALUES (?, ?, ?, ?)
-      `).run(companyId, discipline, pointsToApply, Math.floor(pointsToApply / 50));
+      `).run(companyId, discipline, newPoints, newPatents);
     }
-    db.exec('COMMIT');
-  } catch (err) {
-    db.exec('ROLLBACK');
-    throw err;
-  }
 
-  return getCompanyResearch(companyId);
+    return getCompanyResearch(companyId);
+  }, { immediate: true });
 }

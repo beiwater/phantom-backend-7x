@@ -75,8 +75,8 @@ export async function handleSimboostRoutes(
   }
 
 
-  // Building slot unlock: POST /api/v2/unlock/
-  if (pathname === '/api/v2/unlock/' && method === 'POST') {
+  // Building slot unlock: POST /api/v2/unlock/ or /api/v2/companies/me/building-slots/
+  if ((pathname === '/api/v2/unlock/' || pathname === '/api/v2/companies/me/building-slots/' || pathname === '/api/v2/companies/me/slots/') && method === 'POST') {
     if (!currentCompanyId) {
       sendJson(res, { error: 'Unauthorized' }, 401);
       return true;

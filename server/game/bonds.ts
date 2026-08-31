@@ -1,6 +1,6 @@
 import { db } from '../db/database.ts';
 import { updateCompanyMoney, getCompanyById } from './company.ts';
-
+import { runInTransaction } from '../db/transaction.ts';
 export interface BondRow {
   id: number;
   seller_company_id: number;
@@ -58,7 +58,7 @@ export function getBondsSold(companyId: number) {
   return rows.map(formatBond);
 }
 
-function seedBondMarketListings() {
+export function seedBondMarketListings() {
   const countRow = db.prepare(`
     SELECT COUNT(*) AS count FROM bonds
     WHERE buyer_company_id IS NULL AND status = 'active'
@@ -79,9 +79,6 @@ function seedBondMarketListings() {
     insert.run(bond.seller, bond.rate, bond.amount, now);
   }
 }
-
-seedBondMarketListings();
-
 export function getBondMarketListings() {
   const rows = db.prepare(`
     SELECT * FROM bonds
@@ -132,31 +129,24 @@ export function issueBonds(sellerCompanyId: number, amount: number, interestRate
 
   const now = new Date().toISOString();
   const maturityDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
-  db.exec('BEGIN');
-  try {
+  return runInTransaction(async () => {
     const res = db.prepare(`
       INSERT INTO bonds (seller_company_id, buyer_company_id, interest_rate, amount, status, created_at, maturity_date)
       VALUES (?, NULL, ?, ?, 'active', ?, ?)
     `).run(sellerCompanyId, interestRate, amount, now, maturityDate);
-    db.exec('COMMIT');
 
     const bondId = Number(res.lastInsertRowid);
     const row = db.prepare('SELECT * FROM bonds WHERE id = ?').get(bondId) as unknown as BondRow;
     return {
       bond: formatBond(row),
-      // Issuing a bond creates a liability; it does not mint seller cash.
       money: comp.money,
       moneyDelta: 0
     };
-  } catch (err) {
-    db.exec('ROLLBACK');
-    throw err;
-  }
+  }, { immediate: true });
 }
 
 export function buyBonds(buyerCompanyId: number, bondId: number) {
-  db.exec('BEGIN IMMEDIATE');
-  try {
+  return runInTransaction(async () => {
     const bond = db.prepare('SELECT * FROM bonds WHERE id = ?').get(bondId) as unknown as BondRow | undefined;
     if (!bond || bond.status !== 'active' || bond.buyer_company_id !== null) {
       throw new Error('Bond is no longer available');
@@ -176,12 +166,10 @@ export function buyBonds(buyerCompanyId: number, bondId: number) {
     }
 
     const newMoney = updateCompanyMoney(buyerCompanyId, -bond.amount);
-    // Seeded NPC listings have no company ledger. Real issuers receive the
-    // face value only when a buyer actually purchases the bond.
+    // Real issuers receive face value when purchased.
     if (bond.seller_company_id !== 999900 && getCompanyById(bond.seller_company_id)) {
       updateCompanyMoney(bond.seller_company_id, bond.amount);
     }
-    db.exec('COMMIT');
 
     const updated = db.prepare('SELECT * FROM bonds WHERE id = ?').get(bondId) as unknown as BondRow;
     return {
@@ -189,15 +177,11 @@ export function buyBonds(buyerCompanyId: number, bondId: number) {
       money: newMoney,
       moneyDelta: -bond.amount
     };
-  } catch (err) {
-    db.exec('ROLLBACK');
-    throw err;
-  }
+  }, { immediate: true });
 }
 
 export function callBonds(sellerCompanyId: number, bondId: number) {
-  db.exec('BEGIN IMMEDIATE');
-  try {
+  return runInTransaction(async () => {
     const bond = db.prepare('SELECT * FROM bonds WHERE id = ?').get(bondId) as unknown as BondRow | undefined;
     if (!bond || bond.status !== 'active' || bond.seller_company_id !== sellerCompanyId) {
       throw new Error('Bond not found');
@@ -212,7 +196,8 @@ export function callBonds(sellerCompanyId: number, bondId: number) {
     }
 
     let newSellerMoney = Number(seller.money) || 0;
-    if (bond.buyer_company_id) {
+    const isSold = bond.buyer_company_id !== null;
+    if (isSold && bond.buyer_company_id) {
       if (newSellerMoney < bond.amount) {
         throw new Error('Not enough money to call bond early');
       }
@@ -226,15 +211,11 @@ export function callBonds(sellerCompanyId: number, bondId: number) {
     if (updated.changes !== 1) {
       throw new Error('Bond is no longer active');
     }
-    db.exec('COMMIT');
 
     return {
       success: true,
       money: newSellerMoney,
-      moneyDelta: -bond.amount
+      moneyDelta: isSold ? -bond.amount : 0
     };
-  } catch (err) {
-    db.exec('ROLLBACK');
-    throw err;
-  }
+  }, { immediate: true });
 }

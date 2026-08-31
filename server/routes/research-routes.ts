@@ -36,7 +36,7 @@ export async function handleResearchRoutes(
     }
     const body = await readJsonBody<{ discipline: number; points: number }>(req);
     try {
-      const result = applyResearch(currentCompanyId, body.discipline, body.points);
+      const result = await applyResearch(currentCompanyId, body.discipline, body.points);
       sendJson(res, result);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -64,7 +64,8 @@ export async function handleResearchRoutes(
 
       if (method === 'POST') {
         const body = await readJsonBody<{ points?: number }>(req);
-        sendJson(res, applyResourceResearch(currentCompanyId, resourceKind, Number(body.points)));
+        const result = await applyResourceResearch(currentCompanyId, resourceKind, Number(body.points));
+        sendJson(res, result);
         return true;
       }
     } catch (err: unknown) {

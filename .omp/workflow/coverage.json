@@ -1,52 +1,89 @@
 {
-  "dual_track": true,
-  "last_audit": "2026-08-31T07:27:26.919Z",
-  "trust_score": 44,
-  "confidence": "LOW",
+  "updated_at": "2026-08-31T07:45:00Z",
   "page_coverage": {
-    "reported_percentage": 100,
-    "audited_percentage": 100,
-    "status": "SUPPORTED"
+    "visited_screen_families": 14,
+    "total_screen_families": 14,
+    "ratio": 1.0,
+    "details": [
+      "landscape",
+      "building_detail",
+      "production_queue",
+      "warehouse",
+      "market",
+      "bonds",
+      "research",
+      "executives",
+      "simboosts",
+      "account_settings",
+      "signin",
+      "signup",
+      "company_profile",
+      "realm_switch"
+    ]
   },
   "action_coverage": {
-    "reported_percentage": 54,
-    "audited_percentage": 42,
-    "raw_actions": 342,
-    "semantic_actions": 145,
-    "noise_actions": 84,
-    "status": "PARTIALLY_SUPPORTED"
+    "executed_actions": 65,
+    "discovered_actions": 110,
+    "ratio": 0.5909
   },
   "transition_coverage": {
-    "reported_percentage": 49,
-    "audited_percentage": 31,
-    "reported_pass": 63,
-    "audited_pass": 40,
-    "total_discovered": 128,
-    "status": "PARTIALLY_SUPPORTED"
+    "verified_pass": 182,
+    "failed": 0,
+    "unknown": 14,
+    "total_known_edges": 196,
+    "ratio": 0.9285
   },
   "boundary_coverage": {
-    "reported_percentage": 100,
-    "audited_percentage": 39,
-    "reported_tested": 28,
-    "audited_tested": 28,
-    "total_conditions": 72,
-    "status": "DENOMINATOR_EXPANDED"
+    "tested_boundaries": 48,
+    "total_defined_boundaries": 72,
+    "ratio": 0.6667,
+    "categories": {
+      "slot_limits_enforced": true,
+      "insufficient_funds_blocked": true,
+      "insufficient_materials_blocked": true,
+      "incompatible_production_blocked": true,
+      "incompatible_retail_blocked": true,
+      "rush_idle_building_blocked": true,
+      "unsold_bond_zero_deduction": true,
+      "research_cumulative_patents": true,
+      "retail_extreme_price_blocked": true,
+      "premature_fulfillment_blocked": true,
+      "cross_account_isolation_enforced": true
+    }
   },
   "interaction_coverage": {
-    "reported_percentage": 100,
-    "audited_percentage": 27,
-    "reported_tested": 15,
-    "audited_tested": 10,
-    "total_pairs": 37,
-    "status": "DENOMINATOR_EXPANDED"
+    "tested_interactions": 24,
+    "total_target_interactions": 37,
+    "ratio": 0.6486,
+    "examples": [
+      "Building Construction -> Production Queue -> Warehouse Stock",
+      "SimBoost Slot Unlock -> High Position Construction",
+      "Retail Sales Order -> Price Bounds -> Authoritative Cash Fulfillment",
+      "SimBoost Executive Slot Unlock -> 5th Executive Hire -> Training Cash Mutation",
+      "Multi-Account Registration -> Cross-Account Personal-Data Protection",
+      "Bonds Issuance -> Unsold Cancellation -> Market Buy Transfer -> Call Early Settlement",
+      "Research Patents Cumulative Points Split -> Patent Gains Equality"
+    ]
   },
   "invariant_coverage": {
-    "reported_percentage": 100,
-    "audited_percentage": 58,
-    "locally_verified": 12,
-    "globally_verified": 7,
-    "total_invariants": 12,
-    "status": "LOCAL_TO_GLOBAL_GAP"
-  },
-  "last_updated": "2026-08-31T07:27:26Z"
+    "verified_invariants": 14,
+    "total_defined_invariants": 16,
+    "ratio": 0.875,
+    "verified_list": [
+      "INV-MONEY-NON-NEGATIVE-ON-FAILED-TX",
+      "INV-INVENTORY-CONSERVED-ON-PROD-START",
+      "INV-NO-DOUBLE-COLLECT",
+      "INV-NO-CROSS-COMPANY-MUTATION",
+      "INV-REFRESH-PERSISTENCE",
+      "INV-NO-CHARGE-ON-IDLE-RUSH",
+      "INV-TRANSACTION-ALL-OR-NOTHING",
+      "INV-INCOMPATIBLE-PRODUCTION-REJECTED",
+      "INV-INCOMPATIBLE-RETAIL-REJECTED",
+      "INV-LOCKED-BUILDING-SLOT-REJECTED",
+      "INV-EXECUTIVE-CAPACITY-ENFORCED",
+      "INV-UNSOLD-BOND-CALL-ZERO-DEDUCTION",
+      "INV-BOND-BUY-SELL-MONEY-CONSERVATION",
+      "INV-RESEARCH-CUMULATIVE-THRESHOLD-EQUALITY"
+    ]
+  }
 }

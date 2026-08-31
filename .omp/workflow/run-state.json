@@ -1,11 +1,11 @@
 {
-  "run_id": "RUN-20260831-02",
+  "run_id": "RUN-20260831-03",
   "started_at": "2026-08-31T06:40:00Z",
   "current_phase": "continuous_loop",
-  "active_frontier": "all_buildings_production_retail",
+  "active_frontier": "data_determinism_security_hardening",
   "active_finding": null,
-  "active_fix": "Issue #65 & Issue #67",
-  "last_verified_transition": "verify_all_35_building_kinds_production_and_retail",
-  "graph_revision": 12,
-  "updated_at": "2026-08-31T07:05:00Z"
+  "active_fix": "Issue #63, #42, #39 Verified",
+  "last_verified_transition": "verify_issue_63_42_39_all_passed",
+  "graph_revision": 15,
+  "updated_at": "2026-08-31T07:45:00Z"
 }

@@ -33,7 +33,8 @@ async function runIssue47And44Test() {
   const headers = { 'Content-Type': 'application/json', Cookie: cookie };
 
   // Fund company and stock warehouse materials
-  db.prepare('UPDATE companies SET money = 1000000, simboosts = 5000 WHERE company_id = ?').run(companyId);
+  db.prepare('UPDATE companies SET money = 1000000, simboosts = 5000, extra_building_slots = 20 WHERE company_id = ?').run(companyId);
+  db.prepare('UPDATE companies SET money = 1000000, simboosts = 5000, extra_building_slots = 20 WHERE id = ?').run(companyId);
   const now = new Date().toISOString();
   db.prepare('INSERT INTO warehouse (company_id, kind, quality, amount, cost_workers, cost_admin, cost_material1, cost_material2, cost_market, updated_at) VALUES (?, 101, 0, 5000, 0, 0, 0, 0, 1.0, ?)')
     .run(companyId, now);
