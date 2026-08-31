@@ -67,9 +67,15 @@ export class BuildingRepository {
   }
 
   findByCompanyAndPosition(companyId: number, position: string): BuildingEntity | null {
+    const rawPos = String(position ?? '').trim();
+    const normPos = rawPos.toUpperCase().startsWith('B') && /^\d+$/.test(rawPos.slice(1))
+      ? rawPos.slice(1)
+      : rawPos;
+    const prefixedPos = /^\d+$/.test(rawPos) ? `B${rawPos}` : rawPos;
+
     const row = this.database.prepare(
-      'SELECT * FROM buildings WHERE company_id = ? AND position = ? LIMIT 1'
-    ).get(companyId, position) as BuildingDbRow | undefined;
+      'SELECT * FROM buildings WHERE company_id = ? AND (position = ? OR position = ? OR position = ?) LIMIT 1'
+    ).get(companyId, rawPos, normPos, prefixedPos) as BuildingDbRow | undefined;
 
     return row ? mapBuildingRow(row) : null;
   }

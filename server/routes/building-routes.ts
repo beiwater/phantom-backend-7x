@@ -125,42 +125,66 @@ export function registerBuildingRoutes(registry: RouteRegistry = globalRouteRegi
   });
 
   // 5. Buildings List & Construct
+  const getBuildingsListHandler = async (_req: IncomingMessage, res: ServerResponse, ctx: any, params: Record<string, string>) => {
+    const targetCompanyId = params.companyId ? Number(params.companyId) : ctx?.companyId;
+    if (!targetCompanyId) {
+      sendJson(res, { error: 'Unauthorized' }, 401);
+      return;
+    }
+    const targetCtx = ctx && ctx.companyId === targetCompanyId ? ctx : { ...ctx, companyId: targetCompanyId };
+    const buildings = await getCompanyBuildingsUseCase(targetCtx);
+    sendJson(res, toSimCompaniesBuildingsListDTO(buildings));
+  };
+
   registry.register({
     method: 'GET',
     pattern: '/api/v2/companies/me/buildings/',
     auth: 'company',
-    handler: async (_req, res, ctx) => {
-      const buildings = await getCompanyBuildingsUseCase(ctx!);
-      sendJson(res, toSimCompaniesBuildingsListDTO(buildings));
-    }
+    handler: getBuildingsListHandler
   });
+
+  registry.register({
+    method: 'GET',
+    pattern: '/api/v2/companies/:companyId/buildings/',
+    auth: 'none',
+    handler: getBuildingsListHandler
+  });
+
+  const constructBuildingHandler = async (_req: IncomingMessage, res: ServerResponse, ctx: any, _params: Record<string, string>, body: any) => {
+    const kind = body.kind || (typeof body.id === 'object' && body.id ? body.id.id : body.id) || 'P';
+    if (!body.position) {
+      throw new ValidationError('Building position is required');
+    }
+    const result = await constructBuildingUseCase(ctx!, {
+      kind: String(kind),
+      position: String(body.position),
+      replaceExisting: false
+    });
+    const buildingDTO = toSimCompaniesBuildingDTO(result.building);
+    sendJson(res, {
+      ...buildingDTO,
+      building: buildingDTO,
+      cost: result.cost,
+      resourcesConsumed: result.resourcesConsumed.map(r => ({
+        db_letter: r.kind,
+        quality: r.quality,
+        amount: r.amount
+      }))
+    });
+  };
 
   registry.register({
     method: 'POST',
     pattern: '/api/v2/companies/me/buildings/',
     auth: 'company',
-    handler: async (_req, res, ctx, _params, body: any) => {
-      const kind = body.kind || (typeof body.id === 'object' && body.id ? body.id.id : body.id) || 'P';
-      if (!body.position) {
-        throw new ValidationError('Building position is required');
-      }
-      const result = await constructBuildingUseCase(ctx!, {
-        kind: String(kind),
-        position: String(body.position),
-        replaceExisting: false
-      });
-      const buildingDTO = toSimCompaniesBuildingDTO(result.building);
-      sendJson(res, {
-        ...buildingDTO,
-        building: buildingDTO,
-        cost: result.cost,
-        resourcesConsumed: result.resourcesConsumed.map(r => ({
-          db_letter: r.kind,
-          quality: r.quality,
-          amount: r.amount
-        }))
-      });
-    }
+    handler: constructBuildingHandler
+  });
+
+  registry.register({
+    method: 'POST',
+    pattern: '/api/v2/companies/:companyId/buildings/',
+    auth: 'company',
+    handler: constructBuildingHandler
   });
 
   // 6. Single Building Details, Upgrade, Rename, Demolish
@@ -185,7 +209,14 @@ export function registerBuildingRoutes(registry: RouteRegistry = globalRouteRegi
   registry.register({
     method: 'GET',
     pattern: '/api/v2/companies/me/buildings/:id/',
-    auth: 'company',
+    auth: 'none',
+    handler: getBuildingHandler
+  });
+
+  registry.register({
+    method: 'GET',
+    pattern: '/api/v2/companies/:companyId/buildings/:id/',
+    auth: 'none',
     handler: getBuildingHandler
   });
 
@@ -253,6 +284,12 @@ export function registerBuildingRoutes(registry: RouteRegistry = globalRouteRegi
     handler: patchBuildingHandler
   });
 
+  registry.register({
+    method: 'PATCH',
+    pattern: '/api/v2/companies/:companyId/buildings/:id/',
+    auth: 'company',
+    handler: patchBuildingHandler
+  });
   const deleteBuildingHandler = async (
     _req: IncomingMessage,
     res: ServerResponse,
@@ -278,6 +315,47 @@ export function registerBuildingRoutes(registry: RouteRegistry = globalRouteRegi
     handler: deleteBuildingHandler
   });
 
+  registry.register({
+    method: 'DELETE',
+    pattern: '/api/v2/companies/:companyId/buildings/:id/',
+    auth: 'company',
+    handler: deleteBuildingHandler
+  });
+
+  // Sales orders and Restaurant stubs for building detail page
+  registry.register({
+    method: 'GET',
+    pattern: '/api/v2/companies/buildings/:id/sales-orders/',
+    auth: 'none',
+    handler: async (_req, res) => {
+      sendJson(res, []);
+    }
+  });
+
+  registry.register({
+    method: 'GET',
+    pattern: '/api/v2/companies/buildings/:id/restaurant-properties/',
+    auth: 'none',
+    handler: async (_req, res) => {
+      sendJson(res, {
+        isLuxury: false,
+        goodService: false,
+        saladBar: [],
+        mains: [],
+        drinks: [],
+        menuPrice: 10
+      });
+    }
+  });
+
+  registry.register({
+    method: 'GET',
+    pattern: '/api/v2/companies/buildings/:id/restaurant-runs/',
+    auth: 'none',
+    handler: async (_req, res) => {
+      sendJson(res, []);
+    }
+  });
   // 7. Building Abundance
   registry.register({
     method: 'GET',

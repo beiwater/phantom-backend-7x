@@ -63,7 +63,11 @@ export function toSimCompaniesCancelProductionDTO(
 
 export interface SimCompaniesCollectProductionDTO {
   success: boolean;
-  moneyUpdate: number;
+  money: number;
+  moneyUpdate: {
+    money: number;
+    id?: number;
+  };
   achievements: unknown[];
   levelInfo: null;
   newBusy: null;
@@ -87,7 +91,11 @@ export function toSimCompaniesCollectProductionDTO(
 ): SimCompaniesCollectProductionDTO {
   return {
     success: true,
-    moneyUpdate: result.currentMoney,
+    money: result.currentMoney,
+    moneyUpdate: {
+      money: result.currentMoney,
+      id: Date.now()
+    },
     achievements: [],
     levelInfo: null,
     newBusy: null,

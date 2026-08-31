@@ -10,17 +10,30 @@ export interface ConstructionCostEstimate {
   materials: Array<{ kind: number; amount: number }>;
 }
 
+export function normalizePosition(position: string | number): string {
+  const str = String(position ?? '').trim();
+  if (str.toUpperCase().startsWith('B')) {
+    const rawNum = str.slice(1);
+    if (/^\d+$/.test(rawNum)) {
+      return rawNum;
+    }
+  }
+  return str;
+}
+
 export function validateConstructionPosition(
   position: string,
   existingPositions: string[],
   replaceExisting: boolean = false
 ): void {
-  const posNum = Number(position);
+  const normalized = normalizePosition(position);
+  const posNum = Number(normalized);
   if (!Number.isInteger(posNum) || posNum < 0) {
     throw new ValidationError(`Invalid building position: ${position}`);
   }
 
-  if (!replaceExisting && existingPositions.includes(position)) {
+  const normalizedExisting = existingPositions.map(normalizePosition);
+  if (!replaceExisting && (existingPositions.includes(position) || normalizedExisting.includes(normalized))) {
     throw new ConflictError(`Building position ${position} is already occupied`);
   }
 }
