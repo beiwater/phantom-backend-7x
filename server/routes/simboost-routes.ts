@@ -82,7 +82,7 @@ export async function handleSimboostRoutes(
       return true;
     }
     try {
-      const result = unlockBuildingSlot(currentCompanyId);
+      const result = await unlockBuildingSlot(currentCompanyId);
       sendJson(res, result);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -108,7 +108,7 @@ export async function handleSimboostRoutes(
     try {
       const body = await readJsonBody<{ sku?: string; nonce?: string; name?: string; bonus?: string }>(req);
       const sku = body.sku || 'simboosts_small';
-      const result = purchasePaymentPackage(currentCompanyId, sku);
+      const result = await purchasePaymentPackage(currentCompanyId, sku);
       sendJson(res, result);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -139,7 +139,7 @@ export async function handleSimboostRoutes(
       return true;
     }
     const body = await readJsonBody<{ sessionId?: string }>(req);
-    const result = purchasePaymentPackage(currentCompanyId, 'simboosts_medium');
+    const result = await purchasePaymentPackage(currentCompanyId, 'simboosts_medium');
     sendJson(res, {
       receiptUrl: '/zh-cn/landscape/',
       ...result
@@ -176,7 +176,7 @@ export async function handleSimboostRoutes(
       sendJson(res, { error: 'Unauthorized' }, 401);
       return true;
     }
-    const result = purchasePaymentPackage(currentCompanyId, 'simboosts_medium');
+    const result = await purchasePaymentPackage(currentCompanyId, 'simboosts_medium');
     sendJson(res, {
       invoice: {
         id: tronPatchMatch[1],
@@ -198,7 +198,7 @@ export async function handleSimboostRoutes(
       return true;
     }
     const body = await readJsonBody<{ sku?: string }>(req);
-    const result = purchasePaymentPackage(currentCompanyId, body.sku || 'simboosts_small');
+    const result = await purchasePaymentPackage(currentCompanyId, body.sku || 'simboosts_small');
     sendJson(res, result);
     return true;
   }
@@ -217,7 +217,7 @@ export async function handleSimboostRoutes(
     try {
       const body = await readJsonBody<{ amount?: number; simBoosts?: number }>(req);
       const amount = body.amount ?? body.simBoosts ?? 10;
-      const result = exchangeSimBoosts(currentCompanyId, amount);
+      const result = await exchangeSimBoosts(currentCompanyId, amount);
       sendJson(res, result);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -237,7 +237,7 @@ export async function handleSimboostRoutes(
       return true;
     }
     try {
-      const result = unlockDisplayCaseSlot(currentCompanyId);
+      const result = await unlockDisplayCaseSlot(currentCompanyId);
       sendJson(res, result);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -253,7 +253,7 @@ export async function handleSimboostRoutes(
       return true;
     }
     try {
-      const result = unlockExecutiveSlot(currentCompanyId);
+      const result = await unlockExecutiveSlot(currentCompanyId);
       sendJson(res, result);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -269,7 +269,7 @@ export async function handleSimboostRoutes(
       return true;
     }
     try {
-      const result = unlockTagSlot(currentCompanyId);
+      const result = await unlockTagSlot(currentCompanyId);
       sendJson(res, result);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -289,7 +289,7 @@ export async function handleSimboostRoutes(
     const buildingId = Number(rushQueueMatch[1]);
     const queueId = rushQueueMatch[2] ? Number(rushQueueMatch[2]) : undefined;
     try {
-      const result = rushProduction(currentCompanyId, buildingId, queueId);
+      const result = await rushProduction(currentCompanyId, buildingId, queueId);
       sendJson(res, result);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -307,7 +307,7 @@ export async function handleSimboostRoutes(
     }
     const buildingId = Number(rushConstructMatch[1]);
     try {
-      const result = rushBuildingUpgradeOrConstruction(currentCompanyId, buildingId);
+      const result = await rushBuildingUpgradeOrConstruction(currentCompanyId, buildingId);
       sendJson(res, result);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);

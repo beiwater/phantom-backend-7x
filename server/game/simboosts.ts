@@ -1,4 +1,5 @@
 import { db } from '../db/database.ts';
+import { runInTransaction } from '../db/transaction.ts';
 import { getCompanyById, updateCompanyMoney, updateCompanySimBoosts } from './company.ts';
 import { getBuildingById, formatBuilding } from './buildings.ts';
 import { getBuildingQueue } from './production.ts';
@@ -113,21 +114,23 @@ export function canPurchasePaymentPackage(sku: string) {
   };
 }
 
-export function purchasePaymentPackage(companyId: number, sku: string) {
+export async function purchasePaymentPackage(companyId: number, sku: string) {
   const pkg = PAYMENT_PACKAGES.find(p => p.sku === sku) || PAYMENT_PACKAGES[0];
-  const newSimBoosts = updateCompanySimBoosts(companyId, pkg.simBoosts);
-  return {
-    payment: {
-      sku: pkg.sku,
+  return runInTransaction(async () => {
+    const newSimBoosts = updateCompanySimBoosts(companyId, pkg.simBoosts);
+    return {
+      payment: {
+        sku: pkg.sku,
+        simBoosts: pkg.simBoosts,
+        price: pkg.price,
+        currency: pkg.currency
+      },
       simBoosts: pkg.simBoosts,
-      price: pkg.price,
-      currency: pkg.currency
-    },
-    simBoosts: pkg.simBoosts,
-    companySimboosts: newSimBoosts,
-    supporter: pkg.isSupporter,
-    starting: pkg.starting
-  };
+      companySimboosts: newSimBoosts,
+      supporter: pkg.isSupporter,
+      starting: pkg.starting
+    };
+  }, { immediate: true });
 }
 
 
@@ -143,13 +146,12 @@ export function getPlayerBonusesList(playerId: number) {
 }
 
 
-export function exchangeSimBoosts(companyId: number, amount: number) {
+export async function exchangeSimBoosts(companyId: number, amount: number) {
   if (!Number.isSafeInteger(amount) || amount <= 0) {
     throw new Error('Exchange amount must be a positive integer');
   }
 
-  db.exec('BEGIN IMMEDIATE');
-  try {
+  return runInTransaction(async () => {
     const comp = getCompanyById(companyId);
     if (!comp || comp.simboosts < amount) {
       throw new Error('Insufficient SimBoosts');
@@ -158,7 +160,6 @@ export function exchangeSimBoosts(companyId: number, amount: number) {
     const cashAmount = amount * 100;
     updateCompanySimBoosts(companyId, -amount);
     const newMoney = updateCompanyMoney(companyId, cashAmount);
-    db.exec('COMMIT');
 
     const updatedComp = getCompanyById(companyId);
     return {
@@ -169,16 +170,12 @@ export function exchangeSimBoosts(companyId: number, amount: number) {
       simBoostsDeducted: amount,
       message: `Exchanged ${amount} SimBoosts for $${cashAmount.toLocaleString()}`
     };
-  } catch (err) {
-    db.exec('ROLLBACK');
-    throw err;
-  }
+  }, { immediate: true });
 }
 
-export function unlockBuildingSlot(companyId: number) {
+export async function unlockBuildingSlot(companyId: number) {
   const costs = [50, 100, 500, 500];
-  db.exec('BEGIN IMMEDIATE');
-  try {
+  return runInTransaction(async () => {
     const comp = getCompanyById(companyId);
     if (!comp) throw new Error('Company not found');
 
@@ -200,7 +197,6 @@ export function unlockBuildingSlot(companyId: number) {
       WHERE company_id = ?
     `).run(newSlots, companyId);
     if (updated.changes !== 1) throw new Error('Company not found');
-    db.exec('COMMIT');
 
     const updatedComp = getCompanyById(companyId);
     return {
@@ -209,15 +205,11 @@ export function unlockBuildingSlot(companyId: number) {
       simBoosts: updatedComp?.simboosts ?? 0,
       extraBuildingSlots: newSlots
     };
-  } catch (err) {
-    db.exec('ROLLBACK');
-    throw err;
-  }
+  }, { immediate: true });
 }
 
-export function unlockDisplayCaseSlot(companyId: number) {
-  db.exec('BEGIN IMMEDIATE');
-  try {
+export async function unlockDisplayCaseSlot(companyId: number) {
+  return runInTransaction(async () => {
     const comp = getCompanyById(companyId);
     if (!comp || comp.simboosts < 50) {
       throw new Error('Need at least 50 SimBoosts to unlock a display case slot');
@@ -237,7 +229,6 @@ export function unlockDisplayCaseSlot(companyId: number) {
       WHERE company_id = ?
     `).run(newSlots, companyId);
     if (updated.changes !== 1) throw new Error('Company not found');
-    db.exec('COMMIT');
 
     const updatedComp = getCompanyById(companyId);
     return {
@@ -246,15 +237,11 @@ export function unlockDisplayCaseSlot(companyId: number) {
       simBoosts: updatedComp?.simboosts ?? 0,
       displayCaseSlots: newSlots
     };
-  } catch (err) {
-    db.exec('ROLLBACK');
-    throw err;
-  }
+  }, { immediate: true });
 }
 
-export function unlockExecutiveSlot(companyId: number) {
-  db.exec('BEGIN IMMEDIATE');
-  try {
+export async function unlockExecutiveSlot(companyId: number) {
+  return runInTransaction(async () => {
     const comp = getCompanyById(companyId);
     if (!comp || comp.simboosts < 100) {
       throw new Error('Need at least 100 SimBoosts to unlock an executive slot');
@@ -274,7 +261,6 @@ export function unlockExecutiveSlot(companyId: number) {
       WHERE company_id = ?
     `).run(newSlots, companyId);
     if (updated.changes !== 1) throw new Error('Company not found');
-    db.exec('COMMIT');
 
     const updatedComp = getCompanyById(companyId);
     return {
@@ -283,15 +269,11 @@ export function unlockExecutiveSlot(companyId: number) {
       simBoosts: updatedComp?.simboosts ?? 0,
       extraExecutiveSlots: newSlots
     };
-  } catch (err) {
-    db.exec('ROLLBACK');
-    throw err;
-  }
+  }, { immediate: true });
 }
 
-export function unlockTagSlot(companyId: number) {
-  db.exec('BEGIN IMMEDIATE');
-  try {
+export async function unlockTagSlot(companyId: number) {
+  return runInTransaction(async () => {
     const comp = getCompanyById(companyId);
     if (!comp || comp.simboosts < 200) {
       throw new Error('Need at least 200 SimBoosts to unlock a search tag slot');
@@ -311,7 +293,6 @@ export function unlockTagSlot(companyId: number) {
       WHERE company_id = ?
     `).run(newTags, companyId);
     if (updated.changes !== 1) throw new Error('Company not found');
-    db.exec('COMMIT');
 
     const updatedComp = getCompanyById(companyId);
     return {
@@ -320,16 +301,12 @@ export function unlockTagSlot(companyId: number) {
       simBoosts: updatedComp?.simboosts ?? 0,
       maxTags: newTags
     };
-  } catch (err) {
-    db.exec('ROLLBACK');
-    throw err;
-  }
+  }, { immediate: true });
 }
 
-export function rushProduction(companyId: number, buildingId: number, queueId?: number) {
+export async function rushProduction(companyId: number, buildingId: number, queueId?: number) {
   const cost = 1;
-  db.exec('BEGIN IMMEDIATE');
-  try {
+  return runInTransaction(async () => {
     const comp = getCompanyById(companyId);
     if (!comp || comp.simboosts < cost) {
       throw new Error('Need at least 1 SimBoost to rush production');
@@ -371,7 +348,6 @@ export function rushProduction(companyId: number, buildingId: number, queueId?: 
       WHERE id = ? AND company_id = ?
     `).run(buildingId, companyId);
     if (updatedBuilding.changes !== 1) throw new Error('Building not found');
-    db.exec('COMMIT');
 
     const latestBuilding = getBuildingById(buildingId);
     const updatedComp = getCompanyById(companyId);
@@ -382,16 +358,12 @@ export function rushProduction(companyId: number, buildingId: number, queueId?: 
       building: latestBuilding ? formatBuilding(latestBuilding) : null,
       queue: getBuildingQueue(companyId, buildingId)
     };
-  } catch (err) {
-    db.exec('ROLLBACK');
-    throw err;
-  }
-
+  }, { immediate: true });
 }
-export function rushBuildingUpgradeOrConstruction(companyId: number, buildingId: number) {
+
+export async function rushBuildingUpgradeOrConstruction(companyId: number, buildingId: number) {
   const cost = 5;
-  db.exec('BEGIN IMMEDIATE');
-  try {
+  return runInTransaction(async () => {
     const comp = getCompanyById(companyId);
     if (!comp || comp.simboosts < cost) {
       throw new Error('Need at least 5 SimBoosts to rush construction');
@@ -402,13 +374,17 @@ export function rushBuildingUpgradeOrConstruction(companyId: number, buildingId:
       throw new Error('Building not found');
     }
 
+    const busyUntilMs = building.busy_until ? new Date(building.busy_until).getTime() : 0;
+    if (busyUntilMs <= Date.now()) {
+      throw new Error('Building is not under construction or upgrade');
+    }
+
     updateCompanySimBoosts(companyId, -cost);
     const updated = db.prepare(`
       UPDATE buildings SET busy_until = NULL
       WHERE id = ? AND company_id = ?
     `).run(buildingId, companyId);
     if (updated.changes !== 1) throw new Error('Building not found');
-    db.exec('COMMIT');
 
     const updatedBuilding = getBuildingById(buildingId);
     const updatedComp = getCompanyById(companyId);
@@ -418,8 +394,5 @@ export function rushBuildingUpgradeOrConstruction(companyId: number, buildingId:
       simBoosts: updatedComp?.simboosts ?? 0,
       building: updatedBuilding ? formatBuilding(updatedBuilding) : null
     };
-  } catch (err) {
-    db.exec('ROLLBACK');
-    throw err;
-  }
+  }, { immediate: true });
 }
