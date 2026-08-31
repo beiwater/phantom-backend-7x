@@ -25,14 +25,32 @@ export async function handleRequest(req: IncomingMessage, res: ServerResponse) {
   const pathname = parsedUrl.pathname;
   const method = req.method || 'GET';
 
-  // Handle CORS preflight
+  // Handle CORS preflight without combining wildcard origins and credentials.
+  const requestOrigin = req.headers.origin;
+  const requestHost = req.headers.host;
+  const allowedOrigin = requestOrigin === undefined
+    ? '*'
+    : (requestOrigin === CONFIG.BASE_URL ||
+       requestOrigin === `http://${requestHost}` ||
+       requestOrigin === `https://${requestHost}`)
+      ? requestOrigin
+      : '';
+  res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
+  if (allowedOrigin && allowedOrigin !== '*') {
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Vary', 'Origin');
+  }
+
   if (method === 'OPTIONS') {
-    res.writeHead(204, {
-      'Access-Control-Allow-Origin': '*',
+    const headers: Record<string, string> = {
+      'Access-Control-Allow-Origin': allowedOrigin,
       'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-CSRFToken',
-      'Access-Control-Allow-Credentials': 'true'
-    });
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-CSRFToken'
+    };
+    if (allowedOrigin && allowedOrigin !== '*') {
+      headers['Access-Control-Allow-Credentials'] = 'true';
+    }
+    res.writeHead(204, headers);
     res.end();
     return;
   }

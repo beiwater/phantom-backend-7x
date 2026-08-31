@@ -5,7 +5,7 @@ import {
   destroySession,
   switchSessionCompany
 } from '../auth/session.ts';
-import { registerPlayer, authenticatePlayer, db } from '../db/database.ts';
+import { registerPlayer, authenticatePlayer, registerOrAuthenticatePlayer, db } from '../db/database.ts';
 import {
   getAuthData,
   getPlayerCompanies,
@@ -27,7 +27,7 @@ export async function handleAuthRoutes(
   currentCompanyId: number | null
 ): Promise<boolean> {
   // Signout / Logout
-  if (pathname === '/signout/' || pathname === '/zh-cn/signout/' || pathname === '/logout/') {
+  if (pathname === '/signout/' || pathname === '/zh-cn/signout/' || pathname === '/logout/' || pathname.endsWith('/signout/')) {
     if (sessionToken) destroySession(sessionToken);
     res.writeHead(302, {
       'Location': '/zh-cn/',
@@ -37,11 +37,62 @@ export async function handleAuthRoutes(
     return true;
   }
 
+  // Tutorial & Direct Form Signup POST Handler: /tutorial/, /zh-cn/tutorial/, /:locale/tutorial/...
+  const tutorialPostMatch = pathname.match(/^(?:\/[a-zA-Z0-9_-]+)?\/tutorial\/?(?:\d+\/?)?$/);
+  if (tutorialPostMatch && method === 'POST') {
+    const body = await readJsonBody<{
+      email?: string;
+      password?: string;
+      name?: string;
+      uuid?: string;
+      brand?: string;
+      countryCode?: string;
+    }>(req);
+
+    try {
+      const auth = registerOrAuthenticatePlayer(body.email, body.password, body.name);
+      const token = createSession(auth.playerId, auth.companyId);
+      res.writeHead(302, {
+        'Location': '/zh-cn/landscape/',
+        'Set-Cookie': [
+          `sessionid=${token}; Path=/; HttpOnly; SameSite=Lax`,
+          'django_language=zh-cn; Path=/; SameSite=Lax'
+        ]
+      });
+      res.end();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      res.writeHead(302, {
+        'Location': `/zh-cn/signup/?error=${encodeURIComponent(msg)}`
+      });
+      res.end();
+    }
+    return true;
+  }
+
+  // Tutorial GET Handler -> Redirect directly to landscape
+  if (tutorialPostMatch && method === 'GET') {
+    let token = sessionToken;
+    if (!token) {
+      const auth = registerOrAuthenticatePlayer();
+      token = createSession(auth.playerId, auth.companyId);
+    }
+    res.writeHead(302, {
+      'Location': '/zh-cn/landscape/',
+      'Set-Cookie': [
+        `sessionid=${token}; Path=/; HttpOnly; SameSite=Lax`,
+        'django_language=zh-cn; Path=/; SameSite=Lax'
+      ]
+    });
+    res.end();
+    return true;
+  }
+
   // Email Login
   if (pathname === '/api/v2/auth/email/auth/' && method === 'POST') {
     const body = await readJsonBody<{ email: string; password: string }>(req);
     try {
-      const auth = authenticatePlayer(body.email, body.password);
+      const auth = registerOrAuthenticatePlayer(body.email, body.password);
       const token = createSession(auth.playerId, auth.companyId);
       res.writeHead(200, {
         'Content-Type': 'application/json',
@@ -57,9 +108,9 @@ export async function handleAuthRoutes(
 
   // Email Register
   if (pathname === '/api/v2/auth/email/connect/' && method === 'POST') {
-    const body = await readJsonBody<{ email: string; password: string; company?: string }>(req);
+    const body = await readJsonBody<{ email: string; password: string; company?: string; name?: string }>(req);
     try {
-      const auth = registerPlayer(body.email, body.password, body.company);
+      const auth = registerOrAuthenticatePlayer(body.email, body.password, body.company || body.name);
       const token = createSession(auth.playerId, auth.companyId);
       res.writeHead(200, {
         'Content-Type': 'application/json',
@@ -70,6 +121,29 @@ export async function handleAuthRoutes(
       const msg = err instanceof Error ? err.message : String(err);
       sendJson(res, { error: msg }, 400);
     }
+    return true;
+  }
+
+  // Device / Guest Login
+  if ((pathname === '/api/v2/auth/device/auth/' || pathname === '/api/v2/auth/device/connect/') && method === 'POST') {
+    try {
+      const auth = registerOrAuthenticatePlayer();
+      const token = createSession(auth.playerId, auth.companyId);
+      res.writeHead(200, {
+        'Content-Type': 'application/json',
+        'Set-Cookie': `sessionid=${token}; Path=/; HttpOnly; SameSite=Lax`
+      });
+      res.end(JSON.stringify({ status: 'redirect', redirectUrl: '/zh-cn/landscape/' }));
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      sendJson(res, { error: msg }, 400);
+    }
+    return true;
+  }
+
+  // Push Devices Registration: /api/v2/players/push-devices/
+  if (pathname.startsWith('/api/') && pathname.includes('/push-devices/')) {
+    sendJson(res, { status: 'ok' });
     return true;
   }
 
@@ -116,7 +190,7 @@ export async function handleAuthRoutes(
   }
 
   // Referrals
-  if (pathname.includes('/referral/')) {
+  if (pathname.startsWith('/api/') && pathname.includes('/referral/')) {
     sendJson(res, {
       referrals: [],
       referralLink: 'http://127.0.0.1:3000/zh-cn/signup/?ref=private_server',
@@ -126,10 +200,18 @@ export async function handleAuthRoutes(
   }
 
   // Tags
-  if (pathname.includes('/tags/')) {
+  if (method === 'GET' && pathname.startsWith('/api/') && pathname.includes('/tags/')) {
     sendJson(res, { tags: [] });
     return true;
   }
+
+  // Private company note lookup used by the public profile page.
+  const companyNoteMatch = pathname.match(/^\/api\/v2\/companies\/(me|\d+)\/note\/(\d+)\/$/);
+  if (companyNoteMatch && method === 'GET') {
+    sendJson(res, { note: '' });
+    return true;
+  }
+
 
   // Personal Data
   const personalDataMatch = pathname.match(/^\/api\/v2\/players\/(\d+|me)\/personal-data\/$/);
@@ -161,41 +243,156 @@ export async function handleAuthRoutes(
     return true;
   }
 
+  // Public company profile lookup: /api/v3/companies-by-company/:realm/:name/
+  const companyByNameMatch = pathname.match(/^\/api\/v3\/companies-by-company\/(\d+)\/(.+?)(?:\/)?$/);
+  if (companyByNameMatch && method === 'GET') {
+    const realmId = Number(companyByNameMatch[1]);
+    let slug: string;
+    try {
+      slug = decodeURIComponent(companyByNameMatch[2]);
+    } catch {
+      sendJson(res, { error: 'Invalid company name' }, 400);
+      return true;
+    }
+
+    const companies = db.prepare(`
+      SELECT company_id, player_id, name, logo, level, rating, created_at, note,
+             extra_building_slots, realm_id
+      FROM companies
+      WHERE realm_id = ?
+      ORDER BY id ASC
+    `).all(realmId) as unknown as Array<{
+      company_id: number;
+      player_id: number;
+      name: string;
+      logo: string;
+      level: number;
+      rating: string;
+      created_at: string;
+      note: string;
+      extra_building_slots?: number;
+      realm_id: number;
+    }>;
+    const comp = companies.find(company => company.name.replace(/[\/\\\s]/g, '-') === slug);
+    if (!comp) {
+      sendJson(res, { error: 'Company not found' }, 404);
+      return true;
+    }
+
+    const buildings = getCompanyBuildings(comp.company_id);
+    const buildingValue = buildings.reduce(
+      (total, building) => total + (Number(building.cost) || 0),
+      0
+    );
+    const extraBuildingSlots = Number(comp.extra_building_slots) || 0;
+    sendJson(res, {
+      companyPublicInfo: {
+        id: comp.company_id,
+        company: comp.name,
+        logo: comp.logo || '',
+        realmId: comp.realm_id,
+        deleted: false,
+        moderatorSign: false,
+        level: comp.level || 5,
+        levelKind: 'FamilyBusiness',
+        hqImage: '',
+        note: comp.note || '',
+        maxBuildings: 10,
+        rank: null,
+        evaRank: null,
+        ratingCode: comp.rating || 'BBB',
+        dateJoined: comp.created_at,
+        dateReset: null,
+        lastSeen: 'online',
+        productionModifier: 0,
+        salesModifier: 0,
+        ratingBracket: 'A- to BBB',
+        courseId: null,
+        countryCodeIsoUserSet: '',
+        extraBuildingSlots,
+        online: 'online'
+      },
+      history: {
+        value: (Number(comp.money) || 0) + buildingValue,
+        buildingValue,
+        patentsValue: 0,
+        bondsPayable: 0
+      },
+      infrastructure: {
+        recreationBonus: 0,
+        workers: 300,
+        administrationOverhead: 1,
+        buildings
+      },
+      player: {
+        id: comp.player_id,
+        communicationRestricted: false,
+        timezoneOffset: 0,
+        supporter: false
+      },
+      previousNames: [],
+      governmentOrderTierIndex: null
+    });
+    return true;
+  }
+
   // Company Profile & Edit
   const companyMatch = pathname.match(/^\/api\/v3\/companies\/(\d+|me)\/$/);
   if (companyMatch) {
-    const targetCompId = companyMatch[1] === 'me' ? (currentCompanyId || 4259175) : Number(companyMatch[1]);
+    const requestedCompany = companyMatch[1];
+    const targetCompId = requestedCompany === 'me' ? currentCompanyId : Number(requestedCompany);
+    if (!targetCompId) {
+      sendJson(res, { error: 'Unauthorized' }, 401);
+      return true;
+    }
+
     if (method === 'PATCH') {
+      if (!currentCompanyId || targetCompId !== currentCompanyId) {
+        sendJson(res, { error: 'Unauthorized' }, 401);
+        return true;
+      }
       const body = await readJsonBody<{ level?: number; note?: string; name?: string }>(req);
+      const company = getCompanyById(currentCompanyId);
+      if (!company) {
+        sendJson(res, { error: 'Company not found' }, 404);
+        return true;
+      }
       if (body.level === 0) {
-        resetCompany(targetCompId);
+        resetCompany(currentCompanyId);
         sendJson(res, { status: 'ok', message: 'Company reset successful' });
         return true;
       }
-      if (body.note !== undefined) db.prepare('UPDATE companies SET note = ? WHERE company_id = ?').run(body.note, targetCompId);
-      if (body.name !== undefined) db.prepare('UPDATE companies SET name = ? WHERE company_id = ?').run(body.name, targetCompId);
-      sendJson(res, { status: 'ok', company: getCompanyById(targetCompId) });
+      if (body.note !== undefined) {
+        db.prepare('UPDATE companies SET note = ? WHERE company_id = ?').run(String(body.note), currentCompanyId);
+      }
+      if (body.name !== undefined) {
+        db.prepare('UPDATE companies SET name = ? WHERE company_id = ?').run(String(body.name), currentCompanyId);
+      }
+      sendJson(res, { status: 'ok', company: getCompanyById(currentCompanyId) });
       return true;
     }
 
     const comp = getCompanyById(targetCompId);
+    if (!comp) {
+      sendJson(res, { error: 'Company not found' }, 404);
+      return true;
+    }
     const buildings = getCompanyBuildings(targetCompId);
     sendJson(res, {
       companyPublicInfo: {
         id: targetCompId,
-        company: comp ? comp.name : 'Private Co',
-        logo: comp ? comp.logo : '',
-        realmId: comp ? comp.realm_id : 0,
+        company: comp.name,
+        logo: comp.logo,
+        realmId: comp.realm_id,
         deleted: false,
         moderatorSign: false,
-        level: comp ? comp.level : 5,
+        level: comp.level,
         levelKind: 'FamilyBusiness',
-        hqImage: '',
-        note: comp ? comp.note : ''
+        note: comp.note
       },
       history: [],
       infrastructure: { recreationBonus: 0, workers: 300, administrationOverhead: 1.0, buildings },
-      player: { id: comp ? comp.player_id : 2920233, supporter: false, certificates: 0, contestWins: 0 },
+      player: { id: comp.player_id, supporter: false, certificates: 0, contestWins: 0 },
       previousNames: [],
       governmentOrderTierIndex: 0
     });

@@ -84,7 +84,7 @@ export async function handleFinanceRoutes(
   }
 
   // 6. Balance Sheet
-  if (pathname.includes('/balance-sheet/')) {
+  if (pathname.startsWith('/api/') && pathname.includes('/balance-sheet/')) {
     if (currentCompanyId) settleDueLoans(currentCompanyId);
     const comp = currentCompanyId ? getCompanyById(currentCompanyId) : null;
     const companyId = currentCompanyId || 0;
@@ -111,34 +111,81 @@ export async function handleFinanceRoutes(
 
     const money = comp ? Number(comp.money) || 0 : 0;
     const totalAssets = money + inventory + buildings + bondsHeld;
+    const date = new Date().toISOString();
+    const nowFrom = new Date(Date.now() - 86400000).toISOString();
+    const bldVal = Math.max(buildings, 17250);
+    const realTotalAssets = money + inventory + bldVal + bondsHeld;
     sendJson(res, {
+      date,
+      dateFrom: nowFrom,
+      cash: money,
+      cashReservedForOrders: 0,
+      accountsReceivable: 0,
+      materials: inventory,
+      research: 0,
+      workInProcess: 0,
+      finishedGoods: inventory,
+      valuationAllowance: 0,
+      deposits: 0,
+      investmentInBonds: bondsHeld,
+      buildings: bldVal,
+      constructionInProgress: 0,
+      patents: 0,
+      bondsPayable: liabilities,
+      contributedCapital: 100000,
+      retainedEarnings: Math.max(0, realTotalAssets - liabilities - 100000),
       money,
       inventory,
-      buildings,
       bonds: bondsHeld,
-      totalAssets,
+      totalAssets: realTotalAssets,
       liabilities,
-      equity: totalAssets - liabilities
+      equity: realTotalAssets - liabilities
     });
     return true;
   }
 
   // 7. Income Statement
-  if (pathname.includes('/income-statement/')) {
+  if (pathname.startsWith('/api/') && pathname.includes('/income-statement/')) {
     const comp = getCompanyById(effectiveCompanyId);
     const money = comp ? Number(comp.money) || 0 : 100000;
+    const nowTo = new Date().toISOString();
+    const nowFrom = new Date(Date.now() - 86400000).toISOString();
+    const netInc = Math.round(money * 0.10);
     sendJson(res, {
-      revenue: Math.round(money * 0.45),
+      isComputed: true,
+      date: nowTo,
+      dateFrom: nowFrom,
+      sales: Math.round(money * 0.45),
       cogs: Math.round(money * 0.25),
+      freightOut: 0,
+      constructionCosts: 0,
+      marketFees: Math.round(money * 0.01),
+      salariesCosts: Math.round(money * 0.08),
+      trainingCosts: 0,
+      poachingCosts: 0,
+      gameIncome: 0,
+      executiveRoyalties: 0,
+      gainOnSale: 0,
+      patentConversion: 0,
+      accountingOverhead: Math.round(money * 0.02),
+      donations: 0,
+      bondInterestIncome: 0,
+      bondInterestExpense: 0,
+      bondWriteoffs: 0,
+      bondDefaults: 0,
+      otherComprehensiveIncome: 0,
+      revenue: Math.round(money * 0.45),
       wages: Math.round(money * 0.08),
       adminOverhead: Math.round(money * 0.02),
-      netProfit: Math.round(money * 0.10)
+      netProfit: netInc,
+      netIncome: netInc,
+      economicValueAdded: 1500
     });
     return true;
   }
 
   // 8. Cashflow Statement
-  if (pathname.includes('/cashflow-statement/') || pathname.includes('/cashflow/')) {
+  if (pathname.startsWith('/api/') && (pathname.includes('/cashflow-statement/') || pathname.includes('/cashflow/'))) {
     const comp = getCompanyById(effectiveCompanyId);
     const money = comp ? Number(comp.money) || 0 : 100000;
     sendJson(res, {
@@ -149,9 +196,8 @@ export async function handleFinanceRoutes(
     });
     return true;
   }
-
   // 9. Past Finances & Overview: /api/v2/companies/:id/past-finances/, /api/v2/companies/:id/past-finances-overview/
-  if (pathname.includes('/past-finances/') || pathname.includes('/past-finances-overview/')) {
+  if (pathname.startsWith('/api/') && (pathname.includes('/past-finances/') || pathname.includes('/past-finances-overview/'))) {
     const comp = getCompanyById(effectiveCompanyId);
     const money = comp ? Number(comp.money) || 0 : 100000;
     const days = [];

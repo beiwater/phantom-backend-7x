@@ -4,4 +4,5 @@ node_modules/
 screenshots/
 test-results/
 *.sqlite-shm
+*.sqlite
 *.sqlite-wal

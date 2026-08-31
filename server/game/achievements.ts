@@ -125,28 +125,47 @@ export function getIndividualAchievements(companyId: number): IndividualAchievem
 }
 
 export function claimAchievement(companyId: number, achievementId: string) {
-  const ach = ALL_ACHIEVEMENTS.find(a => a.id === achievementId || String(a.id) === String(achievementId)) || ALL_ACHIEVEMENTS[0];
+  const ach = ALL_ACHIEVEMENTS.find(a => a.id === achievementId || String(a.id) === String(achievementId));
+  if (!ach) {
+    throw new Error('Achievement not found');
+  }
+
+  const comp = getCompanyById(companyId);
+  if (!comp) {
+    throw new Error('Company not found');
+  }
+
   const now = new Date().toISOString();
-
-  db.prepare(`
-    INSERT OR REPLACE INTO company_achievements (company_id, achievement_id, collected_at)
-    VALUES (?, ?, ?)
-  `).run(companyId, String(achievementId), now);
-
   const boostReward = ach.sim_boosts || 5;
   const cashReward = ach.reward || 5000;
 
-  updateCompanySimBoosts(companyId, boostReward);
-  updateCompanyMoney(companyId, cashReward);
+  db.exec('BEGIN');
+  try {
+    const inserted = db.prepare(`
+      INSERT OR IGNORE INTO company_achievements (company_id, achievement_id, collected_at)
+      VALUES (?, ?, ?)
+    `).run(companyId, ach.id, now);
+    if (inserted.changes !== 1) {
+      throw new Error('Achievement already claimed');
+    }
 
-  const updatedComp = getCompanyById(companyId);
-  return {
-    success: true,
-    sim_boosts: boostReward,
-    simboosts: updatedComp?.sim_boosts || 250,
-    reward: cashReward,
-    money: updatedComp?.money || 100000
-  };
+    const newSimBoosts = updateCompanySimBoosts(companyId, boostReward);
+    const newMoney = updateCompanyMoney(companyId, cashReward);
+    db.exec('COMMIT');
+
+    return {
+      success: true,
+      sim_boosts: boostReward,
+      simboosts: newSimBoosts,
+      simBoosts: newSimBoosts,
+      reward: cashReward,
+      money: newMoney,
+      moneyDelta: cashReward
+    };
+  } catch (err) {
+    db.exec('ROLLBACK');
+    throw err;
+  }
 }
 
 export function getAchievementsOverview(companyId: number) {
@@ -226,24 +245,7 @@ export function getDisplayCase(companyId: number) {
     SELECT * FROM display_case WHERE company_id = ? ORDER BY slot ASC
   `).all(companyId) as unknown as DisplayCaseRow[];
 
-  if (rows.length === 0) {
-    const seed = [
-      { slot: 1, kind: 3, quality: 12, title: 'Golden Apple' },
-      { slot: 2, kind: 24, quality: 10, title: 'Flagship Smartphone' }
-    ];
-    for (const s of seed) {
-      db.prepare(`
-        INSERT INTO display_case (company_id, slot, resource_kind, quality, title)
-        VALUES (?, ?, ?, ?, ?)
-      `).run(companyId, s.slot, s.kind, s.quality, s.title);
-    }
-  }
-
-  const current = db.prepare(`
-    SELECT * FROM display_case WHERE company_id = ? ORDER BY slot ASC
-  `).all(companyId) as unknown as DisplayCaseRow[];
-
-  return current.map(r => ({
+  return rows.map(r => ({
     slot: r.slot,
     resource: {
       kind: r.resource_kind,

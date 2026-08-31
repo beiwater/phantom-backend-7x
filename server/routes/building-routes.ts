@@ -18,7 +18,6 @@ import {
 import { consumeResource, addResource, getWarehouseItem } from '../game/warehouse.ts';
 import { updateCompanyMoney, getCompanyById } from '../game/company.ts';
 import { getResourceDef, calculateProductionTime } from '../game/constants.ts';
-
 const RETAIL_PRODUCTS: Record<string, number[]> = {
   G: [3, 4, 119, 7, 8, 9, 62],
   S: [11, 12, 60, 61],
@@ -175,17 +174,24 @@ export async function handleBuildingRoutes(
 
   // Buildings list & construct
   if (pathname === '/api/v2/companies/me/buildings/') {
-    const effectiveCompanyId = currentCompanyId || 4259175;
+    if (!currentCompanyId) {
+      sendJson(res, { error: 'Unauthorized' }, 401);
+      return true;
+    }
     if (method === 'GET') {
-      sendJson(res, getCompanyBuildings(effectiveCompanyId));
+      sendJson(res, getCompanyBuildings(currentCompanyId));
       return true;
     }
     if (method === 'POST') {
-      const body = await readJsonBody<{ kind?: string; position: string; id?: { id: string } | string }>(req);
+      const body = await readJsonBody<{ kind?: string; position?: string; id?: { id: string } | string }>(req);
       try {
         const kind = body.kind || (typeof body.id === 'object' && body.id ? body.id.id : body.id) || 'P';
-        const result = constructBuilding(effectiveCompanyId, String(kind), body.position);
+        if (!body.position) {
+          throw new Error('Building position is required');
+        }
+        const result = constructBuilding(currentCompanyId, String(kind), String(body.position));
         sendJson(res, {
+          ...(result.building || {}),
           building: result.building,
           cost: result.cost,
           resourcesConsumed: result.resourcesConsumed || []
@@ -198,47 +204,57 @@ export async function handleBuildingRoutes(
     }
   }
 
+
   // Building single upgrade & demolish
   const buildingActionMatch = pathname.match(/^\/api\/v2\/companies\/(?:\d+|me)\/buildings\/(\d+)\/$/) ||
                               pathname.match(/^\/api\/v2\/companies\/buildings\/(\d+)\/$/);
   if (buildingActionMatch) {
     const buildingId = Number(buildingActionMatch[1]);
-    const effectiveCompanyId = currentCompanyId || 4259175;
+    const building = getBuildingById(buildingId);
 
     if (method === 'GET') {
-      const b = getBuildingById(buildingId);
-      if (!b) {
+      if (!building) {
         sendJson(res, { error: 'Building not found' }, 404);
         return true;
       }
-      resolveFinishedProduction(b.company_id);
-      sendJson(res, formatBuilding(b));
+      resolveFinishedProduction(building.company_id);
+      sendJson(res, formatBuilding(building));
       return true;
+    }
+
+    if (method === 'PATCH' || method === 'DELETE') {
+      if (!currentCompanyId) {
+        sendJson(res, { error: 'Unauthorized' }, 401);
+        return true;
+      }
+      if (!building || building.company_id !== currentCompanyId) {
+        sendJson(res, { error: 'Unauthorized' }, 401);
+        return true;
+      }
     }
 
     if (method === 'PATCH') {
       const body = await readJsonBody<{ size?: number; name?: string; rebuild?: boolean }>(req);
       try {
         if (body.rebuild) {
-          const b = getBuildingById(buildingId);
-          if (b) {
-            const result = constructBuilding(effectiveCompanyId, b.kind, b.position);
-            sendJson(res, {
-              building: result.building,
-              cost: result.cost,
-              resourcesConsumed: result.resourcesConsumed || []
-            });
-            return true;
-          }
+          const result = constructBuilding(currentCompanyId, building.kind, building.position);
+          sendJson(res, {
+            ...(result.building || {}),
+            building: result.building,
+            cost: result.cost,
+            resourcesConsumed: result.resourcesConsumed || []
+          });
+          return true;
         }
-        if (body.name) {
-          db.prepare('UPDATE buildings SET name = ? WHERE id = ?').run(body.name, buildingId);
+        if (body.name !== undefined) {
+          db.prepare('UPDATE buildings SET name = ? WHERE id = ? AND company_id = ?')
+            .run(String(body.name), buildingId, currentCompanyId);
           const updated = getBuildingById(buildingId);
           sendJson(res, updated ? formatBuilding(updated) : null);
           return true;
         }
-        const sizeDelta = body.size !== undefined ? body.size : 1;
-        const result = upgradeBuilding(effectiveCompanyId, buildingId, sizeDelta);
+        const sizeDelta = body.size !== undefined ? Number(body.size) : 1;
+        const result = upgradeBuilding(currentCompanyId, buildingId, sizeDelta);
         sendJson(res, {
           building: result.building,
           cost: result.cost,
@@ -253,7 +269,7 @@ export async function handleBuildingRoutes(
 
     if (method === 'DELETE') {
       try {
-        const result = demolishBuilding(effectiveCompanyId, buildingId);
+        const result = demolishBuilding(currentCompanyId, buildingId);
         sendJson(res, result.building);
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -298,7 +314,7 @@ export async function handleBuildingRoutes(
   }
 
   // PA Quests
-  if (pathname.includes('/pa/quests/') || pathname.includes('/objectives/')) {
+  if (pathname.startsWith('/api/') && (pathname.includes('/pa/quests/') || pathname.includes('/objectives/'))) {
     sendJson(res, {
       quests: [
         { id: 1, title: '初创公司启航', description: '在农场排产苹果与种子，并在生鲜超市出售。', completed: true, reward: 500 }
@@ -307,23 +323,25 @@ export async function handleBuildingRoutes(
     return true;
   }
 
-  // Building production queue
   const queueMatch = pathname.match(/^\/api\/v2\/companies\/buildings\/(\d+)\/queue\/$/);
   if (queueMatch) {
     const buildingId = Number(queueMatch[1]);
     const building = getBuildingById(buildingId);
-    const effectiveCompanyId = building ? building.company_id : (currentCompanyId || 4259175);
+    if (!building) {
+      sendJson(res, { error: 'Building not found' }, 404);
+      return true;
+    }
+    if (!currentCompanyId || building.company_id !== currentCompanyId) {
+      sendJson(res, { error: 'Unauthorized' }, 401);
+      return true;
+    }
 
     if (method === 'GET') {
-      resolveFinishedProduction(effectiveCompanyId);
-      sendJson(res, getBuildingQueue(effectiveCompanyId, buildingId));
+      resolveFinishedProduction(currentCompanyId);
+      sendJson(res, getBuildingQueue(currentCompanyId, buildingId));
       return true;
     }
     if (method === 'POST') {
-      if (!currentCompanyId) {
-        sendJson(res, { error: 'Unauthorized' }, 401);
-        return true;
-      }
       const body = await readJsonBody<{
         kind: number;
         amount: number;
@@ -332,7 +350,7 @@ export async function handleBuildingRoutes(
       }>(req);
 
       try {
-        const result = queueProduction(currentCompanyId, buildingId, body.kind, body.amount);
+        const result = queueProduction(currentCompanyId, buildingId, Number(body.kind), Number(body.amount));
         sendJson(res, result.queue);
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);

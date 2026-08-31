@@ -5,7 +5,7 @@ import {
   DEMOLITION_REFUND_RATE,
   getResourceDef
 } from './constants.ts';
-import { getWarehouseItem, consumeResource } from './warehouse.ts';
+import { getWarehouseItem, getWarehouseItemExact, consumeResource, consumeResourceExactWithTransactions } from './warehouse.ts';
 import { updateCompanyMoney, getCompanyById } from './company.ts';
 
 export interface BuildingRow {
@@ -157,6 +157,17 @@ export function getBuildingById(buildingId: number): BuildingRow | null {
 export function getConstructionMaterials(sizeUnits: number): Array<{ kind: number; amount: number }> {
   return CONSTRUCTION_MATERIALS.map(m => ({ kind: m.kind, amount: m.perUnit * sizeUnits }));
 }
+function validateConstructionMaterials(companyId: number, sizeUnits: number) {
+  const materials = getConstructionMaterials(sizeUnits);
+  for (const req of materials) {
+    const stock = getWarehouseItemExact(companyId, req.kind, 0);
+    if (!stock || Number(stock.amount) < req.amount) {
+      throw new Error(`Insufficient construction materials: need ${req.amount} of resource #${req.kind}`);
+    }
+  }
+  return materials;
+}
+
 
 export function constructBuilding(companyId: number, kind: string, position: string) {
   const meta = getBuildingMeta(kind);
@@ -165,41 +176,72 @@ export function constructBuilding(companyId: number, kind: string, position: str
     throw new Error('Not enough money to construct building');
   }
 
-  // Check and consume construction materials if available
-  const materials = getConstructionMaterials(1);
-  const consumedMaterials: Array<{ db_letter: number; quality: number; amount: number }> = [];
-  for (const req of materials) {
-    const stock = getWarehouseItem(companyId, req.kind, 0);
-    if (stock && stock.amount >= req.amount) {
-      consumeResource(companyId, req.kind, 0, req.amount);
-      consumedMaterials.push({ db_letter: req.kind, quality: 0, amount: req.amount });
+  const materials = validateConstructionMaterials(companyId, 1);
+  const existing = db.prepare(`
+    SELECT id, busy_until FROM buildings WHERE company_id = ? AND position = ?
+  `).get(companyId, String(position)) as { id: number; busy_until: string | null } | undefined;
+  if (existing) {
+    const pending = db.prepare(`
+      SELECT COUNT(*) AS count FROM production_queues
+      WHERE building_id = ? AND resolved = 0
+    `).get(existing.id) as { count: number };
+    const retailOrders = db.prepare(`
+      SELECT COUNT(*) AS count FROM retail_orders WHERE building_id = ?
+    `).get(existing.id) as { count: number };
+    if (pending.count > 0 || retailOrders.count > 0) {
+      throw new Error('Position already has active building work');
+    }
+    if (existing.busy_until && new Date(existing.busy_until).getTime() > Date.now()) {
+      throw new Error('Building is still under construction or upgrade');
     }
   }
 
-  const newMoney = updateCompanyMoney(companyId, -meta.cost);
+  const consumedMaterials: Array<{ db_letter: number; quality: number; amount: number }> = [];
+  let newMoney = comp.money;
   const now = new Date().toISOString();
   const busyUntil = new Date(Date.now() + 10000).toISOString();
 
-  // Clean up any old building at this position
-  db.prepare('DELETE FROM buildings WHERE company_id = ? AND position = ?').run(companyId, String(position));
+  db.exec('BEGIN');
+  try {
+    for (const req of materials) {
+      const transactions = consumeResourceExactWithTransactions(companyId, req.kind, 0, req.amount);
+      if (!transactions) {
+        throw new Error(`Insufficient construction materials: need ${req.amount} of resource #${req.kind}`);
+      }
+      consumedMaterials.push({ db_letter: req.kind, quality: 0, amount: req.amount });
+    }
 
-  const res = db.prepare(`
-    INSERT INTO buildings (company_id, position, kind, size, name, cost, category, busy_until, created_at)
-    VALUES (?, ?, ?, 1, ?, ?, ?, ?, ?)
-  `).run(companyId, String(position), String(kind), String(meta.name), Number(meta.cost), String(meta.category), busyUntil, now);
+    newMoney = updateCompanyMoney(companyId, -meta.cost);
+    if (existing) {
+      db.prepare('DELETE FROM buildings WHERE id = ?').run(existing.id);
+    }
 
-  const newId = Number(res.lastInsertRowid);
-  const building = getBuildingById(newId);
+    const result = db.prepare(`
+      INSERT INTO buildings (company_id, position, kind, size, name, cost, category, busy_until, created_at)
+      VALUES (?, ?, ?, 1, ?, ?, ?, ?, ?)
+    `).run(companyId, String(position), String(kind), String(meta.name), Number(meta.cost), String(meta.category), busyUntil, now);
 
-  return {
-    building: building ? formatBuilding(building) : null,
-    cost: meta.cost,
-    moneyUpdate: newMoney,
-    resourcesConsumed: consumedMaterials
-  };
+    db.exec('COMMIT');
+    const newId = Number(result.lastInsertRowid);
+    const building = getBuildingById(newId);
+
+    return {
+      building: building ? formatBuilding(building) : null,
+      cost: meta.cost,
+      moneyUpdate: newMoney,
+      resourcesConsumed: consumedMaterials
+    };
+  } catch (err) {
+    db.exec('ROLLBACK');
+    throw err;
+  }
 }
 
 export function upgradeBuilding(companyId: number, buildingId: number, sizeDelta: number) {
+  if (!Number.isInteger(sizeDelta) || sizeDelta === 0) {
+    throw new Error('Building size change must be a non-zero integer');
+  }
+
   const building = getBuildingById(buildingId);
   if (!building || building.company_id !== companyId) {
     throw new Error('Building not found');
@@ -209,50 +251,58 @@ export function upgradeBuilding(companyId: number, buildingId: number, sizeDelta
   const unitCost = meta.cost || 6900;
 
   if (sizeDelta > 0) {
-    // Upgrade: cost scales with the target size, charged once for the whole delta
     const cost = unitCost * sizeDelta;
     const comp = getCompanyById(companyId);
     if (!comp || comp.money < cost) {
       throw new Error('Not enough money to upgrade building');
     }
 
-    // Check and consume construction materials if available
-    const materials = getConstructionMaterials(sizeDelta);
+    const materials = validateConstructionMaterials(companyId, sizeDelta);
     const consumedMaterials: Array<{ db_letter: number; quality: number; amount: number }> = [];
-    for (const req of materials) {
-      const stock = getWarehouseItem(companyId, req.kind, 0);
-      if (stock && stock.amount >= req.amount) {
-        consumeResource(companyId, req.kind, 0, req.amount);
+    const busyUntil = new Date(Date.now() + 10000).toISOString();
+    let newMoney = comp.money;
+
+    db.exec('BEGIN');
+    try {
+      for (const req of materials) {
+        const transactions = consumeResourceExactWithTransactions(companyId, req.kind, 0, req.amount);
+        if (!transactions) {
+          throw new Error(`Insufficient construction materials: need ${req.amount} of resource #${req.kind}`);
+        }
         consumedMaterials.push({ db_letter: req.kind, quality: 0, amount: req.amount });
       }
+
+      newMoney = updateCompanyMoney(companyId, -cost);
+      const newSize = building.size + sizeDelta;
+      db.prepare('UPDATE buildings SET size = ?, busy_until = ? WHERE id = ? AND company_id = ?')
+        .run(newSize, busyUntil, buildingId, companyId);
+      db.exec('COMMIT');
+
+      const updated = getBuildingById(buildingId);
+      return {
+        building: updated ? formatBuilding(updated) : null,
+        cost,
+        moneyUpdate: newMoney,
+        resourcesConsumed: consumedMaterials
+      };
+    } catch (err) {
+      db.exec('ROLLBACK');
+      throw err;
     }
-
-    const newMoney = updateCompanyMoney(companyId, -cost);
-    const newSize = building.size + sizeDelta;
-    const busyUntil = new Date(Date.now() + 10000).toISOString();
-    db.prepare('UPDATE buildings SET size = ?, busy_until = ? WHERE id = ?').run(newSize, busyUntil, buildingId);
-    const updated = getBuildingById(buildingId);
-
-    return {
-      building: updated ? formatBuilding(updated) : null,
-      cost,
-      moneyUpdate: newMoney,
-      resourcesConsumed: consumedMaterials
-    };
-  } else {
-    // Downgrade
-    const newSize = Math.max(1, building.size + sizeDelta);
-    db.prepare('UPDATE buildings SET size = ? WHERE id = ?').run(newSize, buildingId);
-    const updated = getBuildingById(buildingId);
-
-    return {
-      building: updated ? formatBuilding(updated) : null,
-      cost: 0,
-      moneyUpdate: getCompanyById(companyId)?.money || 0,
-      resourcesConsumed: []
-    };
   }
+
+  const newSize = Math.max(1, building.size + sizeDelta);
+  db.prepare('UPDATE buildings SET size = ? WHERE id = ? AND company_id = ?').run(newSize, buildingId, companyId);
+  const updated = getBuildingById(buildingId);
+
+  return {
+    building: updated ? formatBuilding(updated) : null,
+    cost: 0,
+    moneyUpdate: getCompanyById(companyId)?.money || 0,
+    resourcesConsumed: []
+  };
 }
+
 
 export function demolishBuilding(companyId: number, buildingId: number) {
   const building = getBuildingById(buildingId);

@@ -152,6 +152,37 @@ export function exchangeSimBoosts(companyId: number, amount: number) {
   };
 }
 
+export function unlockBuildingSlot(companyId: number) {
+  const comp = getCompanyById(companyId);
+  if (!comp) {
+    throw new Error('Company not found');
+  }
+
+  const row = db.prepare('SELECT extra_building_slots FROM companies WHERE company_id = ?').get(companyId) as { extra_building_slots?: number } | undefined;
+  const currentSlots = Math.max(0, Math.floor(Number(row?.extra_building_slots) || 0));
+  const costs = [50, 100, 500, 500];
+  if (currentSlots >= costs.length) {
+    throw new Error('Maximum building slots reached');
+  }
+  const cost = costs[currentSlots];
+
+  if (comp.simboosts < cost) {
+    throw new Error(`Need at least ${cost} SimBoosts to unlock an additional building slot`);
+  }
+
+  updateCompanySimBoosts(companyId, -cost);
+  const newSlots = currentSlots + 1;
+  db.prepare('UPDATE companies SET extra_building_slots = ? WHERE company_id = ?').run(newSlots, companyId);
+  const updatedComp = getCompanyById(companyId);
+
+  return {
+    success: true,
+    spent: cost,
+    simBoosts: updatedComp ? updatedComp.simboosts : 0,
+    extraBuildingSlots: newSlots
+  };
+}
+
 export function unlockDisplayCaseSlot(companyId: number) {
   const comp = getCompanyById(companyId);
   if (!comp || comp.simboosts < 50) {

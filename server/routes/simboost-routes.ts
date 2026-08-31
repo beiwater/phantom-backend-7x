@@ -9,6 +9,7 @@ import {
   unlockDisplayCaseSlot,
   unlockExecutiveSlot,
   unlockTagSlot,
+  unlockBuildingSlot,
   rushProduction,
   rushBuildingUpgradeOrConstruction
 } from '../game/simboosts.ts';
@@ -38,6 +39,22 @@ export async function handleSimboostRoutes(
   // 3. Player Bonuses: /api/v2/players/bonuses/ or /api/v2/player-bonuses/
   if ((pathname === '/api/v2/players/bonuses/' || pathname === '/api/v2/player-bonuses/') && method === 'GET') {
     sendJson(res, currentPlayerId ? getPlayerBonusesList(currentPlayerId) : []);
+    return true;
+  }
+
+  // Building slot unlock: POST /api/v2/unlock/
+  if (pathname === '/api/v2/unlock/' && method === 'POST') {
+    if (!currentCompanyId) {
+      sendJson(res, { error: 'Unauthorized' }, 401);
+      return true;
+    }
+    try {
+      const result = unlockBuildingSlot(currentCompanyId);
+      sendJson(res, result);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      sendJson(res, { error: msg }, 400);
+    }
     return true;
   }
 

@@ -124,23 +124,35 @@ export function settleMaturedBonds() {
 export function issueBonds(sellerCompanyId: number, amount: number, interestRate: number = 0.005) {
   const comp = getCompanyById(sellerCompanyId);
   if (!comp) throw new Error('Company not found');
+  if (!Number.isFinite(amount) || amount <= 0) {
+    throw new Error('Bond amount must be greater than zero');
+  }
+  if (!Number.isFinite(interestRate) || interestRate < 0 || interestRate > 1) {
+    throw new Error('Bond interest rate must be between 0 and 1');
+  }
 
   const now = new Date().toISOString();
   const maturityDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
-  // Seller receives cash immediately upon issuing — free money on issue is issue #23's problem, out of scope here
-  const newMoney = updateCompanyMoney(sellerCompanyId, amount);
+  db.exec('BEGIN');
+  try {
+    const res = db.prepare(`
+      INSERT INTO bonds (seller_company_id, buyer_company_id, interest_rate, amount, status, created_at, maturity_date)
+      VALUES (?, NULL, ?, ?, 'active', ?, ?)
+    `).run(sellerCompanyId, interestRate, amount, now, maturityDate);
+    db.exec('COMMIT');
 
-  const res = db.prepare(`
-    INSERT INTO bonds (seller_company_id, buyer_company_id, interest_rate, amount, status, created_at, maturity_date)
-    VALUES (?, NULL, ?, ?, 'active', ?, ?)
-  `).run(sellerCompanyId, interestRate, amount, now, maturityDate);
-
-  const bondId = Number(res.lastInsertRowid);
-  const row = db.prepare('SELECT * FROM bonds WHERE id = ?').get(bondId) as unknown as BondRow;
-  return {
-    bond: formatBond(row),
-    money: newMoney
-  };
+    const bondId = Number(res.lastInsertRowid);
+    const row = db.prepare('SELECT * FROM bonds WHERE id = ?').get(bondId) as unknown as BondRow;
+    return {
+      bond: formatBond(row),
+      // Issuing a bond creates a liability; it does not mint seller cash.
+      money: comp.money,
+      moneyDelta: 0
+    };
+  } catch (err) {
+    db.exec('ROLLBACK');
+    throw err;
+  }
 }
 
 export function buyBonds(buyerCompanyId: number, bondId: number) {
@@ -154,14 +166,34 @@ export function buyBonds(buyerCompanyId: number, bondId: number) {
     throw new Error('Not enough money to buy bond');
   }
 
-  const newMoney = updateCompanyMoney(buyerCompanyId, -b.amount);
-  db.prepare(`UPDATE bonds SET buyer_company_id = ? WHERE id = ?`).run(buyerCompanyId, bondId);
+  db.exec('BEGIN');
+  try {
+    const claimed = db.prepare(`
+      UPDATE bonds SET buyer_company_id = ?
+      WHERE id = ? AND status = 'active' AND buyer_company_id IS NULL
+    `).run(buyerCompanyId, bondId);
+    if (claimed.changes !== 1) {
+      throw new Error('Bond is no longer available');
+    }
 
-  const updated = db.prepare('SELECT * FROM bonds WHERE id = ?').get(bondId) as unknown as BondRow;
-  return {
-    bond: formatBond(updated),
-    money: newMoney
-  };
+    const newMoney = updateCompanyMoney(buyerCompanyId, -b.amount);
+    // Seeded NPC listings have no company ledger. Real issuers receive the
+    // face value only when a buyer actually purchases the bond.
+    if (getCompanyById(b.seller_company_id)) {
+      updateCompanyMoney(b.seller_company_id, b.amount);
+    }
+    db.exec('COMMIT');
+
+    const updated = db.prepare('SELECT * FROM bonds WHERE id = ?').get(bondId) as unknown as BondRow;
+    return {
+      bond: formatBond(updated),
+      money: newMoney,
+      moneyDelta: -b.amount
+    };
+  } catch (err) {
+    db.exec('ROLLBACK');
+    throw err;
+  }
 }
 
 export function callBonds(sellerCompanyId: number, bondId: number) {

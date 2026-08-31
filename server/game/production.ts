@@ -44,11 +44,23 @@ export function resolveFinishedProduction(companyId: number) {
     SELECT * FROM production_queues
     WHERE company_id = ? AND finishes_at <= ? AND resolved = 0
   `).all(companyId, now) as unknown as Array<QueueRow & { quality?: number }>;
+  if (finished.length === 0) return;
 
-  for (const q of finished) {
-    db.prepare('UPDATE production_queues SET resolved = 1 WHERE id = ?').run(q.id);
-    // Legacy committed sqlite may lack the quality column: default 0.
-    addResource(q.company_id, q.kind, q.quality ?? 0, q.amount, { workers: 10, admin: 1 });
+  db.exec('BEGIN');
+  try {
+    for (const q of finished) {
+      const claimed = db.prepare(`
+        UPDATE production_queues SET resolved = 1
+        WHERE id = ? AND company_id = ? AND resolved = 0
+      `).run(q.id, companyId);
+      if (claimed.changes !== 1) continue;
+      // Legacy committed sqlite may lack the quality column: default 0.
+      addResource(q.company_id, q.kind, q.quality ?? 0, q.amount, { workers: 10, admin: 1 });
+    }
+    db.exec('COMMIT');
+  } catch (err) {
+    db.exec('ROLLBACK');
+    throw err;
   }
 }
 
@@ -57,10 +69,9 @@ export function getBuildingQueue(companyId: number, buildingId: number) {
 
   const rows = db.prepare(`
     SELECT * FROM production_queues
-    WHERE building_id = ? AND resolved = 0
+    WHERE building_id = ? AND company_id = ? AND resolved = 0
     ORDER BY id ASC
-  `).all(buildingId) as unknown as QueueRow[];
-
+  `).all(buildingId, companyId) as unknown as QueueRow[];
   return rows.map(formatQueueItem);
 }
 
@@ -90,8 +101,8 @@ export function queueProduction(companyId: number, buildingId: number, resourceK
     const pending = db.prepare(`
       SELECT COUNT(*) AS count
       FROM production_queues
-      WHERE building_id = ? AND resolved = 0
-    `).get(buildingId) as { count: number };
+      WHERE building_id = ? AND company_id = ? AND resolved = 0
+    `).get(buildingId, companyId) as { count: number };
     if (pending.count > 0) {
       throw new Error('Building is busy');
     }
@@ -99,7 +110,7 @@ export function queueProduction(companyId: number, buildingId: number, resourceK
 
   const resourceTransactions: ResourceTransaction[] = [];
 
-  // Check input materials before changing any warehouse rows.
+  // Preflight all input materials before opening the mutation transaction.
   if (resDef.producedFrom) {
     for (const [reqKindStr, reqPerUnit] of Object.entries(resDef.producedFrom)) {
       const reqKind = Number(reqKindStr);
@@ -109,17 +120,6 @@ export function queueProduction(companyId: number, buildingId: number, resourceK
         throw new Error(`Insufficient materials: need ${totalReq} of resource #${reqKind}`);
       }
     }
-
-    // Consume materials and retain the exact quality tiers used by the UI.
-    for (const [reqKindStr, reqPerUnit] of Object.entries(resDef.producedFrom)) {
-      const reqKind = Number(reqKindStr);
-      const totalReq = reqPerUnit * amount;
-      const transactions = consumeResourceWithTransactions(companyId, reqKind, 0, totalReq);
-      if (!transactions) {
-        throw new Error(`Insufficient materials: need ${totalReq} of resource #${reqKind}`);
-      }
-      resourceTransactions.push(...transactions);
-    }
   }
 
   const duration = calculateProductionTime(resourceKind, amount, building.size);
@@ -127,15 +127,37 @@ export function queueProduction(companyId: number, buildingId: number, resourceK
   const quality = getProductionQualityCap(companyId, resourceKind);
   const finishDate = new Date(now.getTime() + duration * 1000);
 
-  const res = db.prepare(`
-    INSERT INTO production_queues (building_id, company_id, kind, quality, amount, duration_seconds, started_at, finishes_at, resolved)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)
-  `).run(buildingId, companyId, resourceKind, quality, amount, duration, now.toISOString(), finishDate.toISOString());
+  db.exec('BEGIN');
+  try {
+    if (resDef.producedFrom) {
+      for (const [reqKindStr, reqPerUnit] of Object.entries(resDef.producedFrom)) {
+        const reqKind = Number(reqKindStr);
+        const totalReq = reqPerUnit * amount;
+        const transactions = consumeResourceWithTransactions(companyId, reqKind, 0, totalReq);
+        if (!transactions) {
+          throw new Error(`Insufficient materials: need ${totalReq} of resource #${reqKind}`);
+        }
+        resourceTransactions.push(...transactions);
+      }
+    }
 
-  // Extend building busy_until past any existing busy window
-  const busyUntil = new Date(Math.max(busyUntilMs, finishDate.getTime()));
-  db.prepare('UPDATE buildings SET busy_until = ? WHERE id = ?').run(busyUntil.toISOString(), buildingId);
+    db.prepare(`
+      INSERT INTO production_queues (building_id, company_id, kind, quality, amount, duration_seconds, started_at, finishes_at, resolved)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)
+    `).run(buildingId, companyId, resourceKind, quality, amount, duration, now.toISOString(), finishDate.toISOString());
 
+    // Extend building busy_until past any existing busy window.
+    const busyUntil = new Date(Math.max(busyUntilMs, finishDate.getTime()));
+    const updated = db.prepare('UPDATE buildings SET busy_until = ? WHERE id = ? AND company_id = ?')
+      .run(busyUntil.toISOString(), buildingId, companyId);
+    if (updated.changes !== 1) {
+      throw new Error('Building not found');
+    }
+    db.exec('COMMIT');
+  } catch (err) {
+    db.exec('ROLLBACK');
+    throw err;
+  }
   const updatedBuilding = getBuildingById(buildingId);
   const queue = getBuildingQueue(companyId, buildingId);
 

@@ -1,5 +1,7 @@
 import { db } from '../db/database.ts';
 import { getResourceDef } from './constants.ts';
+import { getCompanyById } from './company.ts';
+import { consumeResourceExactWithTransactions, getWarehouseItemExact } from './warehouse.ts';
 
 export interface ResearchRow {
   id: number;
@@ -23,6 +25,21 @@ const DISCIPLINES: Record<number, string> = {
   11: 'Fashion research',
   12: 'Recipes research'
 };
+const RESEARCH_RESOURCE_BY_DISCIPLINE: Record<number, number> = {
+  1: 29,
+  2: 30,
+  3: 31,
+  4: 32,
+  5: 33,
+  6: 34,
+  7: 35,
+  8: 58,
+  9: 100,
+  10: 113,
+  11: 59,
+  12: 145
+};
+
 
 // Coarse mapping: producedAt building letter -> research discipline.
 // Assumptions: extraction buildings (Oil rig, Mine, Quarry) -> Mining; Refinery/Gas station -> Chemistry;
@@ -112,14 +129,14 @@ export function getCompanyResearch(companyId: number) {
 
   for (let d = 1; d <= 12; d++) {
     const found = rows.find(r => r.discipline === d);
-    const points = found ? found.points : 500;
-    const patents = found ? found.patents : 10;
+    const points = found ? Number(found.points) : 0;
+    const patents = found ? Number(found.patents) : 0;
     researchMap[d] = {
       discipline: d,
       name: DISCIPLINES[d] || `Discipline #${d}`,
       points,
       patents,
-      qualityCap: Math.min(12, Math.floor(patents / 2) + 1)
+      qualityCap: found ? Math.min(12, Math.floor(patents / 2) + 1) : 0
     };
   }
 
@@ -130,27 +147,51 @@ export function getCompanyResearch(companyId: number) {
 // skipped: company.ts featureFlags has no research.enabled flag, and the
 // private server starts players at level 5 with everything enabled.
 export function applyResearch(companyId: number, discipline: number, pointsToApply: number) {
-  if (!Number.isFinite(pointsToApply) || pointsToApply <= 0) {
-    throw new Error('pointsToApply must be a finite positive number');
+  if (!getCompanyById(companyId)) {
+    throw new Error('Company not found');
+  }
+  if (!Number.isInteger(discipline) || !RESEARCH_RESOURCE_BY_DISCIPLINE[discipline]) {
+    throw new Error('Invalid research discipline');
+  }
+  if (!Number.isSafeInteger(pointsToApply) || pointsToApply <= 0) {
+    throw new Error('pointsToApply must be a positive integer');
   }
 
-  const existing = db.prepare(`
-    SELECT * FROM research WHERE company_id = ? AND discipline = ?
-  `).get(companyId, discipline) as unknown as ResearchRow | undefined;
+  const researchKind = RESEARCH_RESOURCE_BY_DISCIPLINE[discipline];
+  const stock = getWarehouseItemExact(companyId, researchKind, 0);
+  if (!stock || Number(stock.amount) < pointsToApply) {
+    throw new Error(`Insufficient research resource #${researchKind}`);
+  }
 
-  if (existing) {
-    const newPoints = existing.points + pointsToApply;
-    const newPatents = existing.patents + Math.floor(pointsToApply / 50);
-    db.prepare(`
-      UPDATE research
-      SET points = ?, patents = ?
-      WHERE id = ?
-    `).run(newPoints, newPatents, existing.id);
-  } else {
-    db.prepare(`
-      INSERT INTO research (company_id, discipline, points, patents)
-      VALUES (?, ?, ?, ?)
-    `).run(companyId, discipline, pointsToApply, Math.floor(pointsToApply / 50));
+  db.exec('BEGIN');
+  try {
+    const consumed = consumeResourceExactWithTransactions(companyId, researchKind, 0, pointsToApply);
+    if (!consumed) {
+      throw new Error(`Insufficient research resource #${researchKind}`);
+    }
+
+    const existing = db.prepare(`
+      SELECT * FROM research WHERE company_id = ? AND discipline = ?
+    `).get(companyId, discipline) as unknown as ResearchRow | undefined;
+
+    if (existing) {
+      const newPoints = Number(existing.points) + pointsToApply;
+      const newPatents = Number(existing.patents) + Math.floor(pointsToApply / 50);
+      db.prepare(`
+        UPDATE research
+        SET points = ?, patents = ?
+        WHERE id = ?
+      `).run(newPoints, newPatents, existing.id);
+    } else {
+      db.prepare(`
+        INSERT INTO research (company_id, discipline, points, patents)
+        VALUES (?, ?, ?, ?)
+      `).run(companyId, discipline, pointsToApply, Math.floor(pointsToApply / 50));
+    }
+    db.exec('COMMIT');
+  } catch (err) {
+    db.exec('ROLLBACK');
+    throw err;
   }
 
   return getCompanyResearch(companyId);

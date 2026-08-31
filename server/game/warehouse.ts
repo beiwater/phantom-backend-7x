@@ -63,6 +63,47 @@ export function getWarehouseItem(companyId: number, kind: number, quality: numbe
 
   return anyRow || null;
 }
+export function getWarehouseItemExact(companyId: number, kind: number, quality: number): WarehouseRow | null {
+  const row = db.prepare(`
+    SELECT * FROM warehouse WHERE company_id = ? AND kind = ? AND quality = ?
+  `).get(companyId, kind, quality) as unknown as WarehouseRow | undefined;
+
+  return row || null;
+}
+
+export function consumeResourceExactWithTransactions(
+  companyId: number,
+  kind: number,
+  quality: number,
+  amount: number
+): ResourceTransaction[] | null {
+  if (!Number.isFinite(amount) || amount <= 0) return null;
+
+  const row = getWarehouseItemExact(companyId, kind, quality);
+  if (!row || Number(row.amount) < amount) return null;
+
+  const now = new Date().toISOString();
+  const newAmount = Number(row.amount) - amount;
+  const result = db.prepare(`
+    UPDATE warehouse
+    SET amount = ?, updated_at = ?
+    WHERE id = ? AND amount >= ?
+  `).run(newAmount, now, row.id, amount);
+  if (result.changes !== 1) return null;
+
+  return [{
+    kind,
+    dbLetter: kind,
+    quality,
+    delta: -amount,
+    amount: -amount
+  }];
+}
+
+export function consumeResourceExact(companyId: number, kind: number, quality: number, amount: number): boolean {
+  return consumeResourceExactWithTransactions(companyId, kind, quality, amount) !== null;
+}
+
 
 export function getWarehouseItemById(id: number): WarehouseRow | null {
   const row = db.prepare(`

@@ -10,6 +10,13 @@ export async function handleSocialRoutes(
   method: string,
   currentCompanyId: number | null
 ): Promise<boolean> {
+
+  // Public profile articles by author.
+  if (pathname.match(/^\/api\/v2\/newspaper\/articles-by-author\/\d+\/$/) && method === 'GET') {
+    sendJson(res, []);
+    return true;
+  }
+
   // 1. Contacts & Default Chatrooms (Must include unreadMessages: [])
   if (pathname === '/api/v2/contacts/') {
     sendJson(res, {
@@ -63,7 +70,7 @@ export async function handleSocialRoutes(
   }
 
   // 4. Captcha endpoints: /api/v2/captcha/, /api/v2/registrations/captcha/
-  if (pathname.includes('/captcha/')) {
+  if (pathname.startsWith('/api/') && pathname.includes('/captcha/')) {
     sendJson(res, { success: true, verified: true, token: "simcomp-local-captcha-token" });
     return true;
   }
@@ -90,25 +97,7 @@ export async function handleSocialRoutes(
       SELECT * FROM chat_messages WHERE room = ? OR room = 'N' OR room = '1' ORDER BY id DESC LIMIT 50
     `).all(room) as Array<{ id: number; room: string; sender_id: number; sender_company: string; text: string; sent_at: string }>;
 
-    if (messages.length === 0) {
-      const now = new Date().toISOString();
-      const seedMsgs = [
-        { sender_id: 999901, sender_company: 'Solaris Energy Ltd', text: '欢迎来到 Sim Companies 私人服务器版本！全功能已就绪。' },
-        { sender_id: 999902, sender_company: 'AgroEmpire Farms', text: '交易所全品类 Q0-Q12 现货充足，随时欢迎采购与挂牌！' }
-      ];
-      for (const sm of seedMsgs) {
-        db.prepare(`
-          INSERT INTO chat_messages (room, sender_id, sender_company, text, sent_at)
-          VALUES (?, ?, ?, ?, ?)
-        `).run(room, sm.sender_id, sm.sender_company, sm.text, now);
-      }
-    }
-
-    const currentMsgs = db.prepare(`
-      SELECT * FROM chat_messages WHERE room = ? OR room = 'N' OR room = '1' ORDER BY id DESC LIMIT 50
-    `).all(room) as Array<{ id: number; room: string; sender_id: number; sender_company: string; text: string; sent_at: string }>;
-
-    sendJson(res, currentMsgs.reverse().map(m => ({
+    sendJson(res, messages.reverse().map(m => ({
       id: m.id,
       chatroom: m.room,
       sender: { id: m.sender_id, company: m.sender_company, logo: '', certificates: 0, supporter: false },
@@ -121,19 +110,38 @@ export async function handleSocialRoutes(
 
   // 8. Send Message
   if ((pathname === '/api/v2/message/' || pathname === '/api/v2/messages/') && method === 'POST') {
+    if (!currentCompanyId) {
+      sendJson(res, { error: 'Unauthorized' }, 401);
+      return true;
+    }
+
     const body = await readJsonBody<{ chatroom?: string; text?: string; recipient?: number }>(req);
-    const comp = currentCompanyId ? getCompanyById(currentCompanyId) : null;
+    const room = typeof body.chatroom === 'string' && body.chatroom.trim()
+      ? body.chatroom.trim()
+      : 'N';
+    const text = typeof body.text === 'string' ? body.text.trim() : '';
+    if (room.length > 100 || text.length === 0 || text.length > 2000) {
+      sendJson(res, { error: 'Chatroom and message text are invalid' }, 400);
+      return true;
+    }
+
+    const comp = getCompanyById(currentCompanyId);
+    if (!comp) {
+      sendJson(res, { error: 'Company not found' }, 404);
+      return true;
+    }
+
     const now = new Date().toISOString();
-    const resId = db.prepare(`
+    const result = db.prepare(`
       INSERT INTO chat_messages (room, sender_id, sender_company, text, sent_at)
       VALUES (?, ?, ?, ?, ?)
-    `).run(body.chatroom || 'N', comp ? comp.company_id : 2920233, comp ? comp.name : 'Player', body.text || '', now);
+    `).run(room, comp.company_id, comp.name, text, now);
 
     sendJson(res, {
-      id: Number(resId.lastInsertRowid),
-      chatroom: body.chatroom || 'N',
-      sender: { id: comp ? comp.company_id : 2920233, company: comp ? comp.name : 'Player', logo: '', supporter: false },
-      text: body.text,
+      id: Number(result.lastInsertRowid),
+      chatroom: room,
+      sender: { id: comp.company_id, company: comp.name, logo: '', supporter: false },
+      text,
       datetime: now
     });
     return true;
@@ -220,6 +228,34 @@ export async function handleSocialRoutes(
     return true;
   }
 
+  // 10c. Newspaper Reactions (v1)
+  if (pathname.startsWith('/api/') && pathname.includes('/newspaper/') && pathname.includes('/reaction')) {
+    sendJson(res, []);
+    return true;
+  }
+  if (pathname.startsWith('/api/') && pathname.includes('/article/') && pathname.includes('/reaction')) {
+    sendJson(res, { success: true });
+    return true;
+  }
+
+  // 10d. Referrals & Royalties
+  if (pathname.startsWith('/api/') && pathname.includes('/referrals/')) {
+    sendJson(res, []);
+    return true;
+  }
+  if (pathname.startsWith('/api/') && pathname.includes('/royalties/')) {
+    sendJson(res, { royalties: 0 });
+    return true;
+  }
+  if (pathname.startsWith('/api/') && (pathname.includes('/unlocked-hqs/') || pathname.includes('/unlocked-pas/'))) {
+    sendJson(res, []);
+    return true;
+  }
+  if (pathname.startsWith('/api/') && pathname.includes('/simboosts-use/')) {
+    sendJson(res, []);
+    return true;
+  }
+
   // 11. Newspaper Sponsor Params
   if (pathname === '/api/v2/newspaper/sponsor-params/') {
     sendJson(res, {
@@ -230,22 +266,47 @@ export async function handleSocialRoutes(
     return true;
   }
 
-  // 12. Polls
-  if (pathname.includes('/polls/')) {
-    sendJson(res, { id: 1, question: '你最喜欢的产业是哪一个？', options: ['农业', '电子', '航空航天', '零售'] });
+  // 12. Polls (only match /api/ endpoints, e.g. /api/v3/:realm/polls/:id/ and /api/v2/polls/:id/vote/)
+  if (pathname.startsWith('/api/') && pathname.includes('/polls/')) {
+    if (method === 'POST') {
+      sendJson(res, { success: true });
+      return true;
+    }
+    sendJson(res, {
+      id: 1,
+      name: '社区发展调查问卷',
+      realmId: 0,
+      active: true,
+      supportersOnly: false,
+      deadline: '2028-12-31T23:59:59Z',
+      results: [],
+      questions: [
+        {
+          id: 1,
+          label: '你最喜欢的产业是哪一个？',
+          description: '选择你最常经营的核心业务方向',
+          questionType: 1,
+          choices: [
+            { id: 1, label: '农业', votes: 42 },
+            { id: 2, label: '电子', votes: 58 },
+            { id: 3, label: '航空航天', votes: 35 },
+            { id: 4, label: '生鲜零售', votes: 29 }
+          ]
+        }
+      ]
+    });
     return true;
   }
 
   // 13. Challenges
-  if (pathname.includes('/challenges/current/')) {
+  if (pathname.startsWith('/api/') && pathname.includes('/challenges/current/')) {
     sendJson(res, { challenges: [] });
     return true;
   }
-  if (pathname.includes('/challenges/attempt/') || pathname.includes('/challenges/restart/')) {
+  if (pathname.startsWith('/api/') && (pathname.includes('/challenges/attempt/') || pathname.includes('/challenges/restart/'))) {
     sendJson(res, { success: true });
     return true;
   }
-
   // 14. Courses & Education: /api/courses/
   if (pathname.startsWith('/api/courses/')) {
     sendJson(res, { courses: [], invitations: [], students: [] });
@@ -253,7 +314,7 @@ export async function handleSocialRoutes(
   }
 
   // 15. Contests: /api/v3/:realm/contest/:id/
-  if (pathname.includes('/contest/')) {
+  if (pathname.startsWith('/api/') && pathname.includes('/contest/')) {
     sendJson(res, {
       contest: { name: "Weekly Production Championship", id: 1, end: new Date(Date.now() + 86400000 * 7).toISOString() },
       participants: []

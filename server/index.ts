@@ -2,6 +2,7 @@ import http from 'node:http';
 import { CONFIG } from './config.ts';
 import { handleRequest } from './router.ts';
 import { setupWebSocket } from './ws/websocket.ts';
+import { RequestBodyError, sendJson } from './routes/utils.ts';
 
 const server = http.createServer(async (req, res) => {
   try {
@@ -9,8 +10,12 @@ const server = http.createServer(async (req, res) => {
   } catch (err: unknown) {
     console.error('Unhandled server error:', err);
     if (!res.headersSent) {
-      res.writeHead(500, { 'Content-Type': 'text/plain' });
-      res.end('Internal Server Error');
+      if (err instanceof RequestBodyError) {
+        sendJson(res, { error: err.message, code: 'INVALID_REQUEST_BODY' }, err.statusCode);
+      } else {
+        res.writeHead(500, { 'Content-Type': 'text/plain' });
+        res.end('Internal Server Error');
+      }
     }
   }
 });

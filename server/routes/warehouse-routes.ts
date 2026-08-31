@@ -19,13 +19,13 @@ export async function handleWarehouseRoutes(
   }
 
   // 2. Warehouse tags: /api/v2/companies/:id/warehouse/tags/ or /api/v2/warehouse/tags/
-  if (pathname.includes('/warehouse/tags/') || pathname.includes('/warehouse-tags/')) {
+  if (pathname.startsWith('/api/') && (pathname.includes('/warehouse/tags/') || pathname.includes('/warehouse-tags/'))) {
     sendJson(res, []);
     return true;
   }
 
   // 3. Egg Collection & Egg Swaps
-  if (pathname.includes('/egg-collection/') || pathname.includes('/egg-swaps/')) {
+  if (pathname.startsWith('/api/') && (pathname.includes('/egg-collection/') || pathname.includes('/egg-swaps/'))) {
     sendJson(res, { eggs: [], swaps: [] });
     return true;
   }

@@ -17,7 +17,7 @@ export async function handleMarketRoutes(
   currentCompanyId: number | null
 ): Promise<boolean> {
   // 1. Recent resources
-  if (pathname.includes('/recent-resources/')) {
+  if (pathname.startsWith('/api/') && pathname.includes('/recent-resources/')) {
     sendJson(res, {
       resources: [{ kind: 1 }, { kind: 2 }, { kind: 3 }, { kind: 13 }, { kind: 66 }]
     });
@@ -50,16 +50,45 @@ export async function handleMarketRoutes(
   // 4. Market buy orders: /api/v3/market/buy/:realm/:kind/
   const marketBuyOrdersMatch = pathname.match(/^\/api\/v3\/market\/buy\/(\d+)\/(\d+)\/$/);
   if (marketBuyOrdersMatch) {
-    sendJson(res, []);
+    const realmId = Number(marketBuyOrdersMatch[1]);
+    const resourceId = Number(marketBuyOrdersMatch[2]);
+    sendJson(res, getMarketOrdersForResource(realmId, resourceId));
     return true;
   }
 
-  // 5. Market collectibles & SimBoosts available: /api/v2/market-collectibles/
-  if (
-    pathname === '/api/v2/market-collectibles/' ||
-    pathname === '/api/v2/market-collectibles-sbs/' ||
-    pathname === '/api/v2/nfts/collectors/'
-  ) {
+  // 5. Market collectibles & SimBoosts available: /api/v2/market-collectibles/, /api/v2/market-collectibles-sbs/
+  if (pathname === '/api/v2/market-collectibles-sbs/') {
+    sendJson(res, { simboosts: 250, available: 250, simBoostsAvailableForPurchase: 250 });
+    return true;
+  }
+  if (pathname === '/api/v2/market-collectibles/') {
+    sendJson(res, [
+      {
+        id: 1,
+        priceSimboosts: 50,
+        asset: {
+          id: 1,
+          name: 'Golden Founder Trophy',
+          image: '/static/images/collectibles/trophy_gold.png',
+          currentOwnerId: 999901,
+          description: 'Founder Trophy'
+        }
+      },
+      {
+        id: 2,
+        priceSimboosts: 100,
+        asset: {
+          id: 2,
+          name: 'Silver Builder Cup',
+          image: '/static/images/collectibles/trophy_silver.png',
+          currentOwnerId: 999901,
+          description: 'Builder Cup'
+        }
+      }
+    ]);
+    return true;
+  }
+  if (pathname === '/api/v2/nfts/collectors/') {
     sendJson(res, []);
     return true;
   }
@@ -85,14 +114,27 @@ export async function handleMarketRoutes(
   // 8. Company's own market orders
   const companyMarketOrdersMatch = pathname.match(/^\/api\/v2\/companies\/(\d+|me)\/market-orders\/$/);
   if (companyMarketOrdersMatch) {
-    const compId = companyMarketOrdersMatch[1] === 'me' ? (currentCompanyId || 4259175) : Number(companyMarketOrdersMatch[1]);
-    sendJson(res, getCompanyMarketOrders(compId));
+    const requestedCompanyId = companyMarketOrdersMatch[1] === 'me'
+      ? currentCompanyId
+      : Number(companyMarketOrdersMatch[1]);
+    if (!currentCompanyId || !requestedCompanyId || requestedCompanyId !== currentCompanyId) {
+      sendJson(res, { error: 'Unauthorized' }, 401);
+      return true;
+    }
+    sendJson(res, getCompanyMarketOrders(currentCompanyId));
     return true;
   }
 
   // 9. Company's own market buy orders
   const companyBuyOrdersMatch = pathname.match(/^\/api\/v2\/companies\/(\d+|me)\/market-buy-orders\/$/);
   if (companyBuyOrdersMatch && method === 'GET') {
+    const requestedCompanyId = companyBuyOrdersMatch[1] === 'me'
+      ? currentCompanyId
+      : Number(companyBuyOrdersMatch[1]);
+    if (!currentCompanyId || !requestedCompanyId || requestedCompanyId !== currentCompanyId) {
+      sendJson(res, { error: 'Unauthorized' }, 401);
+      return true;
+    }
     sendJson(res, []);
     return true;
   }

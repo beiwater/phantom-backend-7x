@@ -54,9 +54,10 @@ export async function handleEncyclopediaRoutes(
 
   // 2. Production Modifiers & Industry/Realm Modifiers
   if (
-    pathname.includes('/production-modifiers/') ||
-    pathname.includes('/industry-modifiers/') ||
-    pathname.includes('/realm-modifiers/')
+    pathname.startsWith('/api/') &&
+    (pathname.includes('/production-modifiers/') ||
+     pathname.includes('/industry-modifiers/') ||
+     pathname.includes('/realm-modifiers/'))
   ) {
     sendJson(res, {
       resourceProductionModifiers: [],
@@ -67,10 +68,9 @@ export async function handleEncyclopediaRoutes(
   }
 
   // 3. Resources Retail Info MUST be an ARRAY of objects with dbLetter and retailData array!
-  if (pathname.includes('/resources-retail-info/')) {
+  if (pathname.startsWith('/api/') && pathname.includes('/resources-retail-info/')) {
     const today = new Date().toISOString().split('T')[0];
     const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
-
     const retailArray: Array<{
       dbLetter: number;
       retailData: Array<{ date: string; saturation: number; averagePrice: number }>;
@@ -123,8 +123,7 @@ export async function handleEncyclopediaRoutes(
   }
 
   // 5. Existing resource quality
-  if (pathname.includes('/encyclopedia/existing-resource-quality/')) {
-    const qualityMap: Record<string, number> = {};
+  if (pathname.startsWith('/api/') && pathname.includes('/encyclopedia/existing-resource-quality/')) {
     for (const k of Object.keys(CONSTANTS_RESOURCES)) {
       qualityMap[k] = 0;
     }
@@ -144,31 +143,54 @@ export async function handleEncyclopediaRoutes(
   }
 
   // 7. EVA & Wealth Rankings
-  if (pathname.includes('/encyclopedia/eva-ranking/') || pathname.includes('/encyclopedia/ranking/')) {
+  if (pathname.startsWith('/api/') && (pathname.includes('/encyclopedia/eva-ranking/') || pathname.includes('/encyclopedia/ranking/'))) {
     const comp = currentCompanyId ? getCompanyById(currentCompanyId) : null;
     const rankings = [
       {
+        id: 999901,
+        rank: 0,
+        company: 'Solaris Energy Ltd',
+        logo: '',
+        realmId: 0,
+        deleted: false,
+        value: 12500000,
+        year: 2026
+      },
+      {
+        id: 999902,
         rank: 1,
-        company: { id: 999901, company: 'Solaris Energy Ltd', logo: '', realmId: 0, deleted: false },
-        value: 12500000
+        company: 'AgroEmpire Farms',
+        logo: '',
+        realmId: 0,
+        deleted: false,
+        value: 8700000,
+        year: 2026
       },
       {
+        id: 999903,
         rank: 2,
-        company: { id: 999902, company: 'AgroEmpire Farms', logo: '', realmId: 0, deleted: false },
-        value: 8700000
-      },
-      {
-        rank: 3,
-        company: { id: 999903, company: 'Titan Industries', logo: '', realmId: 0, deleted: false },
-        value: 6400000
+        company: 'Titan Industries',
+        logo: '',
+        realmId: 0,
+        deleted: false,
+        value: 6400000,
+        year: 2026
       }
     ];
 
     if (comp) {
       rankings.unshift({
+        id: comp.company_id,
         rank: 0,
-        company: { id: comp.company_id, company: comp.name, logo: comp.logo || '', realmId: comp.realm_id, deleted: false },
-        value: comp.money + 150000
+        company: comp.name,
+        logo: comp.logo || '',
+        realmId: comp.realm_id,
+        deleted: false,
+        value: comp.money + 150000,
+        year: 2026
+      });
+      rankings.forEach((r, idx) => {
+        r.rank = idx;
       });
     }
     sendJson(res, rankings);
@@ -176,24 +198,42 @@ export async function handleEncyclopediaRoutes(
   }
 
   // 8. Encyclopedia Events
-  if (pathname.includes('/encyclopedia/events/')) {
+  if (pathname.startsWith('/api/') && pathname.includes('/encyclopedia/events/')) {
     sendJson(res, { events: [] });
     return true;
   }
 
   // 9. Encyclopedia Supporters MUST return { supporters: [] }
-  if (pathname.includes('/encyclopedia/supporters/')) {
+  if (pathname.startsWith('/api/') && pathname.includes('/encyclopedia/supporters/')) {
     sendJson(res, { supporters: [] });
     return true;
   }
 
-  // 10. Certificates and Tags
-  if (pathname.includes('/certificates/')) {
+  // 10. Certificates and Tags (API endpoints only)
+  if (pathname.startsWith('/api/') && pathname.includes('/certificates-explorer/')) {
+    if (pathname.includes('/latest/')) {
+      sendJson(res, { latestCertificates: [] });
+      return true;
+    }
+    if (pathname.includes('/rarest/')) {
+      sendJson(res, { rarestCertificates: [] });
+      return true;
+    }
+    sendJson(res, { latestCertificates: [], rarestCertificates: [] });
+    return true;
+  }
+  if (pathname.startsWith('/api/') && pathname.includes('/certificates/')) {
     sendJson(res, []);
     return true;
   }
-  if (pathname.includes('/tags/')) {
+  if (pathname.startsWith('/api/') && pathname.includes('/tags/')) {
     sendJson(res, []);
+    return true;
+  }
+
+  // 10b. Government Orders (v3 APIs only)
+  if (pathname.startsWith('/api/') && pathname.includes('/government-orders/')) {
+    sendJson(res, { governmentOrders: [], applications: [], tier: 1 });
     return true;
   }
   // 11. Stats / Top Leaderboards

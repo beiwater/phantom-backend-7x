@@ -1,4 +1,4 @@
-import { db } from '../db/database.ts';
+import { db, seedDefaultDisplayCase } from '../db/database.ts';
 import { CONFIG } from '../config.ts';
 
 export interface CompanyRow {
@@ -16,7 +16,16 @@ export interface CompanyRow {
   personal_assistant: string;
   note: string;
   created_at: string;
+  extra_building_slots?: number;
+  extra_executive_slots?: number;
+  display_case_slots?: number;
+  max_tags?: number;
 }
+
+function toSafeCompanyName(name: string): string {
+  return name.replace(/[\/\\]/g, '-');
+}
+
 
 export interface PlayerRow {
   id: number;
@@ -41,18 +50,56 @@ export function getCompanyById(companyId: number): CompanyRow | null {
 }
 
 export function updateCompanyMoney(companyId: number, delta: number): number {
+  if (!Number.isFinite(delta)) {
+    throw new Error('Money delta must be finite');
+  }
+
   const comp = getCompanyById(companyId);
-  const currentMoney = comp ? (Number(comp.money) || 0) : 100000;
-  const newMoney = Math.max(0, Math.round((currentMoney + delta) * 100) / 100);
-  db.prepare('UPDATE companies SET money = ? WHERE company_id = ?').run(newMoney, companyId);
+  if (!comp) {
+    throw new Error('Company not found');
+  }
+
+  const currentMoney = Number(comp.money);
+  if (!Number.isFinite(currentMoney)) {
+    throw new Error('Company balance is invalid');
+  }
+
+  const newMoney = Math.round((currentMoney + delta) * 100) / 100;
+  if (newMoney < 0) {
+    throw new Error('Insufficient funds');
+  }
+
+  const result = db.prepare('UPDATE companies SET money = ? WHERE company_id = ?').run(newMoney, companyId);
+  if (result.changes !== 1) {
+    throw new Error('Company not found');
+  }
   return newMoney;
 }
 
 export function updateCompanySimBoosts(companyId: number, delta: number): number {
+  if (!Number.isFinite(delta)) {
+    throw new Error('SimBoost delta must be finite');
+  }
+
   const comp = getCompanyById(companyId);
-  const currentSB = comp ? (Number(comp.simboosts) || 0) : 250;
-  const newSB = Math.max(0, currentSB + delta);
-  db.prepare('UPDATE companies SET simboosts = ? WHERE company_id = ?').run(newSB, companyId);
+  if (!comp) {
+    throw new Error('Company not found');
+  }
+
+  const currentSB = Number(comp.simboosts);
+  if (!Number.isFinite(currentSB)) {
+    throw new Error('Company SimBoost balance is invalid');
+  }
+
+  const newSB = currentSB + delta;
+  if (newSB < 0) {
+    throw new Error('Insufficient SimBoosts');
+  }
+
+  const result = db.prepare('UPDATE companies SET simboosts = ? WHERE company_id = ?').run(newSB, companyId);
+  if (result.changes !== 1) {
+    throw new Error('Company not found');
+  }
   return newSB;
 }
 
@@ -67,6 +114,7 @@ export function createCompanyForPlayer(playerId: number, name: string, realmId: 
     INSERT INTO companies (company_id, player_id, name, money, simboosts, level, rating, experience, realm_id, logo, personal_assistant, note, created_at)
     VALUES (?, ?, ?, ?, ?, ?, 'BBB', 20, ?, '', 'old', 'Private Server Company', ?)
   `).run(companyId, playerId, name, initialMoney, initialSimboosts, initialLevel, realmId, now);
+  seedDefaultDisplayCase(companyId);
 
   // Seed default Farm and Grocery store
   db.prepare(`
@@ -252,7 +300,7 @@ export function getAuthData(playerId?: number | null, targetCompanyId?: number |
     authCompany: {
       id: company.company_id,
       companyId: company.company_id,
-      company: company.name,
+      company: toSafeCompanyName(company.name),
       personalAssistant: company.personal_assistant || "old",
       moderatorSign: false,
       hqImage: "",
@@ -273,12 +321,12 @@ export function getAuthData(playerId?: number | null, targetCompanyId?: number |
       rank: 1,
       evaRank: null,
       evaMonth: null,
-      extraExecutiveSlots: 0,
-      extraBuildingSlots: 0,
-      displayCaseSlots: 1,
+      extraExecutiveSlots: Number(company.extra_executive_slots) || 0,
+      extraBuildingSlots: Number(company.extra_building_slots) || 0,
+      displayCaseSlots: Number(company.display_case_slots) || 1,
       logo: company.logo || "",
       startingPackPurchased: false,
-      maxTags: 1,
+      maxTags: Math.max(1, Number(company.max_tags) || 1),
       courseId: null,
       showOnlineIndicator: true,
       testCategory: 0,
@@ -335,7 +383,7 @@ export function getPlayerCompanies(playerId: number) {
 
   return companies.map(c => ({
     id: c.company_id,
-    company: c.name,
+    company: toSafeCompanyName(c.name),
     logo: c.logo || "",
     realmId: c.realm_id || 0,
     deleted: false,

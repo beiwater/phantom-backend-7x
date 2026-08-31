@@ -30,6 +30,10 @@ export function getSession(token: string): { playerId: number; companyId: number
   `).get(token) as unknown as SessionRecord | undefined;
 
   if (!row) return null;
+  if (row.expires_at && Date.parse(row.expires_at) <= Date.now()) {
+    db.prepare('DELETE FROM sessions WHERE session_token = ?').run(token);
+    return null;
+  }
   return {
     playerId: row.player_id,
     companyId: row.active_company_id

@@ -16,23 +16,30 @@ export async function handleContractRoutes(
   method: string,
   currentCompanyId: number | null
 ): Promise<boolean> {
-  const effectiveCompanyId = currentCompanyId || 4259175;
 
-  // 1. Incoming contracts (v2 & v3: /api/v2/contracts-incoming/, /api/v3/contracts-incoming/me/, /api/v3/contracts-incoming/:realm/:id/)
+  // 1. Incoming contracts (v2 & v3)
   if (
     pathname === '/api/v2/contracts-incoming/' ||
     pathname.match(/^\/api\/v3\/contracts-incoming\/(?:(?:\d+\/)?(?:\d+|me)|me)\/$/)
   ) {
-    sendJson(res, getIncomingContracts(effectiveCompanyId));
+    if (!currentCompanyId) {
+      sendJson(res, { error: 'Unauthorized' }, 401);
+      return true;
+    }
+    sendJson(res, getIncomingContracts(currentCompanyId));
     return true;
   }
 
-  // 2. Outgoing contracts (v2 & v3: /api/v2/contracts-outgoing/, /api/v3/contracts-outgoing/me/, /api/v3/contracts-outgoing/:realm/:id/)
+  // 2. Outgoing contracts (v2 & v3)
   if (
     pathname === '/api/v2/contracts-outgoing/' ||
     pathname.match(/^\/api\/v3\/contracts-outgoing\/(?:(?:\d+\/)?(?:\d+|me)|me)\/$/)
   ) {
-    sendJson(res, getOutgoingContracts(effectiveCompanyId));
+    if (!currentCompanyId) {
+      sendJson(res, { error: 'Unauthorized' }, 401);
+      return true;
+    }
+    sendJson(res, getOutgoingContracts(currentCompanyId));
     return true;
   }
 
@@ -42,10 +49,15 @@ export async function handleContractRoutes(
     return true;
   }
 
-  // 4. Warehouse contracts summary: /api/v2/warehouse-contracts-summary/:realm/:kind/
-  const contractsSummaryMatch = pathname.match(/^\/api\/v2\/warehouse-contracts-summary\/(\d+)\/(\d+)\/$/);
+  // 4. Warehouse contracts summary: /api/v2/warehouse-contracts-summary/:realm/:kindOrDirection/
+  const contractsSummaryMatch = pathname.match(/^\/api\/v2\/warehouse-contracts-summary\/(\d+)\/([^/]+)\/$/);
   if (contractsSummaryMatch) {
-    const kind = Number(contractsSummaryMatch[2]);
+    const rawParam = contractsSummaryMatch[2];
+    if (rawParam === 'i' || rawParam === 'o' || rawParam === 'incoming' || rawParam === 'outgoing') {
+      sendJson(res, []);
+      return true;
+    }
+    const kind = Number(rawParam) || 1;
     sendJson(res, {
       resourceKind: kind,
       totalVolumeDaily: 50000,

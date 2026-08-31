@@ -34,13 +34,13 @@ export async function handleExecutiveRoutes(
   }
 
   // Offers & Hostile offers
-  if (pathname.includes('/executives/my-offers/') || pathname.includes('/executives/hostile-offers/')) {
+  if (pathname.startsWith('/api/') && (pathname.includes('/executives/my-offers/') || pathname.includes('/executives/hostile-offers/'))) {
     sendJson(res, { offers: [] });
     return true;
   }
 
   // Former executives
-  if (pathname.includes('/former-executives/')) {
+  if (pathname.startsWith('/api/') && pathname.includes('/former-executives/')) {
     sendJson(res, { executives: [] });
     return true;
   }

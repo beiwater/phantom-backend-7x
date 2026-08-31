@@ -15,9 +15,16 @@ export async function handleResearchRoutes(
   currentCompanyId: number | null
 ): Promise<boolean> {
   // Current research summary
-  if (pathname === '/api/v3/players/research/' || pathname.match(/^\/api\/v3\/players\/research\/(\d+|me)\/$/)) {
-    const effectiveCompanyId = currentCompanyId || 4259175;
-    sendJson(res, getCompanyResearch(effectiveCompanyId));
+  const researchMatch = pathname.match(/^\/api\/v3\/players\/research\/(\d+|me)\/$/);
+  if (pathname === '/api/v3/players/research/' || researchMatch) {
+    const companyId = researchMatch && researchMatch[1] !== 'me'
+      ? Number(researchMatch[1])
+      : currentCompanyId;
+    if (!currentCompanyId || !companyId || companyId !== currentCompanyId) {
+      sendJson(res, { error: 'Unauthorized' }, 401);
+      return true;
+    }
+    sendJson(res, getCompanyResearch(companyId));
     return true;
   }
 

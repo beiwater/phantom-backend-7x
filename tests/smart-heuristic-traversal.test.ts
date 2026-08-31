@@ -14,6 +14,7 @@ interface ActionCandidate {
   role: string;
   widgetType: 'tab' | 'modal-control' | 'form-action' | 'filter' | 'navigation-link' | 'generic-button';
   text: string;
+  href: string | null;
   selector: string;
   xpath: string;
   baseScore: number;
@@ -163,6 +164,7 @@ async function analyzeStateAndWidgetTree(page: Page, actionPenaltyMap: Map<strin
       role: c.role,
       widgetType: c.widgetType,
       text: c.text,
+      href: c.href,
       selector: c.tag.toLowerCase(),
       xpath: `//${c.tag.toLowerCase()}[contains(., '${c.text}')]`,
       baseScore: c.baseScore,
@@ -180,6 +182,30 @@ async function analyzeStateAndWidgetTree(page: Page, actionPenaltyMap: Map<strin
   };
 }
 
+
+async function clickAction(page: Page, target: ActionCandidate): Promise<void> {
+  const candidates = await page.$$('button, a[href], [role="tab"], [role="button"], .btn');
+  for (const candidate of candidates) {
+    const details = await candidate.evaluate(element => {
+      const rect = element.getBoundingClientRect();
+      const htmlElement = element as HTMLButtonElement;
+      return {
+        visible: rect.width > 0 && rect.height > 0,
+        disabled: htmlElement.disabled === true,
+        tag: element.tagName,
+        text: element.textContent?.trim().replace(/\s+/g, ' ') || '',
+        href: element.getAttribute('href')
+      };
+    });
+    const sameTarget = target.href
+      ? details.href === target.href
+      : details.tag === target.tag && details.text === target.text;
+    if (!details.visible || details.disabled || !sameTarget) continue;
+    await candidate.click();
+    return;
+  }
+  throw new Error(`Interactive control was not found: ${target.id}`);
+}
 async function runSmartHeuristicTraversal(maxSteps: number = 35) {
   const timestamp = getFormattedTimestamp();
   const roundDir = path.resolve('screenshots', `smart_traversal_${timestamp}`);
@@ -191,7 +217,7 @@ async function runSmartHeuristicTraversal(maxSteps: number = 35) {
   const baseUrl = 'http://127.0.0.1:3000';
   const browser = await puppeteer.launch({
     headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox', '--window-size=1440,900', '--disable-web-security']
+    args: ['--no-sandbox', '--disable-setuid-sandbox', '--window-size=1440,900']
   });
 
   const page = await browser.newPage();
@@ -217,9 +243,11 @@ async function runSmartHeuristicTraversal(maxSteps: number = 35) {
 
   // Action & State Penalty Trackers
   const actionPenaltyMap = new Map<string, number>();
+  const failedActionIds = new Set<string>();
+  const discoveredActionIds = new Set<string>();
   const stateVisitMap = new Map<string, number>();
   const stateGraph = new Map<string, StateNode>();
-
+  let unreachableStates = 0;
   let totalActionsExecuted = 0;
   let totalStatesDiscovered = 0;
 
@@ -269,6 +297,9 @@ async function runSmartHeuristicTraversal(maxSteps: number = 35) {
     for (let step = 1; step <= maxSteps; step++) {
       // 1. Analyze Current DOM & Widget Tree Structure
       const currentState = await analyzeStateAndWidgetTree(page, actionPenaltyMap);
+      for (const action of currentState.actions) {
+        discoveredActionIds.add(action.id);
+      }
       const stateCount = (stateVisitMap.get(currentState.fingerprint) || 0) + 1;
       stateVisitMap.set(currentState.fingerprint, stateCount);
 
@@ -290,17 +321,21 @@ async function runSmartHeuristicTraversal(maxSteps: number = 35) {
         };
       });
 
-      // Filter actionable elements with positive scores
       const eligibleCandidates = scoredCandidates
-        .filter(c => c.effectiveScore > 0 && c.clicks < 3)
+        .filter(c => c.effectiveScore > 0 && c.clicks < 3 && !failedActionIds.has(c.action.id))
         .sort((a, b) => b.effectiveScore - a.effectiveScore);
 
       console.log(`\n--- [STEP ${step}/${maxSteps}] State: "${currentState.fingerprint}" (Visit #${stateCount}) ---`);
       console.log(`  -> Detected ${currentState.actions.length} widget actions (${eligibleCandidates.length} eligible candidates).`);
 
       if (eligibleCandidates.length === 0) {
-        console.log('  -> No unvisited actions on this state. Backtracking to Root / Navigation...');
-        await page.goto(`${baseUrl}/zh-cn/landscape/`, { waitUntil: 'networkidle2' });
+        unreachableStates++;
+        console.log('  -> No actionable controls remain; backtracking with browser history...');
+        const previousUrl = page.url();
+        await page.goBack({ waitUntil: 'networkidle2', timeout: 5000 }).catch(() => null);
+        if (page.url() === previousUrl) {
+          break;
+        }
         continue;
       }
 
@@ -309,65 +344,63 @@ async function runSmartHeuristicTraversal(maxSteps: number = 35) {
       const targetAction = chosen.action;
       console.log(`  -> Selected Action: [${targetAction.widgetType.toUpperCase()}] "${targetAction.text || targetAction.id}" (Score: ${chosen.effectiveScore}, Prior Clicks: ${chosen.clicks})`);
 
-      // Update penalty map
-      actionPenaltyMap.set(targetAction.id, chosen.clicks + 1);
-      totalActionsExecuted++;
+      const beforeUrl = page.url();
+      const beforeText = await page.$eval('body', body => body.innerText).catch(() => '');
 
-      // Execute Action
       try {
-        const clicked = await page.evaluate((targetText, targetTag, targetType) => {
-          const elements = Array.from(document.querySelectorAll('button, a, [role="tab"], [role="button"], .btn'));
-          for (const el of elements) {
-            const t = el.textContent?.trim().replace(/\s+/g, ' ') || '';
-            const rect = el.getBoundingClientRect();
-            if (rect.width > 0 && rect.height > 0 && t === targetText) {
-              (el as HTMLElement).click();
-              return true;
-            }
-          }
-          // Fallback: match by tag
-          for (const el of elements) {
-            const t = el.textContent?.trim().replace(/\s+/g, ' ') || '';
-            const rect = el.getBoundingClientRect();
-            if (rect.width > 0 && rect.height > 0 && t.includes(targetText) && targetText.length > 2) {
-              (el as HTMLElement).click();
-              return true;
-            }
-          }
-          return false;
-        }, targetAction.text, targetAction.tag, targetAction.widgetType);
+        await clickAction(page, targetAction);
+        await page.waitForNetworkIdle({ idleTime: 150, timeout: 2500 }).catch(() => {});
 
-        if (clicked) {
-          await page.waitForNetworkIdle({ idleTime: 150, timeout: 2500 }).catch(() => {});
-        } else {
-          console.log(`  -> Element not directly clickable, performing targeted navigation if link...`);
-          const hrefMatch = targetAction.id.match(/\/zh-cn\/[^:]+/);
-          if (hrefMatch) {
-            await page.goto(`${baseUrl}${hrefMatch[0]}`, { waitUntil: 'networkidle2' });
-          }
+        // A successful click must produce a visible navigation or state change.
+        const afterUrl = page.url();
+        const afterText = await page.$eval('body', body => body.innerText).catch(() => '');
+        if (afterUrl === beforeUrl && afterText === beforeText) {
+          throw new Error('Click produced no observable UI transition');
         }
 
-        // Verify DOM Integrity after Action Execution
+        actionPenaltyMap.set(targetAction.id, chosen.clicks + 1);
+        totalActionsExecuted++;
         const integrity = await assertDOMIntegrity(page, `After Action: ${targetAction.text}`);
         console.log(`  -> DOM Integrity Verified (Visible elements: ${integrity.visibleCount}, Title: "${integrity.title}")`);
 
-        // Capture periodic state checkpoint
         if (step % 5 === 0 || step === maxSteps) {
           const screenshotName = `step${String(step).padStart(2, '0')}_${targetAction.widgetType}_${getFormattedTimestamp()}.png`;
           await page.screenshot({ path: path.join(roundDir, screenshotName) });
           console.log(`  [Checkpoint Screenshot] ${screenshotName}`);
         }
       } catch (actionErr: unknown) {
-        console.warn(`  -> Action execution warning:`, actionErr instanceof Error ? actionErr.message : String(actionErr));
+        failedActionIds.add(targetAction.id);
+        console.error(`  -> Action failed and was excluded from coverage:`, actionErr instanceof Error ? actionErr.message : String(actionErr));
       }
     }
+
+    const discoveredActions = discoveredActionIds.size;
+    const exercisedActions = totalActionsExecuted;
+    const failedActions = failedActionIds.size;
+    const coverage = discoveredActions === 0 ? 0 : exercisedActions / discoveredActions;
+    const report = {
+      states: { discovered: totalStatesDiscovered, unreachable: unreachableStates },
+      actions: {
+        discovered: discoveredActions,
+        exercised: exercisedActions,
+        failed: failedActions,
+        failedIds: [...failedActionIds]
+      },
+      coverage: {
+        exercised: exercisedActions,
+        denominator: discoveredActions,
+        percentage: Number((coverage * 100).toFixed(2))
+      },
+      runtimeErrors: unhandledErrors
+    };
+    fs.writeFileSync(path.join(roundDir, 'report.json'), JSON.stringify(report, null, 2));
 
     console.log('\n================================================================');
     console.log(' SMART HEURISTIC TRAVERSAL SUMMARY (智能化 / 启发式遍历)');
     console.log('================================================================');
     console.log(` Total Distinct UI States Discovered: ${totalStatesDiscovered}`);
-    console.log(` Total Smart Actions Executed: ${totalActionsExecuted}`);
-    console.log(` Unique Actions Tracked: ${actionPenaltyMap.size}`);
+    console.log(` Actions: discovered=${discoveredActions}, exercised=${exercisedActions}, failed=${failedActions}, unreachableStates=${unreachableStates}`);
+    console.log(` Reproducible Coverage: ${exercisedActions}/${discoveredActions} (${report.coverage.percentage}%)`);
     console.log(` Total Unhandled Runtime Errors: ${unhandledErrors.length}`);
     if (unhandledErrors.length > 0) {
       console.log(' Unhandled Errors:');

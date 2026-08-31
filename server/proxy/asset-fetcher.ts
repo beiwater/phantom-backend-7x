@@ -77,16 +77,6 @@ export async function serveOrFetchAsset(urlPath: string, res: ServerResponse): P
       // Continue to next upstream candidate
     }
   }
-  // 3. Fallback for image requests to prevent browser 404 broken images
-  if (mime.startsWith('image/')) {
-    const transparentPng = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64');
-    res.writeHead(200, {
-      'Content-Type': 'image/png',
-      'Cache-Control': 'public, max-age=86400'
-    });
-    res.end(transparentPng);
-    return true;
-  }
 
   return false;
 }

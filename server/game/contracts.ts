@@ -1,5 +1,5 @@
 import { db } from '../db/database.ts';
-import { consumeResource, addResource, getWarehouseItem } from './warehouse.ts';
+import { consumeResourceExactWithTransactions, addResource, getWarehouseItemExact } from './warehouse.ts';
 import { updateCompanyMoney, getCompanyById } from './company.ts';
 import { getResourceDef } from './constants.ts';
 
@@ -80,24 +80,40 @@ export function sendContract(
   if (senderCompanyId === recipientCompanyId) {
     throw new Error('Cannot send contract to yourself');
   }
+  if (!getCompanyById(recipientCompanyId)) {
+    throw new Error('Recipient company not found');
+  }
+  if (!Number.isSafeInteger(kind) || kind <= 0 || !Number.isInteger(quality) || quality < 0 || quality > 12 ||
+      !Number.isFinite(amount) || amount <= 0 || !Number.isFinite(price) || price < 0) {
+    throw new Error('Invalid contract terms');
+  }
 
-  const stock = getWarehouseItem(senderCompanyId, kind, quality);
+  const stock = getWarehouseItemExact(senderCompanyId, kind, quality);
   if (!stock || stock.amount < amount) {
     throw new Error('Not enough resources in warehouse to send contract');
   }
 
-  // Deduct resources from sender warehouse into contract escrow
-  consumeResource(senderCompanyId, kind, quality, amount);
+  db.exec('BEGIN');
+  try {
+    const consumed = consumeResourceExactWithTransactions(senderCompanyId, kind, quality, amount);
+    if (!consumed) {
+      throw new Error('Not enough resources in warehouse to send contract');
+    }
 
-  const now = new Date().toISOString();
-  const res = db.prepare(`
-    INSERT INTO contracts (sender_company_id, recipient_company_id, kind, quality, amount, price, status, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, 'pending', ?)
-  `).run(senderCompanyId, recipientCompanyId, kind, quality, amount, price, now);
+    const now = new Date().toISOString();
+    const res = db.prepare(`
+      INSERT INTO contracts (sender_company_id, recipient_company_id, kind, quality, amount, price, status, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, 'pending', ?)
+    `).run(senderCompanyId, recipientCompanyId, kind, quality, amount, price, now);
 
-  const contractId = Number(res.lastInsertRowid);
-  const row = db.prepare('SELECT * FROM contracts WHERE id = ?').get(contractId) as unknown as ContractRow;
-  return formatContract(row);
+    db.exec('COMMIT');
+    const contractId = Number(res.lastInsertRowid);
+    const row = db.prepare('SELECT * FROM contracts WHERE id = ?').get(contractId) as unknown as ContractRow;
+    return formatContract(row);
+  } catch (err) {
+    db.exec('ROLLBACK');
+    throw err;
+  }
 }
 
 export function acceptContract(buyerCompanyId: number, contractId: number) {
@@ -115,24 +131,35 @@ export function acceptContract(buyerCompanyId: number, contractId: number) {
     throw new Error('Not enough money to accept contract');
   }
 
-  // Deduct money from buyer, credit money to seller
-  const newBuyerMoney = updateCompanyMoney(buyerCompanyId, -totalCost);
-  updateCompanyMoney(c.sender_company_id, totalCost);
-
-  // Transfer goods from escrow into buyer warehouse
-  addResource(buyerCompanyId, c.kind, c.quality, c.amount, { market: c.price });
-
-  db.prepare(`UPDATE contracts SET status = 'accepted' WHERE id = ?`).run(contractId);
-
-  return {
-    success: true,
-    money: newBuyerMoney,
-    resource: {
-      kind: c.kind,
-      quality: c.quality,
-      amount: c.amount
+  db.exec('BEGIN');
+  try {
+    const accepted = db.prepare(`
+      UPDATE contracts SET status = 'accepted'
+      WHERE id = ? AND recipient_company_id = ? AND status = 'pending'
+    `).run(contractId, buyerCompanyId);
+    if (accepted.changes !== 1) {
+      throw new Error('Contract is no longer available');
     }
-  };
+
+    const newBuyerMoney = updateCompanyMoney(buyerCompanyId, -totalCost);
+    updateCompanyMoney(c.sender_company_id, totalCost);
+    addResource(buyerCompanyId, c.kind, c.quality, c.amount, { market: c.price });
+    db.exec('COMMIT');
+
+    return {
+      success: true,
+      money: newBuyerMoney,
+      moneyDelta: -totalCost,
+      resource: {
+        kind: c.kind,
+        quality: c.quality,
+        amount: c.amount
+      }
+    };
+  } catch (err) {
+    db.exec('ROLLBACK');
+    throw err;
+  }
 }
 
 export function rejectContract(companyId: number, contractId: number) {

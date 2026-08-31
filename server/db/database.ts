@@ -45,6 +45,10 @@ db.exec(`
     logo TEXT DEFAULT '',
     personal_assistant TEXT DEFAULT 'old',
     note TEXT DEFAULT '',
+    extra_building_slots INTEGER DEFAULT 0,
+    extra_executive_slots INTEGER DEFAULT 0,
+    display_case_slots INTEGER DEFAULT 1,
+    max_tags INTEGER DEFAULT 1,
     created_at TEXT
   );
 
@@ -79,9 +83,11 @@ db.exec(`
     building_id INTEGER,
     company_id INTEGER,
     resource_kind INTEGER,
+    quality INTEGER DEFAULT 0,
     units REAL,
     unit_price REAL,
     cost REAL,
+    finished_at TEXT,
     created_at TEXT
   );
 
@@ -228,6 +234,46 @@ if (!pqColumns.some(c => c.name === 'quality')) {
   if (!bondCols.includes('maturity_date')) db.exec('ALTER TABLE bonds ADD COLUMN maturity_date TEXT');
   if (!bondCols.includes('settled')) db.exec('ALTER TABLE bonds ADD COLUMN settled INTEGER DEFAULT 0');
 }
+// Migration: add extra slots columns to companies if missing
+{
+  const companyCols = (db.prepare('PRAGMA table_info(companies)').all() as { name: string }[]).map((c) => c.name);
+  if (!companyCols.includes('extra_building_slots')) db.exec('ALTER TABLE companies ADD COLUMN extra_building_slots INTEGER DEFAULT 0');
+  if (!companyCols.includes('extra_executive_slots')) db.exec('ALTER TABLE companies ADD COLUMN extra_executive_slots INTEGER DEFAULT 0');
+  if (!companyCols.includes('display_case_slots')) db.exec('ALTER TABLE companies ADD COLUMN display_case_slots INTEGER DEFAULT 1');
+  if (!companyCols.includes('max_tags')) db.exec('ALTER TABLE companies ADD COLUMN max_tags INTEGER DEFAULT 1');
+}
+{
+  const retailCols = (db.prepare('PRAGMA table_info(retail_orders)').all() as { name: string }[]).map((c) => c.name);
+  if (!retailCols.includes('quality')) db.exec('ALTER TABLE retail_orders ADD COLUMN quality INTEGER DEFAULT 0');
+  if (!retailCols.includes('finished_at')) db.exec('ALTER TABLE retail_orders ADD COLUMN finished_at TEXT');
+}
+
+export function seedDefaultDisplayCase(companyId: number) {
+  const existing = db.prepare('SELECT 1 FROM display_case WHERE company_id = ? LIMIT 1').get(companyId);
+  if (existing) return;
+
+  const defaults = [
+    { slot: 1, kind: 3, quality: 12, title: 'Golden Apple' },
+    { slot: 2, kind: 24, quality: 10, title: 'Flagship Smartphone' }
+  ];
+  const insert = db.prepare(`
+    INSERT INTO display_case (company_id, slot, resource_kind, quality, title)
+    VALUES (?, ?, ?, ?, ?)
+  `);
+  for (const item of defaults) {
+    insert.run(companyId, item.slot, item.kind, item.quality, item.title);
+  }
+}
+
+const companiesWithoutDisplayCase = db.prepare(`
+  SELECT company_id FROM companies
+  WHERE NOT EXISTS (
+    SELECT 1 FROM display_case WHERE display_case.company_id = companies.company_id
+  )
+`).all() as Array<{ company_id: number }>;
+for (const company of companiesWithoutDisplayCase) {
+  seedDefaultDisplayCase(company.company_id);
+}
 
 export function hashPassword(password: string): string {
   return crypto.createHash('sha256').update(password).digest('hex');
@@ -258,9 +304,15 @@ export function registerPlayer(email: string, password: string, companyName?: st
   const existing = db.prepare('SELECT * FROM players WHERE email = ?').get(email);
   if (existing) throw new Error('Email already registered');
 
-  const cName = companyName || email.split('@')[0] || `Co-${Math.floor(4000000 + Math.random() * 6000000)}`;
-  const nameTaken = db.prepare('SELECT 1 FROM companies WHERE name = ?').get(cName);
-  if (nameTaken) throw new Error('Company name already taken');
+  let cName = companyName || email.split('@')[0] || `Co-${Math.floor(4000000 + Math.random() * 6000000)}`;
+  let nameTaken = db.prepare('SELECT 1 FROM companies WHERE name = ?').get(cName);
+  if (nameTaken) {
+    if (companyName) {
+      cName = `${companyName} ${Math.floor(100 + Math.random() * 900)}`;
+    } else {
+      cName = `${cName} ${Math.floor(100 + Math.random() * 900)}`;
+    }
+  }
 
   const now = new Date().toISOString();
   const insertPlayer = db.prepare(`
@@ -300,6 +352,7 @@ export function registerPlayer(email: string, password: string, companyName?: st
     try {
       insertPlayer.run(playerId, email, hashPassword(password), now);
       insertCompany.run(companyId, playerId, cName, CONFIG.INITIAL_MONEY, CONFIG.INITIAL_SIMBOOSTS, CONFIG.INITIAL_LEVEL, now);
+      seedDefaultDisplayCase(companyId);
       insertBuilding.run(companyId, '0', 'P', 'Farm', 6900, 'production', now);
       insertBuilding.run(companyId, '1', 'G', 'Grocery store', 10350, 'sales', now);
       for (const s of seedStock) {
@@ -340,6 +393,29 @@ export function authenticatePlayer(email: string, password: string) {
   };
 }
 
+export function registerOrAuthenticatePlayer(email?: string, password?: string, companyName?: string) {
+  if (!email || email.trim() === '') {
+    const randomId = Math.floor(100000 + Math.random() * 900000);
+    const guestEmail = `guest_${randomId}@simcompanies.local`;
+    const guestPass = password || 'guest123';
+    const guestCompany = companyName || `Company ${randomId}`;
+    return registerPlayer(guestEmail, guestPass, guestCompany);
+  }
+
+  const cleanEmail = email.trim();
+  const existing = db.prepare('SELECT * FROM players WHERE email = ?').get(cleanEmail) as PlayerDbRow | undefined;
+  if (existing) {
+    if (password) {
+      return authenticatePlayer(cleanEmail, password);
+    } else {
+      const comp = db.prepare('SELECT company_id FROM companies WHERE player_id = ? ORDER BY id ASC LIMIT 1').get(existing.player_id) as { company_id: number } | undefined;
+      return { playerId: existing.player_id, companyId: comp ? comp.company_id : 4259175 };
+    }
+  }
+
+  return registerPlayer(cleanEmail, password || 'Password123!', companyName);
+}
+
 // Seed default player and company if empty
 const countStmt = db.prepare('SELECT COUNT(*) as count FROM players');
 const row = countStmt.get() as { count: number };
@@ -355,6 +431,7 @@ if (row.count === 0) {
     INSERT INTO companies (company_id, player_id, name, money, simboosts, level, rating, experience, realm_id, logo, personal_assistant, note, created_at)
     VALUES (?, ?, ?, ?, ?, ?, 'BBB', 25, 0, '', 'old', 'Private Server Company', ?)
   `).run(4259175, 2920233, 'lifeline', CONFIG.INITIAL_MONEY, CONFIG.INITIAL_SIMBOOSTS, CONFIG.INITIAL_LEVEL, now);
+  seedDefaultDisplayCase(4259175);
 
   db.prepare(`
     INSERT INTO buildings (company_id, position, kind, size, name, cost, category, created_at)
