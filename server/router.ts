@@ -5,6 +5,9 @@ import { CONFIG } from './config.ts';
 import { serveOrFetchAsset } from './proxy/asset-fetcher.ts';
 import { sendJson } from './routes/utils.ts';
 import { extractSessionToken, getSession } from './auth/session.ts';
+import { globalRouteRegistry } from './http/route-registry.ts';
+import './events/subscribers.ts';
+import './routes/building-routes.ts';
 import { handleAuthRoutes } from './routes/auth-routes.ts';
 import { handleBuildingRoutes } from './routes/building-routes.ts';
 import { handleWarehouseRoutes } from './routes/warehouse-routes.ts';
@@ -108,7 +111,12 @@ export async function handleRequest(req: IncomingMessage, res: ServerResponse) {
   const currentPlayerId = session ? session.playerId : null;
   const currentCompanyId = session ? session.companyId : null;
 
-  // 3. Dispatch to Modular Route Handlers
+  // 3. Dispatch to Declarative Route Registry first (strangler fig pattern)
+  if (await globalRouteRegistry.dispatch(req, res, pathname, method, session ? { playerId: session.playerId, companyId: session.companyId } : null)) {
+    return;
+  }
+
+  // 4. Dispatch to Legacy Route Handlers
   if (await handleAuthRoutes(req, res, pathname, method, sessionToken, currentPlayerId, currentCompanyId)) {
     return;
   }

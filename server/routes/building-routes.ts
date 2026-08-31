@@ -1,42 +1,371 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { readJsonBody, sendJson } from './utils.ts';
-import { db } from '../db/database.ts';
+import { RouteRegistry, globalRouteRegistry } from '../http/route-registry.ts';
+import { sendJson } from './utils.ts';
 import {
-  getCompanyBuildings,
-  constructBuilding,
-  upgradeBuilding,
-  demolishBuilding,
-  formatBuilding,
-  getBuildingById
-} from '../game/buildings.ts';
+  startProductionUseCase,
+  type StartProductionInput
+} from '../application/production/start-production.ts';
+import { cancelProductionUseCase } from '../application/production/cancel-production.ts';
+import { collectProductionUseCase } from '../application/production/collect-production.ts';
+import { getProductionQueueUseCase } from '../application/production/get-production-queue.ts';
+import { getProductionHistoryUseCase } from '../application/production/get-production-history.ts';
 import {
-  getBuildingQueue,
-  queueProduction,
-  cancelQueueItem,
-} from '../game/production.ts';
-import { addResource } from '../game/warehouse.ts';
-import { updateCompanyMoney, getCompanyById } from '../game/company.ts';
-import { getResourceDef, calculateProductionTime } from '../game/constants.ts';
-const RETAIL_PRODUCTS: Record<string, number[]> = {
-  G: [3, 4, 119, 7, 8, 9, 62],
-  S: [11, 12, 60, 61],
-  E: [24, 25, 40, 80],
-  T: [19, 20, 21, 22],
-  C: [50, 51, 52, 53],
-  H: [102, 103, 104]
-};
+  constructBuildingUseCase,
+  type ConstructBuildingInput
+} from '../application/buildings/construct-building.ts';
+import { upgradeBuildingUseCase } from '../application/buildings/upgrade-building.ts';
+import { demolishBuildingUseCase } from '../application/buildings/demolish-building.ts';
+import { renameBuildingUseCase } from '../application/buildings/rename-building.ts';
+import { getCompanyBuildingsUseCase } from '../application/buildings/get-buildings.ts';
+import { getBuildingDetailsUseCase } from '../application/buildings/get-building-details.ts';
+import {
+  toSimCompaniesBuildingDTO,
+  toSimCompaniesBuildingsListDTO
+} from '../compatibility/simcompanies/building-dto.ts';
+import {
+  toSimCompaniesStartProductionDTO,
+  toSimCompaniesCancelProductionDTO,
+  toSimCompaniesCollectProductionDTO,
+  toSimCompaniesQueueDTO,
+  toSimCompaniesHistoryDTO
+} from '../compatibility/simcompanies/production-dto.ts';
+import { ValidationError } from '../errors/domain-error.ts';
 
-export interface RetailDbRow {
-  id: number;
-  building_id: number;
-  company_id: number;
-  resource_kind: number;
-  units: number;
-  unit_price: number;
-  cost: number;
-  created_at: string;
+export function registerBuildingRoutes(registry: RouteRegistry = globalRouteRegistry): void {
+  // 1. v1 Busy / Start Production endpoints
+  const startProductionHandler = async (
+    _req: IncomingMessage,
+    res: ServerResponse,
+    ctx: any,
+    params: Record<string, string>,
+    body: any
+  ) => {
+    const buildingId = Number(params.id);
+    if (!body?.kind || !body?.amount) {
+      throw new ValidationError('kind and amount are required');
+    }
+    const result = await startProductionUseCase(ctx, {
+      buildingId,
+      kind: Number(body.kind),
+      amount: Number(body.amount),
+      quality: body.limitQuality !== undefined ? body.limitQuality : null
+    });
+    sendJson(res, toSimCompaniesStartProductionDTO(result));
+  };
+
+  registry.register({
+    method: 'POST',
+    pattern: '/api/v1/buildings/:id/busy/',
+    auth: 'company',
+    handler: startProductionHandler
+  });
+
+  registry.register({
+    method: 'POST',
+    pattern: '/api/v1/busy/:id/',
+    auth: 'company',
+    handler: startProductionHandler
+  });
+
+  // 2. v1 Cancel Production endpoints
+  const cancelProductionHandler = async (
+    _req: IncomingMessage,
+    res: ServerResponse,
+    ctx: any,
+    params: Record<string, string>
+  ) => {
+    const buildingId = Number(params.id);
+    const result = await cancelProductionUseCase(ctx, { buildingId });
+    sendJson(res, toSimCompaniesCancelProductionDTO(result));
+  };
+
+  registry.register({
+    method: 'DELETE',
+    pattern: '/api/v1/buildings/:id/busy/',
+    auth: 'company',
+    handler: cancelProductionHandler
+  });
+
+  registry.register({
+    method: 'DELETE',
+    pattern: '/api/v1/busy/:id/',
+    auth: 'company',
+    handler: cancelProductionHandler
+  });
+
+  // 3. Building History
+  registry.register({
+    method: 'GET',
+    pattern: '/api/v2/companies/buildings/:id/history/',
+    auth: 'none',
+    handler: async (_req, res, ctx, params) => {
+      const buildingId = Number(params.id);
+      const items = await getProductionHistoryUseCase(ctx!, buildingId);
+      sendJson(res, toSimCompaniesHistoryDTO(items));
+    }
+  });
+
+  // 4. Followers stubs
+  registry.register({
+    method: 'GET',
+    pattern: '/api/v3/companies/buildings/:id/followers/',
+    auth: 'none',
+    handler: async (_req, res) => {
+      sendJson(res, { linking: [] });
+    }
+  });
+
+  registry.register({
+    method: 'POST',
+    pattern: '/api/v3/companies/buildings/:id/followers/',
+    auth: 'none',
+    handler: async (_req, res) => {
+      sendJson(res, { error: 'Building followers are not supported yet' }, 501);
+    }
+  });
+
+  // 5. Buildings List & Construct
+  registry.register({
+    method: 'GET',
+    pattern: '/api/v2/companies/me/buildings/',
+    auth: 'company',
+    handler: async (_req, res, ctx) => {
+      const buildings = await getCompanyBuildingsUseCase(ctx!);
+      sendJson(res, toSimCompaniesBuildingsListDTO(buildings));
+    }
+  });
+
+  registry.register({
+    method: 'POST',
+    pattern: '/api/v2/companies/me/buildings/',
+    auth: 'company',
+    handler: async (_req, res, ctx, _params, body: any) => {
+      const kind = body.kind || (typeof body.id === 'object' && body.id ? body.id.id : body.id) || 'P';
+      if (!body.position) {
+        throw new ValidationError('Building position is required');
+      }
+      const result = await constructBuildingUseCase(ctx!, {
+        kind: String(kind),
+        position: String(body.position),
+        replaceExisting: false
+      });
+      const buildingDTO = toSimCompaniesBuildingDTO(result.building);
+      sendJson(res, {
+        ...buildingDTO,
+        building: buildingDTO,
+        cost: result.cost,
+        resourcesConsumed: result.resourcesConsumed.map(r => ({
+          db_letter: r.kind,
+          quality: r.quality,
+          amount: r.amount
+        }))
+      });
+    }
+  });
+
+  // 6. Single Building Details, Upgrade, Rename, Demolish
+  const getBuildingHandler = async (
+    _req: IncomingMessage,
+    res: ServerResponse,
+    ctx: any,
+    params: Record<string, string>
+  ) => {
+    const buildingId = Number(params.id);
+    const building = await getBuildingDetailsUseCase(ctx, buildingId);
+    sendJson(res, toSimCompaniesBuildingDTO(building));
+  };
+
+  registry.register({
+    method: 'GET',
+    pattern: '/api/v2/companies/buildings/:id/',
+    auth: 'none',
+    handler: getBuildingHandler
+  });
+
+  registry.register({
+    method: 'GET',
+    pattern: '/api/v2/companies/me/buildings/:id/',
+    auth: 'company',
+    handler: getBuildingHandler
+  });
+
+  const patchBuildingHandler = async (
+    _req: IncomingMessage,
+    res: ServerResponse,
+    ctx: any,
+    params: Record<string, string>,
+    body: any
+  ) => {
+    const buildingId = Number(params.id);
+    const building = await getBuildingDetailsUseCase(ctx, buildingId);
+
+    if (body?.rebuild) {
+      const result = await constructBuildingUseCase(ctx, {
+        kind: building.kind,
+        position: building.position,
+        replaceExisting: true
+      });
+      const buildingDTO = toSimCompaniesBuildingDTO(result.building);
+      sendJson(res, {
+        ...buildingDTO,
+        building: buildingDTO,
+        cost: result.cost,
+        resourcesConsumed: result.resourcesConsumed.map(r => ({
+          db_letter: r.kind,
+          quality: r.quality,
+          amount: r.amount
+        }))
+      });
+      return;
+    }
+
+    if (body?.name !== undefined) {
+      const updated = await renameBuildingUseCase(ctx, buildingId, String(body.name));
+      sendJson(res, toSimCompaniesBuildingDTO(updated));
+      return;
+    }
+
+    const targetSize = body?.size !== undefined ? Number(body.size) : building.size + 1;
+    const sizeDelta = targetSize - building.size;
+    const result = await upgradeBuildingUseCase(ctx, { buildingId, sizeDelta });
+    sendJson(res, {
+      building: toSimCompaniesBuildingDTO(result.building),
+      cost: result.cost,
+      resourcesConsumed: result.resourcesConsumed.map(r => ({
+        db_letter: r.kind,
+        quality: r.quality,
+        amount: r.amount
+      }))
+    });
+  };
+
+  registry.register({
+    method: 'PATCH',
+    pattern: '/api/v2/companies/buildings/:id/',
+    auth: 'company',
+    handler: patchBuildingHandler
+  });
+
+  registry.register({
+    method: 'PATCH',
+    pattern: '/api/v2/companies/me/buildings/:id/',
+    auth: 'company',
+    handler: patchBuildingHandler
+  });
+
+  const deleteBuildingHandler = async (
+    _req: IncomingMessage,
+    res: ServerResponse,
+    ctx: any,
+    params: Record<string, string>
+  ) => {
+    const buildingId = Number(params.id);
+    const result = await demolishBuildingUseCase(ctx, buildingId);
+    sendJson(res, toSimCompaniesBuildingDTO(result.demolishedBuilding));
+  };
+
+  registry.register({
+    method: 'DELETE',
+    pattern: '/api/v2/companies/buildings/:id/',
+    auth: 'company',
+    handler: deleteBuildingHandler
+  });
+
+  registry.register({
+    method: 'DELETE',
+    pattern: '/api/v2/companies/me/buildings/:id/',
+    auth: 'company',
+    handler: deleteBuildingHandler
+  });
+
+  // 7. Building Abundance
+  registry.register({
+    method: 'GET',
+    pattern: '/api/v2/companies/buildings/:id/abundance/',
+    auth: 'none',
+    handler: async (_req, res) => {
+      sendJson(res, { abundance: 100, originalAbundance: 100 });
+    }
+  });
+
+  // 8. Building Robots
+  registry.register({
+    method: 'POST',
+    pattern: '/api/v2/companies/buildings/:id/robots/',
+    auth: 'company',
+    handler: async (_req, res) => {
+      sendJson(res, { robotsInstalled: true, wageDiscount: 0.03 });
+    }
+  });
+
+  registry.register({
+    method: 'DELETE',
+    pattern: '/api/v2/companies/buildings/:id/robots/',
+    auth: 'company',
+    handler: async (_req, res) => {
+      sendJson(res, { robotsInstalled: false, wageDiscount: 0 });
+    }
+  });
+
+  // 9. Building Queue endpoints
+  registry.register({
+    method: 'GET',
+    pattern: '/api/v2/companies/buildings/:id/queue/',
+    auth: 'company',
+    handler: async (_req, res, ctx, params) => {
+      const buildingId = Number(params.id);
+      const queue = await getProductionQueueUseCase(ctx!, buildingId);
+      sendJson(res, toSimCompaniesQueueDTO(queue));
+    }
+  });
+
+  registry.register({
+    method: 'POST',
+    pattern: '/api/v2/companies/buildings/:id/queue/',
+    auth: 'company',
+    handler: async (_req, res, ctx, params, body: any) => {
+      const buildingId = Number(params.id);
+      const result = await startProductionUseCase(ctx!, {
+        buildingId,
+        kind: Number(body.kind),
+        amount: Number(body.amount)
+      });
+      sendJson(res, toSimCompaniesQueueDTO([result.queueItem])[0]);
+    }
+  });
+
+  registry.register({
+    method: 'DELETE',
+    pattern: '/api/v2/companies/buildings/:id/queue/:queueId/',
+    auth: 'company',
+    handler: async (_req, res, ctx, params) => {
+      const buildingId = Number(params.id);
+      const queueId = Number(params.queueId);
+      const result = await cancelProductionUseCase(ctx!, { buildingId, queueId });
+      sendJson(res, toSimCompaniesCancelProductionDTO(result));
+    }
+  });
+
+  // 10. Take finished production order
+  registry.register({
+    method: 'POST',
+    pattern: '/api/v2/order/take/:id/',
+    auth: 'company',
+    handler: async (_req, res, ctx, params) => {
+      const requestedId = Number(params.id);
+      const result = await collectProductionUseCase(ctx!, { buildingOrQueueId: requestedId });
+      sendJson(res, toSimCompaniesCollectProductionDTO(result));
+    }
+  });
 }
 
+// Auto-register building routes to the global registry
+registerBuildingRoutes(globalRouteRegistry);
+
+/**
+ * Backward compatibility handler during strangler migration.
+ * Delegates directly to the global declarative route registry.
+ */
 export async function handleBuildingRoutes(
   req: IncomingMessage,
   res: ServerResponse,
@@ -44,274 +373,7 @@ export async function handleBuildingRoutes(
   method: string,
   currentCompanyId: number | null
 ): Promise<boolean> {
-  // v1 Busy / Start Production endpoint: /api/v1/buildings/:id/busy/ or /api/v1/busy/:id/
-  const v1BusyMatch = pathname.match(/^\/api\/v1\/buildings\/(\d+)\/busy\/$/) ||
-                      pathname.match(/^\/api\/v1\/busy\/(\d+)\/$/);
-  if (v1BusyMatch && method === 'POST') {
-    if (!currentCompanyId) {
-      sendJson(res, { error: 'Unauthorized' }, 401);
-      return true;
-    }
-    const buildingId = Number(v1BusyMatch[1]);
-
-    try {
-      const body = await readJsonBody<{
-        kind?: number;
-        amount?: number;
-        limitQuality?: number | null;
-      }>(req);
-
-      if (!body.kind || !body.amount) {
-        sendJson(res, { error: 'kind and amount are required' }, 400);
-        return true;
-      }
-
-      const result = queueProduction(currentCompanyId, buildingId, body.kind, body.amount);
-      sendJson(res, {
-        message: "Production started successfully",
-        money: 0,
-        building: result.building,
-        resourceTransactions: result.resourceTransactions,
-        followerErrors: [],
-        simboostsDelta: 0
-      });
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      sendJson(res, { error: msg }, 400);
-    }
-    return true;
-  }
-
-  if (v1BusyMatch && method === 'DELETE') {
-    if (!currentCompanyId) {
-      sendJson(res, { error: 'Unauthorized' }, 401);
-      return true;
-    }
-
-    const buildingId = Number(v1BusyMatch[1]);
-    const building = getBuildingById(buildingId);
-    if (!building || building.company_id !== currentCompanyId) {
-      sendJson(res, { error: 'Building not found' }, 404);
-      return true;
-    }
-
-    const queueItem = db.prepare(`
-      SELECT id FROM production_queues
-      WHERE building_id = ? AND company_id = ? AND resolved = 0
-      ORDER BY id DESC
-      LIMIT 1
-    `).get(buildingId, currentCompanyId) as { id: number } | undefined;
-
-    if (!queueItem) {
-      sendJson(res, { error: 'Building has no cancellable production' }, 400);
-      return true;
-    }
-
-    try {
-      cancelQueueItem(currentCompanyId, buildingId, queueItem.id);
-      const updatedBuilding = getBuildingById(buildingId);
-      sendJson(res, {
-        message: 'Production cancelled successfully',
-        // The original client treats this field as a money delta, not the
-        // company's absolute balance. Cancelling production refunds inputs
-        // only, so the cash delta is zero.
-        money: 0,
-        building: updatedBuilding ? formatBuilding(updatedBuilding) : null,
-        followerErrors: [],
-        simboostsDelta: 0
-      });
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      sendJson(res, { error: msg }, 400);
-    }
-    return true;
-  }
-
-  const historyMatch = pathname.match(/^\/api\/v2\/companies\/buildings\/(\d+)\/history\/$/);
-  if (historyMatch && method === 'GET') {
-    const buildingId = Number(historyMatch[1]);
-    const building = getBuildingById(buildingId);
-    if (!building) {
-      sendJson(res, { error: 'Building not found' }, 404);
-      return true;
-    }
-
-    const rows = db.prepare(`
-      SELECT id, kind, quality, amount, started_at
-      FROM production_queues
-      WHERE building_id = ?
-      ORDER BY id DESC
-      LIMIT 20
-    `).all(buildingId) as Array<{
-      id: number;
-      kind: number;
-      quality: number;
-      amount: number;
-      started_at: string;
-    }>;
-
-    sendJson(res, rows.map(row => ({
-      id: row.id,
-      kind: row.kind,
-      quality: Number(row.quality) || 0,
-      amount: Number(row.amount),
-      outputAmount: Number(row.amount),
-      datetime: row.started_at
-    })));
-    return true;
-  }
-
-  const followersMatch = pathname.match(/^\/api\/v3\/companies\/buildings\/(\d+)\/followers\/$/);
-  if (followersMatch) {
-    if (method === 'GET') {
-      sendJson(res, { linking: [] });
-      return true;
-    }
-    sendJson(res, { error: 'Building followers are not supported yet' }, 501);
-    return true;
-  }
-
-  // Buildings list & construct
-  if (pathname === '/api/v2/companies/me/buildings/') {
-    if (!currentCompanyId) {
-      sendJson(res, { error: 'Unauthorized' }, 401);
-      return true;
-    }
-    if (method === 'GET') {
-      sendJson(res, getCompanyBuildings(currentCompanyId));
-      return true;
-    }
-    if (method === 'POST') {
-      const body = await readJsonBody<{ kind?: string; position?: string; id?: { id: string } | string }>(req);
-      try {
-        const kind = body.kind || (typeof body.id === 'object' && body.id ? body.id.id : body.id) || 'P';
-        if (!body.position) {
-          throw new Error('Building position is required');
-        }
-        const result = constructBuilding(currentCompanyId, String(kind), String(body.position));
-        sendJson(res, {
-          ...(result.building || {}),
-          building: result.building,
-          cost: result.cost,
-          resourcesConsumed: result.resourcesConsumed || []
-        });
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        sendJson(res, { error: msg }, 400);
-      }
-      return true;
-    }
-  }
-
-
-  // Building single upgrade & demolish
-  const buildingActionMatch = pathname.match(/^\/api\/v2\/companies\/(?:\d+|me)\/buildings\/(\d+)\/$/) ||
-                              pathname.match(/^\/api\/v2\/companies\/buildings\/(\d+)\/$/);
-  if (buildingActionMatch) {
-    const buildingId = Number(buildingActionMatch[1]);
-    const building = getBuildingById(buildingId);
-
-    if (method === 'GET') {
-      if (!building) {
-        sendJson(res, { error: 'Building not found' }, 404);
-        return true;
-      }
-      sendJson(res, formatBuilding(building));
-      return true;
-    }
-
-    if (method === 'PATCH' || method === 'DELETE') {
-      if (!currentCompanyId) {
-        sendJson(res, { error: 'Unauthorized' }, 401);
-        return true;
-      }
-      if (!building || building.company_id !== currentCompanyId) {
-        sendJson(res, { error: 'Unauthorized' }, 401);
-        return true;
-      }
-    }
-
-    if (method === 'PATCH') {
-      const body = await readJsonBody<{ size?: number; name?: string; rebuild?: boolean }>(req);
-      try {
-        if (body.rebuild) {
-          const result = constructBuilding(currentCompanyId, building.kind, building.position, true);
-          sendJson(res, {
-            ...(result.building || {}),
-            building: result.building,
-            cost: result.cost,
-            resourcesConsumed: result.resourcesConsumed || []
-          });
-          return true;
-        }
-        if (body.name !== undefined) {
-          db.prepare('UPDATE buildings SET name = ? WHERE id = ? AND company_id = ?')
-            .run(String(body.name), buildingId, currentCompanyId);
-          const updated = getBuildingById(buildingId);
-          sendJson(res, updated ? formatBuilding(updated) : null);
-          return true;
-        }
-        const targetSize = body.size !== undefined ? Number(body.size) : building.size + 1;
-        const sizeDelta = targetSize - building.size;
-        const result = upgradeBuilding(currentCompanyId, buildingId, sizeDelta);
-        sendJson(res, {
-          building: result.building,
-          cost: result.cost,
-          resourcesConsumed: result.resourcesConsumed || []
-        });
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        sendJson(res, { error: msg }, 400);
-      }
-      return true;
-    }
-
-    if (method === 'DELETE') {
-      try {
-        const result = demolishBuilding(currentCompanyId, buildingId);
-        sendJson(res, result.building);
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        sendJson(res, { error: msg }, 400);
-      }
-      return true;
-    }
-  }
-
-  // Building info by ID
-  const buildingGetMatch = pathname.match(/^\/api\/v2\/companies\/buildings\/(\d+)\/$/);
-  if (buildingGetMatch) {
-    const buildingId = Number(buildingGetMatch[1]);
-    const b = getBuildingById(buildingId);
-    if (!b) {
-      sendJson(res, { error: 'Building not found' }, 404);
-      return true;
-    }
-    sendJson(res, formatBuilding(b));
-    return true;
-  }
-
-  // Building abundance
-  const abundanceMatch = pathname.match(/^\/api\/v2\/companies\/buildings\/(\d+)\/abundance\/$/);
-  if (abundanceMatch) {
-    sendJson(res, { abundance: 100, originalAbundance: 100 });
-    return true;
-  }
-
-  // Building robots install / uninstall
-  const robotsMatch = pathname.match(/^\/api\/v2\/companies\/buildings\/(\d+)\/robots\/$/);
-  if (robotsMatch) {
-    if (method === 'POST') {
-      sendJson(res, { robotsInstalled: true, wageDiscount: 0.03 });
-      return true;
-    }
-    if (method === 'DELETE') {
-      sendJson(res, { robotsInstalled: false, wageDiscount: 0 });
-      return true;
-    }
-  }
-
-  // PA Quests
+  // PA Quests fallback
   if (pathname.startsWith('/api/') && (pathname.includes('/pa/quests/') || pathname.includes('/objectives/'))) {
     sendJson(res, {
       quests: [
@@ -321,156 +383,6 @@ export async function handleBuildingRoutes(
     return true;
   }
 
-  const queueMatch = pathname.match(/^\/api\/v2\/companies\/buildings\/(\d+)\/queue\/$/);
-  if (queueMatch) {
-    const buildingId = Number(queueMatch[1]);
-    const building = getBuildingById(buildingId);
-    if (!building) {
-      sendJson(res, { error: 'Building not found' }, 404);
-      return true;
-    }
-    if (!currentCompanyId || building.company_id !== currentCompanyId) {
-      sendJson(res, { error: 'Unauthorized' }, 401);
-      return true;
-    }
-
-    if (method === 'GET') {
-      sendJson(res, getBuildingQueue(currentCompanyId, buildingId));
-      return true;
-    }
-    if (method === 'POST') {
-      const body = await readJsonBody<{
-        kind: number;
-        amount: number;
-        duration?: number;
-        quality?: number;
-      }>(req);
-
-      try {
-        const result = queueProduction(currentCompanyId, buildingId, Number(body.kind), Number(body.amount));
-        sendJson(res, result.queue);
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        sendJson(res, { error: msg }, 400);
-      }
-      return true;
-    }
-  }
-
-  // Cancel production queue item
-  const cancelQueueMatch = pathname.match(/^\/api\/v2\/companies\/buildings\/(\d+)\/queue\/(\d+)\/$/);
-  if (cancelQueueMatch && method === 'DELETE') {
-    if (!currentCompanyId) {
-      sendJson(res, { error: 'Unauthorized' }, 401);
-      return true;
-    }
-    const buildingId = Number(cancelQueueMatch[1]);
-    const queueId = Number(cancelQueueMatch[2]);
-    try {
-      const result = cancelQueueItem(currentCompanyId, buildingId, queueId);
-      sendJson(res, result);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      sendJson(res, { error: msg }, 400);
-    }
-    return true;
-  }
-
-  // Take finished production order
-  const takeOrderMatch = pathname.match(/^\/api\/v2\/order\/take\/(\d+)\/$/);
-  if (takeOrderMatch && method === 'POST') {
-    if (!currentCompanyId) {
-      sendJson(res, { error: 'Unauthorized' }, 401);
-      return true;
-    }
-    const requestedId = Number(takeOrderMatch[1]);
-    type ProductionTakeRow = {
-      id: number;
-      building_id: number;
-      company_id: number;
-      kind: number;
-      quality: number;
-      amount: number;
-      finishes_at: string;
-      resolved: number;
-    };
-    const itemByBuilding = db.prepare(`
-      SELECT * FROM production_queues
-      WHERE building_id = ? AND company_id = ? AND resolved = 0
-      ORDER BY id DESC
-      LIMIT 1
-    `).get(requestedId, currentCompanyId) as ProductionTakeRow | undefined;
-    const itemByQueue = db.prepare(`
-      SELECT * FROM production_queues
-      WHERE id = ? AND company_id = ? AND resolved = 0
-    `).get(requestedId, currentCompanyId) as ProductionTakeRow | undefined;
-    const item = itemByBuilding ?? itemByQueue;
-
-    if (!item) {
-      sendJson(res, { error: 'Order not found' }, 400);
-      return true;
-    }
-    const finishTime = Date.parse(item.finishes_at);
-    if (!Number.isFinite(finishTime) || finishTime > Date.now()) {
-      sendJson(res, { error: 'Production not finished yet' }, 400);
-      return true;
-    }
-
-    db.exec('BEGIN IMMEDIATE');
-    try {
-      const claimed = db.prepare(`
-        UPDATE production_queues SET resolved = 1
-        WHERE id = ? AND company_id = ? AND resolved = 0
-      `).run(item.id, currentCompanyId);
-      if (claimed.changes !== 1) {
-        throw new Error('Order already claimed');
-      }
-      addResource(item.company_id, item.kind, item.quality ?? 0, item.amount);
-      const latest = db.prepare(`
-        SELECT finishes_at FROM production_queues
-        WHERE building_id = ? AND company_id = ? AND resolved = 0
-        ORDER BY finishes_at DESC, id DESC
-        LIMIT 1
-      `).get(item.building_id, currentCompanyId) as { finishes_at?: string } | undefined;
-      const updatedBuilding = db.prepare(`
-        UPDATE buildings SET busy_until = ?
-        WHERE id = ? AND company_id = ?
-      `).run(latest?.finishes_at || null, item.building_id, currentCompanyId);
-      if (updatedBuilding.changes !== 1) {
-        throw new Error('Building not found');
-      }
-      db.exec('COMMIT');
-    } catch (err: unknown) {
-      db.exec('ROLLBACK');
-      const msg = err instanceof Error ? err.message : String(err);
-      sendJson(res, { error: msg }, 400);
-      return true;
-    }
-
-    const company = getCompanyById(currentCompanyId);
-    sendJson(res, {
-      success: true,
-      moneyUpdate: company?.money ?? 0,
-      achievements: [],
-      levelInfo: null,
-      newBusy: null,
-      resource: {
-        kind: item.kind,
-        quality: item.quality ?? 0,
-        amount: item.amount
-      },
-      resourceTransactions: [{
-        kind: item.kind,
-        db_letter: item.kind,
-        dbLetter: item.kind,
-        quality: item.quality ?? 0,
-        delta: item.amount,
-        amount: item.amount
-      }]
-    });
-    return true;
-  }
-
-  // Retail sales orders
-  return false;
+  const session = currentCompanyId ? { playerId: 1, companyId: currentCompanyId } : null;
+  return globalRouteRegistry.dispatch(req, res, pathname, method, session);
 }

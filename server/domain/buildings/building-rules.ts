@@ -1,0 +1,62 @@
+import {
+  getBuildingMeta,
+  getConstructionMaterials,
+  DEMOLITION_REFUND_RATE
+} from '../../game-data/buildings.ts';
+import { ValidationError, ConflictError } from '../../errors/domain-error.ts';
+
+export interface ConstructionCostEstimate {
+  cost: number;
+  materials: Array<{ kind: number; amount: number }>;
+}
+
+export function validateConstructionPosition(
+  position: string,
+  existingPositions: string[],
+  replaceExisting: boolean = false
+): void {
+  const posNum = Number(position);
+  if (!Number.isInteger(posNum) || posNum < 0) {
+    throw new ValidationError(`Invalid building position: ${position}`);
+  }
+
+  if (!replaceExisting && existingPositions.includes(position)) {
+    throw new ConflictError(`Building position ${position} is already occupied`);
+  }
+}
+
+export function estimateConstructionCost(kind: string, sizeUnits: number = 1): ConstructionCostEstimate {
+  if (sizeUnits <= 0) {
+    throw new ValidationError(`Construction size must be positive: ${sizeUnits}`);
+  }
+  const meta = getBuildingMeta(kind);
+  const cost = meta.cost * sizeUnits;
+  const materials = getConstructionMaterials(sizeUnits);
+
+  return { cost, materials };
+}
+
+export function estimateUpgradeCost(kind: string, sizeDelta: number): ConstructionCostEstimate {
+  if (sizeDelta <= 0) {
+    throw new ValidationError(`Upgrade size delta must be positive: ${sizeDelta}`);
+  }
+  const meta = getBuildingMeta(kind);
+  const cost = meta.cost * sizeDelta;
+  const materials = getConstructionMaterials(sizeDelta);
+
+  return { cost, materials };
+}
+
+export function estimateDemolitionRefund(buildingCost: number, buildingSize: number): {
+  moneyRefund: number;
+  materialRefund: Array<{ kind: number; amount: number }>;
+} {
+  const moneyRefund = Math.floor(buildingCost * buildingSize * DEMOLITION_REFUND_RATE);
+  const fullMaterials = getConstructionMaterials(buildingSize);
+  const materialRefund = fullMaterials.map(m => ({
+    kind: m.kind,
+    amount: Math.floor(m.amount * DEMOLITION_REFUND_RATE)
+  }));
+
+  return { moneyRefund, materialRefund };
+}

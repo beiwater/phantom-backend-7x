@@ -6,8 +6,11 @@ interface WSMessage {
   data?: unknown;
 }
 
+let activeWss: WebSocketServer | null = null;
+
 export function setupWebSocket(server: Server) {
   const wss = new WebSocketServer({ server, path: '/ws' });
+  activeWss = wss;
 
   wss.on('connection', (ws: WebSocket) => {
     ws.on('message', (raw: string | Buffer) => {
@@ -38,4 +41,24 @@ export function setupWebSocket(server: Server) {
   });
 
   return wss;
+}
+
+export function broadcastToCompany(companyId: number, data: unknown): void {
+  if (!activeWss) return;
+  const payload = JSON.stringify({ routing: 'COMPANY_UPDATE', companyId, data });
+  for (const client of activeWss.clients) {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(payload);
+    }
+  }
+}
+
+export function broadcastAll(routing: string, data: unknown): void {
+  if (!activeWss) return;
+  const payload = JSON.stringify({ routing, data });
+  for (const client of activeWss.clients) {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(payload);
+    }
+  }
 }
