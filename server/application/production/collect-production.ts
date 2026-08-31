@@ -6,6 +6,8 @@ import { warehouseRepository, type WarehouseEntity } from '../../repositories/wa
 import { companyRepository } from '../../repositories/company-repository.ts';
 import { eventBus } from '../../events/event-bus.ts';
 import { NotFoundError, ValidationError, ConflictError } from '../../errors/domain-error.ts';
+import { addCompanyExperience } from '../../game/company.ts';
+import { computeLevelInfo, type LevelInfoDTO } from '../../domain/leveling/level-rules.ts';
 
 export interface CollectProductionInput {
   buildingOrQueueId: number;
@@ -16,6 +18,9 @@ export interface CollectProductionResult {
   warehouseItem: WarehouseEntity;
   building: BuildingEntity;
   currentMoney: number;
+  levelInfo: LevelInfoDTO;
+  levelUp: boolean;
+  experienceGained: number;
 }
 
 export async function collectProductionUseCase(
@@ -27,7 +32,13 @@ export async function collectProductionUseCase(
     const itemByQueue = productionRepository.findById(input.buildingOrQueueId);
     let targetItem: ProductionQueueEntity | null = null;
 
-    if (itemByQueue && itemByQueue.companyId === ctx.companyId && !itemByQueue.resolved) {
+    if (itemByQueue && itemByQueue.companyId === ctx.companyId && itemByQueue.resolved) {
+      // Idempotency barrier: an already-collected order must never be
+      // collected again (double XP / double resources).
+      throw new ConflictError('Production order has already been collected');
+    }
+
+    if (itemByQueue && itemByQueue.companyId === ctx.companyId) {
       targetItem = itemByQueue;
     } else {
       // Look by buildingId
@@ -76,11 +87,27 @@ export async function collectProductionUseCase(
     const newBusyUntil = remainingActive ? remainingActive.finishesAt : null;
     const updatedBuilding = buildingRepository.updateBusyUntil(targetItem.buildingId, ctx.companyId, newBusyUntil);
 
-    // 5. Query company balance
+    // 5. Query company balance and level state BEFORE the reward
     const company = companyRepository.findById(ctx.companyId);
     const currentMoney = company?.money ?? 0;
+    const levelBefore = company?.level ?? 0;
 
-    // 6. Publish domain event on transaction commit
+    // 6. Award production experience INSIDE the same transaction (P1-05).
+    // Flat reward per completed production order; server-side rule is
+    // deliberately simple because the official XP curve is not exposed.
+    const experienceGained = 10;
+    addCompanyExperience(ctx.companyId, experienceGained);
+    const companyAfter = companyRepository.findById(ctx.companyId);
+    const levelAfter = companyAfter?.level ?? levelBefore;
+
+    const levelInfo = computeLevelInfo({
+      level: companyAfter?.level ?? 0,
+      experience: companyAfter?.experience ?? 0,
+      rating: companyAfter?.rating,
+      extra_building_slots: companyAfter?.extraBuildingSlots ?? 0
+    });
+
+    // 7. Publish domain event on transaction commit
     eventBus.publishCommitted(txCtx, 'ProductionCollected', {
       companyId: ctx.companyId,
       buildingId: targetItem.buildingId,
@@ -88,6 +115,8 @@ export async function collectProductionUseCase(
       kind: targetItem.kind,
       quality: targetItem.quality,
       amount: targetItem.amount,
+      experienceGained,
+      level: levelAfter,
       collectedAt: new Date().toISOString()
     });
 
@@ -95,7 +124,10 @@ export async function collectProductionUseCase(
       collectedItem: targetItem,
       warehouseItem,
       building: updatedBuilding,
-      currentMoney
+      currentMoney,
+      levelInfo,
+      levelUp: levelAfter > levelBefore,
+      experienceGained
     };
   }, { immediate: true });
 }

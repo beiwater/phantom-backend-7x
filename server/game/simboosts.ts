@@ -1,9 +1,21 @@
-import { db } from '../db/database.ts';
-import { runInTransaction } from '../db/transaction.ts';
-import { getCompanyById, updateCompanyMoney, updateCompanySimBoosts } from './company.ts';
-import { getBuildingById, formatBuilding } from './buildings.ts';
-import { getBuildingQueue } from './production.ts';
-import { addResource } from './warehouse.ts';
+ import { db } from '../db/database.ts';
+ import { runInTransaction } from '../db/transaction.ts';
+ import { getCompanyById, updateCompanyMoney, updateCompanySimBoosts } from './company.ts';
+ import { getBuildingById, formatBuilding } from './buildings.ts';
+ import { getBuildingQueue } from './production.ts';
+ import { addResource } from './warehouse.ts';
+ import {
+   ensureBoostSettingsTable,
+   getCompanyBoostSettings,
+   getExchangedToday,
+   realignCompanyBonus,
+  exchangeMoneyForSimboosts,
+   EXCHANGE_CASH_PER_SIMBOOST,
+   EXCHANGE_DAILY_LIMIT
+ } from './simboost-settings.ts';
+
+// Create the persisted settings table on module load (idempotent DDL).
+ensureBoostSettingsTable(db);
 
 export interface PaymentPackage {
   sku: string;
@@ -12,111 +24,108 @@ export interface PaymentPackage {
   currency: string;
   starting: boolean;
   isSupporter: boolean;
-  supporter: boolean;
   supporterOnly: boolean;
   image: string;
-  hq: number | null;
   wideFrame: boolean;
+  googleSku?: string;
+  appleSku?: string;
+  steamSku?: string;
+  hq?: number;
+  limit?: number;
+  certificate?: number;
   approximateCurrency?: {
     code: string;
-    value: number;
+    value: string;
   };
 }
 
+/**
+ * Real package catalog captured from the official server's
+ * GET /api/v4/payment-packages/unknown/ response (see local://har-schemas.md).
+ * Prices are USD; approximateCurrency kept in the official AUD estimate shape.
+ */
 export const PAYMENT_PACKAGES: PaymentPackage[] = [
-  {
-    sku: "simboosts_small",
-    simBoosts: 50,
-    price: "4.95",
-    currency: "USD",
-    starting: false,
-    isSupporter: false,
-    supporter: false,
-    supporterOnly: false,
-    image: "images/packages/small.png",
-    hq: null,
-    wideFrame: false,
-    approximateCurrency: { code: "USD", value: 4.95 }
-  },
-  {
-    sku: "simboosts_medium",
-    simBoosts: 120,
-    price: "9.95",
-    currency: "USD",
-    starting: false,
-    isSupporter: false,
-    supporter: false,
-    supporterOnly: false,
-    image: "images/packages/medium.png",
-    hq: null,
-    wideFrame: false,
-    approximateCurrency: { code: "USD", value: 9.95 }
-  },
-  {
-    sku: "simboosts_large",
-    simBoosts: 275,
-    price: "19.95",
-    currency: "USD",
-    starting: false,
-    isSupporter: false,
-    supporter: false,
-    supporterOnly: false,
-    image: "images/packages/large.png",
-    hq: null,
-    wideFrame: false,
-    approximateCurrency: { code: "USD", value: 19.95 }
-  },
-  {
-    sku: "simboosts_xlarge",
-    simBoosts: 750,
-    price: "49.95",
-    currency: "USD",
-    starting: false,
-    isSupporter: false,
-    supporter: false,
-    supporterOnly: false,
-    image: "images/packages/xlarge.png",
-    hq: null,
-    wideFrame: false,
-    approximateCurrency: { code: "USD", value: 49.95 }
-  },
-  {
-    sku: "simboosts_xxlarge",
-    simBoosts: 1600,
-    price: "99.95",
-    currency: "USD",
-    starting: false,
-    isSupporter: false,
-    supporter: false,
-    supporterOnly: false,
-    image: "images/packages/xxlarge.png",
-    hq: null,
-    wideFrame: false,
-    approximateCurrency: { code: "USD", value: 99.95 }
-  }
+  { sku: "sb-sb150", simBoosts: 150, price: "5.89", currency: "USD", starting: false, isSupporter: false, supporterOnly: false, image: "images/sb-stacks/small-stack-dark.png", wideFrame: false, googleSku: "simcompanies.simboosts.low.1", appleSku: "simcompanies.simboosts.low.1", steamSku: "101500", approximateCurrency: { code: "AUD", value: "8.22" } },
+  { sku: "sb-sb330", simBoosts: 330, price: "10.45", currency: "USD", starting: false, isSupporter: false, supporterOnly: false, image: "images/sb-stacks/medium-stack-dark.png", wideFrame: false, googleSku: "simcompanies.simboosts.smallmedium.1", appleSku: "simcompanies.simboosts.smallmedium.1", steamSku: "103300", approximateCurrency: { code: "AUD", value: "14.58" } },
+  { sku: "sp2", simBoosts: 250, price: "3.25", currency: "USD", starting: true, isSupporter: false, supporterOnly: false, image: "images/sb-stacks/starter-pack.png", wideFrame: true, googleSku: "simcompanies.simboosts.starting.2", appleSku: "simcompanies.simboosts.starting.2", steamSku: "102502", approximateCurrency: { code: "AUD", value: "4.54" } },
+  { sku: "sb-sb850", simBoosts: 850, price: "23.45", currency: "USD", starting: false, isSupporter: false, supporterOnly: false, image: "images/sb-stacks/medium2-stack-dark.png", wideFrame: false, googleSku: "simcompanies.simboosts.medium.1", appleSku: "simcompanies.simboosts.medium.1", steamSku: "108500", approximateCurrency: { code: "AUD", value: "32.72" } },
+  { sku: "sb-sb1900", simBoosts: 1900, price: "46.95", currency: "USD", starting: false, isSupporter: false, supporterOnly: false, image: "images/sb-stacks/large-stack-dark.png", wideFrame: false, googleSku: "simcompanies.simboosts.large.1", appleSku: "simcompanies.simboosts.large.1", steamSku: "119000", approximateCurrency: { code: "AUD", value: "65.52" } },
+  { sku: "supporter", simBoosts: 0, price: "59.45", currency: "USD", starting: false, isSupporter: true, supporterOnly: false, image: "images/sb-stacks/executive-stack-dark.png", wideFrame: true, googleSku: "simcompanies.simboosts.supporter.1", appleSku: "simcompanies.simboosts.supporter.2", steamSku: "100000", approximateCurrency: { code: "AUD", value: "82.96" } },
+  { sku: "sb-s-sp2", simBoosts: 250, price: "2.89", currency: "USD", starting: true, isSupporter: false, supporterOnly: true, image: "images/sb-stacks/starter-pack.png", wideFrame: true, googleSku: "simcompanies.simboosts.starting.discounted.2", appleSku: "simcompanies.simboosts.starting.discounted.2", steamSku: "102503", approximateCurrency: { code: "AUD", value: "4.03" } },
+  { sku: "sb-s-sb150", simBoosts: 150, price: "5.25", currency: "USD", starting: false, isSupporter: false, supporterOnly: true, image: "images/sb-stacks/small-stack-dark.png", wideFrame: false, googleSku: "simcompanies.simboosts.low.discounted.1", appleSku: "simcompanies.simboosts.low.discounted.1", steamSku: "101501", approximateCurrency: { code: "AUD", value: "7.33" } },
+  { sku: "sb-s-sb330", simBoosts: 330, price: "9.39", currency: "USD", starting: false, isSupporter: false, supporterOnly: true, image: "images/sb-stacks/medium-stack-dark.png", wideFrame: false, googleSku: "simcompanies.simboosts.smallmedium.discounted.1", appleSku: "simcompanies.simboosts.smallmedium.discounted.1", steamSku: "103301", approximateCurrency: { code: "AUD", value: "13.10" } },
+  { sku: "sb-s-sb850", simBoosts: 850, price: "21.09", currency: "USD", starting: false, isSupporter: false, supporterOnly: true, image: "images/sb-stacks/medium2-stack-dark.png", wideFrame: false, googleSku: "simcompanies.simboosts.medium.discounted.1", appleSku: "simcompanies.simboosts.medium.discounted.1", steamSku: "108501", approximateCurrency: { code: "AUD", value: "29.43" } },
+  { sku: "sb-s-sb1900", simBoosts: 1900, price: "41.95", currency: "USD", starting: false, isSupporter: false, supporterOnly: true, image: "images/sb-stacks/large-stack-dark.png", wideFrame: false, googleSku: "simcompanies.simboosts.large.discounted.1", appleSku: "simcompanies.simboosts.large.discounted.1", steamSku: "119001", approximateCurrency: { code: "AUD", value: "58.54" } },
+  { sku: "sb-sb3800", simBoosts: 3800, price: "89.95", currency: "USD", starting: false, isSupporter: false, supporterOnly: false, image: "images/sb-stacks/professional-stack-dark.png", wideFrame: false, googleSku: "simcompanies.simboosts.professional.1", appleSku: "simcompanies.simboosts.professional.1", steamSku: "130000", approximateCurrency: { code: "AUD", value: "125.52" } },
+  { sku: "sb-s-sb3800", simBoosts: 3800, price: "79.95", currency: "USD", starting: false, isSupporter: false, supporterOnly: true, image: "images/sb-stacks/professional-stack-dark.png", wideFrame: false, googleSku: "simcompanies.simboosts.professional.discounted.1", appleSku: "simcompanies.simboosts.professional.discounted.1", steamSku: "130001", approximateCurrency: { code: "AUD", value: "111.57" } },
+  { sku: "sb-sb6300", simBoosts: 6300, price: "139.95", currency: "USD", starting: false, isSupporter: false, supporterOnly: false, image: "images/sb-stacks/executive-stack-dark.png", wideFrame: false, googleSku: "simcompanies.simboosts.executive.1", appleSku: "simcompanies.simboosts.executive.3", steamSku: "150000", approximateCurrency: { code: "AUD", value: "195.29" } },
+  { sku: "sb-s-sb6300", simBoosts: 6300, price: "125.95", currency: "USD", starting: false, isSupporter: false, supporterOnly: true, image: "images/sb-stacks/executive-stack-dark.png", wideFrame: false, googleSku: "simcompanies.simboosts.executive.discounted.1", appleSku: "simcompanies.simboosts.executive.discounted.1", steamSku: "150001", approximateCurrency: { code: "AUD", value: "175.76" } }
 ];
 
+export const PAYMENT_PACKAGES_PREFERRED_CURRENCY = 'USD';
+
+/**
+ * GET /api/v4/payment-packages/:type/ — top-level shape captured from the
+ * official server HAR: { packages, preferredCurrency, filter }.
+ */
 export function getPaymentPackagesList(platformType: string = 'web') {
+  void platformType;
   return {
     packages: PAYMENT_PACKAGES,
-    filter: []
+    preferredCurrency: PAYMENT_PACKAGES_PREFERRED_CURRENCY,
+    filter: false
   };
 }
 export function canPurchasePaymentPackage(sku: string) {
   const pkg = PAYMENT_PACKAGES.find(p => p.sku === sku);
   return {
-    canBuy: true,
-    canPurchase: true,
-    available: true,
+    canBuy: Boolean(pkg),
+    canPurchase: Boolean(pkg),
+    available: Boolean(pkg),
     limit: null,
-    message: null,
+    message: pkg ? null : 'Package not found',
     package: pkg || null
   };
 }
 
-export async function purchasePaymentPackage(companyId: number, sku: string) {
-  const pkg = PAYMENT_PACKAGES.find(p => p.sku === sku) || PAYMENT_PACKAGES[0];
-  return runInTransaction(async () => {
+export interface CompletedPurchase {
+  payment: {
+    sku: string;
+    simBoosts: number;
+    price: string;
+    currency: string;
+  };
+  simBoosts: number;
+  companySimboosts: number;
+  supporter: boolean;
+  starting: boolean;
+  message?: string;
+}
+
+const PURCHASE_IDEMPOTENCY_WINDOW_MS = 5000;
+
+/**
+ * In-memory purchase ledger for double-click idempotency (P0-03 acceptance:
+ * "重复点击不会重复发放"). Keyed by companyId + sku; a repeat within the
+ * window returns the original grant instead of minting SimBoosts again.
+ * Single-process private server, so process memory is the correct scope.
+ */
+const recentPurchases = new Map<string, { at: number; result: CompletedPurchase }>();
+
+
+export async function purchasePaymentPackage(companyId: number, sku: string, now: number = Date.now()) {
+  const pkg = PAYMENT_PACKAGES.find(p => p.sku === sku);
+  if (!pkg) {
+    throw new Error('Package not found');
+  }
+
+  const ledgerKey = `${companyId}:${pkg.sku}`;
+  const recent = recentPurchases.get(ledgerKey);
+  if (recent && now - recent.at < PURCHASE_IDEMPOTENCY_WINDOW_MS) {
+    return recent.result;
+  }
+
+  const result = await runInTransaction(async () => {
     const newSimBoosts = updateCompanySimBoosts(companyId, pkg.simBoosts);
     return {
       payment: {
@@ -129,8 +138,16 @@ export async function purchasePaymentPackage(companyId: number, sku: string) {
       companySimboosts: newSimBoosts,
       supporter: pkg.isSupporter,
       starting: pkg.starting
-    };
+    } satisfies CompletedPurchase;
   }, { immediate: true });
+
+  recentPurchases.set(ledgerKey, { at: now, result });
+  return result;
+}
+
+/** Test seam: clear the purchase idempotency ledger. */
+export function resetPurchaseLedger(): void {
+  recentPurchases.clear();
 }
 
 
@@ -171,6 +188,47 @@ export async function exchangeSimBoosts(companyId: number, amount: number) {
       message: `Exchanged ${amount} SimBoosts for $${cashAmount.toLocaleString()}`
     };
   }, { immediate: true });
+}
+
+/**
+ * P0-04: POST /api/v2/pa-action/fair/:n/ — exchange company cash for
+ * SimBoosts at the official 250:1 rate with the official daily cap.
+ * Returns the exact official response shape {"done": true}.
+ */
+export async function exchangeCashForSimboosts(companyId: number, cash: number) {
+  return exchangeMoneyForSimboosts({
+    companyId,
+    cash,
+    getCompanyMoney: id => {
+      const comp = getCompanyById(id);
+      return comp ? { money: Number(comp.money), simboosts: Number(comp.simboosts) } : null;
+    },
+    debitMoney: (id, amount) => updateCompanyMoney(id, -amount),
+    creditSimBoosts: (id, simBoosts) => updateCompanySimBoosts(id, simBoosts)
+  });
+}
+
+/** Current exchanged-today counter as surfaced in authCompany (persisted, resets each UTC day). */
+export function getCompanyExchangedToday(companyId: number): number {
+  return getExchangedToday(companyId);
+}
+
+/**
+ * P1-02: realign the production/sales bonus from the Headquarters > SimBoosts
+ * screen. Debits SimBoosts and persists both modifiers atomically so a refresh
+ * reads back the saved values instead of the defaults.
+ */
+export async function realignProductionSalesBonus(companyId: number, move: number) {
+  return realignCompanyBonus(companyId, move, (id, cost) => updateCompanySimBoosts(id, -cost));
+}
+
+/** Persisted modifier pair for GET endpoints (read-only, no side effects). */
+export function getCompanyBonusModifiers(companyId: number) {
+  const settings = getCompanyBoostSettings(companyId);
+  return {
+    productionModifier: settings.productionModifier,
+    salesModifier: settings.salesModifier
+  };
 }
 
 export async function unlockBuildingSlot(companyId: number) {

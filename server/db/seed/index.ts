@@ -49,17 +49,22 @@ export function registerPlayer(
   password: string,
   companyName?: string,
   database: DatabaseSync = db
-): { playerId: number; companyId: number } {
+): { playerId: number; companyId: number; created: boolean } {
   if (typeof password !== 'string' || password.length < 8) {
     throw new Error('Password must be at least 8 characters');
   }
-  const existing = database.prepare('SELECT * FROM players WHERE email = ?').get(email);
-  if (existing) throw new Error('Email already registered');
 
-  let cName = companyName || email.split('@')[0] || `Co-${Math.floor(4000000 + Math.random() * 6000000)}`;
-  let nameTaken = database.prepare('SELECT 1 FROM companies WHERE name = ?').get(cName);
-  if (nameTaken) {
-    cName = `${cName} ${Math.floor(100 + Math.random() * 900)}`;
+  // P1-04: new companies must not be auto-named from email/device data.
+  // An explicitly provided non-empty name is honored (and must be unique);
+  // otherwise the company starts unnamed and the frontend naming flow
+  // (/create/) assigns the name. Guest/device signups never derive a
+  // business name from user-agent strings.
+  const cName = typeof companyName === 'string' ? companyName.trim() : '';
+  if (cName) {
+    const nameTaken = database.prepare('SELECT 1 FROM companies WHERE name = ?').get(cName);
+    if (nameTaken) {
+      throw new Error('Company name already taken');
+    }
   }
 
   const now = new Date().toISOString();
@@ -108,7 +113,7 @@ export function registerPlayer(
         insertSeedStock.run(companyId, s.kind, s.amount, now);
       }
       database.exec('COMMIT');
-      return { playerId, companyId };
+      return { playerId, companyId, created: true };
     } catch (err) {
       database.exec('ROLLBACK');
       const msg = err instanceof Error ? err.message : String(err);
@@ -131,7 +136,7 @@ export function authenticatePlayer(
   email: string,
   password: string,
   database: DatabaseSync = db
-): { playerId: number; companyId: number } {
+): { playerId: number; companyId: number; created: boolean } {
   const player = database.prepare('SELECT * FROM players WHERE email = ?').get(email) as PlayerDbRow | undefined;
   if (!player) throw new Error('Invalid email or password');
 
@@ -146,7 +151,8 @@ export function authenticatePlayer(
   if (!company?.company_id) throw new Error('Company not found');
   return {
     playerId: player.player_id,
-    companyId: company.company_id
+    companyId: company.company_id,
+    created: false
   };
 }
 
@@ -155,13 +161,19 @@ export function registerOrAuthenticatePlayer(
   password?: string,
   companyName?: string,
   database: DatabaseSync = db
-): { playerId: number; companyId: number } {
+): { playerId: number; companyId: number; created: boolean } {
+  // P1-04: guest/device signups must not fabricate a company name from
+  // device or user-agent data. New companies start unnamed so the frontend
+  // naming flow (/create/) runs first.
+  const desiredName = typeof companyName === 'string' && companyName.trim() !== ''
+    ? companyName.trim()
+    : undefined;
+
   if (!email || email.trim() === '') {
     const randomId = Math.floor(100000 + Math.random() * 900000);
     const guestEmail = `guest_${randomId}@simcompanies.local`;
     const guestPass = password || 'guest1234';
-    const guestCompany = companyName || `Company ${randomId}`;
-    return registerPlayer(guestEmail, guestPass, guestCompany, database);
+    return registerPlayer(guestEmail, guestPass, desiredName, database);
   }
 
   const cleanEmail = email.trim();
@@ -171,8 +183,9 @@ export function registerOrAuthenticatePlayer(
     return authenticatePlayer(cleanEmail, password, database);
   }
 
-  return registerPlayer(cleanEmail, password || '', companyName, database);
+  return registerPlayer(cleanEmail, password || '', desiredName, database);
 }
+
 
 export function seedInitialDatabase(database: DatabaseSync = db): void {
   const countStmt = database.prepare('SELECT COUNT(*) as count FROM players');

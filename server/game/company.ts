@@ -2,6 +2,9 @@ import { db, seedDefaultDisplayCase } from '../db/database.ts';
 import { CONFIG } from '../config.ts';
 import { computeLevelInfo, getXpRequiredForLevel } from '../domain/leveling/level-rules.ts';
 import { seedDefaultExecutives } from './executives.ts';
+import { getCompanyBoostSettings, getExchangedToday } from './simboost-settings.ts';
+import { recordCashLedger, refreshDailyFinanceSnapshot } from './cash-ledger.ts';
+
 export interface CompanyRow {
   id: number;
   company_id: number;
@@ -15,11 +18,12 @@ export interface CompanyRow {
   logo: string;
   personal_assistant: string;
   note: string;
-  created_at: string;
   extra_building_slots?: number;
   extra_executive_slots?: number;
   display_case_slots?: number;
   max_tags?: number;
+  show_online_indicator?: number;
+  moderator_sign?: number;
 }
 
 function toSafeCompanyName(name: string): string {
@@ -76,6 +80,8 @@ export function updateCompanyMoney(companyId: number, delta: number): number {
   if (result.changes !== 1) {
     throw new Error('Company not found');
   }
+  recordCashLedger({ companyId, amount: delta, category: 'g', description: 'Company money change', descriptionKey: '' });
+  refreshDailyFinanceSnapshot(companyId);
   return newMoney;
 }
 
@@ -226,6 +232,25 @@ export function updatePlayerPreferences(playerId: number, prefs: { theme?: strin
   }
 }
 
+/**
+ * P1-06: account-settings page persists company-level display flags.
+ * The settings page toggles "显示在线/离线状态" and "显示协管标记" via
+ * PATCH /api/v3/companies/:id/ and expects the change to survive reloads.
+ */
+export function updateCompanySettings(
+  companyId: number,
+  settings: { showOnlineIndicator?: boolean; moderatorSign?: boolean }
+): void {
+  if (settings.showOnlineIndicator !== undefined) {
+    db.prepare('UPDATE companies SET show_online_indicator = ? WHERE company_id = ?')
+      .run(settings.showOnlineIndicator ? 1 : 0, companyId);
+  }
+  if (settings.moderatorSign !== undefined) {
+    db.prepare('UPDATE companies SET moderator_sign = ? WHERE company_id = ?')
+      .run(settings.moderatorSign ? 1 : 0, companyId);
+  }
+}
+
 export function getPersonalData(playerId: number) {
   const player = db.prepare('SELECT * FROM players WHERE player_id = ?').get(playerId) as PlayerRow | undefined;
   const companies = db.prepare('SELECT * FROM companies WHERE player_id = ?').all(playerId) as unknown as CompanyRow[];
@@ -346,11 +371,13 @@ export function getAuthData(playerId?: number | null, targetCompanyId?: number |
       companyId: company.company_id,
       company: toSafeCompanyName(company.name),
       personalAssistant: company.personal_assistant || "old",
-      moderatorSign: false,
-      hqImage: "",
-      money: safeMoney,
-      exchangedToday: 0,
+      moderatorSign: Boolean(company.moderator_sign),
+      exchangedToday: getExchangedToday(company.company_id),
       simBoosts: safeSimBoosts,
+      // P1-02/P0-04: persisted SimBoost settings instead of hardcoded zeros,
+      // so a saved realignment or a completed exchange survives a refresh.
+      productionModifier: getCompanyBoostSettings(company.company_id).productionModifier,
+      salesModifier: getCompanyBoostSettings(company.company_id).salesModifier,
       popupNotifications: {
         help: true,
         sale: true,
@@ -359,8 +386,6 @@ export function getAuthData(playerId?: number | null, targetCompanyId?: number |
         contract: true,
         buyOrderFill: true
       },
-      productionModifier: 0,
-      salesModifier: 0,
       countryCodeIsoUserSet: "",
       rank: 1,
       evaRank: null,
@@ -371,8 +396,9 @@ export function getAuthData(playerId?: number | null, targetCompanyId?: number |
       logo: company.logo || "",
       startingPackPurchased: false,
       maxTags: Math.max(1, Number(company.max_tags) || 1),
-      courseId: null,
-      showOnlineIndicator: true,
+      showOnlineIndicator: company.show_online_indicator === null || company.show_online_indicator === undefined
+        ? true
+        : Boolean(company.show_online_indicator),
       testCategory: 0,
       level: company.level ?? 0,
       realmId: company.realm_id || 0,

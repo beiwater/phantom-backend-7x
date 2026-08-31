@@ -1,19 +1,23 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { readJsonBody, sendJson } from './utils.ts';
-import {
-  getPaymentPackagesList,
-  getPaymentPricingInfo,
-  getPlayerBonusesList,
-  canPurchasePaymentPackage,
-  purchasePaymentPackage,
-  exchangeSimBoosts,
-  unlockDisplayCaseSlot,
-  unlockExecutiveSlot,
-  unlockTagSlot,
-  unlockBuildingSlot,
-  rushProduction,
-  rushBuildingUpgradeOrConstruction
-} from '../game/simboosts.ts';
+ import {
+   getPaymentPackagesList,
+   getPaymentPricingInfo,
+   getPlayerBonusesList,
+   canPurchasePaymentPackage,
+   purchasePaymentPackage,
+  exchangeCashForSimboosts,
+  realignProductionSalesBonus,
+  getCompanyBonusModifiers,
+   exchangeSimBoosts,
+   unlockDisplayCaseSlot,
+   unlockExecutiveSlot,
+   unlockTagSlot,
+   unlockBuildingSlot,
+   rushProduction,
+   rushBuildingUpgradeOrConstruction
+ } from '../game/simboosts.ts';
+import { getCompanyBoostSettings } from '../game/simboost-settings.ts';
 export async function handleSimboostRoutes(
   req: IncomingMessage,
   res: ServerResponse,
@@ -42,21 +46,32 @@ export async function handleSimboostRoutes(
     return true;
   }
   // Realign Production/Sales bonus: POST /api/v2/companies/me/bonus/
+  // P1-02: the move must be persisted (company_boost_settings) and debited in
+  // SimBoosts atomically; response echoes the saved modifiers so the client
+  // store and a later refresh agree.
   if (pathname === '/api/v2/companies/me/bonus/' && method === 'POST') {
     if (!currentCompanyId) {
       sendJson(res, { error: 'Unauthorized' }, 401);
       return true;
     }
-    const body = await readJsonBody<{ production?: number }>(req);
-    const prodMod = Math.max(-3, Math.min(3, Number(body.production || 0)));
-    const salesMod = -prodMod;
-    sendJson(res, {
-      productionModifier: prodMod,
-      salesModifier: salesMod
-    });
+    try {
+      const body = await readJsonBody<{ production?: number }>(req);
+      const requested = Math.max(-3, Math.min(3, Number(body.production || 0)));
+      const current = getCompanyBonusModifiers(currentCompanyId);
+      // Client posts the target production modifier: move = target - current.
+      const move = requested - current.productionModifier;
+      const result = await realignProductionSalesBonus(currentCompanyId, move);
+      sendJson(res, {
+        productionModifier: result.productionModifier,
+        salesModifier: result.salesModifier,
+        cost: result.cost
+      });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      sendJson(res, { error: msg }, 400);
+    }
     return true;
   }
-  // Level bonus application: POST /api/v2/no-cache/companies/level-bonus/:id/
   const levelBonusMatch = pathname.match(/^\/api\/v2\/no-cache\/companies\/level-bonus\/(\d+|me)\/?$/);
   if (levelBonusMatch && method === 'POST') {
     if (!currentCompanyId) {
@@ -107,7 +122,7 @@ export async function handleSimboostRoutes(
     }
     try {
       const body = await readJsonBody<{ sku?: string; nonce?: string; name?: string; bonus?: string }>(req);
-      const sku = body.sku || 'simboosts_small';
+      const sku = body.sku || 'sb-sb150';
       const result = await purchasePaymentPackage(currentCompanyId, sku);
       sendJson(res, result);
     } catch (err: unknown) {
@@ -117,36 +132,49 @@ export async function handleSimboostRoutes(
     return true;
   }
 
-  // 5b. Stripe Checkout: /api/v2/payment-stripe/
+  // 5b. Stripe Checkout: POST /api/v2/payment-stripe/
+  // Official flow returns a Stripe clientSecret and the client completes the
+  // payment on Stripe's servers. The private server has no Stripe backend, so
+  // the purchase completes locally right here: SimBoosts are granted inside a
+  // transaction and a well-formed clientSecret is returned so the frontend
+  // Stripe Elements flow finishes without contacting the real gateway.
   if (pathname === '/api/v2/payment-stripe/' && method === 'POST') {
     if (!currentCompanyId) {
       sendJson(res, { error: 'Unauthorized' }, 401);
       return true;
     }
-    const body = await readJsonBody<{ sku?: string }>(req);
-    const sku = body.sku || 'simboosts_small';
-    // Return client secret for stripe element
-    sendJson(res, {
-      clientSecret: `pi_3M${Date.now()}_secret_${Date.now()}`
-    });
+    try {
+      const body = await readJsonBody<{ sku?: string }>(req);
+      const sku = body.sku || 'sb-sb150';
+      const result = await purchasePaymentPackage(currentCompanyId, sku);
+      sendJson(res, {
+        clientSecret: `pi_local_${Date.now()}_secret_${Math.random().toString(36).slice(2)}`,
+        ...result
+      });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      sendJson(res, { error: msg }, 400);
+    }
     return true;
   }
 
-  // 5c. Stripe Sync / Completion: /api/v2/payment-stripe/sync
+  // 5c. Stripe Sync / Completion: POST /api/v2/payment-stripe/sync?session_id=X
+  // Called by /checkout/stripe/process/ with the session id. The grant already
+  // happened in 5b; this endpoint must NOT grant a second package (that was
+  // the original P0-03 bug). It only confirms completion so the frontend shows
+  // the success screen. receiptUrl matches the official redirect target.
   if (pathname === '/api/v2/payment-stripe/sync' && method === 'POST') {
     if (!currentCompanyId) {
       sendJson(res, { error: 'Unauthorized' }, 401);
       return true;
     }
-    const body = await readJsonBody<{ sessionId?: string }>(req);
-    const result = await purchasePaymentPackage(currentCompanyId, 'simboosts_medium');
+    await readJsonBody<{ sessionId?: string }>(req);
     sendJson(res, {
       receiptUrl: '/zh-cn/landscape/',
-      ...result
+      message: 'Your transaction has been processed. Thanks for your support!'
     });
     return true;
   }
-
   // 5d. Tron Crypto Payment: /api/v2/payment-crypto/tron/
   if (pathname === '/api/v2/payment-crypto/tron/' && method === 'POST') {
     if (!currentCompanyId) {
@@ -154,7 +182,7 @@ export async function handleSimboostRoutes(
       return true;
     }
     const body = await readJsonBody<{ packageSku?: string }>(req);
-    const sku = body.packageSku || 'simboosts_small';
+    const sku = body.packageSku || 'sb-sb150';
     const id = `tron_${Date.now()}`;
     sendJson(res, {
       invoice: {
@@ -176,14 +204,14 @@ export async function handleSimboostRoutes(
       sendJson(res, { error: 'Unauthorized' }, 401);
       return true;
     }
-    const result = await purchasePaymentPackage(currentCompanyId, 'simboosts_medium');
+    const result = await purchasePaymentPackage(currentCompanyId, 'sb-sb330');
     sendJson(res, {
       invoice: {
         id: tronPatchMatch[1],
         datetime: new Date().toISOString()
       },
       payment: {
-        sku: 'simboosts_medium',
+        sku: 'sb-sb330',
         simBoostsPurchased: result.simBoosts,
         simBoostsExtra: 0
       }
@@ -198,8 +226,29 @@ export async function handleSimboostRoutes(
       return true;
     }
     const body = await readJsonBody<{ sku?: string }>(req);
-    const result = await purchasePaymentPackage(currentCompanyId, body.sku || 'simboosts_small');
+    const result = await purchasePaymentPackage(currentCompanyId, body.sku || 'sb-sb150');
     sendJson(res, result);
+    return true;
+  }
+
+  // 5f. Personal Assistant fair exchange: POST /api/v2/pa-action/fair/:n/
+  // Official response: 200 {"done": true}. `n` selects the PA offer (0/1 =
+  // resource deliveries, 2+ = joke reply); the private server completes the
+  // cash-for-SimBoosts exchange locally at the official 250:1 rate with the
+  // daily exchange limit, atomically and idempotently (P0-04).
+  const paFairMatch = pathname.match(/^\/api\/v2\/pa-action\/fair\/([a-zA-Z0-9_-]+)\/$/);
+  if (paFairMatch && method === 'POST') {
+    if (!currentCompanyId) {
+      sendJson(res, { error: 'Unauthorized' }, 401);
+      return true;
+    }
+    try {
+      const result = await exchangeCashForSimboosts(currentCompanyId, 10000);
+      sendJson(res, { done: true, ...result });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      sendJson(res, { error: msg }, 400);
+    }
     return true;
   }
 

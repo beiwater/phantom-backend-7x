@@ -20,6 +20,8 @@ export interface ResourceTransaction {
   quality: number;
   delta: number;
   amount: number;
+  /** Per-unit total cost of the consumed stock (workers+admin+materials+market). */
+  cost?: number;
 }
 
 export function getWarehouseResources(companyId: number) {
@@ -96,7 +98,10 @@ export function consumeResourceExactWithTransactions(
     dbLetter: kind,
     quality,
     delta: -amount,
-    amount: -amount
+    amount: -amount,
+    cost: (Number(row.cost_workers) || 0) + (Number(row.cost_admin) || 0) +
+          (Number(row.cost_material1) || 0) + (Number(row.cost_material2) || 0) +
+          (Number(row.cost_market) || 0)
   }];
 }
 
@@ -209,7 +214,10 @@ export function consumeResourceWithTransactions(
       dbLetter: kind,
       quality: Number(row.quality) || 0,
       delta: -takenAmount,
-      amount: -takenAmount
+      amount: -takenAmount,
+      cost: (Number(row.cost_workers) || 0) + (Number(row.cost_admin) || 0) +
+            (Number(row.cost_material1) || 0) + (Number(row.cost_material2) || 0) +
+            (Number(row.cost_market) || 0)
     });
   }
 

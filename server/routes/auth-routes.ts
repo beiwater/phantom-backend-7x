@@ -14,9 +14,29 @@ import {
   createCompanyForPlayer,
   resetCompany,
   updatePlayerPreferences,
+  updateCompanySettings,
   getPersonalData
 } from '../game/company.ts';
 import { getCompanyBuildings } from '../game/buildings.ts';
+
+const COMPANY_NAME_COLORS = ['Aero', 'Almond', 'Amaranth', 'Amber', 'Amethyst', 'Apricot', 'Auburn', 'Azure', 'Beige', 'Bistre', 'Blue', 'Brass', 'Bronze', 'Cedar', 'Cerulean', 'Cobalt', 'Copper', 'Coral', 'Crimson', 'Cyan'];
+const COMPANY_NAME_SIZES = ['Big', 'Colossal', 'Gigantic', 'Great', 'Huge', 'Immense', 'Little', 'Mighty', 'Mini', 'Vast'];
+const COMPANY_NAME_ADJECTIVES = ['Abundant', 'Excellent', 'Outstanding', 'Superb', 'Superior', 'Supreme', 'Splendid', 'Magnificent', 'Wonderful', 'Dynamic'];
+const COMPANY_NAME_TRADES = ['Aerospace', 'Agriculture', 'Agro', 'Automotive', 'Bank', 'Carbon', 'Construction', 'Design', 'Electronics', 'Energy', 'Factory', 'Farms', 'Food', 'Innovations', 'Labs', 'Materials', 'Mining', 'Motors', 'Ore', 'Trade', 'Trading'];
+
+/**
+ * P1-04: naming-flow conflict suggestions, mirroring the original
+ * frontend suggestion generator (color/size/adjective/trade word pool).
+ */
+function buildCompanyNameSuggestions(count = 3): string[] {
+  const pick = (list: string[]): string => list[Math.floor(Math.random() * list.length)];
+  const out: string[] = [];
+  for (let i = 0; i < count; i++) {
+    const suggestion = [pick(COMPANY_NAME_ADJECTIVES), pick(COMPANY_NAME_SIZES), pick(COMPANY_NAME_TRADES)].join(' ');
+    if (!out.includes(suggestion)) out.push(suggestion);
+  }
+  return out;
+}
 
 export async function handleAuthRoutes(
   req: IncomingMessage,
@@ -27,6 +47,7 @@ export async function handleAuthRoutes(
   currentPlayerId: number | null,
   currentCompanyId: number | null
 ): Promise<boolean> {
+
   // Signout / Logout
   if (pathname === '/signout/' || pathname === '/zh-cn/signout/' || pathname === '/logout/' || pathname.endsWith('/signout/')) {
     if (sessionToken) destroySession(sessionToken);
@@ -50,11 +71,14 @@ export async function handleAuthRoutes(
       countryCode?: string;
     }>(req);
 
+    // P1-04: the original signup form posts the device/user-agent derived
+    // `name` field. It must never become the company name: new companies
+    // start unnamed and the player names them via /create/.
     try {
-      const auth = registerOrAuthenticatePlayer(body.email, body.password, body.name);
+      const auth = registerOrAuthenticatePlayer(body.email, body.password);
       const token = createSession(auth.playerId, auth.companyId);
       res.writeHead(302, {
-        'Location': '/zh-cn/landscape/',
+        'Location': '/zh-cn/create/',
         'Set-Cookie': [
           `sessionid=${token}; Path=/; HttpOnly; SameSite=Lax`,
           'django_language=zh-cn; Path=/; SameSite=Lax'
@@ -133,13 +157,16 @@ export async function handleAuthRoutes(
 
     const body = await readJsonBody<{ email: string; password: string; company?: string; name?: string }>(req);
     try {
-      const auth = registerOrAuthenticatePlayer(body.email, body.password, body.company || body.name);
+      // P1-04: ignore device-derived `name`; only an explicit non-empty
+      // `company` from the signup form is honored as a business name.
+      const auth = registerOrAuthenticatePlayer(body.email, body.password, body.company);
       const token = createSession(auth.playerId, auth.companyId);
       res.writeHead(200, {
         'Content-Type': 'application/json',
         'Set-Cookie': `sessionid=${token}; Path=/; HttpOnly; SameSite=Lax`
       });
-      res.end(JSON.stringify({ status: 'redirect', redirectUrl: '/zh-cn/landscape/' }));
+      const redirectUrl = auth.created ? '/zh-cn/create/' : '/zh-cn/landscape/';
+      res.end(JSON.stringify({ status: 'redirect', redirectUrl }));
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       sendJson(res, { error: msg }, 400);
@@ -156,7 +183,7 @@ export async function handleAuthRoutes(
         'Content-Type': 'application/json',
         'Set-Cookie': `sessionid=${token}; Path=/; HttpOnly; SameSite=Lax`
       });
-      res.end(JSON.stringify({ status: 'redirect', redirectUrl: '/zh-cn/landscape/' }));
+      res.end(JSON.stringify({ status: 'redirect', redirectUrl: auth.created ? '/zh-cn/create/' : '/zh-cn/landscape/' }));
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       sendJson(res, { error: msg }, 400);
@@ -164,8 +191,14 @@ export async function handleAuthRoutes(
     return true;
   }
 
-  // Push Devices Registration: /api/v2/players/push-devices/
+  // P1-06: settings page renders registered push devices; the frontend does
+  // `pushDevices && pushDevices.length > 0`, so GET must return an array, not
+  // an object — a plain object crashed the page on `.length of undefined`.
   if (pathname.startsWith('/api/') && pathname.includes('/push-devices/')) {
+    if (method === 'GET') {
+      sendJson(res, []);
+      return true;
+    }
     sendJson(res, { status: 'ok' });
     return true;
   }
@@ -182,9 +215,8 @@ export async function handleAuthRoutes(
     return true;
   }
 
+
   // Administration overhead is a numeric multiplier in the original API.
-  // The private server currently has no executive/admin ledger, so its
-  // persisted company model has the neutral multiplier of 1.
   const administrationOverheadMatch = pathname.match(/^\/api\/v2\/companies\/(\d+|me)\/administration-overhead\/(?:plus-one\/)?$/);
   if (administrationOverheadMatch) {
     const requestedCompanyId = administrationOverheadMatch[1] === 'me'
@@ -224,6 +256,24 @@ export async function handleAuthRoutes(
       sendJson(res, { status: 'ok' });
       return true;
     }
+  }
+
+  // P1-06: language selector on the account-settings page saves via
+  // POST /api/v2/players/language/ { code }. Without it the save 404s.
+  if (pathname === '/api/v2/players/language/' && method === 'POST') {
+    if (!currentPlayerId) {
+      sendJson(res, { error: 'Unauthorized' }, 401);
+      return true;
+    }
+    const body = await readJsonBody<{ code?: string }>(req);
+    const code = String(body.code ?? '').trim();
+    if (!code) {
+      sendJson(res, { error: 'Language code is required' }, 400);
+      return true;
+    }
+    updatePlayerPreferences(currentPlayerId, { language: code });
+    sendJson(res, { status: 'ok' });
+    return true;
   }
 
   // Referrals
@@ -399,7 +449,10 @@ export async function handleAuthRoutes(
         sendJson(res, { error: 'Unauthorized' }, 401);
         return true;
       }
-      const body = await readJsonBody<{ level?: number; note?: string; name?: string }>(req);
+      const body = await readJsonBody<{
+        level?: number; note?: string; name?: string; company?: string;
+        showOnlineIndicator?: boolean; moderatorSign?: boolean;
+      }>(req);
       const company = getCompanyById(currentCompanyId);
       if (!company) {
         sendJson(res, { error: 'Company not found' }, 404);
@@ -410,11 +463,50 @@ export async function handleAuthRoutes(
         sendJson(res, { status: 'ok', message: 'Company reset successful' });
         return true;
       }
+      // P1-06: settings-page display flags must persist and the response must
+      // be a full auth-data payload: the frontend feeds it straight into
+      // updateAuthUser(data, headers), which expects { authUser, authCompany }.
+      if (body.showOnlineIndicator !== undefined || body.moderatorSign !== undefined) {
+        updateCompanySettings(currentCompanyId, {
+          showOnlineIndicator: body.showOnlineIndicator,
+          moderatorSign: body.moderatorSign
+        });
+        sendJson(res, getAuthData(currentPlayerId, currentCompanyId));
+        return true;
+      }
       if (body.note !== undefined) {
         db.prepare('UPDATE companies SET note = ? WHERE company_id = ?').run(String(body.note), currentCompanyId);
       }
-      if (body.name !== undefined) {
-        db.prepare('UPDATE companies SET name = ? WHERE company_id = ?').run(String(body.name), currentCompanyId);
+      // P1-04: the frontend naming flow (/create/) PATCHes { company }.
+      // Reject empty names and names conflicting with existing companies;
+      // return the error/suggestions shape the frontend expects.
+      if (body.company !== undefined) {
+        const requested = String(body.company).trim();
+        if (requested.length < 4) {
+          sendJson(res, { error: 'Try a longer company name, this is too short' }, 400);
+          return true;
+        }
+        if (!/^[a-zA-Z0-9 .]+$/.test(requested)) {
+          sendJson(res, { error: 'Please use only letters, numbers, or dots' }, 400);
+          return true;
+        }
+        const clash = db.prepare('SELECT company_id FROM companies WHERE name = ? AND company_id != ?').get(requested, currentCompanyId);
+        if (clash) {
+          sendJson(res, {
+            error: 'The selected name conflicts with existing companies',
+            suggestions: buildCompanyNameSuggestions(),
+            conflicts: [requested]
+          }, 400);
+          return true;
+        }
+        db.prepare('UPDATE companies SET name = ? WHERE company_id = ?').run(requested, currentCompanyId);
+      } else if (body.name !== undefined) {
+        const requested = String(body.name).trim();
+        if (requested.length === 0) {
+          sendJson(res, { error: 'Company name cannot be empty' }, 400);
+          return true;
+        }
+        db.prepare('UPDATE companies SET name = ? WHERE company_id = ?').run(requested, currentCompanyId);
       }
       sendJson(res, { status: 'ok', company: getCompanyById(currentCompanyId) });
       return true;

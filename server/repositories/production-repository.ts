@@ -8,7 +8,7 @@ export interface ProductionQueueEntity {
   companyId: number;
   kind: number;
   quality: number;
-  amount: number;
+  cost: number | null;
   durationSeconds: number;
   startedAt: string;
   finishesAt: string;
@@ -21,8 +21,8 @@ export interface ProductionQueueDbRow {
   company_id: number;
   kind: number;
   quality: number;
+  cost: number | null;
   amount: number;
-  duration_seconds: number;
   started_at: string;
   finishes_at: string;
   resolved: number;
@@ -35,6 +35,7 @@ function mapQueueRow(row: ProductionQueueDbRow): ProductionQueueEntity {
     companyId: row.company_id,
     kind: row.kind,
     quality: row.quality ?? 0,
+    cost: row.cost === null || row.cost === undefined ? null : Number(row.cost),
     amount: row.amount,
     durationSeconds: row.duration_seconds,
     startedAt: row.started_at,
@@ -105,22 +106,21 @@ export class ProductionRepository {
     companyId: number;
     kind: number;
     quality: number;
+    cost?: number | null;
     amount: number;
-    durationSeconds: number;
-    startedAt: string;
-    finishesAt: string;
   }): ProductionQueueEntity {
     const result = this.database.prepare(`
       INSERT INTO production_queues (
-        building_id, company_id, kind, quality, amount, duration_seconds, started_at, finishes_at, resolved
+        building_id, company_id, kind, quality, cost, amount, duration_seconds, started_at, finishes_at, resolved
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
       RETURNING *
     `).get(
       data.buildingId,
       data.companyId,
       data.kind,
       data.quality,
+      data.cost ?? null,
       data.amount,
       data.durationSeconds,
       data.startedAt,

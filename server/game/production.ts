@@ -121,6 +121,11 @@ export function queueProduction(companyId: number, buildingId: number, resourceK
   // Quality achievable at queue time, driven by the research quality cap (#39).
   const quality = getProductionQualityCap(companyId, resourceKind);
   const finishDate = new Date(now.getTime() + duration * 1000);
+  // Input-cost and weighted-quality accumulators (P0-02), filled during the
+  // consumption transaction below and persisted on the queue row.
+  let totalInputAmount = 0;
+  let weightedQualitySum = 0;
+  let totalInputCost = 0;
 
   db.exec('BEGIN');
   try {
@@ -132,14 +137,23 @@ export function queueProduction(companyId: number, buildingId: number, resourceK
         if (!transactions) {
           throw new Error(`Insufficient materials: need ${totalReq} of resource #${reqKind}`);
         }
+        for (const tx of transactions) {
+          const txAmount = Math.abs(Number(tx.amount)) || 0;
+          totalInputAmount += txAmount;
+          weightedQualitySum += txAmount * (Number(tx.quality) || 0);
+          totalInputCost += txAmount * (Number(tx.cost) || 0);
+        }
         resourceTransactions.push(...transactions);
       }
     }
 
+    const averageInputQuality = totalInputAmount > 0 ? weightedQualitySum / totalInputAmount : 0;
+    const inputCostPerOutputUnit = amount > 0 ? totalInputCost / amount : 0;
+
     db.prepare(`
-      INSERT INTO production_queues (building_id, company_id, kind, quality, amount, duration_seconds, started_at, finishes_at, resolved)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)
-    `).run(buildingId, companyId, resourceKind, quality, amount, duration, now.toISOString(), finishDate.toISOString());
+      INSERT INTO production_queues (building_id, company_id, kind, quality, cost, amount, duration_seconds, started_at, finishes_at, resolved)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+    `).run(buildingId, companyId, resourceKind, quality, inputCostPerOutputUnit, amount, duration, now.toISOString(), finishDate.toISOString());
 
     // Extend building busy_until past any existing busy window.
     const busyUntil = new Date(Math.max(busyUntilMs, finishDate.getTime()));

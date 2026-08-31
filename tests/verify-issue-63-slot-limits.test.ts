@@ -35,11 +35,11 @@ async function runIssue63SlotLimitsTest() {
   // Fund company and stock warehouse materials
   db.prepare('UPDATE companies SET money = 1000000, simboosts = 5000, level = 1 WHERE company_id = ?').run(companyId);
   const now = new Date().toISOString();
-  db.prepare('INSERT INTO warehouse (company_id, kind, quality, amount, cost_workers, cost_admin, cost_material1, cost_material2, cost_market, updated_at) VALUES (?, 101, 0, 5000, 0, 0, 0, 0, 1.0, ?)')
+  db.prepare('INSERT INTO warehouse (company_id, kind, quality, amount, cost_workers, cost_admin, cost_material1, cost_material2, cost_market, updated_at) VALUES (?, 101, 0, 5000, 0, 0, 0, 0, 1.0, ?) ON CONFLICT(company_id, kind, quality) DO UPDATE SET amount = amount + 5000')
     .run(companyId, now);
-  db.prepare('INSERT INTO warehouse (company_id, kind, quality, amount, cost_workers, cost_admin, cost_material1, cost_material2, cost_market, updated_at) VALUES (?, 102, 0, 5000, 0, 0, 0, 0, 1.0, ?)')
+  db.prepare('INSERT INTO warehouse (company_id, kind, quality, amount, cost_workers, cost_admin, cost_material1, cost_material2, cost_market, updated_at) VALUES (?, 102, 0, 5000, 0, 0, 0, 0, 1.0, ?) ON CONFLICT(company_id, kind, quality) DO UPDATE SET amount = amount + 5000')
     .run(companyId, now);
-  db.prepare('INSERT INTO warehouse (company_id, kind, quality, amount, cost_workers, cost_admin, cost_material1, cost_material2, cost_market, updated_at) VALUES (?, 111, 0, 5000, 0, 0, 0, 0, 1.0, ?)')
+  db.prepare('INSERT INTO warehouse (company_id, kind, quality, amount, cost_workers, cost_admin, cost_material1, cost_material2, cost_market, updated_at) VALUES (?, 111, 0, 5000, 0, 0, 0, 0, 1.0, ?) ON CONFLICT(company_id, kind, quality) DO UPDATE SET amount = amount + 5000')
     .run(companyId, now);
 
   // Initial buildings: 2 (positions 0 and 1). At level 1, maxSlots = 4.

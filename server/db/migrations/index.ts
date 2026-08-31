@@ -36,6 +36,12 @@ export function runMigrations(db: DatabaseSync): void {
     db.exec('ALTER TABLE production_queues ADD COLUMN quality INTEGER DEFAULT 0');
   }
 
+  // 2b. Production queue cost basis column (P0-02): persisted input-cost
+  // snapshot so the frontend can render cost per unit without NaN.
+  if (!pqColumns.some(c => c.name === 'cost')) {
+    db.exec('ALTER TABLE production_queues ADD COLUMN cost REAL');
+  }
+
   // 3. Bond maturity and settled columns (#42)
   const bondCols = (db.prepare('PRAGMA table_info(bonds)').all() as { name: string }[]).map(c => c.name);
   if (!bondCols.includes('maturity_date')) db.exec('ALTER TABLE bonds ADD COLUMN maturity_date TEXT');
@@ -47,6 +53,20 @@ export function runMigrations(db: DatabaseSync): void {
   if (!companyCols.includes('extra_executive_slots')) db.exec('ALTER TABLE companies ADD COLUMN extra_executive_slots INTEGER DEFAULT 0');
   if (!companyCols.includes('display_case_slots')) db.exec('ALTER TABLE companies ADD COLUMN display_case_slots INTEGER DEFAULT 1');
   if (!companyCols.includes('max_tags')) db.exec('ALTER TABLE companies ADD COLUMN max_tags INTEGER DEFAULT 1');
+  // P1-06: account-settings display flags on companies
+  if (!companyCols.includes('show_online_indicator')) db.exec('ALTER TABLE companies ADD COLUMN show_online_indicator INTEGER DEFAULT 1');
+  if (!companyCols.includes('moderator_sign')) db.exec('ALTER TABLE companies ADD COLUMN moderator_sign INTEGER DEFAULT 0');
+
+  // P1-06: persisted notification preferences
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS notification_preferences (
+      company_id INTEGER PRIMARY KEY,
+      email_json TEXT DEFAULT '{}',
+      popup_json TEXT DEFAULT '{}',
+      push_json TEXT DEFAULT '{}',
+      updated_at TEXT
+    );
+  `);
 
   // 5. Retail orders quality and finished_at columns
   const retailCols = (db.prepare('PRAGMA table_info(retail_orders)').all() as { name: string }[]).map(c => c.name);
@@ -75,4 +95,64 @@ export function runMigrations(db: DatabaseSync): void {
       console.warn('Rotated the insecure default admin password; set ADMIN_PASSWORD before the next fresh bootstrap.');
     }
   }
+
+  // 8. Enable foreign key enforcement
+  db.exec('PRAGMA foreign_keys = ON');
+
+  // 9. Add UNIQUE constraints to prevent duplicate rows (#22)
+  // First deduplicate existing data by merging amounts and keeping the latest row.
+  const hasUqWarehouse = (db.prepare("SELECT 1 FROM sqlite_master WHERE type='index' AND name='uq_warehouse_company_kind_quality'").get() as unknown);
+  if (!hasUqWarehouse) {
+    // Merge duplicate warehouse rows: sum amounts, keep max id
+    db.exec(`
+      DELETE FROM warehouse WHERE id NOT IN (
+        SELECT MAX(id) FROM warehouse GROUP BY company_id, kind, quality
+      );
+      UPDATE warehouse SET amount = (
+        SELECT total FROM (
+          SELECT company_id AS cid, kind AS k, quality AS q, SUM(amount) AS total
+          FROM warehouse GROUP BY company_id, kind, quality
+        ) sub WHERE sub.cid = warehouse.company_id AND sub.k = warehouse.kind AND sub.q = warehouse.quality
+      ) WHERE 1=1;
+    `);
+  }
+
+  const hasUqBuildings = (db.prepare("SELECT 1 FROM sqlite_master WHERE type='index' AND name='uq_buildings_company_position'").get() as unknown);
+  if (!hasUqBuildings) {
+    // Remove duplicate buildings at same position, keep latest
+    db.exec(`
+      DELETE FROM buildings WHERE id NOT IN (
+        SELECT MAX(id) FROM buildings GROUP BY company_id, position
+      );
+    `);
+  }
+
+  const hasUqResearch = (db.prepare("SELECT 1 FROM sqlite_master WHERE type='index' AND name='uq_research_company_discipline'").get() as unknown);
+  if (!hasUqResearch) {
+    db.exec(`
+      DELETE FROM research WHERE id NOT IN (
+        SELECT MAX(id) FROM research GROUP BY company_id, discipline
+      );
+    `);
+  }
+
+  const hasUqDisplay = (db.prepare("SELECT 1 FROM sqlite_master WHERE type='index' AND name='uq_display_case_company_slot'").get() as unknown);
+  if (!hasUqDisplay) {
+    db.exec(`
+      DELETE FROM display_case WHERE id NOT IN (
+        SELECT MAX(id) FROM display_case GROUP BY company_id, slot
+      );
+    `);
+  }
+
+  db.exec(`
+    CREATE UNIQUE INDEX IF NOT EXISTS uq_buildings_company_position
+      ON buildings(company_id, position);
+    CREATE UNIQUE INDEX IF NOT EXISTS uq_warehouse_company_kind_quality
+      ON warehouse(company_id, kind, quality);
+    CREATE UNIQUE INDEX IF NOT EXISTS uq_research_company_discipline
+      ON research(company_id, discipline);
+    CREATE UNIQUE INDEX IF NOT EXISTS uq_display_case_company_slot
+      ON display_case(company_id, slot);
+  `);
 }

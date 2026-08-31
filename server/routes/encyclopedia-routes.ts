@@ -132,16 +132,11 @@ export async function handleEncyclopediaRoutes(
     return true;
   }
 
-  // 6. Static Documentation Pages / Guides
-  const pagesMatch = pathname.match(/^\/api\/v3\/pages\/[^/]+\/([^/]+)\/$/);
-  if (pagesMatch) {
-    const pageKey = pagesMatch[1];
-    sendJson(res, {
-      title: pageKey.toUpperCase(),
-      content: `<h2>Sim Companies 指南: ${pageKey}</h2><p>私人服务器版本文库与游戏机制文档已全面在线。</p>`
-    });
-    return true;
-  }
+  // 6. Static Documentation Pages / Guides — P1-03.
+  // Served by routes/page-routes.ts (registered later in the router): the
+  // article viewer needs { slug, slugTitle, title, body, language, lastUpdate,
+  // otherLanguages }; the previous inline stub returned { title, content },
+  // which crashed the viewer on `otherLanguages.length` and rendered no body.
 
   // 7. Dynamic Real EVA & Wealth Rankings
   const evaRankingMatch = pathname.match(/^\/api\/v4\/encyclopedia\/eva-ranking\/(\d+)(?:\/(\d+))?\/?$/);
@@ -203,8 +198,9 @@ export async function handleEncyclopediaRoutes(
     return true;
   }
 
-  // 10b. Government Orders (v3 APIs only)
-  if (pathname.startsWith('/api/') && pathname.includes('/government-orders/')) {
+  // 10b. Government Orders (v3/v2 data APIs only — must not swallow the
+  // /api/v3/pages/... guide article whose slug contains "government-orders")
+  if (pathname.startsWith('/api/v') && !pathname.includes('/pages/') && pathname.includes('/government-orders/')) {
     sendJson(res, { governmentOrders: [], applications: [], tier: 1 });
     return true;
   }

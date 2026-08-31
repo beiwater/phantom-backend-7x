@@ -22,6 +22,7 @@ import { handleResearchRoutes } from './routes/research-routes.ts';
 import { handleAchievementRoutes } from './routes/achievement-routes.ts';
 import { handleSimboostRoutes } from './routes/simboost-routes.ts';
 import { handleRetailRoutes } from './routes/retail-routes.ts';
+import { handlePageRoutes } from './routes/page-routes.ts';
 // A small compatibility manifest keeps method errors distinct from unknown routes.
 const methodManifest: Array<{ pattern: RegExp; methods: string[] }> = [
   { pattern: /^\/api\/v2\/time-millis\/$/, methods: ['GET'] },
@@ -29,7 +30,16 @@ const methodManifest: Array<{ pattern: RegExp; methods: string[] }> = [
   { pattern: /^\/api\/v2\/auth\/email\/(?:auth|connect|reset)\/$/, methods: ['POST'] },
   { pattern: /^\/api\/v2\/auth\/device\/(?:auth|connect)\/$/, methods: ['POST'] },
   { pattern: /^\/api\/v2\/companies\/me\/buildings\/$/, methods: ['GET', 'POST'] },
-  { pattern: /^\/api\/v2\/market-order\/(?:take\/)?$/, methods: ['POST'] }
+  { pattern: /^\/api\/v2\/market-order\/(?:take\/)?$/, methods: ['POST'] },
+  { pattern: /^\/api\/v4\/executives\/$/, methods: ['GET'] },
+  { pattern: /^\/api\/v4\/executives\/candidates\/$/, methods: ['GET'] },
+  { pattern: /^\/api\/v4\/executives\/hire\/$/, methods: ['POST'] },
+  { pattern: /^\/api\/v2\/market\/bonds\/$/, methods: ['GET'] },
+  { pattern: /^\/api\/v2\/bonds\/sell\/$/, methods: ['POST'] },
+  { pattern: /^\/api\/v2\/bonds\/\d+\/buy\/$/, methods: ['POST'] },
+  { pattern: /^\/api\/v2\/bonds\/\d+\/call\/$/, methods: ['POST'] },
+  { pattern: /^\/api\/v3\/companies\/auth-data\/$/, methods: ['GET'] },
+  { pattern: /^\/api\/v2\/constants\/resources\/$/, methods: ['GET'] }
 ];
 
 export async function handleRequest(req: IncomingMessage, res: ServerResponse) {
@@ -155,6 +165,9 @@ export async function handleRequest(req: IncomingMessage, res: ServerResponse) {
     return;
   }
   if (await handleResearchRoutes(req, res, pathname, method, currentCompanyId)) {
+    return;
+  }
+  if (await handlePageRoutes(req, res, pathname, method)) {
     return;
   }
   if (await handleAchievementRoutes(req, res, pathname, method, currentCompanyId)) {

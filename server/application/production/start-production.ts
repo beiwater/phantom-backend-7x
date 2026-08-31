@@ -47,9 +47,12 @@ export async function startProductionUseCase(
       input.kind,
       input.amount
     );
-
-    // 3. Consume required ingredients atomically
+    // 3. Consume required ingredients atomically, tracking the weighted
+    // average input quality and total cost basis (P0-02).
     const allTransactions: ResourceTransactionEntity[] = [];
+    let totalInputAmount = 0;
+    let weightedQualitySum = 0; // sum of amount * quality across inputs
+    let totalInputCost = 0;
     for (const ingredient of ingredients) {
       const txs = warehouseRepository.consumeWithTransactions(
         ctx.companyId,
@@ -57,8 +60,16 @@ export async function startProductionUseCase(
         0,
         ingredient.amount
       );
+      for (const tx of txs) {
+        const txAmount = Math.abs(Number(tx.amount));
+        totalInputAmount += txAmount;
+        weightedQualitySum += txAmount * (Number(tx.quality) || 0);
+        totalInputCost += txAmount * (Number(tx.cost) || 0);
+      }
       allTransactions.push(...txs);
     }
+    const averageInputQuality = totalInputAmount > 0 ? weightedQualitySum / totalInputAmount : 0;
+    const inputCostPerOutputUnit = input.amount > 0 ? totalInputCost / input.amount : 0;
 
     // 4. Calculate timing and queue chaining
     const durationSeconds = calculateProductionTime(input.kind, input.amount, building.size);
@@ -77,19 +88,28 @@ export async function startProductionUseCase(
     const startedAt = startTime.toISOString();
     const finishesAt = finishTime.toISOString();
 
-    // 5. Determine quality
+    // 5. Determine quality: the requested (research-capped) quality drives the
+    // output tier; when not explicitly requested the output quality is the
+    // input-amount-weighted average input quality, floored to an integer
+    // (P0-02: persisted at queue time so it survives refresh).
+    const requested = input.quality ?? null;
     const achievableQuality = resolveAchievableQuality(
       ctx.companyId,
       input.kind,
-      input.quality
+      requested
     );
+    const persistedQuality = requested !== null
+      ? achievableQuality
+      : Math.max(0, Math.floor(averageInputQuality));
 
-    // 6. Create queue item
+    // 6. Create queue item — cost basis is the total input cost per output
+    // unit, persisted so serialization never has to guess (P0-02).
     const queueItem = productionRepository.create({
       buildingId: building.id,
       companyId: ctx.companyId,
       kind: input.kind,
-      quality: achievableQuality,
+      quality: persistedQuality,
+      cost: inputCostPerOutputUnit,
       amount: input.amount,
       durationSeconds,
       startedAt,

@@ -48,6 +48,8 @@ export function initializeDatabaseSchema(database: DatabaseSync = db): void {
       extra_executive_slots INTEGER DEFAULT 0,
       display_case_slots INTEGER DEFAULT 1,
       max_tags INTEGER DEFAULT 1,
+      show_online_indicator INTEGER DEFAULT 1,
+      moderator_sign INTEGER DEFAULT 0,
       created_at TEXT
     );
 
@@ -70,6 +72,7 @@ export function initializeDatabaseSchema(database: DatabaseSync = db): void {
       company_id INTEGER,
       kind INTEGER,
       quality INTEGER DEFAULT 0,
+      cost REAL,
       amount REAL,
       duration_seconds REAL,
       started_at TEXT,
@@ -203,12 +206,51 @@ export function initializeDatabaseSchema(database: DatabaseSync = db): void {
       due_at TEXT
     );
 
+    CREATE TABLE IF NOT EXISTS cash_ledger (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      company_id INTEGER NOT NULL,
+      amount REAL NOT NULL,
+      category TEXT NOT NULL,
+      description TEXT,
+      description_key TEXT,
+      details TEXT DEFAULT '{}',
+      created_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS finance_daily_snapshots (
+      company_id INTEGER NOT NULL,
+      snapshot_date TEXT NOT NULL,
+      total REAL DEFAULT 0,
+      current_assets REAL DEFAULT 0,
+      non_current_assets REAL DEFAULT 0,
+      liabilities REAL DEFAULT 0,
+      economic_value_added REAL DEFAULT 0,
+      eva_profit REAL DEFAULT 0,
+      eva_rank INTEGER DEFAULT 0,
+      rank INTEGER DEFAULT 0,
+      cash_and_receivables REAL DEFAULT 0,
+      inventory REAL DEFAULT 0,
+      buildings REAL DEFAULT 0,
+      patents REAL DEFAULT 0,
+      investment_in_bonds REAL DEFAULT 0,
+      deposits REAL DEFAULT 0,
+      created_at TEXT,
+      PRIMARY KEY (company_id, snapshot_date)
+    );
     CREATE TABLE IF NOT EXISTS player_devices (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       player_id INTEGER,
       device_uuid TEXT,
       device_name TEXT,
       last_login TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS notification_preferences (
+      company_id INTEGER PRIMARY KEY,
+      email_json TEXT DEFAULT '{}',
+      popup_json TEXT DEFAULT '{}',
+      push_json TEXT DEFAULT '{}',
+      updated_at TEXT
     );
   `);
 
@@ -218,6 +260,10 @@ export function initializeDatabaseSchema(database: DatabaseSync = db): void {
     CREATE INDEX IF NOT EXISTS idx_buildings_company_position ON buildings(company_id, position);
     CREATE INDEX IF NOT EXISTS idx_production_queues_company_building_resolved
       ON production_queues(company_id, building_id, resolved);
+    CREATE INDEX IF NOT EXISTS idx_cash_ledger_company_created
+      ON cash_ledger(company_id, created_at);
+    CREATE INDEX IF NOT EXISTS idx_finance_snapshots_company
+      ON finance_daily_snapshots(company_id, snapshot_date);
     CREATE INDEX IF NOT EXISTS idx_warehouse_company_kind_quality
       ON warehouse(company_id, kind, quality);
     CREATE INDEX IF NOT EXISTS idx_market_orders_active_kind_quality_price
@@ -227,4 +273,6 @@ export function initializeDatabaseSchema(database: DatabaseSync = db): void {
     CREATE INDEX IF NOT EXISTS idx_bonds_status_buyer_seller
       ON bonds(status, buyer_company_id, seller_company_id);
   `);
+  // Enable foreign key enforcement at connection level
+  database.exec('PRAGMA foreign_keys = ON');
 }

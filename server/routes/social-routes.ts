@@ -41,23 +41,55 @@ export async function handleSocialRoutes(
   }
 
   // Player notifications settings: /api/v2/players/notifications/:id
+  // P1-06: notification preferences must persist (read -> modify -> save ->
+  // reload keeps values). Stored per company in notification_preferences.
   const playerNotificationsMatch = pathname.match(/^\/api\/v2\/players\/notifications(?:\/(\d+))?\/?$/);
   if (playerNotificationsMatch) {
+    const CATEGORIES = ['emailNotifications', 'popupNotifications', 'pushNotifications'] as const;
+    const loadRow = (): Record<string, Record<string, boolean>> => {
+      const row = db.prepare('SELECT email_json, popup_json, push_json FROM notification_preferences WHERE company_id = ?')
+        .get(currentCompanyId ?? -1) as { email_json?: string; popup_json?: string; push_json?: string } | undefined;
+      const parse = (raw: string | undefined): Record<string, boolean> => {
+        if (!raw) return {};
+        try { return JSON.parse(raw); } catch { return {}; }
+      };
+      return {
+        emailNotifications: parse(row?.email_json),
+        popupNotifications: parse(row?.popup_json),
+        pushNotifications: parse(row?.push_json)
+      };
+    };
+
     if (method === 'GET') {
-      sendJson(res, {
-        emailNotifications: { new_contract: true, bonds_sold: true, idle_building: true },
-        popupNotifications: { new_contract: true, buy_order_fill: true },
-        pushNotifications: { new_contract: true, idle_building: true }
-      });
+      if (!currentCompanyId) {
+        sendJson(res, { error: 'Unauthorized' }, 401);
+        return true;
+      }
+      sendJson(res, loadRow());
       return true;
     }
     if (method === 'PUT') {
-      const body = await readJsonBody<any>(req);
-      sendJson(res, {
-        emailNotifications: body?.emailNotifications || {},
-        popupNotifications: body?.popupNotifications || {},
-        pushNotifications: body?.pushNotifications || {}
-      });
+      if (!currentCompanyId) {
+        sendJson(res, { error: 'Unauthorized' }, 401);
+        return true;
+      }
+      const body = await readJsonBody<{ category?: string; emailNotifications?: Record<string, boolean>; popupNotifications?: Record<string, boolean>; pushNotifications?: Record<string, boolean> }>(req);
+      const category = String(body?.category ?? '');
+      if (!(CATEGORIES as readonly string[]).includes(category)) {
+        sendJson(res, { error: 'Unknown notification category' }, 400);
+        return true;
+      }
+      const { category: _drop, ...rest } = body ?? {};
+      void _drop;
+      const flags = rest[category] ?? {};
+      const column = category === 'emailNotifications' ? 'email_json'
+        : category === 'popupNotifications' ? 'popup_json' : 'push_json';
+      db.prepare(`
+        INSERT INTO notification_preferences (company_id, ${column}, updated_at)
+        VALUES (?, ?, ?)
+        ON CONFLICT(company_id) DO UPDATE SET ${column} = excluded.${column}, updated_at = excluded.updated_at
+      `).run(currentCompanyId, JSON.stringify(flags), new Date().toISOString());
+      sendJson(res, loadRow());
       return true;
     }
     if (method === 'POST') {

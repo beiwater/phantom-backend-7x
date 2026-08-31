@@ -2,6 +2,7 @@ import type { BuildingEntity } from '../../repositories/building-repository.ts';
 import { productionRepository } from '../../repositories/production-repository.ts';
 import { getBuildingMeta } from '../../game-data/buildings.ts';
 import { getResourceDef } from '../../game-data/resources.ts';
+import { finiteOr, computeFallbackUnitCost } from './production-dto.ts';
 
 export interface SimCompaniesBuildingDTO {
   id: number;
@@ -44,16 +45,24 @@ export function toSimCompaniesBuildingDTO(
     busyObj = {
       id: activeQueue.id,
       started: activeQueue.startedAt,
-      duration: Number(activeQueue.durationSeconds),
+      duration: Number(activeQueue.durationSeconds) || 0,
       accelerationFactor: 1,
       category: 'r',
       canFetch,
       manualResolve: false,
       resource: {
         kind: activeQueue.kind,
-        quality: Number(activeQueue.quality) || 0,
-        amount: Number(activeQueue.amount),
-        amountAvailableNow: canFetch ? Number(activeQueue.amount) : 0,
+        name: `Resource #${activeQueue.kind}`,
+        // P0-02: quality/cost must always be finite numbers. Legacy rows
+        // persisted without a cost basis fall back to on-the-fly computation
+        // from current warehouse data instead of null/undefined ($NaN).
+        quality: Math.max(0, Math.floor(Number(activeQueue.quality) || 0)),
+        unitCost: finiteOr(
+          activeQueue.cost,
+          computeFallbackUnitCost(activeQueue)
+        ),
+        amount: Number(activeQueue.amount) || 0,
+        amountAvailableNow: canFetch ? Number(activeQueue.amount) || 0 : 0,
         image: resource?.image || ''
       }
     };
