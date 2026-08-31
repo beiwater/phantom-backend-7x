@@ -13,7 +13,7 @@ async function register(label: string): Promise<{ cookie: string; companyId: num
     body: JSON.stringify({
       email: `compat_${label}_${Date.now()}@domain.local`,
       password: 'Password123!',
-      company: `Compat ${label}`
+      company: `Compat ${label} ${Date.now()}`
     })
   });
   assert.equal(response.status, 200);

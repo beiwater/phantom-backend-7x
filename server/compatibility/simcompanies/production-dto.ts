@@ -5,6 +5,7 @@ import type { ProductionQueueEntity } from '../../repositories/production-reposi
 import type { LevelInfoDTO } from '../../domain/leveling/level-rules.ts';
 import { getResourceDef } from '../../game-data/resources.ts';
 import { db as database } from '../../db/database.ts';
+import { toSimCompaniesBuildingDTO } from './building-dto.ts';
 
 export interface SimCompaniesStartProductionDTO {
   message: string;

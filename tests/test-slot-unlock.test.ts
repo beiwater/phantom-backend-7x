@@ -41,7 +41,7 @@ async function testSlotUnlock() {
   const regRes = await fetch(`${baseUrl}/api/v2/auth/email/connect/`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password, company: 'Unlocker Corp' })
+    body: JSON.stringify({ email, password, company: `Unlocker Corp ${Date.now()}` })
   });
   if (!regRes.ok) {
     throw new Error(`Registration failed with HTTP ${regRes.status}`);

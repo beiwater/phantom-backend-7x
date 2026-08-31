@@ -32,7 +32,7 @@ async function register(label: string): Promise<{ cookie: string; playerId: numb
   const res = await fetch(`${baseUrl}/api/v2/auth/email/connect/`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password: 'Password123!', company: `Settings Co ${label}` })
+    body: JSON.stringify({ email, password: 'Password123!', company: `Settings Co ${label} ${Date.now()}` })
   });
   assert.equal(res.status, 200, 'signup must succeed');
   const cookie = (res.headers.getSetCookie?.() || [])

@@ -9,7 +9,7 @@ async function register(label: string): Promise<{ cookie: string; companyId: num
   const response = await fetch(`${baseUrl}/api/v2/auth/email/connect/`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password: 'Password123!', company: `Retail Co ${label}` })
+    body: JSON.stringify({ email, password: 'Password123!', company: `Retail Co ${label} ${Date.now()}` })
   });
   assert.equal(response.status, 200);
   const cookie = (response.headers.getSetCookie?.() || [response.headers.get('set-cookie') || ''])

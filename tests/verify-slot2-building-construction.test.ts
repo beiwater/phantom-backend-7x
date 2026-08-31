@@ -12,7 +12,7 @@ async function testSlot2Construction() {
   const regRes = await fetch('http://127.0.0.1:3000/api/v2/auth/email/connect/', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password, company: 'Constructor Corp' })
+    body: JSON.stringify({ email, password, company: `Constructor Corp ${Date.now()}` })
   });
   const setCookie = regRes.headers.get('set-cookie') || '';
   const tokenMatch = setCookie.match(/sessionid=([^;]+)/);

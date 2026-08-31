@@ -69,7 +69,7 @@ async function runIssue65Verification() {
 
   // 1. Create a test player & company
   const randomEmail = `issue65_${Date.now()}_${Math.floor(Math.random() * 10000)}@test.local`;
-  const { playerId, companyId } = registerPlayer(randomEmail, 'password123', 'Issue65 Test Co');
+  const { playerId, companyId } = registerPlayer(randomEmail, 'password123', `Issue65 Test Co ${Date.now()}`);
 
   // Set predictable starting SimBoosts & money
   db.prepare('UPDATE companies SET simboosts = 500, money = 10000, extra_building_slots = 0, extra_executive_slots = 0, display_case_slots = 1, max_tags = 1 WHERE company_id = ?')

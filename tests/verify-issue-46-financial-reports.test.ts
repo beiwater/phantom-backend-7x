@@ -8,7 +8,7 @@ async function register(label: string): Promise<{ cookie: string; companyId: num
   const response = await fetch(`${baseUrl}/api/v2/auth/email/connect/`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password: 'password123', company: `Fin-${label}` })
+    body: JSON.stringify({ email, password: 'password123', company: `Fin-${label}-${Date.now()}` })
   });
   assert.equal(response.status, 200);
   const cookie = (response.headers.getSetCookie?.() || [response.headers.get('set-cookie') || ''])
@@ -39,32 +39,40 @@ async function runFinancialReportsTest() {
   const balRes = await fetch(`${baseUrl}/api/v2/companies/me/balance-sheet/`, { headers });
   assert.equal(balRes.status, 200, 'Balance sheet must return 200');
   const bal = (await balRes.json()) as {
-    cash: number; materials: number; buildings: number;
-    totalAssets: number; liabilities: number; equity: number; money: number;
+    cash: number; materials: number; finishedGoods: number; buildings: number;
+    contributedCapital: number; retainedEarnings: number; valuationAllowance: number;
   };
 
   assert.equal(bal.cash, money, 'Balance sheet cash must match DB money');
-  assert.equal(bal.money, money, 'Balance sheet money field must match DB money');
   assert.equal(bal.materials, dbInventory, 'Balance sheet materials must match warehouse valuation');
   assert.equal(bal.buildings, dbBuildings, 'Balance sheet buildings must match building cost sum');
-  assert.equal(bal.totalAssets, money + dbInventory + dbBuildings, 'Total assets must equal cash + inventory + buildings');
-  assert.equal(bal.equity, bal.totalAssets - bal.liabilities, 'Equity must equal assets - liabilities');
-  console.log('  -> Balance sheet matches authoritative DB values');
+  // Official HAR contract: contributedCapital + retainedEarnings + valuationAllowance ≈ equity = assets.
+  const equity = bal.contributedCapital + bal.retainedEarnings + bal.valuationAllowance;
+  assert.equal(equity, bal.cash + bal.materials + bal.buildings, 'Equity must equal cash + inventory + buildings (HAR camelCase schema)');
+  console.log('  -> Balance sheet matches authoritative DB values (official camelCase schema)');
 
-  console.log('[2/4] Verifying income statement returns 501 Not Implemented...');
+  console.log('[2/4] Verifying income statement returns 200 with official schema...');
   const incRes = await fetch(`${baseUrl}/api/v2/companies/me/income-statement/`, { headers });
-  assert.equal(incRes.status, 501, 'Income statement must return 501');
-  console.log('  -> Income statement correctly returns 501');
+  assert.equal(incRes.status, 200, 'Income statement must return 200 (official HAR)');
+  const inc = (await incRes.json()) as { netIncome: number; sales: number; isComputed: boolean };
+  assert.equal(typeof inc.netIncome, 'number', 'netIncome must be numeric');
+  assert.equal(inc.isComputed, true, 'isComputed flag present');
+  console.log('  -> Income statement returns official camelCase schema');
 
-  console.log('[3/4] Verifying cashflow statement returns 501 Not Implemented...');
+  console.log('[3/4] Verifying cashflow statement returns 200 with official schema...');
   const cfRes = await fetch(`${baseUrl}/api/v2/companies/me/cashflow-statement/`, { headers });
-  assert.equal(cfRes.status, 501, 'Cashflow statement must return 501');
-  console.log('  -> Cashflow statement correctly returns 501');
+  assert.equal(cfRes.status, 200, 'Cashflow statement must return 200 (official HAR)');
+  const cf = (await cfRes.json()) as { cashAllIncome: number; cashAllExpenses: number; isComputed: boolean };
+  assert.equal(typeof cf.cashAllIncome, 'number', 'cashAllIncome must be numeric');
+  assert.equal(cf.isComputed, true, 'isComputed flag present');
+  console.log('  -> Cashflow statement returns official camelCase schema');
 
-  console.log('[4/4] Verifying past-finances returns 501 Not Implemented...');
-  const pfRes = await fetch(`${baseUrl}/api/v2/companies/me/past-finances/`, { headers });
-  assert.equal(pfRes.status, 501, 'Past finances must return 501');
-  console.log('  -> Past finances correctly returns 501');
+  console.log('[4/4] Verifying past-finances-overview returns 200 array...');
+  const pfRes = await fetch(`${baseUrl}/api/v2/companies/me/past-finances-overview/`, { headers });
+  assert.equal(pfRes.status, 200, 'Past finances overview must return 200 (official HAR)');
+  const pf = (await pfRes.json()) as Array<{ total: number; date: string }>;
+  assert.ok(Array.isArray(pf), 'past-finances-overview must be an array');
+  console.log('  -> Past finances overview returns daily snapshot array');
 
   console.log('================================================================');
   console.log(' [OK] ISSUE #46 FINANCIAL REPORTS PASSED ALL CHECKS');

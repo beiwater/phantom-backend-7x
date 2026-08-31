@@ -13,7 +13,7 @@ async function runAvatarProfileTest() {
     body: JSON.stringify({
       email: `avatar_route_${suffix}@domain.local`,
       password: 'Password123!',
-      name: companyName
+      company: companyName
     })
   });
   assert.equal(registration.status, 200);

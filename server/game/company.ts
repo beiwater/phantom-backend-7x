@@ -369,6 +369,8 @@ export function getAuthData(playerId?: number | null, targetCompanyId?: number |
     authCompany: {
       id: company.company_id,
       companyId: company.company_id,
+      money: safeMoney,
+      hqImage: "",
       company: toSafeCompanyName(company.name),
       personalAssistant: company.personal_assistant || "old",
       moderatorSign: Boolean(company.moderator_sign),

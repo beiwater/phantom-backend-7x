@@ -28,7 +28,7 @@ async function register(label: string): Promise<Session> {
     body: JSON.stringify({
       email: `issue_regression_${label}_${Date.now()}@domain.local`,
       password: 'Password123!',
-      company: `Issue Regression ${label}`
+      company: `Issue Regression ${label} ${Date.now()}`
     })
   });
   assert.equal(response.status, 200);

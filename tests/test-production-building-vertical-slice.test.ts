@@ -24,7 +24,7 @@ async function testProductionBuildingVerticalSlice() {
 
   // 1. Setup fresh test player and context
   const randomEmail = `slice_test_${Date.now()}_${Math.floor(Math.random() * 10000)}@test.local`;
-  const { playerId, companyId } = registerPlayer(randomEmail, 'password123', 'SliceTest Co');
+  const { playerId, companyId } = registerPlayer(randomEmail, 'password123', `SliceTest Co ${Date.now()}`);
   const ctx = createGameContext(companyId, playerId, 0);
 
   // 2. Test Get Buildings List

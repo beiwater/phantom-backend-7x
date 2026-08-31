@@ -26,7 +26,7 @@ async function runIssue27PasswordSecurityTest() {
   const registerRes = await fetch(`${baseUrl}/api/v2/auth/email/connect/`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password, company: 'Scrypt Corp' })
+    body: JSON.stringify({ email, password, company: `Scrypt Corp ${Date.now()}` })
   });
   assert.equal(registerRes.status, 200);
 

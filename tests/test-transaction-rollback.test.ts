@@ -10,7 +10,7 @@ async function testTransactionCommitAndRollback() {
 
   // Setup test company
   const randomEmail = `tx_test_${Date.now()}_${Math.floor(Math.random() * 10000)}@test.local`;
-  const { companyId } = registerPlayer(randomEmail, 'password123', 'TxTest Co');
+  const { companyId } = registerPlayer(randomEmail, 'password123', `TxTest Co ${Date.now()}`);
 
   const initialCompany = companyRepository.findById(companyId);
   assert(initialCompany, 'Company must exist');
