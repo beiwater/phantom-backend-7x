@@ -11,6 +11,7 @@ import { cancelProductionUseCase } from '../server/application/production/cancel
 import { collectProductionUseCase } from '../server/application/production/collect-production.ts';
 import { getProductionQueueUseCase } from '../server/application/production/get-production-queue.ts';
 import { warehouseRepository } from '../server/repositories/warehouse-repository.ts';
+import { buildingRepository } from '../server/repositories/building-repository.ts';
 import { productionRepository } from '../server/repositories/production-repository.ts';
 import { toSimCompaniesBuildingDTO } from '../server/compatibility/simcompanies/building-dto.ts';
 import {
@@ -43,11 +44,16 @@ async function testProductionBuildingVerticalSlice() {
   assert.strictEqual(buildingDTO.position, '2');
   assert.strictEqual(buildingDTO.level, 1);
 
-  // 4. Test Upgrade Building
+  // 4. Test Upgrade Building (clear construction busy state for test progression)
+  buildingRepository.updateBusyUntil(constructRes.building.id, companyId, null);
   const upgradeRes = await upgradeBuildingUseCase(ctx, {
     buildingId: constructRes.building.id,
     sizeDelta: 2
   });
+  assert.strictEqual(upgradeRes.building.size, 3, 'Building size should now be 3');
+
+  // 5. Test Start Production (clear upgrade busy state for test progression)
+  buildingRepository.updateBusyUntil(constructRes.building.id, companyId, null);
   assert.strictEqual(upgradeRes.building.size, 3, 'Building size should now be 3');
 
   // 5. Test Start Production (e.g. Apples: kind 3 requires Power: kind 2 & Seeds: kind 66)

@@ -1,34 +1,52 @@
 {
+  "dual_track": true,
+  "last_audit": "2026-08-31T07:27:26.919Z",
+  "trust_score": 44,
+  "confidence": "LOW",
   "page_coverage": {
-    "discovered": 12,
-    "visited": 12,
-    "percentage": 100
+    "reported_percentage": 100,
+    "audited_percentage": 100,
+    "status": "SUPPORTED"
   },
   "action_coverage": {
-    "discovered": 342,
-    "executed": 185,
-    "percentage": 54
+    "reported_percentage": 54,
+    "audited_percentage": 42,
+    "raw_actions": 342,
+    "semantic_actions": 145,
+    "noise_actions": 84,
+    "status": "PARTIALLY_SUPPORTED"
   },
   "transition_coverage": {
-    "discovered": 128,
-    "verified_pass": 63,
-    "failed": 0,
-    "percentage": 49
+    "reported_percentage": 49,
+    "audited_percentage": 31,
+    "reported_pass": 63,
+    "audited_pass": 40,
+    "total_discovered": 128,
+    "status": "PARTIALLY_SUPPORTED"
   },
   "boundary_coverage": {
-    "tested": 28,
-    "total_target": 28,
-    "percentage": 100
+    "reported_percentage": 100,
+    "audited_percentage": 39,
+    "reported_tested": 28,
+    "audited_tested": 28,
+    "total_conditions": 72,
+    "status": "DENOMINATOR_EXPANDED"
   },
   "interaction_coverage": {
-    "tested": 15,
-    "total_target": 15,
-    "percentage": 100
+    "reported_percentage": 100,
+    "audited_percentage": 27,
+    "reported_tested": 15,
+    "audited_tested": 10,
+    "total_pairs": 37,
+    "status": "DENOMINATOR_EXPANDED"
   },
   "invariant_coverage": {
-    "verified": 12,
+    "reported_percentage": 100,
+    "audited_percentage": 58,
+    "locally_verified": 12,
+    "globally_verified": 7,
     "total_invariants": 12,
-    "percentage": 100
+    "status": "LOCAL_TO_GLOBAL_GAP"
   },
-  "last_updated": "2026-08-31T07:05:00Z"
+  "last_updated": "2026-08-31T07:27:26Z"
 }

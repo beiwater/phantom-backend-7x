@@ -38,6 +38,9 @@ export async function upgradeBuildingUseCase(
       throw new ForbiddenError('You do not own this building');
     }
 
+    if (building.busyUntil && new Date(building.busyUntil).getTime() > Date.now()) {
+      throw new ValidationError('Building is still under construction or upgrade');
+    }
     // 2. Calculate costs & required materials
     const { cost, materials } = estimateUpgradeCost(building.kind, sizeDelta);
 

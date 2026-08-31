@@ -246,8 +246,8 @@ export async function handleSimboostRoutes(
     return true;
   }
 
-  // 9. Executive Slot Unlock: PATCH /api/v2/companies/me/executive-slots/
-  if (pathname === '/api/v2/companies/me/executive-slots/' && method === 'PATCH') {
+  // 9. Executive Slot Unlock: PATCH / POST /api/v2/companies/me/executive-slots/
+  if ((pathname === '/api/v2/companies/me/executive-slots/' || pathname === '/api/v1/companies/me/executive-slots/') && (method === 'PATCH' || method === 'POST')) {
     if (!currentCompanyId) {
       sendJson(res, { error: 'Unauthorized' }, 401);
       return true;

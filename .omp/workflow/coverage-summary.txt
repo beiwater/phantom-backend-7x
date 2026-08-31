@@ -1,23 +1,34 @@
 ============================================================
-           SimCompanies AI Debug Workflow Dashboard
+ SimCompanies AI Debug Workflow & Independent Audit Dashboard
 ============================================================
-Current Frontier: All-Buildings Production & Retail Matrix
-Explorer Status: active (Subagents ExplorerWave1 & DebuggerIssue65 Settled)
-Open P0 Findings: 0
-Open P1 Findings: 0
-Current Fix: Issue #65 (SimBoosts Atomicity & Idle Rush Guard) & Issue #67 (All 35 Building Capabilities)
-Verify Status: Verified Pass (11/11 Full Regression Suites Green)
-Total Discovered States: 15
-Transitions: 63 passed / 0 failed / 65 unknown
+Workflow Trust Score: 44 / 100 (LOW CONFIDENCE)
+Audited At: 2026-08-31T07:27:26.919Z
+
+Team Status:
+- Game Explorer: standby (Ready for Wave 2)
+- Deep Debugger: standby (Issues #65, #67, #66, #64, #47, #44 Repaired & Verified)
+- Workflow Auditor: active (Round 1 Audit Settled)
+
+Open Issues (GitHub Sync):
+- Open P0: 0
+- Open P1: 0 (Issues #47, #44, #64, #66, #65, #67 verified pass)
+
 ------------------------------------------------------------
-Coverage Metrics:
-- Page Coverage:         100%
-- Action Coverage:       54%
-- Transition Coverage:   49%
-- Boundary Coverage:     100%
-- Interaction Coverage:  100%
-- Invariant Coverage:    100%
+Dual-Track Coverage Metrics (Reported vs Evidence-Backed):
+- Page Coverage:         Reported: 100%   | Audited: 100%  [SUPPORTED]
+- Action Coverage:       Reported:  54%   | Audited:  42%  [PARTIAL - 84 DOM Noise]
+- Transition Coverage:   Reported:  49%   | Audited:  31%  [PARTIAL - 23 API Only]
+- Boundary Coverage:     Reported: 100%   | Audited:  39%  [DENOMINATOR EXPANDED - 28/72]
+- Interaction Coverage:  Reported: 100%   | Audited:  27%  [DENOMINATOR EXPANDED - 10/37]
+- Invariant Coverage:    Reported: 100%   | Audited:  58%  [LOCAL TO GLOBAL GAP - 7/12]
 ------------------------------------------------------------
-Last Commit: 9b8338e -> updated
-Next Automatic Action: Continue continuous exploration & automated issue triage
+Active Audit Findings: 4 (AUDIT-0001 to AUDIT-0004)
+Top Audit Risks:
+1. Boundary denominator artificially narrow (28 kinds vs 72 conditions)
+2. Interaction denominator artificially narrow (15 pairs vs 37 system pairs)
+3. Invariant coverage lacks global proof outside Production
+4. 23 transitions need visible DOM confirmation
+
+Last Commit: 18b2d58 -> updating audit scaffolding & dual metrics
+Next Automatic Action: Execute Explorer Wave 2 on unverified DOM transitions & boundary states
 ============================================================

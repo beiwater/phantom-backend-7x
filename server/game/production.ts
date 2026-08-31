@@ -96,18 +96,11 @@ export function queueProduction(companyId: number, buildingId: number, resourceK
     throw new Error(`Resource ${resourceKind} cannot be produced in building type '${building.kind}'`);
   }
 
-  // Reject queueing while the building is busy with unresolved work
+  // Reject queueing while the building is busy (construction, upgrade, or active production)
   const now = new Date();
   const busyUntilMs = building.busy_until ? new Date(building.busy_until).getTime() : 0;
   if (busyUntilMs > now.getTime()) {
-    const pending = db.prepare(`
-      SELECT COUNT(*) AS count
-      FROM production_queues
-      WHERE building_id = ? AND company_id = ? AND resolved = 0
-    `).get(buildingId, companyId) as { count: number };
-    if (pending.count > 0) {
-      throw new Error('Building is busy');
-    }
+    throw new Error('Building is busy with ongoing construction, upgrade, or production');
   }
 
   const resourceTransactions: ResourceTransaction[] = [];

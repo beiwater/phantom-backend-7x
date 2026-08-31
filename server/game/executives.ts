@@ -1,6 +1,6 @@
 import { db } from '../db/database.ts';
 import { updateCompanyMoney, getCompanyById } from './company.ts';
-
+import { runInTransaction } from '../db/transaction.ts';
 export interface ExecutiveRow {
   id: number;
   company_id: number;
@@ -106,45 +106,70 @@ export function getExecutiveCandidates(companyId: number) {
 export function hireExecutive(companyId: number, candidateId: number, position: string = 'unassigned') {
   const c = db.prepare('SELECT * FROM executives WHERE id = ? AND company_id = ?').get(candidateId, companyId) as unknown as ExecutiveRow | undefined;
   if (!c) throw new Error('Candidate not found');
+  if (c.status !== 'candidate') throw new Error('Executive is not an available candidate');
 
-  db.prepare(`UPDATE executives SET status = 'employed', position = ? WHERE id = ?`).run(position, candidateId);
-  const updated = db.prepare('SELECT * FROM executives WHERE id = ?').get(candidateId) as unknown as ExecutiveRow;
-  return formatExecutive(updated);
+  const comp = getCompanyById(companyId);
+  if (!comp) throw new Error('Company not found');
+
+  const countRow = db.prepare("SELECT COUNT(*) AS count FROM executives WHERE company_id = ? AND status = 'employed'").get(companyId) as { count: number };
+  const maxSlots = 4 + (Number(comp.extra_executive_slots) || 0);
+  if (countRow.count >= maxSlots) {
+    throw new Error(`Executive slot limit reached (${countRow.count}/${maxSlots}). Unlock more slots with SimBoosts.`);
+  }
+
+  return runInTransaction(async () => {
+    const updated = db.prepare("UPDATE executives SET status = 'employed', position = ? WHERE id = ? AND company_id = ? AND status = 'candidate'").run(position, candidateId, companyId);
+    if (updated.changes !== 1) throw new Error('Failed to hire candidate');
+    const row = db.prepare('SELECT * FROM executives WHERE id = ?').get(candidateId) as unknown as ExecutiveRow;
+    return formatExecutive(row);
+  }, { immediate: true });
 }
 
 export function fireExecutive(companyId: number, executiveId: number) {
-  db.prepare(`DELETE FROM executives WHERE id = ? AND company_id = ?`).run(executiveId, companyId);
-  return { success: true };
+  return runInTransaction(async () => {
+    const deleted = db.prepare("DELETE FROM executives WHERE id = ? AND company_id = ? AND status = 'employed'").run(executiveId, companyId);
+    if (deleted.changes !== 1) throw new Error('Employed executive not found');
+    return { success: true };
+  }, { immediate: true });
 }
 
 export function assignExecutive(companyId: number, executiveId: number, position: string) {
-  db.prepare(`UPDATE executives SET position = ? WHERE id = ? AND company_id = ?`).run(position, executiveId, companyId);
-  const updated = db.prepare('SELECT * FROM executives WHERE id = ?').get(executiveId) as unknown as ExecutiveRow;
-  return formatExecutive(updated);
+  return runInTransaction(async () => {
+    const updated = db.prepare("UPDATE executives SET position = ? WHERE id = ? AND company_id = ? AND status = 'employed'").run(position, executiveId, companyId);
+    if (updated.changes !== 1) throw new Error('Employed executive not found');
+    const row = db.prepare('SELECT * FROM executives WHERE id = ?').get(executiveId) as unknown as ExecutiveRow;
+    return formatExecutive(row);
+  }, { immediate: true });
 }
 
 export function trainExecutive(companyId: number, executiveId: number) {
   const trainingCost = 2500;
+  const exec = db.prepare("SELECT * FROM executives WHERE id = ? AND company_id = ? AND status = 'employed'").get(executiveId, companyId) as unknown as ExecutiveRow | undefined;
+  if (!exec) {
+    throw new Error('Employed executive not found');
+  }
+
   const comp = getCompanyById(companyId);
   if (!comp || comp.money < trainingCost) {
     throw new Error('Not enough money for executive training');
   }
 
-  updateCompanyMoney(companyId, -trainingCost);
+  return runInTransaction(async () => {
+    updateCompanyMoney(companyId, -trainingCost);
+    const updated = db.prepare(`
+      UPDATE executives
+      SET skill_management = skill_management + 1,
+          skill_accounting = skill_accounting + 1,
+          skill_science = skill_science + 1,
+          skill_communication = skill_communication + 1
+      WHERE id = ? AND company_id = ? AND status = 'employed'
+    `).run(executiveId, companyId);
+    if (updated.changes !== 1) throw new Error('Executive training failed');
 
-  // Increment skills
-  db.prepare(`
-    UPDATE executives
-    SET skill_management = skill_management + 1,
-        skill_accounting = skill_accounting + 1,
-        skill_science = skill_science + 1,
-        skill_communication = skill_communication + 1
-    WHERE id = ? AND company_id = ?
-  `).run(executiveId, companyId);
-
-  const updated = db.prepare('SELECT * FROM executives WHERE id = ?').get(executiveId) as unknown as ExecutiveRow;
-  return {
-    executive: formatExecutive(updated),
-    cost: trainingCost
-  };
+    const row = db.prepare('SELECT * FROM executives WHERE id = ?').get(executiveId) as unknown as ExecutiveRow;
+    return {
+      executive: formatExecutive(row),
+      cost: trainingCost
+    };
+  }, { immediate: true });
 }

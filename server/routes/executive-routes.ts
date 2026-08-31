@@ -72,7 +72,7 @@ export async function handleExecutiveRoutes(
     }
     const body = await readJsonBody<{ candidateId: number; position?: string }>(req);
     try {
-      const exec = hireExecutive(currentCompanyId, body.candidateId, body.position || 'unassigned');
+      const exec = await hireExecutive(currentCompanyId, body.candidateId, body.position || 'unassigned');
       sendJson(res, { executive: exec });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -90,7 +90,7 @@ export async function handleExecutiveRoutes(
     }
     const execId = Number(fireMatch[1]);
     try {
-      const result = fireExecutive(currentCompanyId, execId);
+      const result = await fireExecutive(currentCompanyId, execId);
       sendJson(res, result);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -109,7 +109,7 @@ export async function handleExecutiveRoutes(
     const execId = Number(assignMatch[1]);
     const body = await readJsonBody<{ position: string }>(req);
     try {
-      const exec = assignExecutive(currentCompanyId, execId, body.position);
+      const exec = await assignExecutive(currentCompanyId, execId, body.position);
       sendJson(res, { executive: exec });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -127,7 +127,7 @@ export async function handleExecutiveRoutes(
     }
     const execId = Number(trainMatch[1]);
     try {
-      const result = trainExecutive(currentCompanyId, execId);
+      const result = await trainExecutive(currentCompanyId, execId);
       sendJson(res, result);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);

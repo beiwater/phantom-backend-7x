@@ -220,8 +220,7 @@ async function runAllBuildingsProductionAndRetailTest() {
       body: JSON.stringify({
         building: buildingId,
         resource: targetProduct,
-        units: 5,
-        sellingPrice: 50.0
+        units: 5
       })
     });
 

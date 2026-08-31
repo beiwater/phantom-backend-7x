@@ -1,6 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { readJsonBody, sendJson } from './utils.ts';
 import { db } from '../db/database.ts';
+import { runInTransaction } from '../db/transaction.ts';
 import { getBuildingById, type BuildingRow } from '../game/buildings.ts';
 import { updateCompanyMoney } from '../game/company.ts';
 import {
@@ -8,16 +9,11 @@ import {
   getWarehouseItemExact,
   consumeResourceExactWithTransactions
 } from '../game/warehouse.ts';
-
-const RETAIL_PRODUCTS: Record<string, number[]> = {
-  G: [3, 4, 119, 7, 8, 9, 62],
-  S: [11, 12, 60, 61],
-  E: [24, 25, 40, 80],
-  T: [19, 20, 21, 22],
-  C: [50, 51, 52, 53],
-  H: [102, 103, 104],
-  F: [17, 18, 115, 116, 117, 118]
-};
+import {
+  RETAIL_PRODUCTS,
+  getAuthoritativeRetailPrice,
+  calculateRetailDuration
+} from '../game-data/retail.ts';
 
 export interface RetailDbRow {
   id: number;
@@ -62,10 +58,15 @@ function getDefaultRetailProduct(companyId: number, buildingKind: string) {
   return null;
 }
 
-function fulfillRetailOrder(companyId: number, order: RetailDbRow) {
-  const revenue = Math.round(Number(order.units) * Number(order.unit_price) * 100) / 100;
-  db.exec('BEGIN');
-  try {
+async function fulfillRetailOrder(companyId: number, order: RetailDbRow) {
+  if (order.finished_at && new Date(order.finished_at).getTime() > Date.now()) {
+    throw new Error('Retail order is still in progress and cannot be fulfilled prematurely');
+  }
+  const { maxPrice } = getAuthoritativeRetailPrice(order.resource_kind, Number(order.quality) || 0);
+  const effectivePrice = Math.min(Number(order.unit_price), maxPrice);
+  const revenue = Math.round(Number(order.units) * effectivePrice * 100) / 100;
+
+  return runInTransaction(async () => {
     const resourceTransactions = consumeResourceExactWithTransactions(
       companyId,
       order.resource_kind,
@@ -83,12 +84,10 @@ function fulfillRetailOrder(companyId: number, order: RetailDbRow) {
     if (deleted.changes !== 1) {
       throw new Error('Retail order is no longer available');
     }
-    db.exec('COMMIT');
 
     return {
       success: true,
       revenue,
-      // The frontend applies this field as a money delta.
       money: revenue,
       moneyBalance: newMoney,
       resource: {
@@ -98,10 +97,7 @@ function fulfillRetailOrder(companyId: number, order: RetailDbRow) {
       },
       resourceTransactions
     };
-  } catch (err) {
-    db.exec('ROLLBACK');
-    throw err;
-  }
+  }, { immediate: true });
 }
 
 export async function handleRetailRoutes(
@@ -180,24 +176,32 @@ export async function handleRetailRoutes(
       const defaultProduct = getDefaultRetailProduct(currentCompanyId, targetBuilding.kind);
       const resourceKind = body.resource !== undefined ? Number(body.resource) : defaultProduct?.kind;
       const units = body.units === undefined ? 1 : Number(body.units);
-      const sellingPrice = body.sellingPrice === undefined ? 2.5 : Number(body.sellingPrice);
-      if (!Number.isSafeInteger(resourceKind) || resourceKind <= 0 ||
-          !Number.isFinite(units) || units <= 0 ||
-          !Number.isFinite(sellingPrice) || sellingPrice <= 0) {
-        sendJson(res, { error: 'Invalid resource, units, or selling price' }, 400);
-        return true;
-      }
-      const allowedProducts = RETAIL_PRODUCTS[targetBuilding.kind] || [];
-      if (!allowedProducts.includes(resourceKind)) {
-        sendJson(res, { error: `Resource #${resourceKind} cannot be sold in retail building of type '${targetBuilding.kind}'` }, 400);
-        return true;
-      }
-
+      let authoritativePricing: { unitPrice: number; defaultPrice: number; maxPrice: number };
       const requestedQuality = body.quality === undefined
         ? (defaultProduct?.kind === resourceKind ? defaultProduct.quality : 0)
         : Number(body.quality);
       if (!Number.isInteger(requestedQuality) || requestedQuality < 0 || requestedQuality > 12) {
         sendJson(res, { error: 'Invalid resource quality' }, 400);
+        return true;
+      }
+
+      try {
+        authoritativePricing = getAuthoritativeRetailPrice(resourceKind, requestedQuality, body.sellingPrice);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        sendJson(res, { error: msg }, 400);
+        return true;
+      }
+      const sellingPrice = authoritativePricing.unitPrice;
+
+      if (!Number.isSafeInteger(resourceKind) || resourceKind <= 0 ||
+          !Number.isFinite(units) || units <= 0) {
+        sendJson(res, { error: 'Invalid resource or units' }, 400);
+        return true;
+      }
+      const allowedProducts = RETAIL_PRODUCTS[targetBuilding.kind] || [];
+      if (!allowedProducts.includes(resourceKind)) {
+        sendJson(res, { error: `Resource #${resourceKind} cannot be sold in retail building of type '${targetBuilding.kind}'` }, 400);
         return true;
       }
 
@@ -209,7 +213,8 @@ export async function handleRetailRoutes(
 
       const costTotal = Math.round(units * 1.5 * 100) / 100;
       const createdAt = new Date().toISOString();
-      const finishedAt = new Date(Date.now() + 5000).toISOString();
+      const durationSeconds = calculateRetailDuration(resourceKind, units, targetBuilding.size || 1);
+      const finishedAt = new Date(Date.now() + durationSeconds * 1000).toISOString();
       const result = db.prepare(`
         INSERT INTO retail_orders
           (building_id, company_id, resource_kind, quality, units, unit_price, cost, finished_at, created_at)
@@ -250,7 +255,8 @@ export async function handleRetailRoutes(
 
       if (method === 'PUT') {
         try {
-          sendJson(res, fulfillRetailOrder(currentCompanyId, order));
+          const result = await fulfillRetailOrder(currentCompanyId, order);
+          sendJson(res, result);
         } catch (err: unknown) {
           const msg = err instanceof Error ? err.message : String(err);
           sendJson(res, { error: msg }, 400);
@@ -292,7 +298,8 @@ export async function handleRetailRoutes(
     }
     if (method === 'PUT') {
       try {
-        sendJson(res, fulfillRetailOrder(currentCompanyId, order));
+        const result = await fulfillRetailOrder(currentCompanyId, order);
+        sendJson(res, result);
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
         sendJson(res, { error: msg }, 400);

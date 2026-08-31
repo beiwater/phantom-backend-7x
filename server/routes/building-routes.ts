@@ -265,9 +265,9 @@ export function registerBuildingRoutes(registry: RouteRegistry = globalRouteRegi
     }
 
     // Handle size change (upgrade or downgrade)
-    if (body?.size !== undefined) {
-      const reqSize = Number(body.size);
-      // If reqSize is negative (e.g. -1), it is a relative downgrade
+    const sizeParam = body?.size !== undefined ? body.size : body?.reqSize;
+    if (sizeParam !== undefined) {
+      const reqSize = Number(sizeParam);
       if (reqSize < 0) {
         const reduction = Math.abs(reqSize);
         const result = await downgradeBuildingUseCase(ctx, { buildingId, sizeReduction: reduction });

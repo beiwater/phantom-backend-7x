@@ -92,7 +92,11 @@ export async function handleAuthRoutes(
   if (pathname === '/api/v2/auth/email/auth/' && method === 'POST') {
     const body = await readJsonBody<{ email: string; password: string }>(req);
     try {
-      const auth = registerOrAuthenticatePlayer(body.email, body.password);
+      if (!body.email || !body.password) {
+        sendJson(res, { error: 'Email and password are required' }, 400);
+        return true;
+      }
+      const auth = authenticatePlayer(body.email, body.password);
       const token = createSession(auth.playerId, auth.companyId);
       res.writeHead(200, {
         'Content-Type': 'application/json',
@@ -230,11 +234,15 @@ export async function handleAuthRoutes(
   // Personal Data
   const personalDataMatch = pathname.match(/^\/api\/v2\/players\/(\d+|me)\/personal-data\/$/);
   if (personalDataMatch) {
+    if (!currentPlayerId) {
+      sendJson(res, { error: 'Unauthorized' }, 401);
+      return true;
+    }
     const requestedPlayerId = personalDataMatch[1] === 'me'
       ? currentPlayerId
       : Number(personalDataMatch[1]);
-    if (!currentPlayerId || requestedPlayerId !== currentPlayerId) {
-      sendJson(res, { error: 'Unauthorized' }, 401);
+    if (requestedPlayerId !== currentPlayerId) {
+      sendJson(res, { error: 'Forbidden' }, 403);
       return true;
     }
     sendJson(res, getPersonalData(currentPlayerId));

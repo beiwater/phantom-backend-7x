@@ -4,7 +4,7 @@ import { buildingRepository, type BuildingEntity } from '../../repositories/buil
 import { productionRepository, type ProductionQueueEntity } from '../../repositories/production-repository.ts';
 import { warehouseRepository, type ResourceTransactionEntity } from '../../repositories/warehouse-repository.ts';
 import { eventBus } from '../../events/event-bus.ts';
-import { NotFoundError, ForbiddenError } from '../../errors/domain-error.ts';
+import { NotFoundError, ForbiddenError, ValidationError } from '../../errors/domain-error.ts';
 import { validateProductionRequest, resolveAchievableQuality } from '../../domain/production/production-rules.ts';
 import { calculateProductionTime } from '../../game-data/buildings.ts';
 
@@ -35,6 +35,12 @@ export async function startProductionUseCase(
       throw new ForbiddenError('You do not own this building');
     }
 
+    if (building.busyUntil && new Date(building.busyUntil).getTime() > Date.now()) {
+      const activeQueues = productionRepository.findActiveByBuilding(building.id, ctx.companyId);
+      if (activeQueues.length === 0) {
+        throw new ValidationError('Building is still under construction or upgrade');
+      }
+    }
     // 2. Validate production rules & ingredients
     const { ingredients } = validateProductionRequest(
       building.kind,
