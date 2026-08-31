@@ -1,6 +1,6 @@
 import { db, seedDefaultDisplayCase } from '../db/database.ts';
 import { CONFIG } from '../config.ts';
-
+import { computeLevelInfo, getXpRequiredForLevel } from '../domain/leveling/level-rules.ts';
 export interface CompanyRow {
   id: number;
   company_id: number;
@@ -114,13 +114,13 @@ export function createCompanyForPlayer(playerId: number, name: string, realmId: 
   const now = new Date().toISOString();
   const initialMoney = CONFIG.INITIAL_MONEY || 100000;
   const initialSimboosts = CONFIG.INITIAL_SIMBOOSTS || 250;
-  const initialLevel = CONFIG.INITIAL_LEVEL || 5;
+  const initialLevel = typeof CONFIG.INITIAL_LEVEL === 'number' ? CONFIG.INITIAL_LEVEL : 0;
   db.exec('BEGIN IMMEDIATE');
   try {
 
   db.prepare(`
     INSERT INTO companies (company_id, player_id, name, money, simboosts, level, rating, experience, realm_id, logo, personal_assistant, note, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, 'BBB', 20, ?, '', 'old', 'Private Server Company', ?)
+    VALUES (?, ?, ?, ?, ?, ?, 'BBB', 0, ?, '', 'old', 'Private Server Company', ?)
   `).run(companyId, playerId, name, initialMoney, initialSimboosts, initialLevel, realmId, now);
   seedDefaultDisplayCase(companyId);
 
@@ -162,7 +162,25 @@ export function createCompanyForPlayer(playerId: number, name: string, realmId: 
     db.exec('ROLLBACK');
     throw err;
   }
+  return comp;
+}
 
+export function addCompanyExperience(companyId: number, xpGain: number) {
+  if (!xpGain || xpGain <= 0) return;
+  const comp = getCompanyById(companyId);
+  if (!comp) return;
+  let level = Number(comp.level || 0);
+  let experience = Number(comp.experience || 0) + xpGain;
+  let xpNeeded = getXpRequiredForLevel(level);
+
+  while (experience >= xpNeeded && level < 60) {
+    experience -= xpNeeded;
+    level += 1;
+    xpNeeded = getXpRequiredForLevel(level);
+  }
+
+  db.prepare('UPDATE companies SET level = ?, experience = ? WHERE company_id = ?').run(level, experience, companyId);
+  return { level, experience };
 }
 
 export function resetCompany(companyId: number) {
@@ -354,38 +372,17 @@ export function getAuthData(playerId?: number | null, targetCompanyId?: number |
       courseId: null,
       showOnlineIndicator: true,
       testCategory: 0,
-      level: company.level || 5,
+      level: company.level ?? 0,
       realmId: company.realm_id || 0,
       excludeFromRanks: false,
       challengeStart: null
     },
-    levelInfo: {
-      levelName: "Family business",
-      ratingCode: company.rating || "BBB",
-      level: company.level || 5,
-      inTutorial: false,
-      experience: company.experience || 20,
-      experienceToNextLevel: 80,
-      maxBuildings: 10,
-      capabilities: {
-        contracts: true,
-        research: true,
-        scrape: true,
-        bonds: true,
-        governmentOrders: true,
-        executives: true,
-        hqUpdates: true,
-        paUpdates: true,
-        buildingAuctions: true,
-        seasonal: true,
-        buyOrders: true
-      },
-      timeLimit: 86400,
-      acceleration: {
-        multiplier: 1,
-        until: null
-      }
-    },
+    levelInfo: computeLevelInfo({
+      level: company.level ?? 0,
+      experience: company.experience ?? 0,
+      rating: company.rating,
+      extra_building_slots: company.extra_building_slots
+    }),
     temporals: {
       sale: "",
       simboostsSalePromotion: null,
@@ -411,30 +408,12 @@ export function getPlayerCompanies(playerId: number) {
     logo: c.logo || "",
     realmId: c.realm_id || 0,
     deleted: false,
-    level: {
-      levelName: "Family business",
-      ratingCode: c.rating || "BBB",
-      level: c.level || 5,
-      inTutorial: false,
-      experience: c.experience || 20,
-      experienceToNextLevel: 80,
-      maxBuildings: 10,
-      capabilities: {
-        contracts: true,
-        research: true,
-        scrape: true,
-        bonds: true,
-        governmentOrders: true,
-        executives: true,
-        hqUpdates: true,
-        paUpdates: true,
-        buildingAuctions: true,
-        seasonal: true,
-        buyOrders: true
-      },
-      timeLimit: 86400,
-      acceleration: { multiplier: 1, until: null }
-    },
+    level: computeLevelInfo({
+      level: c.level ?? 0,
+      experience: c.experience ?? 0,
+      rating: c.rating,
+      extra_building_slots: c.extra_building_slots
+    }),
     moderatorSign: false,
     showOnlineIndicator: true,
     countryCodeIsoUserSet: "",

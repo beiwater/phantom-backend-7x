@@ -9,15 +9,15 @@ import { cancelProductionUseCase } from '../application/production/cancel-produc
 import { collectProductionUseCase } from '../application/production/collect-production.ts';
 import { getProductionQueueUseCase } from '../application/production/get-production-queue.ts';
 import { getProductionHistoryUseCase } from '../application/production/get-production-history.ts';
-import {
-  constructBuildingUseCase,
-  type ConstructBuildingInput
-} from '../application/buildings/construct-building.ts';
+import { constructBuildingUseCase } from '../application/buildings/construct-building.ts';
 import { upgradeBuildingUseCase } from '../application/buildings/upgrade-building.ts';
+import { downgradeBuildingUseCase } from '../application/buildings/downgrade-building.ts';
 import { demolishBuildingUseCase } from '../application/buildings/demolish-building.ts';
 import { renameBuildingUseCase } from '../application/buildings/rename-building.ts';
 import { getCompanyBuildingsUseCase } from '../application/buildings/get-buildings.ts';
 import { getBuildingDetailsUseCase } from '../application/buildings/get-building-details.ts';
+import { buildingRepository } from '../repositories/building-repository.ts';
+import { normalizePosition } from '../domain/buildings/building-rules.ts';
 import {
   toSimCompaniesBuildingDTO,
   toSimCompaniesBuildingsListDTO
@@ -243,6 +243,7 @@ export function registerBuildingRoutes(registry: RouteRegistry = globalRouteRegi
         cost: result.cost,
         resourcesConsumed: result.resourcesConsumed.map(r => ({
           db_letter: r.kind,
+          dbLetter: r.kind,
           quality: r.quality,
           amount: r.amount
         }))
@@ -256,18 +257,83 @@ export function registerBuildingRoutes(registry: RouteRegistry = globalRouteRegi
       return;
     }
 
-    const targetSize = body?.size !== undefined ? Number(body.size) : building.size + 1;
-    const sizeDelta = targetSize - building.size;
-    const result = await upgradeBuildingUseCase(ctx, { buildingId, sizeDelta });
-    sendJson(res, {
-      building: toSimCompaniesBuildingDTO(result.building),
-      cost: result.cost,
-      resourcesConsumed: result.resourcesConsumed.map(r => ({
-        db_letter: r.kind,
-        quality: r.quality,
-        amount: r.amount
-      }))
-    });
+    if (body?.position !== undefined) {
+      const newPos = normalizePosition(body.position);
+      const updated = buildingRepository.updatePosition(buildingId, ctx.companyId, newPos);
+      sendJson(res, toSimCompaniesBuildingDTO(updated));
+      return;
+    }
+
+    // Handle size change (upgrade or downgrade)
+    if (body?.size !== undefined) {
+      const reqSize = Number(body.size);
+      // If reqSize is negative (e.g. -1), it is a relative downgrade
+      if (reqSize < 0) {
+        const reduction = Math.abs(reqSize);
+        const result = await downgradeBuildingUseCase(ctx, { buildingId, sizeReduction: reduction });
+        sendJson(res, {
+          building: toSimCompaniesBuildingDTO(result.building),
+          money: result.newMoney,
+          resources: result.refundMaterials.map(m => ({
+            db_letter: m.kind,
+            dbLetter: m.kind,
+            quality: 0,
+            amount: m.amount
+          }))
+        });
+        return;
+      }
+
+      // If reqSize === 1, it is a relative upgrade by 1 level
+      if (reqSize === 1) {
+        const result = await upgradeBuildingUseCase(ctx, { buildingId, sizeDelta: 1 });
+        sendJson(res, {
+          building: toSimCompaniesBuildingDTO(result.building),
+          cost: result.cost,
+          resourcesConsumed: result.resourcesConsumed.map(r => ({
+            db_letter: r.kind,
+            dbLetter: r.kind,
+            quality: r.quality,
+            amount: r.amount
+          }))
+        });
+        return;
+      }
+
+      // Absolute target size comparison
+      if (reqSize > building.size) {
+        const sizeDelta = reqSize - building.size;
+        const result = await upgradeBuildingUseCase(ctx, { buildingId, sizeDelta });
+        sendJson(res, {
+          building: toSimCompaniesBuildingDTO(result.building),
+          cost: result.cost,
+          resourcesConsumed: result.resourcesConsumed.map(r => ({
+            db_letter: r.kind,
+            dbLetter: r.kind,
+            quality: r.quality,
+            amount: r.amount
+          }))
+        });
+        return;
+      } else if (reqSize < building.size) {
+        const reduction = building.size - reqSize;
+        const result = await downgradeBuildingUseCase(ctx, { buildingId, sizeReduction: reduction });
+        sendJson(res, {
+          building: toSimCompaniesBuildingDTO(result.building),
+          money: result.newMoney,
+          resources: result.refundMaterials.map(m => ({
+            db_letter: m.kind,
+            dbLetter: m.kind,
+            quality: 0,
+            amount: m.amount
+          }))
+        });
+        return;
+      }
+    }
+
+    // Pass-through for other metadata patches (robots, pinnedResource, recreationAutoUpkeep)
+    sendJson(res, toSimCompaniesBuildingDTO(building));
   };
 
   registry.register({
@@ -298,7 +364,16 @@ export function registerBuildingRoutes(registry: RouteRegistry = globalRouteRegi
   ) => {
     const buildingId = Number(params.id);
     const result = await demolishBuildingUseCase(ctx, buildingId);
-    sendJson(res, toSimCompaniesBuildingDTO(result.demolishedBuilding));
+    const dto = toSimCompaniesBuildingDTO(result.demolishedBuilding);
+    sendJson(res, {
+      ...dto,
+      resources: result.refundMaterials.map(m => ({
+        db_letter: m.kind,
+        dbLetter: m.kind,
+        quality: 0,
+        amount: m.amount
+      }))
+    });
   };
 
   registry.register({

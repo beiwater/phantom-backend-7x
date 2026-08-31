@@ -6,10 +6,12 @@ import { warehouseRepository } from '../../repositories/warehouse-repository.ts'
 import { eventBus } from '../../events/event-bus.ts';
 import {
   estimateConstructionCost,
-  validateConstructionPosition
+  validateConstructionPosition,
+  normalizePosition
 } from '../../domain/buildings/building-rules.ts';
 import { getBuildingMeta } from '../../game-data/buildings.ts';
 import { ConflictError, ValidationError } from '../../errors/domain-error.ts';
+import { addCompanyExperience } from '../../game/company.ts';
 
 export interface ConstructBuildingInput {
   kind: string;
@@ -29,12 +31,13 @@ export async function constructBuildingUseCase(
   input: ConstructBuildingInput
 ): Promise<ConstructBuildingResult> {
   const { kind, position, replaceExisting = false } = input;
+  const normPosition = normalizePosition(position);
   const meta = getBuildingMeta(kind);
   const { cost, materials } = estimateConstructionCost(kind, 1);
 
   return runInTransaction(async txCtx => {
     // 1. Validate position and existing buildings
-    const existingAtPos = buildingRepository.findByCompanyAndPosition(ctx.companyId, position);
+    const existingAtPos = buildingRepository.findByCompanyAndPosition(ctx.companyId, normPosition);
     if (existingAtPos) {
       if (!replaceExisting) {
         throw new ConflictError(`Building position ${position} is already occupied`);
@@ -45,7 +48,7 @@ export async function constructBuildingUseCase(
       // Demolish existing building at position
       buildingRepository.delete(existingAtPos.id, ctx.companyId);
     } else {
-      validateConstructionPosition(position, [], false);
+      validateConstructionPosition(normPosition, [], false);
     }
 
     // 2. Debit construction cost atomically (fails if insufficient funds)
@@ -68,7 +71,7 @@ export async function constructBuildingUseCase(
 
     const building = buildingRepository.create({
       companyId: ctx.companyId,
-      position: String(position),
+      position: normPosition,
       kind: String(kind),
       size: 1,
       name: meta.name,
@@ -76,6 +79,7 @@ export async function constructBuildingUseCase(
       category: meta.category,
       createdAt: now
     });
+    addCompanyExperience(ctx.companyId, 20);
 
     buildingRepository.updateBusyUntil(building.id, ctx.companyId, busyUntil);
     const finalizedBuilding = { ...building, busyUntil };

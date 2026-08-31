@@ -4,6 +4,8 @@ import {
   getPaymentPackagesList,
   getPaymentPricingInfo,
   getPlayerBonusesList,
+  canPurchasePaymentPackage,
+  purchasePaymentPackage,
   exchangeSimBoosts,
   unlockDisplayCaseSlot,
   unlockExecutiveSlot,
@@ -12,7 +14,6 @@ import {
   rushProduction,
   rushBuildingUpgradeOrConstruction
 } from '../game/simboosts.ts';
-
 export async function handleSimboostRoutes(
   req: IncomingMessage,
   res: ServerResponse,
@@ -40,6 +41,39 @@ export async function handleSimboostRoutes(
     sendJson(res, currentPlayerId ? getPlayerBonusesList(currentPlayerId) : []);
     return true;
   }
+  // Realign Production/Sales bonus: POST /api/v2/companies/me/bonus/
+  if (pathname === '/api/v2/companies/me/bonus/' && method === 'POST') {
+    if (!currentCompanyId) {
+      sendJson(res, { error: 'Unauthorized' }, 401);
+      return true;
+    }
+    const body = await readJsonBody<{ production?: number }>(req);
+    const prodMod = Math.max(-3, Math.min(3, Number(body.production || 0)));
+    const salesMod = -prodMod;
+    sendJson(res, {
+      productionModifier: prodMod,
+      salesModifier: salesMod
+    });
+    return true;
+  }
+  // Level bonus application: POST /api/v2/no-cache/companies/level-bonus/:id/
+  const levelBonusMatch = pathname.match(/^\/api\/v2\/no-cache\/companies\/level-bonus\/(\d+|me)\/?$/);
+  if (levelBonusMatch && method === 'POST') {
+    if (!currentCompanyId) {
+      sendJson(res, { error: 'Unauthorized' }, 401);
+      return true;
+    }
+    const body = await readJsonBody<{ specialization?: string }>(req);
+    const isProd = body?.specialization === 'production';
+    sendJson(res, {
+      success: true,
+      specialization: isProd ? 'production' : 'sales',
+      productionModifier: isProd ? 1 : 0,
+      salesModifier: isProd ? 0 : 1
+    });
+    return true;
+  }
+
 
   // Building slot unlock: POST /api/v2/unlock/
   if (pathname === '/api/v2/unlock/' && method === 'POST') {
@@ -60,18 +94,112 @@ export async function handleSimboostRoutes(
   // 4. Can Purchase Check: /api/v2/payment/can-purchase/:sku/
   const canPurchaseMatch = pathname.match(/^\/api\/v2\/payment\/can-purchase\/([a-zA-Z0-9_-]+)\/$/);
   if (canPurchaseMatch && method === 'GET') {
-    sendJson(res, { canPurchase: false, available: false, reason: 'Payment provider is not configured' });
+    const sku = canPurchaseMatch[1];
+    sendJson(res, canPurchasePaymentPackage(sku));
     return true;
   }
 
-  // 5. Payment Checkout: /api/v2/payment/ or /api/v2/payment-stripe/
-  if ((pathname === '/api/v2/payment/' || pathname === '/api/v2/payment-stripe/') && method === 'POST') {
-    sendJson(res, { error: 'Payment provider is not configured', code: 'API_NOT_IMPLEMENTED' }, 501);
+  // 5. Payment Checkout: /api/v2/payment/
+  if (pathname === '/api/v2/payment/' && method === 'POST') {
+    if (!currentCompanyId) {
+      sendJson(res, { error: 'Unauthorized' }, 401);
+      return true;
+    }
+    try {
+      const body = await readJsonBody<{ sku?: string; nonce?: string; name?: string; bonus?: string }>(req);
+      const sku = body.sku || 'simboosts_small';
+      const result = purchasePaymentPackage(currentCompanyId, sku);
+      sendJson(res, result);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      sendJson(res, { error: msg }, 400);
+    }
     return true;
   }
 
+  // 5b. Stripe Checkout: /api/v2/payment-stripe/
+  if (pathname === '/api/v2/payment-stripe/' && method === 'POST') {
+    if (!currentCompanyId) {
+      sendJson(res, { error: 'Unauthorized' }, 401);
+      return true;
+    }
+    const body = await readJsonBody<{ sku?: string }>(req);
+    const sku = body.sku || 'simboosts_small';
+    // Return client secret for stripe element
+    sendJson(res, {
+      clientSecret: `pi_3M${Date.now()}_secret_${Date.now()}`
+    });
+    return true;
+  }
+
+  // 5c. Stripe Sync / Completion: /api/v2/payment-stripe/sync
   if (pathname === '/api/v2/payment-stripe/sync' && method === 'POST') {
-    sendJson(res, { error: 'Payment provider is not configured', code: 'API_NOT_IMPLEMENTED' }, 501);
+    if (!currentCompanyId) {
+      sendJson(res, { error: 'Unauthorized' }, 401);
+      return true;
+    }
+    const body = await readJsonBody<{ sessionId?: string }>(req);
+    const result = purchasePaymentPackage(currentCompanyId, 'simboosts_medium');
+    sendJson(res, {
+      receiptUrl: '/zh-cn/landscape/',
+      ...result
+    });
+    return true;
+  }
+
+  // 5d. Tron Crypto Payment: /api/v2/payment-crypto/tron/
+  if (pathname === '/api/v2/payment-crypto/tron/' && method === 'POST') {
+    if (!currentCompanyId) {
+      sendJson(res, { error: 'Unauthorized' }, 401);
+      return true;
+    }
+    const body = await readJsonBody<{ packageSku?: string }>(req);
+    const sku = body.packageSku || 'simboosts_small';
+    const id = `tron_${Date.now()}`;
+    sendJson(res, {
+      invoice: {
+        id,
+        datetime: new Date().toISOString(),
+        address: 'TYDzsYUE22w6j1v929xY8w8jT5aYQvL32',
+        amount: '10',
+        currency: 'USDT',
+        packageSku: sku
+      },
+      payment: null
+    });
+    return true;
+  }
+
+  const tronPatchMatch = pathname.match(/^\/api\/v2\/payment-crypto\/tron\/([^\/]+)\/([^\/]+)\/?$/);
+  if (tronPatchMatch && method === 'PATCH') {
+    if (!currentCompanyId) {
+      sendJson(res, { error: 'Unauthorized' }, 401);
+      return true;
+    }
+    const result = purchasePaymentPackage(currentCompanyId, 'simboosts_medium');
+    sendJson(res, {
+      invoice: {
+        id: tronPatchMatch[1],
+        datetime: new Date().toISOString()
+      },
+      payment: {
+        sku: 'simboosts_medium',
+        simBoostsPurchased: result.simBoosts,
+        simBoostsExtra: 0
+      }
+    });
+    return true;
+  }
+
+  // 5e. Google / Device Purchase: /api/v2/google/purchase/
+  if (pathname === '/api/v2/google/purchase/' && method === 'POST') {
+    if (!currentCompanyId) {
+      sendJson(res, { error: 'Unauthorized' }, 401);
+      return true;
+    }
+    const body = await readJsonBody<{ sku?: string }>(req);
+    const result = purchasePaymentPackage(currentCompanyId, body.sku || 'simboosts_small');
+    sendJson(res, result);
     return true;
   }
 

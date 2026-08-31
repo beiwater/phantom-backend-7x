@@ -16,6 +16,54 @@ export async function handleSocialRoutes(
     sendJson(res, []);
     return true;
   }
+  // Free-text / company bio
+  const freeTextMatch = pathname.match(/^\/api\/v2\/companies\/(\d+|me)\/free-text\/?$/);
+  if (freeTextMatch) {
+    const targetIdStr = freeTextMatch[1];
+    const targetCompanyId = targetIdStr === 'me' ? currentCompanyId : Number(targetIdStr);
+    if (!targetCompanyId) {
+      sendJson(res, { error: 'Unauthorized' }, 401);
+      return true;
+    }
+    if (method === 'GET') {
+      const comp = getCompanyById(targetCompanyId);
+      sendJson(res, comp?.note || '');
+      return true;
+    }
+    if (method === 'POST') {
+      const body = await readJsonBody<{ freeText?: string }>(req);
+      const newText = String(body.freeText ?? '').slice(0, 2000);
+      db.prepare('UPDATE companies SET note = ? WHERE company_id = ?').run(newText, targetCompanyId);
+      sendJson(res, newText);
+      return true;
+    }
+  }
+
+  // Player notifications settings: /api/v2/players/notifications/:id
+  const playerNotificationsMatch = pathname.match(/^\/api\/v2\/players\/notifications(?:\/(\d+))?\/?$/);
+  if (playerNotificationsMatch) {
+    if (method === 'GET') {
+      sendJson(res, {
+        emailNotifications: { new_contract: true, bonds_sold: true, idle_building: true },
+        popupNotifications: { new_contract: true, buy_order_fill: true },
+        pushNotifications: { new_contract: true, idle_building: true }
+      });
+      return true;
+    }
+    if (method === 'PUT') {
+      const body = await readJsonBody<any>(req);
+      sendJson(res, {
+        emailNotifications: body?.emailNotifications || {},
+        popupNotifications: body?.popupNotifications || {},
+        pushNotifications: body?.pushNotifications || {}
+      });
+      return true;
+    }
+    if (method === 'POST') {
+      sendJson(res, { sent: true });
+      return true;
+    }
+  }
 
   // 1. Contacts & Default Chatrooms (Must include unreadMessages: [])
   if (pathname === '/api/v2/contacts/') {

@@ -1,0 +1,5 @@
+{"time":"2026-08-31T04:55:00.000Z","pathname":"/api/v2/companies/me/bonus/","method":"POST","status":404,"problem":"missing-endpoint","resolved":true,"solution":"Implemented realign bonus slider in simboost-routes.ts"}
+{"time":"2026-08-31T04:55:00.000Z","pathname":"/api/v2/companies/:id/free-text/","method":"GET","status":404,"problem":"missing-endpoint","resolved":true,"solution":"Implemented company bio free-text retrieval in social-routes.ts"}
+{"time":"2026-08-31T04:55:00.000Z","pathname":"/api/v2/companies/me/free-text/","method":"POST","status":404,"problem":"missing-endpoint","resolved":true,"solution":"Implemented company bio free-text update in social-routes.ts"}
+{"time":"2026-08-31T04:55:00.000Z","pathname":"/api/v2/players/notifications/:id","method":"GET","status":404,"problem":"missing-endpoint","resolved":true,"solution":"Implemented player notifications configuration in social-routes.ts"}
+{"time":"2026-08-31T04:55:00.000Z","pathname":"/api/v1/realm-create-company/:realmId/","method":"POST","status":404,"problem":"missing-endpoint","resolved":true,"solution":"Implemented realm-create-company handler in auth-routes.ts"}

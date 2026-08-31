@@ -143,6 +143,19 @@ export class BuildingRepository {
     }
     return mapBuildingRow(result);
   }
+  updatePosition(buildingId: number, companyId: number, newPosition: string): BuildingEntity {
+    const result = this.database.prepare(`
+      UPDATE buildings
+      SET position = ?
+      WHERE id = ? AND company_id = ?
+      RETURNING *
+    `).get(newPosition, buildingId, companyId) as BuildingDbRow | undefined;
+
+    if (!result) {
+      throw new NotFoundError(`Building with id ${buildingId} not found for company ${companyId}`);
+    }
+    return mapBuildingRow(result);
+  }
 
   updateBusyUntil(buildingId: number, companyId: number, busyUntil: string | null): BuildingEntity {
     const result = this.database.prepare(`

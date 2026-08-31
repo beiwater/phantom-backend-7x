@@ -7,6 +7,7 @@ import {
   getResourceDef
 } from '../game/constants.ts';
 import { getCompanyById } from '../game/company.ts';
+import { getCompanyRankings } from '../game/encyclopedia.ts';
 
 export async function handleEncyclopediaRoutes(
   _req: IncomingMessage,
@@ -142,57 +143,28 @@ export async function handleEncyclopediaRoutes(
     return true;
   }
 
-  // 7. EVA & Wealth Rankings
-  if (pathname.startsWith('/api/') && (pathname.includes('/encyclopedia/eva-ranking/') || pathname.includes('/encyclopedia/ranking/'))) {
-    const comp = currentCompanyId ? getCompanyById(currentCompanyId) : null;
-    const rankings = [
-      {
-        id: 999901,
-        rank: 0,
-        company: 'Solaris Energy Ltd',
-        logo: '',
-        realmId: 0,
-        deleted: false,
-        value: 12500000,
-        year: 2026
-      },
-      {
-        id: 999902,
-        rank: 1,
-        company: 'AgroEmpire Farms',
-        logo: '',
-        realmId: 0,
-        deleted: false,
-        value: 8700000,
-        year: 2026
-      },
-      {
-        id: 999903,
-        rank: 2,
-        company: 'Titan Industries',
-        logo: '',
-        realmId: 0,
-        deleted: false,
-        value: 6400000,
-        year: 2026
-      }
-    ];
+  // 7. Dynamic Real EVA & Wealth Rankings
+  const evaRankingMatch = pathname.match(/^\/api\/v4\/encyclopedia\/eva-ranking\/(\d+)(?:\/(\d+))?\/?$/);
+  if (evaRankingMatch) {
+    const realmId = Number(evaRankingMatch[1]);
+    const blobIndex = Number(evaRankingMatch[2] || 0);
+    const rankings = getCompanyRankings(realmId, blobIndex, 'eva');
+    sendJson(res, rankings);
+    return true;
+  }
 
-    if (comp) {
-      rankings.unshift({
-        id: comp.company_id,
-        rank: 0,
-        company: comp.name,
-        logo: comp.logo || '',
-        realmId: comp.realm_id,
-        deleted: false,
-        value: comp.money + 150000,
-        year: 2026
-      });
-      rankings.forEach((r, idx) => {
-        r.rank = idx;
-      });
-    }
+  const cvRankingMatch = pathname.match(/^\/api\/v4\/encyclopedia\/ranking\/(\d+)(?:\/(\d+))?\/?$/);
+  if (cvRankingMatch) {
+    const realmId = Number(cvRankingMatch[1]);
+    const blobIndex = Number(cvRankingMatch[2] || 0);
+    const rankings = getCompanyRankings(realmId, blobIndex, 'cv');
+    sendJson(res, rankings);
+    return true;
+  }
+
+  if (pathname.startsWith('/api/') && (pathname.includes('/encyclopedia/eva-ranking/') || pathname.includes('/encyclopedia/ranking/'))) {
+    const isEva = pathname.includes('eva-ranking');
+    const rankings = getCompanyRankings(0, 0, isEva ? 'eva' : 'cv');
     sendJson(res, rankings);
     return true;
   }

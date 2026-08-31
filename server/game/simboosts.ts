@@ -101,6 +101,35 @@ export function getPaymentPackagesList(platformType: string = 'web') {
     filter: []
   };
 }
+export function canPurchasePaymentPackage(sku: string) {
+  const pkg = PAYMENT_PACKAGES.find(p => p.sku === sku);
+  return {
+    canBuy: true,
+    canPurchase: true,
+    available: true,
+    limit: null,
+    message: null,
+    package: pkg || null
+  };
+}
+
+export function purchasePaymentPackage(companyId: number, sku: string) {
+  const pkg = PAYMENT_PACKAGES.find(p => p.sku === sku) || PAYMENT_PACKAGES[0];
+  const newSimBoosts = updateCompanySimBoosts(companyId, pkg.simBoosts);
+  return {
+    payment: {
+      sku: pkg.sku,
+      simBoosts: pkg.simBoosts,
+      price: pkg.price,
+      currency: pkg.currency
+    },
+    simBoosts: pkg.simBoosts,
+    companySimboosts: newSimBoosts,
+    supporter: pkg.isSupporter,
+    starting: pkg.starting
+  };
+}
+
 
 export function getPaymentPricingInfo(countryCode: string = 'AU') {
   return {

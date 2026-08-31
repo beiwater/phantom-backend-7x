@@ -241,18 +241,19 @@ export async function handleAuthRoutes(
     return true;
   }
 
-  // Realm Switch
-  const realmSwitchMatch = pathname.match(/^\/api\/v1\/realm\/(\d+)\/switch\/$/);
-  if (realmSwitchMatch && method === 'POST') {
+  // Realm Switch & Realm Create Company
+  const realmSwitchMatch = pathname.match(/^\/api\/v1\/realm\/(\d+)\/switch\/?$/);
+  const realmCreateMatch = pathname.match(/^\/api\/v1\/realm-create-company\/(\d+)\/?$/);
+  if ((realmSwitchMatch || realmCreateMatch) && method === 'POST') {
     if (!currentPlayerId) {
       sendJson(res, { error: 'Unauthorized' }, 401);
       return true;
     }
-    const targetRealm = Number(realmSwitchMatch[1]);
+    const targetRealm = Number((realmSwitchMatch || realmCreateMatch)![1]);
     const comps = getPlayerCompanies(currentPlayerId);
     const targetComp = comps.find(c => c.realmId === targetRealm);
 
-    if (targetComp) {
+    if (targetComp && realmSwitchMatch) {
       if (sessionToken) switchSessionCompany(sessionToken, targetComp.id);
       sendJson(res, { status: 'ok', companyId: targetComp.id, realmId: targetRealm });
     } else {

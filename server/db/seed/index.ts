@@ -68,7 +68,7 @@ export function registerPlayer(
   `);
   const insertCompany = database.prepare(`
     INSERT INTO companies (company_id, player_id, name, money, simboosts, level, rating, experience, realm_id, logo, personal_assistant, note, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, 'BBB', 20, 0, '', 'old', 'Private Server Company', ?)
+    VALUES (?, ?, ?, ?, ?, ?, 'BBB', 0, 0, '', 'old', 'Private Server Company', ?)
   `);
   const insertBuilding = database.prepare(`
     INSERT INTO buildings (company_id, position, kind, size, name, cost, category, created_at)
@@ -189,7 +189,7 @@ export function seedInitialDatabase(database: DatabaseSync = db): void {
 
     database.prepare(`
       INSERT INTO companies (company_id, player_id, name, money, simboosts, level, rating, experience, realm_id, logo, personal_assistant, note, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, 'BBB', 25, 0, '', 'old', 'Private Server Company', ?)
+      VALUES (?, ?, ?, ?, ?, ?, 'BBB', 0, 0, '', 'old', 'Private Server Company', ?)
     `).run(4259175, 2920233, 'lifeline', CONFIG.INITIAL_MONEY, CONFIG.INITIAL_SIMBOOSTS, CONFIG.INITIAL_LEVEL, now);
     seedDefaultDisplayCase(4259175, database);
 

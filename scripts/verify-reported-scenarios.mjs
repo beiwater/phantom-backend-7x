@@ -21,6 +21,11 @@ async function main() {
         console.log('[Browser Console Error]:', msg.text());
       }
     });
+    page.on('response', async res => {
+      if (res.status() >= 400) {
+        console.log(`[HTTP ${res.status()}] ${res.request().method()} ${res.url()} -> ${(await res.text()).slice(0, 100)}`);
+      }
+    });
     page.on('pageerror', err => {
       errors.push(err.message);
       console.log('[Browser PageError]:', err.message);

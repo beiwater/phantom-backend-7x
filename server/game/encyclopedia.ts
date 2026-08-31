@@ -211,68 +211,73 @@ const CORP_NAMES = [
   'Eclipse SemiConductors', 'Summit Civil Engineering', 'Atlas Freight Interstellar', 'Prism Glassworks'
 ];
 
-// EVA Rankings list
-export function getEvaRankings(realmId: number, blobIndex: number = 0): RankingEntry[] {
+// Dynamic Company Rankings (CV & EVA)
+export function getCompanyRankings(realmId: number, blobIndex: number = 0, variant: 'cv' | 'eva' = 'cv'): RankingEntry[] {
   const startRank = blobIndex * 400;
-  const result: RankingEntry[] = [];
 
-  // 1. Fetch real companies from DB
+  // Fetch all real companies in realm with calculated company value
   const dbCompanies = db.prepare(`
-    SELECT c.company_id as id, c.name as company, c.logo, c.realm_id as realmId, c.money, c.created_at
+    SELECT 
+      c.company_id as id,
+      c.name as company,
+      COALESCE(c.logo, '') as logo,
+      COALESCE(c.realm_id, 0) as realmId,
+      COALESCE(c.level, 0) as level,
+      c.money,
+      c.created_at,
+      COALESCE((SELECT SUM(b.cost * b.size) FROM buildings b WHERE b.company_id = c.id), 0) as buildings_value,
+      COALESCE((SELECT SUM(w.amount * (w.cost_workers + w.cost_admin + w.cost_material1 + w.cost_material2 + w.cost_market)) FROM warehouse w WHERE w.company_id = c.id), 0) as warehouse_value
     FROM companies c
     WHERE c.realm_id = ?
-    ORDER BY c.money DESC
   `).all(realmId) as Array<{
     id: number;
     company: string;
     logo: string;
     realmId: number;
+    level: number;
     money: number;
     created_at: string;
+    buildings_value: number;
+    warehouse_value: number;
   }>;
 
-  // Build high-tier leaderboard list
-  const totalEntries = 800;
-  const rng = seededRandom(realmId * 4321);
+  const now = Date.now();
+  const calculatedCompanies = dbCompanies.map(c => {
+    const totalValue = Math.round((c.money + c.buildings_value + c.warehouse_value) * 100) / 100;
+    const createdTime = c.created_at ? new Date(c.created_at).getTime() : now;
+    const age = Math.max(1, Math.floor((now - createdTime) / (1000 * 60 * 60 * 24)));
+    const year = c.created_at ? new Date(c.created_at).getFullYear() : 2026;
+    const eva = variant === 'eva'
+      ? Math.round(((totalValue - 100000) / age) * 100) / 100
+      : Math.round(totalValue * 0.15);
 
-  for (let i = 0; i < totalEntries; i++) {
-    if (i < dbCompanies.length) {
-      const comp = dbCompanies[i];
-      const year = comp.created_at ? new Date(comp.created_at).getFullYear() : 2024;
-      const eva = Math.round(comp.money * 0.15);
-      result.push({
-        id: comp.id,
-        rank: i,
-        company: comp.company,
-        logo: comp.logo || '',
-        realmId: comp.realmId,
-        year,
-        value: comp.money,
-        eva
-      });
-    } else {
-      const nameIndex = i % CORP_NAMES.length;
-      const tierFactor = Math.pow(0.985, i);
-      const value = Math.round((50000000 * tierFactor + (rng() * 500000)) * 100) / 100;
-      const eva = Math.round(value * (0.05 + rng() * 0.08));
-      const year = 2020 + (i % 5);
-      result.push({
-        id: 990000 + i,
-        rank: i,
-        company: `${CORP_NAMES[nameIndex]} #${Math.floor(i / CORP_NAMES.length) + 1}`,
-        logo: '',
-        realmId,
-        year,
-        value,
-        eva
-      });
-    }
-  }
+    return {
+      id: c.id,
+      company: c.company,
+      logo: c.logo,
+      realmId: c.realmId,
+      year,
+      value: variant === 'eva' ? eva : totalValue,
+      eva
+    };
+  });
 
-  // Return the requested page slice of 400 items
+  // Sort by calculated value descending
+  calculatedCompanies.sort((a, b) => b.value - a.value);
+
+  // Assign 0-indexed rank
+  const result: RankingEntry[] = calculatedCompanies.map((c, idx) => ({
+    ...c,
+    rank: idx
+  }));
+
+  // Return the requested page slice
   return result.slice(startRank, startRank + 400);
 }
 
+export function getEvaRankings(realmId: number, blobIndex: number = 0): RankingEntry[] {
+  return getCompanyRankings(realmId, blobIndex, 'eva');
+}
 // Existing resource quality array for encyclopedia
 export function getExistingResourceQualities(_realmId: number): ExistingResourceQualityEntry[] {
   // Query actual warehouse items
