@@ -57,6 +57,23 @@ export interface DomainEventMap {
     buildingId: number;
     name: string;
   };
+  MarketOrderPlaced: {
+    companyId: number;
+    orderId: number;
+    kind: number;
+    quality: number;
+    quantity: number;
+    price: number;
+  };
+
+  MarketOrderCancelled: {
+    companyId: number;
+    orderId: number;
+    kind: number;
+    quality: number;
+    quantity: number;
+  };
+
   MarketTradeCompleted: {
     buyerCompanyId: number;
     sellerCompanyId: number;

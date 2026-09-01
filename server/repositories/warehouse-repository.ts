@@ -84,6 +84,14 @@ export class WarehouseRepository {
     return row ? mapWarehouseRow(row) : null;
   }
 
+  findById(rowId: number): WarehouseEntity | null {
+    const row = this.database.prepare(
+      'SELECT * FROM warehouse WHERE id = ?'
+    ).get(rowId) as WarehouseDbRow | undefined;
+
+    return row ? mapWarehouseRow(row) : null;
+  }
+
   hasSufficientMaterials(companyId: number, requirements: Array<{ kind: number; amount: number; quality?: number }>): boolean {
     for (const req of requirements) {
       const q = req.quality ?? 0;
