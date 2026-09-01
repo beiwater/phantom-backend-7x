@@ -7,6 +7,8 @@ import { eventBus } from '../../events/event-bus.ts';
 import { NotFoundError, ForbiddenError, ValidationError, ConflictError } from '../../errors/domain-error.ts';
 import { validateProductionRequest, resolveAchievableQuality } from '../../domain/production/production-rules.ts';
 import { calculateProductionTime } from '../../game-data/buildings.ts';
+import { isAbundanceExtractorKind, getBuildingAbundance, scaleExtractorOutput } from '../../game/buildings.ts';
+import { assertAllowedProduct } from '../../game/robotics.ts';
 
 export interface StartProductionInput {
   buildingId: number;
@@ -35,6 +37,10 @@ export async function startProductionUseCase(
       throw new ForbiddenError('You do not own this building');
     }
 
+    // Issue #96: a robotized building is locked to its specialized product;
+    // any other production request is rejected while robots are installed.
+    assertAllowedProduct(building, input.kind);
+
     // C-13: official contract rejects production on a busy building instead of
     // silently chaining the new item behind the running queue.
     // Issue #47: construction/upgrade busy (no queue rows at all) is also a
@@ -55,6 +61,14 @@ export async function startProductionUseCase(
       input.amount,
       input.quality ?? null
     );
+    // Issue #93: natural resource extractors (Mine 'M', Quarry 'Q', Oil Rig
+    // 'O') scale their output linearly with the deposit abundance:
+    // outputAmount = round(baseAmount * abundance / 100). Ingredients and
+    // duration stay based on the ordered base amount; only the delivered
+    // output is scaled.
+    const outputAmount = isAbundanceExtractorKind(building.kind)
+      ? scaleExtractorOutput(input.amount, getBuildingAbundance(building.id)?.abundance ?? 100)
+      : input.amount;
     // 3. Consume required ingredients atomically, tracking the weighted
     // average input quality and total cost basis (P0-02).
     const allTransactions: ResourceTransactionEntity[] = [];
@@ -118,7 +132,7 @@ export async function startProductionUseCase(
       kind: input.kind,
       quality: persistedQuality,
       cost: inputCostPerOutputUnit,
-      amount: input.amount,
+      amount: outputAmount,
       durationSeconds,
       startedAt,
       finishesAt
@@ -133,7 +147,7 @@ export async function startProductionUseCase(
       buildingId: building.id,
       queueId: queueItem.id,
       kind: input.kind,
-      amount: input.amount,
+      amount: outputAmount,
       quality: achievableQuality,
       startedAt,
       finishesAt

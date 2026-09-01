@@ -6,6 +6,7 @@ import { warehouseRepository } from '../../repositories/warehouse-repository.ts'
 import { eventBus } from '../../events/event-bus.ts';
 import { estimateDemolitionRefund } from '../../domain/buildings/building-rules.ts';
 import { NotFoundError, ForbiddenError, ValidationError } from '../../errors/domain-error.ts';
+import { assertNotRoboticsLocked } from '../../game/robotics.ts';
 import { demolishBuildingUseCase } from './demolish-building.ts';
 
 export interface DowngradeBuildingInput {
@@ -15,7 +16,8 @@ export interface DowngradeBuildingInput {
 
 export interface DowngradeBuildingResult {
   building: BuildingEntity;
-  refundMoney: number;
+  /** Reference value of the scrapped levels (baseCost * reduction * 0.5). */
+  scrapValue: number;
   refundMaterials: Array<{ kind: number; amount: number }>;
   newMoney: number;
   demolished: boolean;
@@ -40,6 +42,10 @@ export async function downgradeBuildingUseCase(
       throw new ForbiddenError('You do not own this building');
     }
 
+    // Issue #96: a robotized building cannot be downgraded (nor demolished by
+    // full downgrade) until the robots are uninstalled (400 ROBOTICS_LOCKED).
+    assertNotRoboticsLocked(building);
+
     const newSize = building.size - sizeReduction;
 
     // 2. If new size is 0 or less, demolish completely
@@ -47,20 +53,18 @@ export async function downgradeBuildingUseCase(
       const demolishResult = await demolishBuildingUseCase(ctx, buildingId);
       return {
         building: { ...demolishResult.demolishedBuilding, size: 0 },
-        refundMoney: demolishResult.refundMoney,
+        scrapValue: demolishResult.scrapValue,
         refundMaterials: demolishResult.refundMaterials,
         newMoney: demolishResult.newMoney,
         demolished: true
       };
     }
 
-    // 3. Calculate refund for reduced levels
-    const { moneyRefund, materialRefund } = estimateDemolitionRefund(building.cost, sizeReduction);
+    // 3. Issue #94: scrapping levels returns 50% of their construction
+    // materials at quality 0 — not cash.
+    const { scrapValue, materialRefund } = estimateDemolitionRefund(building.kind, building.cost, sizeReduction);
 
-    // 4. Credit refund money
-    const newMoney = companyRepository.creditMoney(ctx.companyId, moneyRefund);
-
-    // 5. Refund materials to warehouse
+    // 4. Refund materials to warehouse at quality 0
     for (const mat of materialRefund) {
       if (mat.amount > 0) {
         warehouseRepository.addResource(ctx.companyId, mat.kind, 0, mat.amount);
@@ -75,14 +79,15 @@ export async function downgradeBuildingUseCase(
       companyId: ctx.companyId,
       buildingId: updatedBuilding.id,
       newSize: updatedBuilding.size,
-      cost: -moneyRefund
+      cost: -scrapValue
     });
 
+    const comp = companyRepository.findById(ctx.companyId);
     return {
       building: updatedBuilding,
-      refundMoney: moneyRefund,
+      scrapValue,
       refundMaterials: materialRefund,
-      newMoney,
+      newMoney: Number(comp?.money ?? 0),
       demolished: false
     };
   }, { immediate: true });

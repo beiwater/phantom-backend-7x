@@ -19,6 +19,8 @@ import { placeBuildingUseCase, liftBuildingUseCase } from '../application/buildi
 import { renameBuildingUseCase } from '../application/buildings/rename-building.ts';
 import { getCompanyBuildingsUseCase } from '../application/buildings/get-buildings.ts';
 import { getBuildingDetailsUseCase } from '../application/buildings/get-building-details.ts';
+import { installRobotsUseCase } from '../application/buildings/install-robots.ts';
+import { uninstallRobotsUseCase } from '../application/buildings/uninstall-robots.ts';
 import { buildingRepository } from '../repositories/building-repository.ts';
 import {
   toSimCompaniesStartProductionDTO,
@@ -27,12 +29,17 @@ import {
   toSimCompaniesQueueDTO,
   toSimCompaniesHistoryDTO
 } from '../compatibility/simcompanies/production-dto.ts';
-import { ValidationError } from '../errors/domain-error.ts';
+import { ValidationError, NotFoundError, ForbiddenError, UnauthorizedError } from '../errors/domain-error.ts';
+import type { GameContext } from '../context/game-context.ts';
 import {
   toSimCompaniesBuildingDTO,
   toSimCompaniesBuildingsListDTO
 } from '../compatibility/simcompanies/building-dto.ts';
 import { normalizePosition } from '../domain/buildings/building-rules.ts';
+import {
+  getBuildingAbundance,
+  prospectBuildingAbundance
+} from '../game/buildings.ts';
 
 export function registerBuildingRoutes(registry: RouteRegistry = globalRouteRegistry): void {
   // 1. v1 Busy / Start Production endpoints
@@ -509,33 +516,129 @@ export function registerBuildingRoutes(registry: RouteRegistry = globalRouteRegi
       sendJson(res, []);
     }
   });
-  // 7. Building Abundance
+  // 7. Building Abundance (Issue #93)
   registry.register({
     method: 'GET',
     pattern: '/api/v2/companies/buildings/:id/abundance/',
     auth: 'none',
-    handler: async (_req, res) => {
-      sendJson(res, { abundance: 100, originalAbundance: 100 });
+    handler: async (_req, res, _ctx, params) => {
+      const abundance = getBuildingAbundance(Number(params.id));
+      if (!abundance) {
+        throw new NotFoundError(`Building ${params.id} not found`);
+      }
+      sendJson(res, abundance);
     }
   });
 
-  // 8. Building Robots
+  // Issue #93: re-prospect a deposit — rolls a fresh abundance (and a
+  // matching new original abundance) for a natural resource extractor.
+  registry.register({
+    method: 'POST',
+    pattern: '/api/v2/companies/buildings/:id/prospect/',
+    auth: 'company',
+    handler: async (_req, res, ctx, params) => {
+      const buildingId = Number(params.id);
+      const building = buildingRepository.findById(buildingId);
+      if (!building) {
+        throw new NotFoundError(`Building ${buildingId} not found`);
+      }
+      if (building.companyId !== ctx.companyId) {
+        throw new ForbiddenError('You do not own this building');
+      }
+      sendJson(res, prospectBuildingAbundance(buildingId));
+    }
+  });
+
+
+  // 8. Building Robots (Issue #96: robotics & specialization)
+  const readNumberField = (source: unknown, key: string): number | undefined => {
+    if (source === null || typeof source !== 'object' || !(key in source)) return undefined;
+    // `key in source` guard above establishes the property exists on the object.
+    const record = source as Record<string, unknown>;
+    const value = Number(record[key]);
+    return Number.isFinite(value) ? value : undefined;
+  };
+
+  const installRobotsHandler = async (
+    _req: IncomingMessage,
+    res: ServerResponse,
+    ctx: GameContext | null,
+    params: Record<string, string>,
+    body: unknown
+  ) => {
+    if (!ctx) throw new UnauthorizedError();
+    const buildingId = Number(params.id);
+    const kind = readNumberField(body, 'kind') ?? readNumberField(body, 'lockedProduct');
+    const result = await installRobotsUseCase(ctx, { buildingId, kind: Number(kind) });
+    const buildingDTO = toSimCompaniesBuildingDTO(result.building);
+    sendJson(res, {
+      // Legacy stub contract keys retained for backward compatibility.
+      robotsInstalled: true,
+      wageDiscount: result.robotics.wageDiscount,
+      wageMultiplier: result.robotics.wageMultiplier,
+      installedRobots: result.robotics.installedRobots,
+      requiredRobots: result.robotics.requiredRobots,
+      requiredQuality: result.robotics.requiredQuality,
+      lockedProduct: result.robotics.lockedProduct,
+      resourcesConsumed: result.resourcesConsumed.map(tx => ({
+        kind: tx.kind,
+        db_letter: tx.kind,
+        dbLetter: tx.kind,
+        quality: tx.quality,
+        amount: tx.amount
+      })),
+      robotics: result.robotics,
+      building: buildingDTO
+    });
+  };
+
+  const uninstallRobotsHandler = async (
+    _req: IncomingMessage,
+    res: ServerResponse,
+    ctx: GameContext | null,
+    params: Record<string, string>
+  ) => {
+    if (!ctx) throw new UnauthorizedError();
+    const buildingId = Number(params.id);
+    const result = await uninstallRobotsUseCase(ctx, buildingId);
+    const buildingDTO = toSimCompaniesBuildingDTO(result.building);
+    sendJson(res, {
+      robotsInstalled: false,
+      wageDiscount: 0,
+      wageMultiplier: 1,
+      returnedRobots: result.returnedRobots,
+      returnedQuality: result.returnedQuality,
+      building: buildingDTO
+    });
+  };
+
+  registry.register({
+    method: 'POST',
+    pattern: '/api/v2/companies/buildings/:id/install-robots/',
+    auth: 'company',
+    handler: installRobotsHandler
+  });
+
+  registry.register({
+    method: 'POST',
+    pattern: '/api/v2/companies/buildings/:id/uninstall-robots/',
+    auth: 'company',
+    handler: uninstallRobotsHandler
+  });
+
+  // Legacy robots endpoints, now backed by the real robotics use cases.
   registry.register({
     method: 'POST',
     pattern: '/api/v2/companies/buildings/:id/robots/',
     auth: 'company',
-    handler: async (_req, res) => {
-      sendJson(res, { robotsInstalled: true, wageDiscount: 0.03 });
-    }
+    handler: installRobotsHandler
   });
 
   registry.register({
     method: 'DELETE',
     pattern: '/api/v2/companies/buildings/:id/robots/',
     auth: 'company',
-    handler: async (_req, res) => {
-      sendJson(res, { robotsInstalled: false, wageDiscount: 0 });
-    }
+    handler: uninstallRobotsHandler
   });
 
   // 9. Building Queue endpoints

@@ -13,6 +13,12 @@ export interface BuildingEntity {
   category: string;
   busyUntil: string | null;
   upkeepActive: boolean;
+  /** Issue #96: count of industrial robots installed on this building (0 = not robotized). */
+  robotsInstalled: number;
+  /** Display quality of the installed robots (informational; uninstall returns Q0). */
+  robotsQuality: number;
+  /** Specialized product the robotized building is locked to (null = not robotized). */
+  lockedProduct: number | null;
 }
 
 export interface BuildingDbRow {
@@ -26,6 +32,9 @@ export interface BuildingDbRow {
   category: string;
   busy_until: string | null;
   upkeep_active: number | null;
+  robots_installed: number | null;
+  robots_quality: number | null;
+  locked_product: number | null;
   created_at: string;
 }
 
@@ -41,6 +50,9 @@ function mapBuildingRow(row: BuildingDbRow): BuildingEntity {
     category: row.category,
     busyUntil: row.busy_until,
     upkeepActive: !!Number(row.upkeep_active),
+    robotsInstalled: Number(row.robots_installed) || 0,
+    robotsQuality: Number(row.robots_quality) || 0,
+    lockedProduct: row.locked_product === null || row.locked_product === undefined ? null : Number(row.locked_product),
     createdAt: row.created_at
   };
 }
@@ -96,10 +108,14 @@ export class BuildingRepository {
     cost: number;
     category: string;
     createdAt: string;
+    abundance?: number;
+    originalAbundance?: number;
   }): BuildingEntity {
+    // Issue #93: abundance defaults keep non-extractor buildings (and legacy
+    // callers that omit the fields) at a fully rich 100% deposit.
     const result = this.database.prepare(`
-      INSERT INTO buildings (company_id, position, kind, size, name, cost, category, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO buildings (company_id, position, kind, size, name, cost, category, created_at, abundance, original_abundance)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       RETURNING *
     `).get(
       data.companyId,
@@ -109,7 +125,9 @@ export class BuildingRepository {
       data.name,
       data.cost,
       data.category,
-      data.createdAt
+      data.createdAt,
+      data.abundance ?? 100,
+      data.originalAbundance ?? data.abundance ?? 100
     ) as BuildingDbRow;
 
     return mapBuildingRow(result);
@@ -177,6 +195,36 @@ export class BuildingRepository {
       WHERE id = ? AND company_id = ?
       RETURNING *
     `).get(busyUntil, buildingId, companyId) as BuildingDbRow | undefined;
+
+    if (!result) {
+      throw new NotFoundError(`Building with id ${buildingId} not found for company ${companyId}`);
+    }
+    return mapBuildingRow(result);
+  }
+
+  /**
+   * Issue #96: persist the robotics state of a building. Passing a zero count
+   * with a null locked product fully clears the robotization (uninstall).
+   */
+  updateRobotics(
+    buildingId: number,
+    companyId: number,
+    robotics: { robotsInstalled: number; robotsQuality: number; lockedProduct: number | null }
+  ): BuildingEntity {
+    const result = this.database.prepare(`
+      UPDATE buildings
+      SET robots_installed = ?,
+          robots_quality = ?,
+          locked_product = ?
+      WHERE id = ? AND company_id = ?
+      RETURNING *
+    `).get(
+      robotics.robotsInstalled,
+      robotics.robotsQuality,
+      robotics.lockedProduct,
+      buildingId,
+      companyId
+    ) as BuildingDbRow | undefined;
 
     if (!result) {
       throw new NotFoundError(`Building with id ${buildingId} not found for company ${companyId}`);

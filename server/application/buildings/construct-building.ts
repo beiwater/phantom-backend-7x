@@ -16,6 +16,7 @@ import { getTierForLevel } from '../../domain/leveling/level-rules.ts';
 import { getBuildingMeta } from '../../game-data/buildings.ts';
 import { ConflictError, ValidationError, NotFoundError } from '../../errors/domain-error.ts';
 import { addCompanyExperience } from '../../game/company.ts';
+import { initialAbundanceForKind } from '../../game/buildings.ts';
 
 export interface ConstructBuildingInput {
   kind: string;
@@ -107,6 +108,7 @@ export async function constructBuildingUseCase(
     const now = new Date().toISOString();
     const busyUntil = new Date(Date.now() + 10000).toISOString();
 
+    const abundance = initialAbundanceForKind(String(kind));
     const building = buildingRepository.create({
       companyId: ctx.companyId,
       position: normPosition,
@@ -115,7 +117,9 @@ export async function constructBuildingUseCase(
       name: meta.name,
       cost,
       category: meta.category,
-      createdAt: now
+      createdAt: now,
+      abundance: abundance.abundance,
+      originalAbundance: abundance.originalAbundance
     });
     addCompanyExperience(ctx.companyId, 20);
 

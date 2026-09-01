@@ -73,6 +73,18 @@ export interface DomainEventMap {
     units: number;
     revenue: number;
   };
+  RobotsInstalled: {
+    companyId: number;
+    buildingId: number;
+    robotsInstalled: number;
+    robotsQuality: number;
+    lockedProduct: number;
+  };
+  RobotsUninstalled: {
+    companyId: number;
+    buildingId: number;
+    returnedRobots: number;
+  };
 }
 
 export type EventKey = keyof DomainEventMap;

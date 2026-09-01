@@ -58,6 +58,22 @@ export function getBondsSold(companyId: number) {
   return rows.map(formatBond);
 }
 
+/**
+ * Issue #94: total face value of bonds this company has issued AND that are
+ * currently held by buyers — the outstanding bond liability backing the
+ * building-collateral requirement. Each bond unit has a $5,000 face value
+ * (`go`, chunk_zjr.js). Unsold offerings (buyer_company_id IS NULL) are not a
+ * liability yet.
+ */
+export function getOutstandingSoldBondLiability(companyId: number): number {
+  const row = db.prepare(`
+    SELECT COALESCE(SUM(amount), 0) AS units
+    FROM bonds
+    WHERE seller_company_id = ? AND buyer_company_id IS NOT NULL AND status = 'active'
+  `).get(companyId) as { units?: number | null } | undefined;
+  return Number(row?.units ?? 0) * 5000;
+}
+
 export function seedBondMarketListings() {
   const countRow = db.prepare(`
     SELECT COUNT(*) AS count FROM bonds

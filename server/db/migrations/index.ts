@@ -150,6 +150,20 @@ export function runMigrations(db: DatabaseSync): void {
   const buildingCols = (db.prepare('PRAGMA table_info(buildings)').all() as { name: string }[]).map(c => c.name);
   if (!buildingCols.includes('upkeep_active')) db.exec('ALTER TABLE buildings ADD COLUMN upkeep_active INTEGER DEFAULT 0');
 
+  // Issue #96: robotics installation state. robots_installed/robots_quality
+  // record the robotization of a production building; locked_product pins the
+  // single specialized product the robotized building may produce.
+  if (!buildingCols.includes('robots_installed')) db.exec('ALTER TABLE buildings ADD COLUMN robots_installed INTEGER DEFAULT 0');
+  if (!buildingCols.includes('robots_quality')) db.exec('ALTER TABLE buildings ADD COLUMN robots_quality INTEGER DEFAULT 0');
+  if (!buildingCols.includes('locked_product')) db.exec('ALTER TABLE buildings ADD COLUMN locked_product INTEGER');
+
+  // Issue #93: natural resource abundance. Extractor buildings (Mine 'M',
+  // Quarry 'Q', Oil Rig 'O') roll a deposit richness at construction time;
+  // every building carries the current and the original abundance (defaults
+  // keep pre-existing / non-extractor buildings at a fully rich 100%).
+  if (!buildingCols.includes('abundance')) db.exec('ALTER TABLE buildings ADD COLUMN abundance REAL DEFAULT 100.0');
+  if (!buildingCols.includes('original_abundance')) db.exec('ALTER TABLE buildings ADD COLUMN original_abundance REAL DEFAULT 100.0');
+
   // Issue #85: market_orders unit cost basis columns for escrow preservation
   const marketCols = (db.prepare('PRAGMA table_info(market_orders)').all() as { name: string }[]).map(c => c.name);
   if (!marketCols.includes('cost_workers')) db.exec('ALTER TABLE market_orders ADD COLUMN cost_workers REAL DEFAULT 0');

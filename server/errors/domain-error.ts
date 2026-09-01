@@ -59,3 +59,15 @@ export class InvariantViolationError extends DomainError {
     super(message, 400, 'INVARIANT_VIOLATION');
   }
 }
+
+/**
+ * Issue #94: demolishing (or scrapping) a building would push the company's
+ * remaining building valuation below the 80% bond-collateral floor relative
+ * to its outstanding bond liability. Serialized as 400 with
+ * code 'BOND_COLLATERAL_VIOLATION'.
+ */
+export class BondCollateralViolationError extends DomainError {
+  constructor(message: string = 'Demolition would leave building value below the bond collateral floor', details?: unknown) {
+    super(message, 400, 'BOND_COLLATERAL_VIOLATION', details);
+  }
+}

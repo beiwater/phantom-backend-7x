@@ -12,6 +12,8 @@ export interface BuildingDef {
   levelImages?: Array<{ level: number; image: string }>;
   wages?: number;
   buildDuration?: number;
+  /** Issue #96: wage exponent of the building kind (drives robot unit requirements). */
+  salaryModifier?: number;
 }
 
 const buildingsPath = path.join(CONFIG.CONSTANTS_DIR, 'buildings.json');
@@ -76,14 +78,37 @@ export const BUILDING_NAMES: Record<string, { name: string; cost: number; catego
   '9': { name: 'Vertical integration facility', cost: 17250, category: 'production' }
 };
 
+/**
+ * Issue #94: canonical construction material scaling, from the decompiled
+ * client (buildings.json `_meta.upgradeFormula`):
+ *   qp = { 101: 4, 102: 55, 108: 16, 111: 1 }  (units per building cost unit)
+ *   resourcesForNewBuild = qp[resourceId] * costUnits * 1
+ *   resourcesForUpgrade  = qp[resourceId] * costUnits * currentSize
+ * `perUnit` below IS qp[resourceId]; the building's costUnits multiplier is
+ * applied by getConstructionMaterials via getBuildingCostUnits(kind).
+ */
 export const CONSTRUCTION_MATERIALS: Array<{ kind: number; perUnit: number }> = [
-  { kind: 101, perUnit: 10 },  // Planks
-  { kind: 102, perUnit: 15 },  // Bricks
-  { kind: 108, perUnit: 8 },   // Reinforced concrete
-  { kind: 111, perUnit: 2 }    // Construction units
+  { kind: 101, perUnit: 4 },   // Planks (qp[101] = 4)
+  { kind: 102, perUnit: 55 },  // Bricks (qp[102] = 55)
+  { kind: 108, perUnit: 16 },  // Reinforced concrete (qp[108] = 16)
+  { kind: 111, perUnit: 1 }    // Construction units (qp[111] = 1)
 ];
 
 export const DEMOLITION_REFUND_RATE = 0.5;
+
+/**
+ * Issue #94: the building's canonical `costUnits` from the decompiled game
+ * data. Construction/upgrade/scrap material requirements scale with this
+ * value: amount = qp[resourceId] * costUnits * sizeMultiplier.
+ */
+export function getBuildingCostUnits(kind: string): number {
+  const def = CANONICAL_BUILDINGS[kind];
+  const costUnits = Number(def?.costUnits);
+  if (Number.isFinite(costUnits) && costUnits > 0) return costUnits;
+  const meta = BUILDING_NAMES[kind];
+  if (meta?.cost) return Math.max(1, Math.round(meta.cost / 3450));
+  return 1;
+}
 
 export function getBuildingMeta(kind: string) {
   const meta = BUILDING_NAMES[kind];
@@ -96,6 +121,12 @@ export function getBuildingMeta(kind: string) {
   };
 }
 
+/**
+ * Materials required for `sizeUnits` cost-unit-units of construction work:
+ * amount = qp[resourceId] * sizeUnits. Callers pass sizeUnits as
+ * `costUnits * sizeMultiplier` (new build: costUnits * 1; upgrade:
+ * costUnits * currentSize; scrap refund basis: costUnits * buildingSize).
+ */
 export function getConstructionMaterials(sizeUnits: number): Array<{ kind: number; amount: number }> {
   return CONSTRUCTION_MATERIALS.map(m => ({ kind: m.kind, amount: m.perUnit * sizeUnits }));
 }

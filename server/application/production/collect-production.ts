@@ -8,6 +8,7 @@ import { eventBus } from '../../events/event-bus.ts';
 import { NotFoundError, ValidationError, ConflictError } from '../../errors/domain-error.ts';
 import { addCompanyExperience } from '../../game/company.ts';
 import { computeLevelInfo, type LevelInfoDTO } from '../../domain/leveling/level-rules.ts';
+import { applyAbundanceCycleDecay } from '../../game/buildings.ts';
 
 export interface CollectProductionInput {
   buildingOrQueueId: number;
@@ -85,6 +86,11 @@ export async function collectProductionUseCase(
     // 4. Update building busy state
     const remainingActive = productionRepository.findLatestActiveByBuilding(targetItem.buildingId, ctx.companyId);
     const newBusyUntil = remainingActive ? remainingActive.finishesAt : null;
+    // Issue #93: each completed production cycle (a production day) decays
+    // the deposit abundance of natural resource extractors (Mine, Quarry,
+    // Oil Rig) by 0.032%. Runs inside this transaction after the output has
+    // been delivered; a rolled-back collect never decays.
+    applyAbundanceCycleDecay(targetItem.buildingId);
     const updatedBuilding = buildingRepository.updateBusyUntil(targetItem.buildingId, ctx.companyId, newBusyUntil);
 
     // 5. Query company balance and level state BEFORE the reward

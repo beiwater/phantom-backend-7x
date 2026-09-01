@@ -316,15 +316,4 @@ export async function handleRetailRoutes(
     return true;
   }
 
-  // Restaurant endpoints are not implemented; report that explicitly instead
-  // of returning fake business data.
-  if (pathname.startsWith('/api/') && pathname.includes('/restaurant-properties/')) {
-    sendJson(res, { error: 'Restaurant properties are not implemented', code: 'API_NOT_IMPLEMENTED' }, 501);
-    return true;
-  }
-  if (pathname.startsWith('/api/') && pathname.includes('/restaurant-runs/')) {
-    sendJson(res, { error: 'Restaurant runs are not implemented', code: 'API_NOT_IMPLEMENTED' }, 501);
-    return true;
-  }
-  return false;
 }

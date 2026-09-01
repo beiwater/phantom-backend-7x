@@ -4,13 +4,15 @@ import { buildingRepository, type BuildingEntity } from '../../repositories/buil
 import { companyRepository } from '../../repositories/company-repository.ts';
 import { warehouseRepository } from '../../repositories/warehouse-repository.ts';
 import { eventBus } from '../../events/event-bus.ts';
-import { estimateDemolitionRefund } from '../../domain/buildings/building-rules.ts';
+import { estimateDemolitionRefund, assertBondCollateralFloor } from '../../domain/buildings/building-rules.ts';
 import { NotFoundError, ForbiddenError, ConflictError } from '../../errors/domain-error.ts';
 import { productionRepository } from '../../repositories/production-repository.ts';
+import { getOutstandingSoldBondLiability } from '../../game/bonds.ts';
 
 export interface DemolishBuildingResult {
   demolishedBuilding: BuildingEntity;
-  refundMoney: number;
+  /** Reference value of the scrapped building portion (baseCost * size * 0.5). */
+  scrapValue: number;
   refundMaterials: Array<{ kind: number; amount: number }>;
   newMoney: number;
 }
@@ -36,34 +38,46 @@ export async function demolishBuildingUseCase(
       throw new ConflictError('Building has an active production order; cancel it before demolishing');
     }
 
-    // 2. Calculate refunds
-    const { moneyRefund, materialRefund } = estimateDemolitionRefund(building.cost, building.size);
+    // 2. Issue #94: bond collateral floor. Buildings collateralize issued
+    // bonds; demolition must not push the remaining building valuation below
+    // 80% of the outstanding bond liability. Checked inside the transaction so
+    // the guard and the delete commit or roll back together.
+    const bondLiability = getOutstandingSoldBondLiability(ctx.companyId);
+    if (bondLiability > 0) {
+      const totalBuildingValue = buildingRepository.findByCompany(ctx.companyId)
+        .reduce((sum, b) => sum + b.cost * b.size, 0);
+      const remainingBuildingValue = totalBuildingValue - building.cost * building.size;
+      assertBondCollateralFloor(remainingBuildingValue, bondLiability);
+    }
 
-    // 3. Credit refund money
-    const newMoney = companyRepository.creditMoney(ctx.companyId, moneyRefund);
-
-    // 4. Refund materials to warehouse
+    // 3. Issue #94: scrap refund. 50% of the construction materials that went
+    // into the building return to the warehouse at quality 0. No cash is
+    // refunded — the old cash refund (baseCost * size * 0.5) is replaced by
+    // the material return, reported as `scrapValue`.
+    const { scrapValue, materialRefund } = estimateDemolitionRefund(building.kind, building.cost, building.size);
     for (const mat of materialRefund) {
       if (mat.amount > 0) {
         warehouseRepository.addResource(ctx.companyId, mat.kind, 0, mat.amount);
       }
     }
 
-    // 5. Delete building
+    // 4. Delete building
     buildingRepository.delete(building.id, ctx.companyId);
 
-    // 6. Publish domain event on transaction commit
+    // 5. Publish domain event on transaction commit
     eventBus.publishCommitted(txCtx, 'BuildingDemolished', {
       companyId: ctx.companyId,
       buildingId: building.id,
-      refund: moneyRefund
+      scrapValue,
+      refundMaterials: materialRefund
     });
 
+    const comp = companyRepository.findById(ctx.companyId);
     return {
       demolishedBuilding: building,
-      refundMoney: moneyRefund,
+      scrapValue,
       refundMaterials: materialRefund,
-      newMoney
+      newMoney: Number(comp?.money ?? 0)
     };
   }, { immediate: true });
 }

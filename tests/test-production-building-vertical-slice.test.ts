@@ -126,10 +126,13 @@ async function testProductionBuildingVerticalSlice() {
   const renameRes = await renameBuildingUseCase(ctx, constructRes.building.id, 'My Orchard');
   assert.strictEqual(renameRes.name, 'My Orchard');
 
-  // 11. Test Demolish Building
+  // 11. Test Demolish Building (Issue #94: refund is materials, not cash)
   const demolishRes = await demolishBuildingUseCase(ctx, constructRes.building.id);
   assert.strictEqual(demolishRes.demolishedBuilding.id, constructRes.building.id);
-  assert(demolishRes.refundMoney > 0, 'Demolition must refund money');
+  assert.strictEqual(demolishRes.scrapValue, Math.floor(6900 * 3 * 0.5), 'Scrap value must be baseCost * size * 0.5');
+  assert.strictEqual(demolishRes.refundMoney, undefined, 'Demolition must not refund cash');
+  const farmScrap = demolishRes.refundMaterials.find(m => m.kind === 101);
+  assert.strictEqual(farmScrap?.amount, Math.floor(4 * 2 * 3 * 0.5), 'Farm size-3 scrap must return 50% of qp * costUnits * size planks');
 
   console.log('✅ Production + Building Vertical Slice End-to-End tests passed successfully!');
 }

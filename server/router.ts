@@ -22,6 +22,7 @@ import { handleResearchRoutes } from './routes/research-routes.ts';
 import { handleAchievementRoutes } from './routes/achievement-routes.ts';
 import { handleSimboostRoutes } from './routes/simboost-routes.ts';
 import { handleRetailRoutes } from './routes/retail-routes.ts';
+import { handleRestaurantRoutes } from './routes/restaurant-routes.ts';
 import { handlePageRoutes } from './routes/page-routes.ts';
 import { handleAuditRoutes } from './routes/audit-routes.ts';
 import { handleGovernmentRoutes } from './routes/government-routes.ts';
@@ -139,6 +140,9 @@ export async function handleRequest(req: IncomingMessage, res: ServerResponse) {
     return;
   }
   if (await handleRetailRoutes(req, res, pathname, method, currentCompanyId)) {
+    return;
+  }
+  if (await handleRestaurantRoutes(req, res, pathname, method, currentCompanyId)) {
     return;
   }
   if (await handleWarehouseRoutes(req, res, pathname, method, currentCompanyId)) {

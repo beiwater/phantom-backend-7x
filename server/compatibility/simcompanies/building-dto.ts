@@ -4,6 +4,13 @@ import { getBuildingMeta } from '../../game-data/buildings.ts';
 import { getResourceDef } from '../../game-data/resources.ts';
 import { finiteOr, computeFallbackUnitCost } from './production-dto.ts';
 import { RECREATION_UPKEEP_DURATION_SECONDS } from '../../application/buildings/start-recreation-upkeep.ts';
+import {
+  ROBOTICS_WAGE_MULTIPLIER,
+  effectiveWageMultiplier,
+  hasRobotsInstalled,
+  requiredRobotCount,
+  requiredRobotQuality
+} from '../../game/robotics.ts';
 
 export interface SimCompaniesBuildingDTO {
   id: number;
@@ -26,6 +33,16 @@ export interface SimCompaniesBuildingDTO {
   realm: number;
   size: number;
   workers: number;
+  /** Issue #96: robotics state; null while the building is not robotized. */
+  robotics: {
+    installed: boolean;
+    installedRobots: number;
+    installedQuality: number;
+    requiredRobots: number;
+    requiredQuality: number;
+    lockedProduct: number | null;
+    wageMultiplier: number;
+  } | null;
 }
 
 export function toSimCompaniesBuildingDTO(
@@ -111,6 +128,25 @@ export function toSimCompaniesBuildingDTO(
     position: String(building.position),
     realm: 0,
     size: building.size || 1,
+    robotics: hasRobotsInstalled(building)
+      ? {
+          installed: true,
+          installedRobots: Number(building.robotsInstalled) || 0,
+          installedQuality: Number(building.robotsQuality) || 0,
+          requiredRobots: requiredRobotCount(building.kind, building.size || 1),
+          requiredQuality: requiredRobotQuality(building.size || 1),
+          lockedProduct: building.lockedProduct,
+          wageMultiplier: effectiveWageMultiplier(building)
+        }
+      : {
+          installed: false,
+          installedRobots: 0,
+          installedQuality: 0,
+          requiredRobots: requiredRobotCount(building.kind, building.size || 1),
+          requiredQuality: requiredRobotQuality(building.size || 1),
+          lockedProduct: null,
+          wageMultiplier: 1
+        },
     workers: (building.size || 1) * 10
   };
 }

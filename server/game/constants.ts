@@ -85,12 +85,6 @@ export function calculateProductionTime(resourceKind: number, amount: number, bu
   return Math.max(3, Math.round(baseSeconds / (CONFIG.PRODUCTION_SPEED_MULTIPLIER || 1)));
 }
 
-// Construction materials consumed per building size unit (kinds match the seeded warehouse stock)
-export const CONSTRUCTION_MATERIALS: Array<{ kind: number; perUnit: number }> = [
-  { kind: 101, perUnit: 10 },  // Planks
-  { kind: 102, perUnit: 15 },  // Bricks
-  { kind: 108, perUnit: 8 },   // Reinforced concrete
-  { kind: 111, perUnit: 2 }    // Construction units
-];
-
-export const DEMOLITION_REFUND_RATE = 0.5;
+// Issue #94: single canonical source for construction material scaling and
+// the scrap refund rate (legacy layer re-exports the game-data table).
+export { CONSTRUCTION_MATERIALS, DEMOLITION_REFUND_RATE } from '../game-data/buildings.ts';

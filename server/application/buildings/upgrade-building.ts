@@ -6,6 +6,7 @@ import { warehouseRepository } from '../../repositories/warehouse-repository.ts'
 import { eventBus } from '../../events/event-bus.ts';
 import { estimateUpgradeCost, assertNotBusyForConstructionWork } from '../../domain/buildings/building-rules.ts';
 import { NotFoundError, ForbiddenError, ValidationError, ConflictError } from '../../errors/domain-error.ts';
+import { assertNotRoboticsLocked } from '../../game/robotics.ts';
 
 export interface UpgradeBuildingInput {
   buildingId: number;
@@ -41,8 +42,13 @@ export async function upgradeBuildingUseCase(
     // Issue #47: repeated upgrades during construction/upgrade busy must be a
     // 409 conflict, not a validation error (official busy contract).
     assertNotBusyForConstructionWork(building.busyUntil);
-    // 2. Calculate costs & required materials
-    const { cost, materials } = estimateUpgradeCost(building.kind, sizeDelta);
+    // Issue #96: a robotized building cannot be upgraded or downgraded until
+    // the robots are uninstalled (400 ROBOTICS_LOCKED).
+    assertNotRoboticsLocked(building);
+    // 2. Calculate costs & required materials.
+    // Issue #94: upgrade materials scale with the building's CURRENT size —
+    // qp[resourceId] * costUnits * currentSize — not with the size delta.
+    const { cost, materials } = estimateUpgradeCost(building.kind, sizeDelta, building.size);
 
     // 3. Debit upgrade cost atomically
     const newMoney = companyRepository.debitMoney(ctx.companyId, cost);
