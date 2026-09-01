@@ -31,6 +31,9 @@ async function runIssue39ResearchTest() {
 
   const userA = await register('split');
   const userB = await register('single');
+  // Issue #71: research unlocks at level 10 — arrange both companies there.
+  db.prepare('UPDATE companies SET level = 10 WHERE company_id = ?').run(userA.companyId);
+  db.prepare('UPDATE companies SET level = 10 WHERE company_id = ?').run(userB.companyId);
   const headersA = { 'Content-Type': 'application/json', Cookie: userA.cookie };
   const headersB = { 'Content-Type': 'application/json', Cookie: userB.cookie };
 

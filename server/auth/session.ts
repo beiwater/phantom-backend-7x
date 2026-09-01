@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import type { IncomingMessage } from 'node:http';
 import { db } from '../db/database.ts';
+import { CONFIG } from '../config.ts';
 
 export interface SessionRecord {
   session_token: string;
@@ -10,10 +11,15 @@ export interface SessionRecord {
   expires_at: string;
 }
 
+/** Issue #17: session lifetime in ms — 30 days, shared by DB expiry and cookie Max-Age. */
+export const SESSION_TTL_MS = 30 * 24 * 3600 * 1000;
+/** Issue #17: periodic cleanup interval for expired sessions (1 hour). */
+export const SESSION_CLEANUP_INTERVAL_MS = 60 * 60 * 1000;
+
 export function createSession(playerId: number, companyId: number): string {
   const token = 'sess_' + crypto.randomBytes(32).toString('hex');
   const now = new Date();
-  const expires = new Date(now.getTime() + 30 * 24 * 3600 * 1000); // 30 days
+  const expires = new Date(now.getTime() + SESSION_TTL_MS); // 30 days
 
   db.prepare(`
     INSERT INTO sessions (session_token, player_id, active_company_id, created_at, expires_at)
@@ -46,6 +52,29 @@ export function destroySession(token: string): void {
   db.prepare('DELETE FROM sessions WHERE session_token = ?').run(token);
 }
 
+/**
+ * Issue #17: delete all sessions whose expiry has passed. Runs once at
+ * startup and then periodically so expired rows do not accumulate
+ * indefinitely (getSession only removes them on access).
+ */
+export function cleanupExpiredSessions(): number {
+  const result = db.prepare('DELETE FROM sessions WHERE expires_at <= ?')
+    .run(new Date().toISOString());
+  return Number(result.changes);
+}
+
+export function startExpiredSessionCleanup(intervalMs: number = SESSION_CLEANUP_INTERVAL_MS): NodeJS.Timeout {
+  const removed = cleanupExpiredSessions();
+  if (removed > 0) console.log(`[auth] Removed ${removed} expired session(s) at startup`);
+  return setInterval(() => {
+    try {
+      cleanupExpiredSessions();
+    } catch (err: unknown) {
+      console.error('[auth] Expired session cleanup failed:', err);
+    }
+  }, intervalMs);
+}
+
 export function switchSessionCompany(token: string, newCompanyId: number): void {
   if (!token || !Number.isSafeInteger(newCompanyId) || newCompanyId <= 0) return;
   const session = db.prepare('SELECT player_id FROM sessions WHERE session_token = ?').get(token) as { player_id?: number } | undefined;
@@ -75,4 +104,22 @@ export function extractSessionToken(req: IncomingMessage): string | null {
   }
 
   return null;
+}
+
+/**
+ * Issue #17: single source of truth for the sessionid cookie. Lifetime
+ * matches the DB session TTL; `Secure` is enabled via COOKIE_SECURE=1 for
+ * HTTPS deployments. For `token === ''` this emits a deletion cookie.
+ */
+export function buildSessionCookie(token: string): string {
+  if (!token) {
+    return 'sessionid=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly'
+      + cookieSecureSuffix();
+  }
+  const maxAge = Math.floor(SESSION_TTL_MS / 1000); // 2592000
+  return `sessionid=${token}; Path=/; Max-Age=${maxAge}; HttpOnly; SameSite=Lax${cookieSecureSuffix()}`;
+}
+
+function cookieSecureSuffix(): string {
+  return process.env.COOKIE_SECURE === '1' ? '; Secure' : '';
 }

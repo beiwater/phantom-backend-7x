@@ -4,7 +4,7 @@ import path from 'node:path';
 import { CONFIG } from './config.ts';
 import { serveOrFetchAsset } from './proxy/asset-fetcher.ts';
 import { sendJson } from './routes/utils.ts';
-import { extractSessionToken, getSession } from './auth/session.ts';
+import { extractSessionToken, getSession, buildSessionCookie } from './auth/session.ts';
 import { globalRouteRegistry } from './http/route-registry.ts';
 import './events/subscribers.ts';
 import './routes/building-routes.ts';
@@ -188,7 +188,7 @@ export async function handleRequest(req: IncomingMessage, res: ServerResponse) {
   if (fs.existsSync(htmlPath)) {
     const htmlContent = fs.readFileSync(htmlPath, 'utf-8');
     const setCookieHeaders = sessionToken ? [
-      `sessionid=${sessionToken}; Path=/; HttpOnly; SameSite=Lax`,
+      buildSessionCookie(sessionToken),
       'django_language=zh-cn; Path=/; SameSite=Lax'
     ] : [
       'django_language=zh-cn; Path=/; SameSite=Lax'

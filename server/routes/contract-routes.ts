@@ -1,5 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { readJsonBody, sendJson } from './utils.ts';
+import { readJsonBody, sendJson, requireCapability } from './utils.ts';
 import {
   getIncomingContracts,
   getOutgoingContracts,
@@ -74,6 +74,8 @@ export async function handleContractRoutes(
       sendJson(res, { error: 'Unauthorized' }, 401);
       return true;
     }
+    // Issue #71: contracts capability gate (canonical tier table).
+    if (requireCapability(res, currentCompanyId, 'contracts', 'send contract')) return true;
     const body = await readJsonBody<{
       recipient: number;
       kind: number;
@@ -107,6 +109,8 @@ export async function handleContractRoutes(
       sendJson(res, { error: 'Unauthorized' }, 401);
       return true;
     }
+    // Issue #71: contracts capability gate (canonical tier table).
+    if (requireCapability(res, currentCompanyId, 'contracts', 'accept contract')) return true;
     const contractId = Number(acceptMatch[1]);
     try {
       const result = acceptContract(currentCompanyId, contractId);
@@ -126,6 +130,8 @@ export async function handleContractRoutes(
       sendJson(res, { error: 'Unauthorized' }, 401);
       return true;
     }
+    // Issue #71: contracts capability gate (canonical tier table).
+    if (requireCapability(res, currentCompanyId, 'contracts', 'reject contract')) return true;
     const contractId = Number(rejectMatch[1]);
     try {
       const result = rejectContract(currentCompanyId, contractId);
@@ -145,6 +151,8 @@ export async function handleContractRoutes(
       sendJson(res, { error: 'Unauthorized' }, 401);
       return true;
     }
+    // Issue #71: contracts capability gate (canonical tier table).
+    if (requireCapability(res, currentCompanyId, 'contracts', 'cancel contract')) return true;
     const contractId = Number(cancelMatch[1]);
     try {
       const result = cancelContract(currentCompanyId, contractId);

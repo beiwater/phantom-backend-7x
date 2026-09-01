@@ -1,6 +1,7 @@
 import type { GameContext } from '../../context/game-context.ts';
 import { runInTransaction } from '../../db/transaction.ts';
 import { buildingRepository, type BuildingEntity } from '../../repositories/building-repository.ts';
+import { productionRepository } from '../../repositories/production-repository.ts';
 import { companyRepository } from '../../repositories/company-repository.ts';
 import { warehouseRepository } from '../../repositories/warehouse-repository.ts';
 import { eventBus } from '../../events/event-bus.ts';
@@ -8,10 +9,12 @@ import {
   estimateConstructionCost,
   validateConstructionPosition,
   normalizePosition,
-  extraSlotIndex
+  extraSlotIndex,
+  assertNotBusyForConstructionWork
 } from '../../domain/buildings/building-rules.ts';
+import { getTierForLevel } from '../../domain/leveling/level-rules.ts';
 import { getBuildingMeta } from '../../game-data/buildings.ts';
-import { ConflictError, ValidationError } from '../../errors/domain-error.ts';
+import { ConflictError, ValidationError, NotFoundError } from '../../errors/domain-error.ts';
 import { addCompanyExperience } from '../../game/company.ts';
 
 export interface ConstructBuildingInput {
@@ -40,8 +43,10 @@ export async function constructBuildingUseCase(
     // 0. Validate building slot limits and locked positions
     const comp = companyRepository.findById(ctx.companyId);
     if (!comp) throw new NotFoundError(`Company ${ctx.companyId} not found`);
-    const baseSlots = Math.min(14, 4 + Math.floor((Number(comp.level) || 0) / 3));
-    const maxSlots = baseSlots + (Number(comp.extraBuildingSlots) || 0);
+    // Issue #71: canonical slot policy lives in the leveling domain
+    // (getTierForLevel). Do not duplicate level formulas here.
+    const maxSlots = getTierForLevel(Number(comp.level) || 0).maxBuildings
+      + (Number(comp.extraBuildingSlots) || 0);
 
     // P0-07: "B<n>" lots are the star-unlocked slots. "B<n>" is unlocked when
     // n < extraBuildingSlots; plain numeric positions stay below maxSlots.
@@ -63,9 +68,17 @@ export async function constructBuildingUseCase(
       if (!replaceExisting) {
         throw new ConflictError(`Building position ${position} is already occupied`);
       }
-      if (existingAtPos.busyUntil && new Date(existingAtPos.busyUntil).getTime() > Date.now()) {
-        throw new ValidationError('Building is still busy with active operations or upgrades');
+      // Issue #31: replacing a building with an active production queue would
+      // orphan the queue rows (resolved=0 forever, inputs never refunded).
+      // The player must cancel production first. Historical resolved rows are
+      // allowed to remain. Any future busy_until (construction/upgrade or
+      // recreation upkeep, which legitimately occupies busy) also blocks
+      // replacement, as before — but now with the 409 busy contract (#47).
+      const activeQueues = productionRepository.findActiveByBuilding(existingAtPos.id, ctx.companyId);
+      if (activeQueues.length > 0) {
+        throw new ConflictError('Building has an active production order; cancel production first');
       }
+      assertNotBusyForConstructionWork(existingAtPos.busyUntil);
       // Demolish existing building at position
       buildingRepository.delete(existingAtPos.id, ctx.companyId);
     } else {

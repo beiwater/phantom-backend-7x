@@ -1,5 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { readJsonBody, sendJson } from './utils.ts';
+import { readJsonBody, sendJson, requireCapability } from './utils.ts';
 import {
   getCompanyResearch,
   applyResearch,
@@ -34,6 +34,8 @@ export async function handleResearchRoutes(
       sendJson(res, { error: 'Unauthorized' }, 401);
       return true;
     }
+    // Issue #71: research capability gate (canonical tier table).
+    if (requireCapability(res, currentCompanyId, 'research', 'research')) return true;
     const body = await readJsonBody<{ discipline: number; points: number }>(req);
     try {
       const result = await applyResearch(currentCompanyId, body.discipline, body.points);
@@ -62,6 +64,8 @@ export async function handleResearchRoutes(
         return true;
       }
 
+      // Issue #71: research capability gate (canonical tier table).
+      if (requireCapability(res, currentCompanyId, 'research', 'resource research')) return true;
       if (method === 'POST') {
         const body = await readJsonBody<{ points?: number }>(req);
         const result = await applyResourceResearch(currentCompanyId, resourceKind, Number(body.points));

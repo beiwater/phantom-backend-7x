@@ -308,6 +308,9 @@ async function run() {
   const seller = await register(`bond-seller_${suffix}`);
   const buyer = await register(`bond-buyer_${suffix}`);
   const sellerBeforeBond = await authCompany(seller);
+  // Issue #71: bonds unlock at level 10 — arrange both companies there.
+  db.prepare('UPDATE companies SET level = 10 WHERE company_id = ?').run(seller.companyId);
+  db.prepare('UPDATE companies SET level = 10 WHERE company_id = ?').run(buyer.companyId);
   const issueBondResponse = await fetch(`${baseUrl}/api/v2/bonds/sell/`, {
     method: 'POST',
     headers: headers(seller),
@@ -332,6 +335,8 @@ async function run() {
 
   // #24: research cannot mint points without exact research inventory.
   const researcher = await register(`research_${suffix}`);
+  // Issue #71: research unlocks at level 10 — arrange the company there.
+  db.prepare('UPDATE companies SET level = 10 WHERE company_id = ?').run(researcher.companyId);
   const researchResponse = await fetch(`${baseUrl}/api/v2/companies/me/resource-ability/3/`, {
     method: 'POST',
     headers: headers(researcher),

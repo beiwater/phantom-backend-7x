@@ -47,6 +47,20 @@ export function validateConstructionPosition(
   }
 }
 
+/**
+ * Issue #47: a building whose busy_until is still in the future is locked for
+ * structural work (construction/upgrade) and cannot accept contradictory
+ * operations. The busy marker is authoritative regardless of whether any
+ * production queue row exists, so a freshly constructed/upgraded building is
+ * protected even with an empty queue. Active recreation upkeep (category 'u',
+ * P1-09) legitimately occupies busy_until and is exempted by its callers.
+ */
+export function assertNotBusyForConstructionWork(busyUntil: string | null | undefined): void {
+  if (busyUntil && new Date(busyUntil).getTime() > Date.now()) {
+    throw new ConflictError('Building is busy with construction or upgrade; wait for completion or rush it');
+  }
+}
+
 export function estimateConstructionCost(kind: string, sizeUnits: number = 1): ConstructionCostEstimate {
   if (sizeUnits <= 0) {
     throw new ValidationError(`Construction size must be positive: ${sizeUnits}`);

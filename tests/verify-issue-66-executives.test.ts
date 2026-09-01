@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { db } from '../server/db/database.ts';
 
 const baseUrl = process.env.BASE_URL || `http://127.0.0.1:${process.env.PORT || '3100'}`;
 
@@ -34,6 +35,9 @@ async function runIssue66ExecutivesTest() {
 
   const user1 = await register('user1');
   const user2 = await register('user2');
+  // Issue #71: executives unlock at level 15 — arrange both companies there.
+  db.prepare('UPDATE companies SET level = 15 WHERE company_id = ?').run(user1.companyId);
+  db.prepare('UPDATE companies SET level = 15 WHERE company_id = ?').run(user2.companyId);
   const headers1 = { 'Content-Type': 'application/json', Cookie: user1.cookie };
   const headers2 = { 'Content-Type': 'application/json', Cookie: user2.cookie };
 

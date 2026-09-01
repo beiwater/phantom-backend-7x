@@ -1,5 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { readJsonBody, sendJson } from './utils.ts';
+import { readJsonBody, sendJson, requireCapability } from './utils.ts';
 import {
   getCompanyExecutives,
   getExecutiveCandidates,
@@ -70,6 +70,8 @@ export async function handleExecutiveRoutes(
       sendJson(res, { error: 'Unauthorized' }, 401);
       return true;
     }
+    // Issue #71: executives capability gate (canonical tier table).
+    if (requireCapability(res, currentCompanyId, 'executives', 'hire executive')) return true;
     const body = await readJsonBody<{ candidateId: number; position?: string }>(req);
     try {
       const exec = await hireExecutive(currentCompanyId, body.candidateId, body.position || 'unassigned');
@@ -88,6 +90,8 @@ export async function handleExecutiveRoutes(
       sendJson(res, { error: 'Unauthorized' }, 401);
       return true;
     }
+    // Issue #71: executives capability gate (canonical tier table).
+    if (requireCapability(res, currentCompanyId, 'executives', 'fire executive')) return true;
     const execId = Number(fireMatch[1]);
     try {
       const result = await fireExecutive(currentCompanyId, execId);
@@ -106,6 +110,8 @@ export async function handleExecutiveRoutes(
       sendJson(res, { error: 'Unauthorized' }, 401);
       return true;
     }
+    // Issue #71: executives capability gate (canonical tier table).
+    if (requireCapability(res, currentCompanyId, 'executives', 'assign executive')) return true;
     const execId = Number(assignMatch[1]);
     const body = await readJsonBody<{ position: string }>(req);
     try {
@@ -118,13 +124,14 @@ export async function handleExecutiveRoutes(
     return true;
   }
 
-  // Train executive
   const trainMatch = pathname.match(/^\/api\/v4\/executives\/(\d+)\/train\/$/);
   if (trainMatch && method === 'POST') {
     if (!currentCompanyId) {
       sendJson(res, { error: 'Unauthorized' }, 401);
       return true;
     }
+    // Issue #71: executives capability gate (canonical tier table).
+    if (requireCapability(res, currentCompanyId, 'executives', 'train executive')) return true;
     const execId = Number(trainMatch[1]);
     try {
       const result = await trainExecutive(currentCompanyId, execId);

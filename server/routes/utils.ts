@@ -1,4 +1,39 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
+import { companyRepository } from '../repositories/company-repository.ts';
+import {
+  assertCapability,
+  CapabilityError,
+  type CapabilityKey
+} from '../domain/leveling/level-rules.ts';
+
+
+/**
+ * Issue #71: single capability gate for subsystem mutation routes.
+ * Reads the company level and delegates the unlock decision to the
+ * canonical leveling domain (getTierForLevel tier table). When the
+ * capability is locked at the company's current level, responds 403
+ * with an "unlocks at level N" reason and returns true (handled).
+ * Otherwise returns false so the route continues.
+ */
+export function requireCapability(
+  res: ServerResponse,
+  companyId: number,
+  capability: CapabilityKey,
+  subject: string
+): boolean {
+  const company = companyRepository.findById(companyId);
+  const level = company?.level ?? 0;
+  try {
+    assertCapability(level, capability, subject);
+  } catch (err: unknown) {
+    if (err instanceof CapabilityError) {
+      sendJson(res, { error: err.message }, 403);
+      return true;
+    }
+    throw err;
+  }
+  return false;
+}
 
 const MAX_REQUEST_BODY_BYTES = 1024 * 1024;
 

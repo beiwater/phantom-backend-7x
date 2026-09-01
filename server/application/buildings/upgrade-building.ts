@@ -4,8 +4,8 @@ import { buildingRepository, type BuildingEntity } from '../../repositories/buil
 import { companyRepository } from '../../repositories/company-repository.ts';
 import { warehouseRepository } from '../../repositories/warehouse-repository.ts';
 import { eventBus } from '../../events/event-bus.ts';
-import { estimateUpgradeCost } from '../../domain/buildings/building-rules.ts';
-import { NotFoundError, ForbiddenError, ValidationError } from '../../errors/domain-error.ts';
+import { estimateUpgradeCost, assertNotBusyForConstructionWork } from '../../domain/buildings/building-rules.ts';
+import { NotFoundError, ForbiddenError, ValidationError, ConflictError } from '../../errors/domain-error.ts';
 
 export interface UpgradeBuildingInput {
   buildingId: number;
@@ -38,9 +38,9 @@ export async function upgradeBuildingUseCase(
       throw new ForbiddenError('You do not own this building');
     }
 
-    if (building.busyUntil && new Date(building.busyUntil).getTime() > Date.now()) {
-      throw new ValidationError('Building is still under construction or upgrade');
-    }
+    // Issue #47: repeated upgrades during construction/upgrade busy must be a
+    // 409 conflict, not a validation error (official busy contract).
+    assertNotBusyForConstructionWork(building.busyUntil);
     // 2. Calculate costs & required materials
     const { cost, materials } = estimateUpgradeCost(building.kind, sizeDelta);
 

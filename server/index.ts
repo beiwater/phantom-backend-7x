@@ -1,8 +1,12 @@
 import http from 'node:http';
 import { CONFIG } from './config.ts';
 import { handleRequest } from './router.ts';
-import { setupWebSocket } from './ws/websocket.ts';
 import { RequestBodyError, sendJson } from './routes/utils.ts';
+import { setupWebSocket } from './ws/websocket.ts';
+import { startExpiredSessionCleanup } from './auth/session.ts';
+
+// Issue #17: purge expired sessions at startup and every hour thereafter.
+startExpiredSessionCleanup();
 
 const server = http.createServer(async (req, res) => {
   try {

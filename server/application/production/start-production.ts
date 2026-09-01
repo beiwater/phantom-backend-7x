@@ -37,10 +37,13 @@ export async function startProductionUseCase(
 
     // C-13: official contract rejects production on a busy building instead of
     // silently chaining the new item behind the running queue.
+    // Issue #47: construction/upgrade busy (no queue rows at all) is also a
+    // 409 conflict — a freshly constructed/upgraded building must finish its
+    // busy window before it can start production.
     if (building.busyUntil && new Date(building.busyUntil).getTime() > Date.now()) {
       const activeQueues = productionRepository.findActiveByBuilding(building.id, ctx.companyId);
       if (activeQueues.length === 0) {
-        throw new ValidationError('Building is still under construction or upgrade');
+        throw new ConflictError('Building is still under construction or upgrade');
       }
       throw new ConflictError('Building is busy with an active production order');
     }

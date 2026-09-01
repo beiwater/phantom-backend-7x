@@ -1,4 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
+import { CONFIG } from '../config.ts';
 import { readJsonBody, sendJson } from './utils.ts';
  import {
    getPaymentPackagesList,
@@ -114,7 +115,24 @@ export async function handleSimboostRoutes(
     return true;
   }
 
-  // 5. Payment Checkout: /api/v2/payment/
+  // Issue #70: PAYMENTS_DISABLED=1 turns every state-changing payment route
+  // into an explicit 501 with zero balance mutation (production posture for
+  // a server that intentionally does not integrate real payment providers).
+  // Default (unset) keeps the P0-03 local-direct-purchase behavior.
+  const tronPatchMatch = pathname.match(/^\/api\/v2\/payment-crypto\/tron\/([^\/]+)\/([^\/]+)\/?$/);
+  if (CONFIG.PAYMENTS_DISABLED && (
+    (method === 'POST' && (
+      pathname === '/api/v2/payment/' ||
+      pathname === '/api/v2/payment-stripe/' ||
+      pathname === '/api/v2/payment-stripe/sync' ||
+      pathname === '/api/v2/payment-crypto/tron/' ||
+      pathname === '/api/v2/google/purchase/'
+    )) ||
+    (method === 'PATCH' && tronPatchMatch)
+  )) {
+    sendJson(res, { error: 'Payments are not configured on this server' }, 501);
+    return true;
+  }
   if (pathname === '/api/v2/payment/' && method === 'POST') {
     if (!currentCompanyId) {
       sendJson(res, { error: 'Unauthorized' }, 401);
@@ -198,24 +216,35 @@ export async function handleSimboostRoutes(
     return true;
   }
 
-  const tronPatchMatch = pathname.match(/^\/api\/v2\/payment-crypto\/tron\/([^\/]+)\/([^\/]+)\/?$/);
   if (tronPatchMatch && method === 'PATCH') {
     if (!currentCompanyId) {
       sendJson(res, { error: 'Unauthorized' }, 401);
       return true;
     }
-    const result = await purchasePaymentPackage(currentCompanyId, 'sb-sb330');
-    sendJson(res, {
-      invoice: {
-        id: tronPatchMatch[1],
-        datetime: new Date().toISOString()
-      },
-      payment: {
-        sku: 'sb-sb330',
-        simBoostsPurchased: result.simBoosts,
-        simBoostsExtra: 0
-      }
-    });
+    // Issue #70: the completion PATCH must go through the same validated
+    // purchase path as every other payment route. The URL carries
+    // <purchaseDriver>/<invoiceId>; the package SKU comes from the invoice
+    // body created by the tron POST. An unknown SKU is rejected (no fallback
+    // package), and the daily cap inside purchasePaymentPackage applies.
+    const body = await readJsonBody<{ sku?: string; packageSku?: string }>(req);
+    const sku = body.sku || body.packageSku || 'sb-sb330';
+    try {
+      const result = await purchasePaymentPackage(currentCompanyId, sku);
+      sendJson(res, {
+        invoice: {
+          id: tronPatchMatch[2],
+          datetime: new Date().toISOString()
+        },
+        payment: {
+          sku: result.payment.sku,
+          simBoostsPurchased: result.simBoosts,
+          simBoostsExtra: 0
+        }
+      });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      sendJson(res, { error: msg }, 400);
+    }
     return true;
   }
 

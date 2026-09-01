@@ -1,5 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { readJsonBody, sendJson } from './utils.ts';
+import { readJsonBody, sendJson, requireCapability } from './utils.ts';
 import {
   getBondsOwned,
   getBondsSold,
@@ -47,6 +47,8 @@ export async function handleBondRoutes(
         sendJson(res, { error: 'Unauthorized' }, 401);
         return true;
       }
+      // Issue #71: bonds capability gate (canonical tier table).
+      if (requireCapability(res, currentCompanyId, 'bonds', 'issue bonds')) return true;
       const body = await readJsonBody<{ amount?: number; interest?: number }>(req);
       try {
         const result = issueBonds(currentCompanyId, Number(body.amount), Number(body.interest ?? 0.005));
@@ -83,6 +85,9 @@ export async function handleBondRoutes(
         sendJson(res, { error: 'Unauthorized' }, 401);
         return true;
       }
+      // Issue #71: bonds capability gate (canonical tier table).
+      const capErr = method === 'PATCH' ? 'buy bond' : 'call bond';
+      if (requireCapability(res, currentCompanyId, 'bonds', capErr)) return true;
       try {
         const result = method === 'PATCH'
           ? buyBonds(currentCompanyId, bondId)
@@ -109,6 +114,7 @@ export async function handleBondRoutes(
       sendJson(res, { error: 'Unauthorized' }, 401);
       return true;
     }
+    if (requireCapability(res, currentCompanyId, 'bonds', 'issue bonds')) return true;
     const body = await readJsonBody<{ amount?: number; interest?: number }>(req);
     try {
       const result = await issueBonds(currentCompanyId, Number(body.amount), Number(body.interest ?? 0.005));
@@ -127,6 +133,8 @@ export async function handleBondRoutes(
       sendJson(res, { error: 'Unauthorized' }, 401);
       return true;
     }
+    // Issue #71: bonds capability gate (canonical tier table).
+    if (requireCapability(res, currentCompanyId, 'bonds', 'buy bond')) return true;
     const bondId = Number(buyMatch[1]);
     try {
       sendJson(res, await buyBonds(currentCompanyId, bondId));
@@ -144,6 +152,8 @@ export async function handleBondRoutes(
       sendJson(res, { error: 'Unauthorized' }, 401);
       return true;
     }
+    // Issue #71: bonds capability gate (canonical tier table).
+    if (requireCapability(res, currentCompanyId, 'bonds', 'call bond')) return true;
     const bondId = Number(callMatch[1]);
     try {
       sendJson(res, await callBonds(currentCompanyId, bondId));

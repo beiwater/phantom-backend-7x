@@ -45,6 +45,38 @@ export function getTierForLevel(level: number): LevelTier {
   }
   return selected;
 }
+// Issue #71: single canonical capability gate for mutation routes/use cases.
+// Reads the tier table via getTierForLevel — never duplicate the unlock
+// formula at the call site. Returns the unlock threshold so callers can
+// surface "unlocks at level N" to the original frontend.
+export interface CapabilityCheck {
+  allowed: boolean;
+  requiredLevel: number;
+}
+export type CapabilityKey = Parameters<typeof checkCapability>[1];
+
+export function checkCapability(level: number, capability: keyof Omit<LevelTier, 'start' | 'kind' | 'name' | 'maxBuildings' | 'timeLimitS'>): CapabilityCheck {
+  const tier = getTierForLevel(level);
+  const allowed = Boolean(tier[capability]);
+  if (allowed) return { allowed: true, requiredLevel: tier.start };
+  const first = LEVEL_TIERS.find(t => Boolean(t[capability]));
+  return { allowed: false, requiredLevel: first ? first.start : Infinity };
+}
+
+export function assertCapability(level: number, capability: Parameters<typeof checkCapability>[1], subject: string): void {
+  const check = checkCapability(level, capability);
+  if (!check.allowed) {
+    throw new CapabilityError(`Capability "${capability}" (${subject}) unlocks at level ${check.requiredLevel}.`);
+  }
+}
+
+export class CapabilityError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'CapabilityError';
+  }
+
+}
 
 export function getXpRequiredForLevel(level: number): number {
   const l = Math.max(0, Math.min(60, Math.floor(level)));

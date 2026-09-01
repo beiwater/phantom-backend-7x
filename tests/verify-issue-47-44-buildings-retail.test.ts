@@ -67,8 +67,8 @@ async function runIssue47And44Test() {
     headers,
     body: JSON.stringify({ kind: 3, amount: 100 })
   });
-  assert.equal(prematureProdRes.status, 400, 'Queueing production during construction must return 400');
-  console.log('  -> Premature production correctly rejected with 400');
+  assert.equal(prematureProdRes.status, 409, 'Queueing production during construction must return 409 (busy conflict)');
+  console.log('  -> Premature production correctly rejected with 409');
 
   console.log('[3/4] Verifying upgrading while under construction is REJECTED...');
   const prematureUpgradeRes = await fetch(`${baseUrl}/api/v2/companies/buildings/${farmId}/`, {
@@ -76,8 +76,8 @@ async function runIssue47And44Test() {
     headers,
     body: JSON.stringify({ reqSize: 1 })
   });
-  assert.equal(prematureUpgradeRes.status, 400, 'Upgrading while busy must return 400');
-  console.log('  -> Repeated upgrade while busy correctly rejected with 400');
+  assert.equal(prematureUpgradeRes.status, 409, 'Upgrading while busy must return 409 (busy conflict)');
+  console.log('  -> Repeated upgrade while busy correctly rejected with 409');
 
   console.log('[4/4] Rushing construction with SimBoosts and starting production...');
   const rushRes = await fetch(`${baseUrl}/api/v2/companies/buildings/${farmId}/construction-rush/`, {

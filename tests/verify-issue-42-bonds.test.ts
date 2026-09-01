@@ -34,9 +34,9 @@ async function runIssue42BondsTest() {
   const sellerHeaders = { 'Content-Type': 'application/json', Cookie: seller.cookie };
   const buyerHeaders = { 'Content-Type': 'application/json', Cookie: buyer.cookie };
 
-  // Fund seller and buyer
-  db.prepare('UPDATE companies SET money = 100000 WHERE company_id = ?').run(seller.companyId);
-  db.prepare('UPDATE companies SET money = 100000 WHERE company_id = ?').run(buyer.companyId);
+  // Fund seller and buyer. Issue #71: bonds unlock at level 10 — arrange both.
+  db.prepare('UPDATE companies SET money = 100000, level = 10 WHERE company_id = ?').run(seller.companyId);
+  db.prepare('UPDATE companies SET money = 100000, level = 10 WHERE company_id = ?').run(buyer.companyId);
 
   // 1. Issue Unsold Bond
   console.log('[1/4] Seller issues an unsold bond of $25,000...');

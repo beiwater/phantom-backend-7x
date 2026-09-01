@@ -23,4 +23,9 @@ export const CONFIG = {
   INITIAL_MONEY: 100000,
   INITIAL_SIMBOOSTS: 250,
   INITIAL_LEVEL: parseInt(process.env.INITIAL_LEVEL || '0', 10),
+
+  // Issue #70: when set to '1', every state-changing payment route (main
+  // payment, stripe, tron, google purchase) answers 501 without mutating any
+  // balance. Default is unset: local direct purchase stays available (P0-03).
+  PAYMENTS_DISABLED: process.env.PAYMENTS_DISABLED === '1',
 };

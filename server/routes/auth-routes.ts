@@ -3,7 +3,8 @@ import { readJsonBody, sendJson } from './utils.ts';
 import {
   createSession,
   destroySession,
-  switchSessionCompany
+  switchSessionCompany,
+  buildSessionCookie
 } from '../auth/session.ts';
 import { registerPlayer, authenticatePlayer, registerOrAuthenticatePlayer, db } from '../db/database.ts';
 import { checkRateLimit } from '../security/rate-limiter.ts';
@@ -52,8 +53,7 @@ export async function handleAuthRoutes(
   if (pathname === '/signout/' || pathname === '/zh-cn/signout/' || pathname === '/logout/' || pathname.endsWith('/signout/')) {
     if (sessionToken) destroySession(sessionToken);
     res.writeHead(302, {
-      'Location': '/zh-cn/',
-      'Set-Cookie': 'sessionid=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly'
+      'Set-Cookie': buildSessionCookie('')
     });
     res.end();
     return true;
@@ -80,7 +80,6 @@ export async function handleAuthRoutes(
       res.writeHead(302, {
         'Location': '/zh-cn/create/',
         'Set-Cookie': [
-          `sessionid=${token}; Path=/; HttpOnly; SameSite=Lax`,
           'django_language=zh-cn; Path=/; SameSite=Lax'
         ]
       });
@@ -105,7 +104,7 @@ export async function handleAuthRoutes(
     res.writeHead(302, {
       'Location': '/zh-cn/landscape/',
       'Set-Cookie': [
-        `sessionid=${token}; Path=/; HttpOnly; SameSite=Lax`,
+        buildSessionCookie(token),
         'django_language=zh-cn; Path=/; SameSite=Lax'
       ]
     });
@@ -134,7 +133,7 @@ export async function handleAuthRoutes(
       const token = createSession(auth.playerId, auth.companyId);
       res.writeHead(200, {
         'Content-Type': 'application/json',
-        'Set-Cookie': `sessionid=${token}; Path=/; HttpOnly; SameSite=Lax`
+        'Set-Cookie': buildSessionCookie(token)
       });
       res.end(JSON.stringify({ status: 'redirect', redirectUrl: '/zh-cn/landscape/' }));
     } catch (err: unknown) {
@@ -163,7 +162,7 @@ export async function handleAuthRoutes(
       const token = createSession(auth.playerId, auth.companyId);
       res.writeHead(200, {
         'Content-Type': 'application/json',
-        'Set-Cookie': `sessionid=${token}; Path=/; HttpOnly; SameSite=Lax`
+        'Set-Cookie': buildSessionCookie(token)
       });
       const redirectUrl = auth.created ? '/zh-cn/create/' : '/zh-cn/landscape/';
       res.end(JSON.stringify({ status: 'redirect', redirectUrl }));
@@ -181,7 +180,7 @@ export async function handleAuthRoutes(
       const token = createSession(auth.playerId, auth.companyId);
       res.writeHead(200, {
         'Content-Type': 'application/json',
-        'Set-Cookie': `sessionid=${token}; Path=/; HttpOnly; SameSite=Lax`
+        'Set-Cookie': buildSessionCookie(token)
       });
       res.end(JSON.stringify({ status: 'redirect', redirectUrl: auth.created ? '/zh-cn/create/' : '/zh-cn/landscape/' }));
     } catch (err: unknown) {
