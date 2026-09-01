@@ -80,6 +80,7 @@ export async function handleAuthRoutes(
       res.writeHead(302, {
         'Location': '/zh-cn/create/',
         'Set-Cookie': [
+          buildSessionCookie(token),
           'django_language=zh-cn; Path=/; SameSite=Lax'
         ]
       });

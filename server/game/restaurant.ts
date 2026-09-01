@@ -879,8 +879,8 @@ export async function resolveRestaurantRun(runId: number, now: Date = new Date()
   return runInTransaction(() => settleRestaurantRunInTransaction(runId, now), { immediate: true });
 }
 
-export async function resolveDueRestaurantRuns(buildingId?: number, companyId?: number | null, now: Date = new Date()): Promise<void> {
-  await runInTransaction(() => {
+export function resolveDueRestaurantRunsSync(buildingId?: number, companyId?: number | null, now: Date = new Date()): void {
+  runInTransaction(() => {
     const rows = db.prepare(`
       SELECT id FROM restaurant_runs
       WHERE resolved = 0 AND cycle_end <= ?
@@ -892,6 +892,9 @@ export async function resolveDueRestaurantRuns(buildingId?: number, companyId?: 
   }, { immediate: true });
 }
 
+export async function resolveDueRestaurantRuns(buildingId?: number, companyId?: number | null, now: Date = new Date()): Promise<void> {
+  resolveDueRestaurantRunsSync(buildingId, companyId, now);
+}
 export async function getRestaurantRuns(buildingId: number, companyId?: number | null): Promise<RestaurantRun[]> {
   await resolveDueRestaurantRuns(buildingId, companyId);
   const rows = db.prepare('SELECT * FROM restaurant_runs WHERE building_id = ? AND (? IS NULL OR company_id = ?) ORDER BY id DESC LIMIT 30')
@@ -953,8 +956,11 @@ export async function updateRestaurantProperties(
       reconstructionUntil = new Date(Date.now() + building.size * RESTAURANT_RECONSTRUCTION_SECONDS * 1000).toISOString();
       db.prepare('UPDATE buildings SET busy_until = ? WHERE id = ? AND company_id = ?').run(reconstructionUntil, buildingId, companyId);
     }
+    const activeRun = getActiveRestaurantRunRow(buildingId, companyId);
     let rating = computeCurrentRating(companyId, { goodService, isLuxury, menu, menuPrice });
-    if (!keepOpen && current.keepOpen && !styleChanged && current.rating > 0) rating = round2(current.rating * 0.875);
+    if (!keepOpen && current.keepOpen && !styleChanged && current.rating > 0 && !activeRun) {
+      rating = round2(current.rating * 0.875);
+    }
     const now = new Date().toISOString();
     db.prepare(`
       INSERT INTO restaurant_properties (
@@ -997,7 +1003,11 @@ export async function updateRestaurantProperties(
     let resourceTransactions: Array<{ kind: number; quality: number; amount: number }> = [];
     // The official PATCH endpoint starts a cycle only when keepOpen=true is
     // explicitly sent. Saving a menu or changing price alone is side-effect free.
-    if (updates.keepOpen === true && !styleChanged) {
+    // The official PATCH endpoint starts a cycle when keepOpen=true is
+    // explicitly sent and no cycle is already in progress.
+    // If a cycle is already active, keepOpen=true cancels the scheduled closure
+    // and resumes continuous operation without attempting a redundant second cycle.
+    if (updates.keepOpen === true && !styleChanged && !activeRun) {
       try {
         const started = startRestaurantCycleInTransaction(buildingId, companyId);
         cycle = started.run;

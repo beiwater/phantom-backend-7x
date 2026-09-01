@@ -8,12 +8,9 @@ const email = process.env.E2E_EMAIL;
 const password = process.env.E2E_PASSWORD;
 
 async function dismissCookieBanner(page) {
-  for (const name of ['仅限必要', '全部接受']) {
-    const button = page.getByRole('button', { name, exact: true });
-    if (await button.isVisible().catch(() => false)) {
-      await button.click();
-      return;
-    }
+  const btn = page.getByRole('button', { name: /全部接受|仅限必要/ }).first();
+  if (await btn.isVisible({ timeout: 3000 }).catch(() => false)) {
+    await btn.click().catch(() => {});
   }
 }
 
@@ -57,9 +54,16 @@ async function reproduceRegistrationEntry(page) {
     return;
   }
   await noAccount.click();
+  await page.waitForURL(/\/zh-cn\/(?:create|signup)\//, { timeout: 10000 }).catch(() => {});
 
   const registrationButton = page.getByRole('button', { name: '注册', exact: true });
-  const registrationFormVisible = await registrationButton.isVisible().catch(() => false);
+  const createCompanyHeader = page.getByText('创建公司', { exact: true });
+  const startPlayingButton = page.getByRole('button', { name: '开始游戏', exact: true });
+  const registrationFormVisible = (
+    await registrationButton.isVisible().catch(() => false) ||
+    await createCompanyHeader.isVisible().catch(() => false) ||
+    await startPlayingButton.isVisible().catch(() => false)
+  );
   const result = {
     urlAfterClick: page.url(),
     registrationFormVisible,
@@ -74,30 +78,35 @@ async function reproduceRestaurantCloseToggle(page) {
   }
 
   await page.getByRole('link', { name: '地图', exact: true }).last().click();
-  const building = page.locator('a[href="/zh-cn/b/3/"]').first();
+  const building = page.locator('a[href^="/zh-cn/b/"]').filter({ hasText: /小时|分钟|餐馆|Restaurant|营业/ }).first()
+    .or(page.locator('a[href="/zh-cn/b/3/"]').first())
+    .or(page.locator('a[href^="/zh-cn/b/"]').nth(2));
   if (!(await building.isVisible().catch(() => false))) {
-    console.log('restaurant: skipped (restaurant building /zh-cn/b/3/ is not present)');
+    console.log('restaurant: skipped (restaurant building link was not present on map)');
     return;
   }
   await building.click();
+  await page.waitForURL(/\/zh-cn\/b\/\d+\//, { timeout: 10000 }).catch(() => {});
 
+  const stopButton = page.getByRole('button', { name: '当前周期结束后停止营业？', exact: true });
   const openButton = page.getByRole('button', { name: '开门营业', exact: true });
-  if (await openButton.isVisible().catch(() => false)) {
+  if (await openButton.isVisible({ timeout: 2000 }).catch(() => false)) {
     console.log('restaurant: skipped (restaurant is closed or has no ready cycle; supply stock and open it first)');
     return;
   }
-
-  const stopButton = page.getByRole('button', { name: '当前周期结束后停止营业？', exact: true });
-  if (!(await stopButton.isVisible().catch(() => false))) {
+  if (!(await stopButton.isVisible({ timeout: 5000 }).catch(() => false))) {
     console.log('restaurant: skipped (open cycle control is not visible)');
     return;
   }
   await stopButton.click();
-  const dialog = page.getByRole('dialog');
-  await dialog.getByRole('button', { name: '是的，关店', exact: true }).click();
+  const yesClose = page.getByRole('button', { name: /是的，关店|Yes, close/ }).first();
+  await yesClose.waitFor({ timeout: 5000 });
+  await yesClose.click();
 
   const autoContinue = page.getByRole('button', { name: '自动连续营业？', exact: true });
+  await autoContinue.waitFor({ timeout: 5000 });
   await autoContinue.click();
+
   const errorVisible = await page.getByText('An unexpected error occurred', { exact: true })
     .isVisible()
     .catch(() => false);
