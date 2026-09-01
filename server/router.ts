@@ -27,6 +27,7 @@ import { handlePageRoutes } from './routes/page-routes.ts';
 import { handleAuditRoutes } from './routes/audit-routes.ts';
 import { handleGovernmentRoutes } from './routes/government-routes.ts';
 import { handleAerospaceRoutes } from './routes/aerospace-routes.ts';
+import { handleBuildingAuctionRoutes } from './routes/building-auction-routes.ts';
 const methodManifest: Array<{ pattern: RegExp; methods: string[] }> = [
   { pattern: /^\/api\/v2\/time-millis\/$/, methods: ['GET'] },
   { pattern: /^\/api\/time\/$/, methods: ['GET'] },
@@ -177,6 +178,11 @@ export async function handleRequest(req: IncomingMessage, res: ServerResponse) {
     return;
   }
   if (await handleAerospaceRoutes(req, res, pathname, method, currentCompanyId)) {
+    return;
+  }
+  // Issue #95: building auctions must dispatch BEFORE the legacy achievement
+  // handler (which previously stubbed every /building-auctions path).
+  if (await handleBuildingAuctionRoutes(req, res, pathname, method, currentCompanyId)) {
     return;
   }
   if (await handlePageRoutes(req, res, pathname, method)) {

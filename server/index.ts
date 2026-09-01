@@ -4,9 +4,16 @@ import { handleRequest } from './router.ts';
 import { RequestBodyError, sendJson } from './routes/utils.ts';
 import { setupWebSocket } from './ws/websocket.ts';
 import { startExpiredSessionCleanup } from './auth/session.ts';
+import { startScheduler } from './scheduler/timetable.ts';
+import './scheduler/scheduler-routes.ts';
 
 // Issue #17: purge expired sessions at startup and every hour thereafter.
 startExpiredSessionCleanup();
+
+// Issue #98: daily UTC timetable engine (bond interest + accounting overhead,
+// executive salaries, government orders publish/award, economy phase roll,
+// retail saturation). Persists scheduler_state so restarts never double-fire.
+startScheduler();
 
 const server = http.createServer(async (req, res) => {
   try {

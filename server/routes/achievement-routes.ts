@@ -134,68 +134,6 @@ export async function handleAchievementRoutes(
     return true;
   }
 
-  // 9. Building Auctions Compatibility
-  if (pathname === '/api/v2/building-auctions/active-unlocks/') {
-    sendJson(res, { activeUnlocks: [] });
-    return true;
-  }
-
-  if (
-    pathname.match(/^\/api\/v2\/building-auctions\/research-by-auction\/(?:\d+|me)\/$/) ||
-    pathname.match(/^\/api\/v2\/building-auctions\/research-by-building\/(?:\d+|me)\/$/)
-  ) {
-    sendJson(res, { similarBuildingAuctions: [] });
-    return true;
-  }
-
-  if (pathname.match(/^\/api\/v2\/building-auctions\/bids\/(?:\d+|me)\/(?:\d+\/)?$/)) {
-    if (method === 'DELETE' || method === 'POST') {
-      sendJson(res, { success: true, bids: [] });
-      return true;
-    }
-    sendJson(res, { bids: [] });
-    return true;
-  }
-
-  if (pathname.match(/^\/api\/v2\/building-auctions\/(?:\d+|me)\/promote\/?$/)) {
-    sendJson(res, { success: true });
-    return true;
-  }
-
-  if (
-    pathname.match(/^\/api\/v2\/building-auctions\/(?:\d+|me)\/$/) ||
-    pathname.match(/^\/api\/v2\/companies\/(?:\d+|me)\/building-auctions\/$/) ||
-    pathname === '/api/v2/building-auctions/'
-  ) {
-    if (method === 'POST') {
-      sendJson(res, { success: true, buildingAuctions: [] });
-      return true;
-    }
-    sendJson(res, {
-      buildingAuctions: [],
-      auctions: [],
-      myBids: [],
-      featured: null
-    });
-    return true;
-  }
-
-  if (
-    (pathname.startsWith('/api/') && pathname.includes('/building-auctions')) ||
-    (pathname.startsWith('/api/') && pathname.includes('/building-auction'))
-  ) {
-    sendJson(res, {
-      buildingAuctions: [],
-      auctions: [],
-      myBids: [],
-      featured: null,
-      activeUnlocks: [],
-      similarBuildingAuctions: [],
-      bids: []
-    });
-    return true;
-  }
-
   // 10. Government Orders
   if (pathname.startsWith('/api/') && pathname.includes('/government-orders/')) {
     sendJson(res, {

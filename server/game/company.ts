@@ -4,6 +4,7 @@ import { computeLevelInfo, getXpRequiredForLevel } from '../domain/leveling/leve
 import { seedDefaultExecutives } from './executives.ts';
 import { getCompanyBoostSettings, getExchangedToday } from './simboost-settings.ts';
 import { recordCashLedger, refreshDailyFinanceSnapshot } from './cash-ledger.ts';
+import { runInTransaction } from '../db/transaction.ts';
 
 export interface CompanyRow {
   id: number;
@@ -25,6 +26,8 @@ export interface CompanyRow {
   max_tags?: number;
   show_online_indicator?: number;
   moderator_sign?: number;
+  supporter_until?: string | null;
+  supporter_certificates?: number;
 }
 
 function toSafeCompanyName(name: string): string {
@@ -254,6 +257,102 @@ export function updateCompanySettings(
   }
 }
 
+// ============================================================================
+// Issue #97: supporter package state (decompiled Supporters guide)
+// ============================================================================
+
+/**
+ * Supporters pay 10% less for SimBoost packages (payment_packages.json
+ * supporterDiscount.percentage = 10; Checkout.supporterDiscountApplied:
+ * "All prices listed already reflect your 10% supporter discount.").
+ */
+export const SUPPORTER_DISCOUNT_PERCENT = 10;
+
+/** Each supporter package purchase buys a 30-day supporter term. */
+export const SUPPORTER_DURATION_DAYS = 30;
+
+export interface SupporterState {
+  /** True once the company has ever purchased the supporter package. */
+  supporterPurchased: boolean;
+  /** True while the purchased term has not expired yet. */
+  supporterActive: boolean;
+  /** ISO UTC datetime the term ends, null when never purchased. */
+  supporterUntil: string | null;
+  /** Supporter certificates awarded by supporter package purchases. */
+  certificates: number;
+}
+
+function parseSupporterUntil(raw: unknown): { iso: string | null; ms: number } {
+  if (typeof raw !== 'string' || raw === '') return { iso: null, ms: NaN };
+  const ms = Date.parse(raw);
+  if (!Number.isFinite(ms)) return { iso: null, ms: NaN };
+  return { iso: new Date(ms).toISOString(), ms };
+}
+
+/**
+ * Reads the persisted supporter state off a companies row. Expiry is
+ * evaluated against `now`: an expired term keeps supporterPurchased (the
+ * certificate was earned) but drops supporterActive, which degrades every
+ * perk — the +1 building slot, the 10% discount and the package visibility —
+ * until the supporter package is purchased again.
+ */
+export function getSupporterState(
+  company: CompanyRow | null | undefined,
+  now: number = Date.now()
+): SupporterState {
+  const certificates = Math.max(0, Math.floor(Number(company?.supporter_certificates) || 0));
+  const until = parseSupporterUntil(company?.supporter_until);
+  return {
+    supporterPurchased: certificates > 0 || until.iso !== null,
+    supporterActive: until.iso !== null && until.ms > now,
+    supporterUntil: until.iso,
+    certificates
+  };
+}
+
+/**
+ * Persists a completed supporter package purchase: starts or extends the
+ * supporter term by SUPPORTER_DURATION_DAYS and awards one supporter
+ * certificate ("Awarded to companies for supporting the game by purchasing
+ * the supporter package"). Renewals stack on an unexpired term so buying
+ * early never loses days; after expiry the term restarts from `now`.
+ */
+export async function activateSupporter(companyId: number, now: number = Date.now()): Promise<SupporterState> {
+  return runInTransaction(async () => {
+    const comp = getCompanyById(companyId);
+    if (!comp) {
+      throw new Error('Company not found');
+    }
+    const current = getSupporterState(comp, now);
+    const baseMs = current.supporterActive && current.supporterUntil ? Date.parse(current.supporterUntil) : now;
+    const supporterUntil = new Date(baseMs + SUPPORTER_DURATION_DAYS * 24 * 60 * 60 * 1000).toISOString();
+    const certificates = current.certificates + 1;
+    const result = db.prepare(
+      'UPDATE companies SET supporter_until = ?, supporter_certificates = ? WHERE company_id = ?'
+    ).run(supporterUntil, certificates, companyId);
+    if (result.changes !== 1) {
+      throw new Error('Company not found');
+    }
+    return {
+      supporterPurchased: true,
+      supporterActive: true, // a fresh 30-day term always ends in the future
+      supporterUntil,
+      certificates
+    };
+  }, { immediate: true });
+}
+
+/**
+ * Supporters pay 10% less for SimBoost packages. Prices are USD strings;
+ * rounding in integer cents keeps the result deterministic (10.45 -> 1045c
+ * -> 941c -> "9.41", immune to float drift).
+ */
+export function applySupporterDiscount(price: string, discountPercent: number = SUPPORTER_DISCOUNT_PERCENT): string {
+  const cents = Math.round(Number.parseFloat(price) * 100);
+  if (!Number.isFinite(cents) || cents <= 0) return price;
+  return (Math.round(cents * (100 - discountPercent) / 100) / 100).toFixed(2);
+}
+
 export function getPersonalData(playerId: number) {
   const player = db.prepare('SELECT * FROM players WHERE player_id = ?').get(playerId) as PlayerRow | undefined;
   const companies = db.prepare('SELECT * FROM companies WHERE player_id = ?').all(playerId) as unknown as CompanyRow[];
@@ -348,6 +447,13 @@ export function getAuthData(playerId?: number | null, targetCompanyId?: number |
   const safeSimBoosts = typeof company.simboosts === 'number'
     ? (Number.isFinite(company.simboosts) ? company.simboosts : 0)
     : Number(company.simboosts || 250);
+  // Issue #97: supporter status comes from persisted purchases, never from
+  // the admin flag (the old conflation made it impossible for normal
+  // players to become supporters). The supporter perk adds +1 extra
+  // building slot while the term is active — mirrored into the maxBuildings
+  // computation of levelInfo below.
+  const supporter = getSupporterState(company);
+  const extraBuildingSlots = (Number(company.extra_building_slots) || 0) + (supporter.supporterActive ? 1 : 0);
 
   return {
     authUser: {
@@ -360,8 +466,8 @@ export function getAuthData(playerId?: number | null, targetCompanyId?: number |
       isAdmin: Boolean(player.is_admin),
       canImpersonate: Boolean(player.is_admin),
       aiSuggestions: Boolean(player.is_admin),
-      supporterPurchased: Boolean(player.is_admin),
-      supporter: Boolean(player.is_admin),
+      supporterPurchased: supporter.supporterPurchased,
+      supporter: supporter.supporterActive,
       countryCodeIso: "AU",
       email: player.email,
       bouncingEmail: false,
@@ -402,7 +508,7 @@ export function getAuthData(playerId?: number | null, targetCompanyId?: number |
       evaRank: null,
       evaMonth: null,
       extraExecutiveSlots: Number(company.extra_executive_slots) || 0,
-      extraBuildingSlots: Number(company.extra_building_slots) || 0,
+      extraBuildingSlots,
       displayCaseSlots: Number(company.display_case_slots) || 1,
       logo: company.logo || "",
       startingPackPurchased: true,
@@ -420,7 +526,7 @@ export function getAuthData(playerId?: number | null, targetCompanyId?: number |
       level: Math.max(1, Number(company.level) || 1),
       experience: company.experience ?? 0,
       rating: company.rating,
-      extra_building_slots: company.extra_building_slots
+      extra_building_slots: extraBuildingSlots
     }),
     temporals: {
       sale: "",

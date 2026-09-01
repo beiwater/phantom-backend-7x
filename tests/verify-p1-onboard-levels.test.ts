@@ -133,12 +133,13 @@ async function runTest(): Promise<void> {
   const waitMs = Math.max(0, Date.parse(queue.finishes) - Date.now()) + 500;
   await new Promise(r => setTimeout(r, waitMs));
 
-  // Arrange: pin the company at level 1 with experience 5 XP below the
-  // level-up threshold (L1 needs 45 XP) so this single collect both raises
-  // experience AND proves threshold-derived level-ups. Level is pinned to 1
-  // because getAuthData clamps displayed level to >= 1 (upstream behavior),
-  // which would otherwise make lvlBefore inconsistent with the DB row.
-  db.prepare('UPDATE companies SET level = 1, experience = 40 WHERE company_id = ?')
+  // Arrange: pin the company at level 1 with experience 9 XP below the
+  // level-up threshold (Issue #99 canonical table: L1 -> L2 delta is 11 XP)
+  // so this single collect (10 XP) both raises experience AND proves
+  // threshold-derived level-ups. Level is pinned to 1 because getAuthData
+  // clamps displayed level to >= 1 (upstream behavior), which would
+  // otherwise make lvlBefore inconsistent with the DB row.
+  db.prepare('UPDATE companies SET level = 1, experience = 2 WHERE company_id = ?')
     .run(firstAuth.authCompany.companyId);
   const before = await authData(cookie);
   const lvlBefore = before.levelInfo!.level;
@@ -160,8 +161,10 @@ async function runTest(): Promise<void> {
   assert.equal(collectBody.experienceGained, 10, 'collect must award +10 XP');
   assert.equal(collectBody.levelInfo!.level, lvlBefore + 1,
     'crossing the XP threshold must advance the level inside the same collect');
-  assert.equal(collectBody.levelInfo!.experience, 5,
-    'leftover XP after level-up must equal gained - threshold remainder');
+  assert.equal(collectBody.levelInfo!.experience, 1,
+    'leftover XP after level-up must equal gained - threshold remainder (12 - 11)');
+  assert.equal(collectBody.levelInfo!.experienceToNextLevel, 12,
+    'experienceToNextLevel must be the canonical cumulative delta for L2 (Issue #99)');
   console.log(`  -> lvl ${lvlBefore} -> ${collectBody.levelInfo!.level}, exp ${collectBody.levelInfo!.experience}/${collectBody.levelInfo!.experienceToNextLevel}, levelUp=${collectBody.levelUp}`);
 
   // ---------- P1-05: new GET keeps level + experience (persisted, no rollback) ----------

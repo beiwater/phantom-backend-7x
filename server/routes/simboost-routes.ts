@@ -16,9 +16,99 @@ import { readJsonBody, sendJson } from './utils.ts';
    unlockTagSlot,
    unlockBuildingSlot,
    rushProduction,
+   PAYMENT_PACKAGES,
    rushBuildingUpgradeOrConstruction
  } from '../game/simboosts.ts';
 import { getCompanyBoostSettings } from '../game/simboost-settings.ts';
+import {
+  activateSupporter,
+  applySupporterDiscount,
+  getCompanyById,
+  getSupporterState,
+  SUPPORTER_DISCOUNT_PERCENT,
+  type SupporterState
+} from '../game/company.ts';
+
+/**
+ * Issue #97: the package list adapts to the requester's supporter state
+ * (decompile payment_packages.json "filtering"):
+ *  - supporterOnly packages are only shown to active supporters;
+ *  - the supporter package itself is hidden while a term is active and shown
+ *    again once it expires, so the player can renew;
+ *  - an active supporter's listed SimBoost prices already reflect the 10%
+ *    supporter discount (Checkout.supporterDiscountApplied).
+ */
+function buildPaymentPackagesView(platform: string, companyId: number | null) {
+  const list = getPaymentPackagesList(platform);
+  // Guests and authenticated non-supporters share the same catalog rules.
+  const supporter = getSupporterState(companyId ? getCompanyById(companyId) : null);
+  const packages = list.packages
+    .filter(p => {
+      if (p.supporterOnly && !supporter.supporterActive) return false;
+      if (p.isSupporter && supporter.supporterActive) return false;
+      return true;
+    })
+    .map(p => {
+      // Discounted SKUs: any package that grants SimBoosts, excluding the
+      // supporter package itself and the pre-discounted supporterOnly variants.
+      const pkg = PAYMENT_PACKAGES.find(c => c.sku === p.sku);
+      if (supporter.supporterActive && pkg && pkg.simBoosts > 0 && !pkg.supporterOnly && !pkg.isSupporter) {
+        return {
+          ...p,
+          price: applySupporterDiscount(p.price),
+          approximateCurrency: p.approximateCurrency
+            ? { ...p.approximateCurrency, value: applySupporterDiscount(p.approximateCurrency.value) }
+            : p.approximateCurrency
+        };
+      }
+      return p;
+    });
+  return { ...list, packages };
+}
+
+/**
+ * Issue #97: completing the supporter package purchase must persist the
+ * supporter term and award the supporter certificate — normal players become
+ * supporters here instead of the old admin-flag conflation.
+ *
+ * purchasePaymentPackage replays the same cached CompletedPurchase object for
+ * double-clicks within its idempotency window; keying the activation on that
+ * object identity (WeakMap) inherits exactly that idempotency, so a replayed
+ * purchase never extends the term or mints a second certificate.
+ */
+const supporterActivations = new WeakMap<object, SupporterState>();
+
+async function purchaseWithSupporterState(companyId: number, sku: string, now: number = Date.now()) {
+  // The 10% discount applies to the term held BEFORE this purchase: buying
+  // the supporter package grants status for future purchases, not retroactively.
+  const supporterBefore = getSupporterState(getCompanyById(companyId), now);
+  const result = await purchasePaymentPackage(companyId, sku, now);
+
+  if (result.supporter) {
+    let activation = supporterActivations.get(result);
+    if (!activation) {
+      activation = await activateSupporter(companyId, now);
+      supporterActivations.set(result, activation);
+    }
+    return {
+      ...result,
+      supporterUntil: activation.supporterUntil,
+      supporterCertificates: activation.certificates
+    };
+  }
+
+  // Active supporters see their 10% discount reflected in the echoed price.
+  const pkg = PAYMENT_PACKAGES.find(p => p.sku === result.payment.sku);
+  if (supporterBefore.supporterActive && pkg && pkg.simBoosts > 0 && !pkg.supporterOnly && !pkg.isSupporter) {
+    return {
+      ...result,
+      payment: { ...result.payment, price: applySupporterDiscount(result.payment.price) },
+      supporterDiscountPercent: SUPPORTER_DISCOUNT_PERCENT
+    };
+  }
+  return result;
+}
+
 export async function handleSimboostRoutes(
   req: IncomingMessage,
   res: ServerResponse,
@@ -31,7 +121,7 @@ export async function handleSimboostRoutes(
   const packagesMatch = pathname.match(/^\/api\/v4\/payment-packages\/([a-zA-Z0-9_-]+)\/$/);
   if (packagesMatch && method === 'GET') {
     const platform = packagesMatch[1] || 'web';
-    sendJson(res, getPaymentPackagesList(platform));
+    sendJson(res, buildPaymentPackagesView(platform, currentCompanyId));
     return true;
   }
 
@@ -141,7 +231,7 @@ export async function handleSimboostRoutes(
     try {
       const body = await readJsonBody<{ sku?: string; nonce?: string; name?: string; bonus?: string }>(req);
       const sku = body.sku || 'sb-sb150';
-      const result = await purchasePaymentPackage(currentCompanyId, sku);
+      const result = await purchaseWithSupporterState(currentCompanyId, sku);
       sendJson(res, result);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -164,7 +254,7 @@ export async function handleSimboostRoutes(
     try {
       const body = await readJsonBody<{ sku?: string }>(req);
       const sku = body.sku || 'sb-sb150';
-      const result = await purchasePaymentPackage(currentCompanyId, sku);
+      const result = await purchaseWithSupporterState(currentCompanyId, sku);
       sendJson(res, {
         clientSecret: `pi_local_${Date.now()}_secret_${Math.random().toString(36).slice(2)}`,
         ...result
@@ -229,7 +319,7 @@ export async function handleSimboostRoutes(
     const body = await readJsonBody<{ sku?: string; packageSku?: string }>(req);
     const sku = body.sku || body.packageSku || 'sb-sb330';
     try {
-      const result = await purchasePaymentPackage(currentCompanyId, sku);
+      const result = await purchaseWithSupporterState(currentCompanyId, sku);
       sendJson(res, {
         invoice: {
           id: tronPatchMatch[2],
@@ -258,7 +348,7 @@ export async function handleSimboostRoutes(
       const body = await readJsonBody<{ sku?: string }>(req);
       // C-5: the daily purchase cap rejects with an error here; surface it
       // as 400 instead of an unhandled 500.
-      const result = await purchasePaymentPackage(currentCompanyId, body.sku || 'sb-sb150');
+      const result = await purchaseWithSupporterState(currentCompanyId, body.sku || 'sb-sb150');
       sendJson(res, result);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);

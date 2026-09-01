@@ -63,7 +63,8 @@ async function runIssue71CapabilitiesTest() {
     method: 'POST', headers: h0, body: JSON.stringify({ recipient: 999902, kind: 54, quality: 0, amount: 10, price: 100 })
   });
   assert.equal(contractRes.status, 403, 'contract send must be capability-gated');
-  assert.match((await contractRes.json()).error, /unlocks at level 5/);
+  // Issue #99: contracts unlock at level 2 (was the tier-table level 5).
+  assert.match((await contractRes.json()).error, /unlocks at level 2/);
   console.log('  -> research/bonds/executives/contracts all 403 with unlock-at-level reason');
 
   // ---------- Part 2: Level 10 — unlocked subsystems succeed ----------

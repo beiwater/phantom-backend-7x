@@ -213,10 +213,13 @@ export function registerBuildingRoutes(registry: RouteRegistry = globalRouteRegi
     }
 
     // P1-10 (Reposition step 2): place a LIFTED existing building only if the building exists,
-    // belongs to the company, and is currently lifted (position 'l').
+    // belongs to the company, and is currently lifted. Issue #95: buildings won
+    // in a building auction arrive in the 35-slot reposition queue as 'l' or
+    // 'l<n>' — every 'l'-prefixed position is a lift marker that the placement
+    // modal lists, so match the prefix, not the exact string.
     if (typeof body.id === 'number' && Number.isInteger(body.id)) {
       const existingLifted = buildingRepository.findById(body.id);
-      if (existingLifted && existingLifted.companyId === ctx.companyId && existingLifted.position === 'l') {
+      if (existingLifted && existingLifted.companyId === ctx.companyId && existingLifted.position.startsWith('l')) {
         const placed = await placeBuildingUseCase(ctx!, {
           buildingId: body.id,
           position: String(body.position)

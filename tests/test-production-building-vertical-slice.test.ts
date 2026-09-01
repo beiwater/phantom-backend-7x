@@ -10,8 +10,9 @@ import { startProductionUseCase } from '../server/application/production/start-p
 import { cancelProductionUseCase } from '../server/application/production/cancel-production.ts';
 import { collectProductionUseCase } from '../server/application/production/collect-production.ts';
 import { getProductionQueueUseCase } from '../server/application/production/get-production-queue.ts';
-import { warehouseRepository } from '../server/repositories/warehouse-repository.ts';
+import { db } from '../server/db/database.ts';
 import { buildingRepository } from '../server/repositories/building-repository.ts';
+import { warehouseRepository } from '../server/repositories/warehouse-repository.ts';
 import { productionRepository } from '../server/repositories/production-repository.ts';
 import { toSimCompaniesBuildingDTO } from '../server/compatibility/simcompanies/building-dto.ts';
 import {
@@ -26,6 +27,9 @@ async function testProductionBuildingVerticalSlice() {
   const randomEmail = `slice_test_${Date.now()}_${Math.floor(Math.random() * 10000)}@test.local`;
   const { playerId, companyId } = registerPlayer(randomEmail, 'password123', `SliceTest Co ${Date.now()}`);
   const ctx = createGameContext(companyId, playerId, 0);
+  // Issue #99: queue durations are tier-capped (2h/24h/48h) and this slice
+  // starts a 14400s apple queue, which requires the level-5 band. Pin level 10.
+  db.prepare('UPDATE companies SET level = ? WHERE company_id = ?').run(10, companyId);
 
   // 2. Test Get Buildings List
   const initialBuildings = await getCompanyBuildingsUseCase(ctx);

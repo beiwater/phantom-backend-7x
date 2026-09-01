@@ -1,11 +1,13 @@
 import type { GameContext } from '../../context/game-context.ts';
 import { runInTransaction } from '../../db/transaction.ts';
 import { buildingRepository, type BuildingEntity } from '../../repositories/building-repository.ts';
+import { companyRepository } from '../../repositories/company-repository.ts';
 import { productionRepository, type ProductionQueueEntity } from '../../repositories/production-repository.ts';
 import { warehouseRepository, type ResourceTransactionEntity } from '../../repositories/warehouse-repository.ts';
 import { eventBus } from '../../events/event-bus.ts';
 import { NotFoundError, ForbiddenError, ValidationError, ConflictError } from '../../errors/domain-error.ts';
 import { validateProductionRequest, resolveAchievableQuality } from '../../domain/production/production-rules.ts';
+import { assertQueueDuration } from '../../domain/leveling/level-rules.ts';
 import { calculateProductionTime } from '../../game-data/buildings.ts';
 import { isAbundanceExtractorKind, getBuildingAbundance, scaleExtractorOutput } from '../../game/buildings.ts';
 import { assertAllowedProduct } from '../../game/robotics.ts';
@@ -61,6 +63,17 @@ export async function startProductionUseCase(
       input.amount,
       input.quality ?? null
     );
+
+    // Issue #99: the queue item's duration must fit the company tier limit
+    // (2h below L5, 24h below L15, 48h at L15+). Enforced BEFORE any
+    // ingredients are consumed so the 400 QUEUE_DURATION_LIMIT rejection is
+    // side-effect free.
+    const durationSeconds = calculateProductionTime(input.kind, input.amount, building.size);
+    assertQueueDuration(
+      companyRepository.findById(ctx.companyId)?.level ?? 0,
+      durationSeconds,
+      'Production'
+    );
     // Issue #93: natural resource extractors (Mine 'M', Quarry 'Q', Oil Rig
     // 'O') scale their output linearly with the deposit abundance:
     // outputAmount = round(baseAmount * abundance / 100). Ingredients and
@@ -93,8 +106,8 @@ export async function startProductionUseCase(
     const averageInputQuality = totalInputAmount > 0 ? weightedQualitySum / totalInputAmount : 0;
     const inputCostPerOutputUnit = input.amount > 0 ? totalInputCost / input.amount : 0;
 
-    // 4. Calculate timing and queue chaining
-    const durationSeconds = calculateProductionTime(input.kind, input.amount, building.size);
+    // 4. Queue chaining (durationSeconds was computed and validated against
+    // the tier limit before ingredients were consumed)
     const latestActive = productionRepository.findLatestActiveByBuilding(building.id, ctx.companyId);
 
     const now = new Date();

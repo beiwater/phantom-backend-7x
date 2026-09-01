@@ -1,11 +1,13 @@
 import type { GameContext } from '../../context/game-context.ts';
 import { runInTransaction } from '../../db/transaction.ts';
 import { buildingRepository, type BuildingEntity } from '../../repositories/building-repository.ts';
+import { companyRepository } from '../../repositories/company-repository.ts';
 import { NotFoundError, ForbiddenError, ValidationError } from '../../errors/domain-error.ts';
 import { db } from '../../db/database.ts';
 import { updateCompanyMoney } from '../../game/company.ts';
 import { recordCashLedger, refreshDailyFinanceSnapshot } from '../../game/cash-ledger.ts';
 import { getResourceDef } from '../../game-data/resources.ts';
+import { assertQueueDuration } from '../../domain/leveling/level-rules.ts';
 import { addCompanyExperience } from '../../game/company.ts';
 import { getWarehouseItemExact, consumeResourceExactWithTransactions } from '../../game/warehouse.ts';
 import {
@@ -81,6 +83,21 @@ export async function startRetailUseCase(
     const { maxPrice } = getAuthoritativeRetailPrice(input.kind, quality);
     const unitPrice = Math.min(Math.max(input.price, 0), maxPrice);
 
+    // Issue #99: the sale's busy-window duration must fit the company tier
+    // limit (2h below L5, 24h below L15, 48h at L15+). Enforced BEFORE stock
+    // is consumed or revenue credited so the 400 QUEUE_DURATION_LIMIT
+    // rejection is side-effect free.
+    const durationSeconds = calculateRetailDuration(input.kind, input.amount, building.size || 1, {
+      quality,
+      price: unitPrice,
+      buildingKind: building.kind
+    });
+    assertQueueDuration(
+      companyRepository.findById(ctx.companyId)?.level ?? 0,
+      durationSeconds,
+      'Retail'
+    );
+
     // 1. Consume warehouse stock atomically
     const resourceTransactions = consumeResourceExactWithTransactions(
       ctx.companyId,
@@ -116,11 +133,8 @@ export async function startRetailUseCase(
     refreshDailyFinanceSnapshot(ctx.companyId);
 
     // 3. Occupy the building's busy window for the sale duration and persist in retail_orders
-    const durationSeconds = calculateRetailDuration(input.kind, input.amount, building.size || 1, {
-      quality,
-      price: unitPrice,
-      buildingKind: building.kind
-    });
+    // (durationSeconds was computed and validated against the tier limit
+    // before stock was consumed)
     const now = new Date().toISOString();
     const finishesAt = new Date(Date.now() + durationSeconds * 1000).toISOString();
     const updatedBuilding = buildingRepository.updateBusyUntil(building.id, ctx.companyId, finishesAt);

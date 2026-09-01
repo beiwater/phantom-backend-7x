@@ -57,6 +57,13 @@ export function runMigrations(db: DatabaseSync): void {
   if (!companyCols.includes('show_online_indicator')) db.exec('ALTER TABLE companies ADD COLUMN show_online_indicator INTEGER DEFAULT 1');
   if (!companyCols.includes('moderator_sign')) db.exec('ALTER TABLE companies ADD COLUMN moderator_sign INTEGER DEFAULT 0');
 
+  // Issue #97: supporter package state (Supporters guide). supporter_until is
+  // the ISO UTC datetime the purchased supporter term ends;
+  // supporter_certificates counts the supporter certificates awarded by
+  // supporter package purchases (one per purchase, shown in the display case).
+  if (!companyCols.includes('supporter_until')) db.exec('ALTER TABLE companies ADD COLUMN supporter_until TEXT');
+  if (!companyCols.includes('supporter_certificates')) db.exec('ALTER TABLE companies ADD COLUMN supporter_certificates INTEGER DEFAULT 0');
+
   // P1-06: persisted notification preferences
   db.exec(`
     CREATE TABLE IF NOT EXISTS notification_preferences (
@@ -182,4 +189,59 @@ export function runMigrations(db: DatabaseSync): void {
     CREATE UNIQUE INDEX IF NOT EXISTS uq_display_case_company_slot
       ON display_case(company_id, slot);
   `);
-}
+
+  // Issue #95: building auctions. building_auctions escrows a listed building
+  // (the buildings row is deleted while the auction runs; the auction row
+  // snapshots kind/size/cost/name/category, abundance and robotics state so
+  // the building can be re-created for the winner). building_auction_bids
+  // holds the hidden sealed bids with their escrowed cash amounts — one active
+  // bid per company per auction (re-bidding updates it).
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS building_auctions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      building_id INTEGER NOT NULL,
+      building_kind TEXT NOT NULL,
+      building_size INTEGER NOT NULL,
+      building_cost REAL NOT NULL DEFAULT 0,
+      building_name TEXT,
+      building_category TEXT,
+      realm INTEGER NOT NULL DEFAULT 0,
+      seller_id INTEGER NOT NULL,
+      min_bid REAL NOT NULL,
+      guaranteed_return REAL NOT NULL,
+      promoted INTEGER NOT NULL DEFAULT 0,
+      status TEXT NOT NULL DEFAULT 'active',
+      winner_id INTEGER,
+      final_price REAL,
+      seller_proceeds REAL,
+      settled_at TEXT,
+      robots_installed INTEGER NOT NULL DEFAULT 0,
+      robots_quality INTEGER NOT NULL DEFAULT 0,
+      locked_product INTEGER,
+      abundance REAL,
+      original_abundance REAL,
+      started_at TEXT NOT NULL,
+      closes_at TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS building_auction_bids (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      auction_id INTEGER NOT NULL,
+      company_id INTEGER NOT NULL,
+      amount REAL NOT NULL,
+      escrowed REAL NOT NULL DEFAULT 0,
+      status TEXT NOT NULL DEFAULT 'active',
+      created_at TEXT NOT NULL,
+      updated_at TEXT,
+      UNIQUE (auction_id, company_id)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_building_auctions_status
+      ON building_auctions(status, closes_at);
+    CREATE INDEX IF NOT EXISTS idx_building_auctions_seller
+      ON building_auctions(seller_id, status);
+    CREATE INDEX IF NOT EXISTS idx_building_auction_bids_auction
+      ON building_auction_bids(auction_id, status);
+  `);
+ }

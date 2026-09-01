@@ -1,3 +1,5 @@
+import { DomainError } from '../../errors/domain-error.ts';
+
 export interface LevelTier {
   start: number;
   kind: string;
@@ -55,7 +57,20 @@ export interface CapabilityCheck {
 }
 export type CapabilityKey = Parameters<typeof checkCapability>[1];
 
+// Issue #99: decompiled leveling-guide correction — contracts (send/accept
+// supply agreements) unlock at level 2, not at the level-5 tier boundary the
+// z9 tier table encodes. The override keeps LEVEL_TIERS canonical while
+// checkCapability stays the single decision point for capability gates.
+const CAPABILITY_MIN_LEVEL_OVERRIDES: Partial<Record<CapabilityKey, number>> = {
+  contracts: 2
+};
+
 export function checkCapability(level: number, capability: keyof Omit<LevelTier, 'start' | 'kind' | 'name' | 'maxBuildings' | 'timeLimitS'>): CapabilityCheck {
+  const minLevel = CAPABILITY_MIN_LEVEL_OVERRIDES[capability];
+  if (minLevel !== undefined) {
+    const allowed = Math.max(0, Math.floor(level)) >= minLevel;
+    return { allowed, requiredLevel: minLevel };
+  }
   const tier = getTierForLevel(level);
   const allowed = Boolean(tier[capability]);
   if (allowed) return { allowed: true, requiredLevel: tier.start };
@@ -78,16 +93,78 @@ export class CapabilityError extends Error {
 
 }
 
+// ---------------------------------------------------------------------------
+// Issue #99: canonical cumulative XP table (decompiled leveling guide).
+// getCumulativeXpForLevel(level) returns the TOTAL accumulated XP required to
+// reach `level`. The exact server-side per-level table is not present in the
+// decompiled client (data/decompile/leveling.json only ships the s5t chart
+// curve), so the audited anchor points below are canonical and intermediate
+// levels are linearly interpolated between them.
+// ---------------------------------------------------------------------------
+export const LEVEL_CAP = 60;
+
+const XP_ANCHORS: ReadonlyArray<readonly [level: number, cumulativeXp: number]> = [
+  [0, 0],
+  [1, 5],
+  [5, 50],
+  [10, 550],
+  [15, 6_000],
+  [20, 68_000],
+  [25, 250_000],
+  [30, 600_000],
+  [35, 1_200_000],
+  [40, 2_100_000],
+  [45, 3_300_000],
+  [50, 4_800_000],
+  [55, 6_600_000],
+  [60, 8_700_000]
+];
+
+export function getCumulativeXpForLevel(level: number): number {
+  const l = Math.max(0, Math.min(LEVEL_CAP, Math.floor(level)));
+  for (let i = 1; i < XP_ANCHORS.length; i++) {
+    const [hiLevel, hiXp] = XP_ANCHORS[i];
+    if (l <= hiLevel) {
+      const [loLevel, loXp] = XP_ANCHORS[i - 1];
+      if (l === loLevel) return loXp;
+      return Math.round(loXp + ((hiXp - loXp) * (l - loLevel)) / (hiLevel - loLevel));
+    }
+  }
+  return XP_ANCHORS[XP_ANCHORS.length - 1][1];
+}
+
+/**
+ * XP a company currently at `level` must still earn to advance to level + 1 —
+ * the delta of the canonical cumulative table (Issue #99). At the level cap
+ * there is no next level, so the requirement can never be satisfied.
+ */
 export function getXpRequiredForLevel(level: number): number {
-  const l = Math.max(0, Math.min(60, Math.floor(level)));
-  // XP progression curve: starts at 40 XP for L0, gradually increases
-  if (l <= 20) {
-    return 40 + l * 5; // L0: 40, L1: 45, L2: 50, ..., L5: 65, ..., L20: 140
+  const l = Math.max(0, Math.min(LEVEL_CAP, Math.floor(level)));
+  if (l >= LEVEL_CAP) return Infinity;
+  return Math.max(1, getCumulativeXpForLevel(l + 1) - getCumulativeXpForLevel(l));
+}
+
+/**
+ * Issue #99: queue-duration caps per company tier — 2h at L0-4, 24h at
+ * L5-14, 48h at L15+. The tier table carries timeLimitS; queue-start use
+ * cases MUST enforce it through this gate instead of treating it as
+ * informational.
+ */
+export class QueueDurationLimitError extends DomainError {
+  constructor(durationSeconds: number, limitSeconds: number, subject: string) {
+    super(
+      `${subject} duration of ${durationSeconds}s exceeds the ${limitSeconds}s queue duration limit for your company level.`,
+      400,
+      'QUEUE_DURATION_LIMIT'
+    );
   }
-  if (l <= 40) {
-    return 140 + (l - 20) * 8;
+}
+
+export function assertQueueDuration(level: number, durationSeconds: number, subject: string): void {
+  const limit = getTierForLevel(level).timeLimitS;
+  if (durationSeconds > limit) {
+    throw new QueueDurationLimitError(durationSeconds, limit, subject);
   }
-  return 300 + (l - 40) * 12;
 }
 
 export interface LevelInfoDTO {
@@ -127,7 +204,12 @@ export function computeLevelInfo(company: {
   const level = Number.isFinite(company.level) ? Number(company.level) : 0;
   const experience = Number.isFinite(company.experience) ? Number(company.experience) : 0;
   const tier = getTierForLevel(level);
-  const xpNeeded = getXpRequiredForLevel(level);
+  // Issue #99: experienceToNextLevel is the canonical cumulative-table delta
+  // for the current level; at the cap there is no next level, so the last
+  // earned delta is reported (finite, keeps the client XP bar well-defined).
+  const xpToNext = level >= LEVEL_CAP
+    ? getCumulativeXpForLevel(LEVEL_CAP) - getCumulativeXpForLevel(LEVEL_CAP - 1)
+    : getXpRequiredForLevel(level);
 
   return {
     level,
@@ -135,12 +217,12 @@ export function computeLevelInfo(company: {
     ratingCode: company.rating || "BBB",
     inTutorial: false,
     experience,
-    experienceToNextLevel: xpNeeded,
+    experienceToNextLevel: xpToNext,
     maxBuildings: tier.maxBuildings + (company.extra_building_slots || 0),
     timeLimit: tier.timeLimitS,
     capabilities: {
       scrape: tier.scrape,
-      contracts: tier.contracts,
+      contracts: checkCapability(level, 'contracts').allowed,
       seasonal: tier.seasonal,
       research: tier.research,
       bonds: tier.bonds,
