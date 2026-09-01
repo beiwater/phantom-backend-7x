@@ -55,8 +55,9 @@ export function estimateConstructionCost(kind: string, sizeUnits: number = 1): C
     throw new ValidationError(`Unknown building kind: ${kind}`);
   }
   const meta = getBuildingMeta(kind);
+  const isFreeOrRecreation = meta.cost === 0 || meta.category === 'recreation' || meta.category === 'seasonal';
   const cost = meta.cost * sizeUnits;
-  const materials = getConstructionMaterials(sizeUnits);
+  const materials = isFreeOrRecreation ? [] : getConstructionMaterials(sizeUnits);
 
   return { cost, materials };
 }

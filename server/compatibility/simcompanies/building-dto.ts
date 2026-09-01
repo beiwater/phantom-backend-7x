@@ -43,27 +43,25 @@ export function toSimCompaniesBuildingDTO(
   if (activeQueue) {
     const resource = getResourceDef(activeQueue.kind);
     const canFetch = new Date(activeQueue.finishesAt).getTime() <= Date.now();
+    const isSales = building.category === 'sales';
     busyObj = {
       id: activeQueue.id,
       started: activeQueue.startedAt,
       duration: Number(activeQueue.durationSeconds) || 0,
       accelerationFactor: 1,
-      category: 'r',
-      canFetch,
+      category: isSales ? 's' : 'r',
+      canFetch: isSales ? false : canFetch,
       manualResolve: false,
       resource: {
         kind: activeQueue.kind,
-        name: `Resource #${activeQueue.kind}`,
-        // P0-02: quality/cost must always be finite numbers. Legacy rows
-        // persisted without a cost basis fall back to on-the-fly computation
-        // from current warehouse data instead of null/undefined ($NaN).
+        name: resource?.name || `Resource #${activeQueue.kind}`,
         quality: Math.max(0, Math.floor(Number(activeQueue.quality) || 0)),
         unitCost: finiteOr(
           activeQueue.cost,
           computeFallbackUnitCost(activeQueue)
         ),
         amount: Number(activeQueue.amount) || 0,
-        amountAvailableNow: canFetch ? Number(activeQueue.amount) || 0 : 0,
+        amountAvailableNow: isSales ? 0 : (canFetch ? Number(activeQueue.amount) || 0 : 0),
         image: resource?.image || ''
       }
     };

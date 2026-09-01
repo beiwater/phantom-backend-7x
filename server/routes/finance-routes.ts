@@ -69,14 +69,22 @@ export async function handleFinanceRoutes(
   currentCompanyId: number | null
 ): Promise<boolean> {
   const requestedCompanyMatch = pathname.match(/\/companies\/(\d+|me)\//);
+  const isCurrentAdmin = currentCompanyId ? Boolean(
+    (db.prepare('SELECT p.is_admin FROM players p JOIN companies c ON c.player_id = p.player_id WHERE c.company_id = ?').get(currentCompanyId) as { is_admin?: number } | undefined)?.is_admin
+  ) : false;
+
   const authorizeRequestedCompany = (): number | null => {
     if (!currentCompanyId) {
       sendJson(res, { error: 'Unauthorized' }, 401);
       return null;
     }
-    if (requestedCompanyMatch && requestedCompanyMatch[1] !== 'me' && Number(requestedCompanyMatch[1]) !== currentCompanyId) {
-      sendJson(res, { error: 'Unauthorized' }, 401);
-      return null;
+    if (requestedCompanyMatch && requestedCompanyMatch[1] !== 'me') {
+      const targetId = Number(requestedCompanyMatch[1]);
+      if (targetId !== currentCompanyId && !isCurrentAdmin) {
+        sendJson(res, { error: 'Unauthorized' }, 401);
+        return null;
+      }
+      return targetId;
     }
     return currentCompanyId;
   };
