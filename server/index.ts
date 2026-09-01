@@ -5,6 +5,7 @@ import { RequestBodyError, sendJson } from './routes/utils.ts';
 import { setupWebSocket } from './ws/websocket.ts';
 import { startExpiredSessionCleanup } from './auth/session.ts';
 import { startScheduler } from './scheduler/timetable.ts';
+import { wireGameNotifications } from './application/notifications.ts';
 import './scheduler/scheduler-routes.ts';
 
 // Issue #17: purge expired sessions at startup and every hour thereafter.
@@ -32,6 +33,8 @@ const server = http.createServer(async (req, res) => {
 });
 
 setupWebSocket(server);
+
+wireGameNotifications();
 
 server.listen(CONFIG.PORT, CONFIG.HOST, () => {
   console.log(`===================================================`);

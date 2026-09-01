@@ -1,5 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { readJsonBody, sendJson } from './utils.ts';
+import { gameNotificationsRepository } from '../repositories/game-notifications-repository.ts';
 import { db } from '../db/database.ts';
 import { getCompanyById } from '../game/company.ts';
 import { checkRateLimit } from '../security/rate-limiter.ts';
@@ -179,13 +180,18 @@ export async function handleSocialRoutes(
     pathname === '/api/v2/game-notifications' ||
     pathname.match(/^\/api\/v2\/companies\/(\d+|me)\/game-notifications\/(?:\d+\/)?$/);
   if (gameNotificationsMatch) {
+    if (!currentCompanyId) {
+      sendJson(res, { error: 'Unauthorized' }, 401);
+      return true;
+    }
     if (method === 'DELETE') {
+      gameNotificationsRepository.markAllRead(currentCompanyId);
       sendJson(res, { success: true });
       return true;
     }
     sendJson(res, {
-      notifications: [],
-      unreadCount: 0
+      notifications: gameNotificationsRepository.list(currentCompanyId),
+      unreadCount: gameNotificationsRepository.unreadCount(currentCompanyId)
     });
     return true;
   }
