@@ -6,7 +6,8 @@ import { CONFIG } from '../config.ts';
 fs.mkdirSync(CONFIG.DATA_DIR, { recursive: true });
 const dbPath = path.join(CONFIG.DATA_DIR, 'simcompanies.sqlite');
 export const db = new DatabaseSync(dbPath);
-
+db.exec('PRAGMA busy_timeout = 10000;');
+db.exec('PRAGMA journal_mode = WAL;');
 export function initializeDatabaseSchema(database: DatabaseSync = db): void {
   // Initialize all core tables
   database.exec(`

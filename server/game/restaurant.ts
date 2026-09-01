@@ -958,7 +958,7 @@ export async function updateRestaurantProperties(
     }
     const activeRun = getActiveRestaurantRunRow(buildingId, companyId);
     let rating = computeCurrentRating(companyId, { goodService, isLuxury, menu, menuPrice });
-    if (!keepOpen && current.keepOpen && !styleChanged && current.rating > 0 && !activeRun) {
+    if (!keepOpen && current.keepOpen && !styleChanged && current.rating > 0) {
       rating = round2(current.rating * 0.875);
     }
     const now = new Date().toISOString();
