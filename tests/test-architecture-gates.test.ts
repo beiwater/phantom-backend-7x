@@ -47,9 +47,52 @@ function testArchitectureGates() {
     'Architecture Violation: Migrated building-routes.ts must NOT import db directly!'
   );
 
+  // Application use cases orchestrate repositories/use cases; raw SQL belongs
+  // in repositories. Legacy violators are enumerated so the list can only
+  // shrink (same policy as the route allowlist above).
+  const appDir = path.resolve('server/application');
+  const applicationRawSqlAllowlist = new Set([
+    // Phase 8: scheduler business jobs still move money via inline SQL;
+    // repository extraction tracked by the hardening issue.
+    'daily-jobs.ts',
+    // Market take-order + retail fulfilment write their authoritative
+    // cash-ledger rows inline; moves to a ledger repository.
+    'take-order.ts',
+    'retail-use-cases.ts',
+    'start-retail.ts'
+  ]);
+
+  const applicationViolations: string[] = [];
+  for (const entry of fs.readdirSync(appDir, { recursive: true })) {
+    const rel = String(entry);
+    if (!rel.endsWith('.ts')) continue;
+    const content = fs.readFileSync(path.join(appDir, rel), 'utf-8');
+    if (content.includes('db.prepare(') || content.includes('db.exec(')) {
+      applicationViolations.push(rel);
+      const base = path.basename(rel);
+      assert(
+        applicationRawSqlAllowlist.has(base),
+        `Architecture Violation: application/${rel} executes raw SQL (db.prepare/db.exec) — move it to a repository`
+      );
+    }
+  }
+
+  // --- Domain purity: zero IO imports --------------------------------------
+  const domainDir = path.resolve('server/domain');
+  for (const entry of fs.readdirSync(domainDir, { recursive: true })) {
+    const rel = String(entry);
+    if (!rel.endsWith('.ts')) continue;
+    const content = fs.readFileSync(path.join(domainDir, rel), 'utf-8');
+    assert(
+      !/from\s+['"].*(db\/|repositories\/|routes\/|node:http)/.test(content),
+      `Architecture Violation: domain/${rel} imports IO (db/repositories/routes/http) — domain must stay pure`
+    );
+  }
+
   console.log(`Verified ${routeFiles.length} route files:`);
   console.log(`- Migrated routes without direct DB imports: ${routeFiles.length - directDbImporters.length}`);
   console.log(`- Remaining legacy routes on migration allowlist: ${directDbImporters.length} (${directDbImporters.join(', ')})`);
+  console.log(`- Application files with raw SQL (allowlisted): ${applicationViolations.length} (${applicationViolations.join(', ')})`);
   console.log('✅ Architecture Gates passed successfully!');
 }
 
