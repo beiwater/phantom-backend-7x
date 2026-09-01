@@ -103,6 +103,54 @@ export class WarehouseRepository {
     return true;
   }
 
+  /** Total available amount for a kind, optionally exact-quality. */
+  getAvailableAmount(
+    companyId: number,
+    kind: number,
+    mode: 'exact' | 'range',
+    quality: number
+  ): number {
+    const where = mode === 'exact' ? 'AND quality = ?' : '';
+    const params = mode === 'exact' ? [companyId, kind, quality] : [companyId, kind];
+    const row = this.database
+      .prepare(
+        `SELECT COALESCE(SUM(amount), 0) AS total FROM warehouse
+         WHERE company_id = ? AND kind = ? AND amount > 0 ${where}`
+      )
+      .get(...params) as { total: number | bigint };
+    return Number(row?.total) || 0;
+  }
+
+  /**
+   * Restaurant-style FIFO batch read: exact quality or ordered by quality
+   * direction. Returns raw batch rows with their cost components.
+   */
+  listBatchesForConsumption(
+    companyId: number,
+    kind: number,
+    mode: 'exact' | 'high' | 'low',
+    quality: number
+  ): Array<Record<string, number>> {
+    const where = mode === 'exact' ? 'AND quality = ?' : '';
+    const order = mode === 'high' ? 'quality DESC, id ASC' : 'quality ASC, id ASC';
+    const params = mode === 'exact' ? [companyId, kind, quality] : [companyId, kind];
+    return this.database
+      .prepare(
+        `SELECT id, quality, amount, cost_workers, cost_admin, cost_material1, cost_material2, cost_market
+         FROM warehouse
+         WHERE company_id = ? AND kind = ? AND amount > 0 ${where}
+         ORDER BY ${order}`
+      )
+      .all(...params) as Array<Record<string, number>>;
+  }
+
+  /** Debit one batch row; guarded so concurrent consumption cannot go negative. */
+  debitBatch(batchId: number, amount: number): void {
+    this.database
+      .prepare('UPDATE warehouse SET amount = amount - ?, updated_at = ? WHERE id = ? AND amount >= ?')
+      .run(amount, new Date().toISOString(), batchId, amount);
+  }
+
   addResource(
     companyId: number,
     kind: number,

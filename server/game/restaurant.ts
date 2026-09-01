@@ -1,6 +1,9 @@
 import { db } from '../db/database.ts';
 import { runInTransaction } from '../db/transaction.ts';
 import { getBuildingById, type BuildingDbRow } from './buildings.ts';
+import { buildingRepository } from '../repositories/building-repository.ts';
+import { restaurantRepository } from '../repositories/restaurant-repository.ts';
+import { warehouseRepository } from '../repositories/warehouse-repository.ts';
 import { updateCompanyMoney } from './company.ts';
 import { getResourceDef } from './constants.ts';
 import { getCompanyBoostSettings } from './simboost-settings.ts';
@@ -326,21 +329,11 @@ export function computeRestaurantWages(
 }
 
 function getCooManagement(companyId: number): number {
-  const row = db.prepare(`
-    SELECT COALESCE(MAX(skill_management), 0) AS skill
-    FROM executives
-    WHERE company_id = ? AND LOWER(position) IN ('coo', 'coo apprentice') AND status = 'employed'
-  `).get(companyId) as { skill: number };
-  return clamp(Number(row?.skill) || 0, 0, 100);
+  return clamp(restaurantRepository.getCooManagement(companyId), 0, 100);
 }
 
 function getCmoCommunication(companyId: number): number {
-  const row = db.prepare(`
-    SELECT COALESCE(MAX(skill_communication), 0) AS skill
-    FROM executives
-    WHERE company_id = ? AND LOWER(position) IN ('cmo', 'cmo apprentice') AND status = 'employed'
-  `).get(companyId) as { skill: number };
-  return clamp(Number(row?.skill) || 0, 0, 100);
+  return clamp(restaurantRepository.getCmoCommunication(companyId), 0, 100);
 }
 
 function getAdministrationOverhead(companyId: number): number {
@@ -434,20 +427,13 @@ export function computeRestaurantOccupancy(input: number | {
 }
 
 function getRestaurantMarket(companyId: number, currentBuildingId: number): { marketGuests: number; activeRestaurantSeats: number } {
-  const workers = db.prepare(`
-    SELECT COALESCE(SUM(CASE WHEN kind != 'r' THEN size * 100 ELSE 0 END), 0) AS workers
-    FROM buildings
-    WHERE company_id != ?
-  `).get(companyId) as { workers: number };
-  const restaurants = db.prepare(`
-    SELECT id, size FROM buildings WHERE kind = 'r' AND id != ?
-  `).all(currentBuildingId) as Array<{ id: number; size: number }>;
-  const activeRestaurantSeats = restaurants.reduce((sum, b) => {
+  const market = restaurantRepository.getRestaurantMarket(companyId, currentBuildingId);
+  const activeRestaurantSeats = market.activeRestaurants.reduce((sum, b) => {
     const properties = getRestaurantProperties(b.id);
     return sum + (properties.keepOpen && properties.menu.length > 0 ? properties.seats : 0);
   }, 0);
   return {
-    marketGuests: Math.max(1000, Number(workers?.workers) || 0),
+    marketGuests: market.marketGuests,
     activeRestaurantSeats
   };
 }
@@ -470,68 +456,46 @@ function getDefaultProperties(buildingId: number, size: number): RestaurantPrope
 }
 
 export function getRestaurantProperties(buildingId: number, companyId?: number | null): RestaurantProperties {
-  const row = db.prepare(`
-    SELECT * FROM restaurant_properties
-    WHERE building_id = ? AND (? IS NULL OR company_id = ?)
-  `).get(buildingId, companyId ?? null, companyId ?? null) as {
-    building_id: number;
-    company_id: number;
-    good_service: number;
-    is_luxury: number;
-    professional_staff: number;
-    keep_open: number;
-    menu_json: string;
-    menu_price: number;
-    rating: number;
-    occupancy: number;
-    last_cycle_at: string | null;
-    reconstruction_until: string | null;
-  } | undefined;
+  const row = restaurantRepository.findPropertyRow(buildingId, companyId);
   const building = getBuildingById(buildingId);
   const size = building?.size || 1;
   if (!row) return getDefaultProperties(buildingId, size);
   let menu: RestaurantMenuItem[] = [];
   try {
-    menu = JSON.parse(row.menu_json || '[]');
+    menu = JSON.parse(row.menuJson || '[]');
   } catch {
     menu = [];
   }
-  const menuPrice = Number(row.menu_price) >= RESTAURANT_MENU_PRICE_MIN
-    ? validateRestaurantMenuPrice(row.menu_price)
+  const menuPrice = row.menuPrice >= RESTAURANT_MENU_PRICE_MIN
+    ? validateRestaurantMenuPrice(row.menuPrice)
     : RESTAURANT_MENU_PRICE_MIN;
-  const goodService = Boolean(row.good_service);
+  const goodService = row.goodService;
   return {
     buildingId,
     goodService,
-    isLuxury: Boolean(row.is_luxury),
-    professionalStaff: Boolean(row.professional_staff) || goodService,
-    keepOpen: Boolean(row.keep_open),
+    isLuxury: row.isLuxury,
+    professionalStaff: row.professionalStaff || goodService,
+    keepOpen: row.keepOpen,
     menu,
     menuPrice,
-    rating: clamp(Number(row.rating) || 0, 0, RESTAURANT_RATING_MAX),
-    occupancy: clamp(Number(row.occupancy) || 0, 0, 1),
-    seats: getRestaurantSeats(size, Boolean(row.is_luxury)),
-    lastCycleAt: row.last_cycle_at || null,
-    reconstructionUntil: row.reconstruction_until || null
+    rating: clamp(row.rating, 0, RESTAURANT_RATING_MAX),
+    occupancy: clamp(row.occupancy, 0, 1),
+    seats: getRestaurantSeats(size, row.isLuxury),
+    lastCycleAt: row.lastCycleAt,
+    reconstructionUntil: row.reconstructionUntil
   };
 }
 
 function getActiveRestaurantRunRow(buildingId: number, companyId?: number | null): RestaurantRunDbRow | undefined {
-  return db.prepare(`
-    SELECT * FROM restaurant_runs
-    WHERE building_id = ? AND resolved = 0 AND (? IS NULL OR company_id = ?)
-    ORDER BY id DESC LIMIT 1
-  `).get(buildingId, companyId ?? null, companyId ?? null) as RestaurantRunDbRow | undefined;
+  return restaurantRepository.getActiveRunRow(buildingId, companyId) as RestaurantRunDbRow | undefined;
 }
 
 export function getRestaurantBusy(buildingId: number): Record<string, unknown> | null {
-  const property = db.prepare(`
-    SELECT reconstruction_started_at, reconstruction_until FROM restaurant_properties WHERE building_id = ?
-  `).get(buildingId) as { reconstruction_started_at: string | null; reconstruction_until: string | null } | undefined;
+  const property = restaurantRepository.findReconstructionWindow(buildingId);
   const now = Date.now();
-  if (property?.reconstruction_until && new Date(property.reconstruction_until).getTime() > now) {
-    const started = property.reconstruction_started_at || new Date(now).toISOString();
-    const duration = Math.max(1, Math.round((new Date(property.reconstruction_until).getTime() - new Date(started).getTime()) / 1000));
+  if (property?.until && new Date(property.until).getTime() > now) {
+    const started = property.startedAt || new Date(now).toISOString();
+    const duration = Math.max(1, Math.round((new Date(property.until).getTime() - new Date(started).getTime()) / 1000));
     return {
       id: buildingId,
       started,
@@ -677,10 +641,7 @@ function mapRunRow(row: RestaurantRunDbRow): RestaurantRun {
 }
 
 function getAvailableAmount(companyId: number, kind: number, mode: RestaurantQualityMode, quality: number): number {
-  const where = mode === 'exact' ? 'AND quality = ?' : '';
-  const params = mode === 'exact' ? [companyId, kind, quality] : [companyId, kind];
-  const row = db.prepare(`SELECT COALESCE(SUM(amount), 0) AS total FROM warehouse WHERE company_id = ? AND kind = ? AND amount > 0 ${where}`).get(...params) as { total: number | bigint };
-  return Number(row?.total) || 0;
+  return warehouseRepository.getAvailableAmount(companyId, kind, mode === 'exact' ? 'exact' : 'range', quality);
 }
 
 function consumeRestaurantResource(
@@ -689,10 +650,7 @@ function consumeRestaurantResource(
   amount: number
 ): { transactions: Array<{ kind: number; quality: number; amount: number; cost: number }>; totalCost: number } | null {
   const mode = normalizedQualityMode(item);
-  const where = mode === 'exact' ? 'AND quality = ?' : '';
-  const order = mode === 'high' ? 'quality DESC, id ASC' : 'quality ASC, id ASC';
-  const params = mode === 'exact' ? [companyId, item.resource, item.quality] : [companyId, item.resource];
-  const rows = db.prepare(`SELECT id, quality, amount, cost_workers, cost_admin, cost_material1, cost_material2, cost_market FROM warehouse WHERE company_id = ? AND kind = ? AND amount > 0 ${where} ORDER BY ${order}`).all(...params) as Array<Record<string, number>>;
+  const rows = warehouseRepository.listBatchesForConsumption(companyId, item.resource, mode, item.quality);
   const available = rows.reduce((sum, row) => sum + Number(row.amount || 0), 0);
   if (available + 1e-9 < amount) return null;
   let remaining = amount;
@@ -702,7 +660,7 @@ function consumeRestaurantResource(
     if (remaining <= 0) break;
     const consumed = Math.min(remaining, Number(row.amount) || 0);
     const unitCost = Number(row.cost_workers || 0) + Number(row.cost_admin || 0) + Number(row.cost_material1 || 0) + Number(row.cost_material2 || 0) + Number(row.cost_market || 0);
-    db.prepare('UPDATE warehouse SET amount = amount - ?, updated_at = ? WHERE id = ? AND amount >= ?').run(consumed, new Date().toISOString(), row.id, consumed);
+    warehouseRepository.debitBatch(Number(row.id), consumed);
     transactions.push({ kind: item.resource, quality: Number(row.quality) || 0, amount: -consumed, cost: unitCost });
     totalCost += consumed * unitCost;
     remaining -= consumed;
@@ -788,13 +746,7 @@ function startRestaurantCycleInTransaction(buildingId: number, companyId: number
 
   const cycleStart = startAt.toISOString();
   const cycleEnd = new Date(startAt.getTime() + RESTAURANT_CYCLE_MS).toISOString();
-  const insert = db.prepare(`
-    INSERT INTO restaurant_runs (
-      building_id, company_id, datetime, rating, new_rating, rating_before, rating_after, rating_delta,
-      occupied, capacity, occupancy, revenue, cost, profit, menu_price, review, menu_json,
-      good_service, is_luxury, resolved, cycle_start, cycle_end, prepared, served, spoiled, food_cost, wages
-    ) VALUES (?, ?, ?, ?, NULL, ?, NULL, NULL, NULL, ?, NULL, NULL, ?, NULL, ?, '', ?, ?, ?, 0, ?, ?, ?, NULL, NULL, ?, ?)
-  `).run(
+  const runId = restaurantRepository.insertRun([
     buildingId,
     companyId,
     cycleStart,
@@ -811,14 +763,14 @@ function startRestaurantCycleInTransaction(buildingId: number, companyId: number
     prepared,
     foodCost,
     wages
-  );
-  db.prepare('UPDATE restaurant_properties SET last_cycle_at = ?, updated_at = ? WHERE building_id = ?').run(cycleStart, new Date().toISOString(), buildingId);
-  const run = mapRunRow(db.prepare('SELECT * FROM restaurant_runs WHERE id = ?').get(Number(insert.lastInsertRowid)) as RestaurantRunDbRow);
+  ]);
+  restaurantRepository.touchLastCycle(buildingId, cycleStart);
+  const run = mapRunRow(restaurantRepository.findRunRow(runId) as RestaurantRunDbRow);
   return { building: getBuildingById(buildingId), run, resourceTransactions, moneyUpdate: -cost };
 }
 
 function settleRestaurantRunInTransaction(runId: number, now: Date): { run: RestaurantRun; nextCycle: RestaurantRun | null; moneyUpdate: number } {
-  const row = db.prepare('SELECT * FROM restaurant_runs WHERE id = ?').get(runId) as RestaurantRunDbRow | undefined;
+  const row = restaurantRepository.findRunRow(runId) as RestaurantRunDbRow | undefined;
   if (!row) throw new Error('Restaurant run not found');
   if (row.resolved) return { run: mapRunRow(row), nextCycle: null, moneyUpdate: 0 };
   const end = new Date(row.cycle_end || row.datetime).getTime();
@@ -853,16 +805,21 @@ function settleRestaurantRunInTransaction(runId: number, now: Date): { run: Rest
     menuPrice
   });
   const ratingDelta = round2(newRating - Number(row.rating || 0));
-  db.prepare(`
-    UPDATE restaurant_runs
-    SET rating_before = ?, rating_after = ?, rating_delta = ?, new_rating = ?, occupied = ?, occupancy = ?,
-        revenue = ?, profit = ?, served = ?, spoiled = ?, resolved = 1, review = ?
-    WHERE id = ? AND resolved = 0
-  `).run(row.rating, newRating, ratingDelta, newRating, served, demandOccupancy, revenue, profit, served, spoiled, `Restaurant served ${served} guests`, runId);
+  restaurantRepository.resolveRun(runId, {
+    ratingBefore: Number(row.rating),
+    ratingAfter: newRating,
+    ratingDelta,
+    newRating,
+    served,
+    occupancy: demandOccupancy,
+    revenue,
+    profit,
+    spoiled,
+    review: `Restaurant served ${served} guests`
+  });
   if (revenue !== 0) updateCompanyMoney(row.company_id, revenue);
-  db.prepare('UPDATE restaurant_properties SET rating = ?, occupancy = ?, updated_at = ? WHERE building_id = ?')
-    .run(newRating, demandOccupancy, new Date().toISOString(), row.building_id);
-  const resolved = mapRunRow(db.prepare('SELECT * FROM restaurant_runs WHERE id = ?').get(runId) as RestaurantRunDbRow);
+  restaurantRepository.updateRatingOccupancy(row.building_id, newRating, demandOccupancy);
+  const resolved = mapRunRow(restaurantRepository.findRunRow(runId) as RestaurantRunDbRow);
   let nextCycle: RestaurantRun | null = null;
   if (properties.keepOpen && canStartRestaurantCycle(row.building_id, row.company_id)) {
     try {
@@ -881,14 +838,9 @@ export async function resolveRestaurantRun(runId: number, now: Date = new Date()
 
 export function resolveDueRestaurantRunsSync(buildingId?: number, companyId?: number | null, now: Date = new Date()): void {
   runInTransaction(() => {
-    const rows = db.prepare(`
-      SELECT id FROM restaurant_runs
-      WHERE resolved = 0 AND cycle_end <= ?
-        AND (? IS NULL OR building_id = ?)
-        AND (? IS NULL OR company_id = ?)
-      ORDER BY id ASC
-    `).all(now.toISOString(), buildingId ?? null, buildingId ?? null, companyId ?? null, companyId ?? null) as Array<{ id: number }>;
-    for (const row of rows) settleRestaurantRunInTransaction(row.id, now);
+    for (const runId of restaurantRepository.listDueRunIds(now.toISOString(), buildingId, companyId)) {
+      settleRestaurantRunInTransaction(runId, now);
+    }
   }, { immediate: true });
 }
 
@@ -897,8 +849,7 @@ export async function resolveDueRestaurantRuns(buildingId?: number, companyId?: 
 }
 export async function getRestaurantRuns(buildingId: number, companyId?: number | null): Promise<RestaurantRun[]> {
   await resolveDueRestaurantRuns(buildingId, companyId);
-  const rows = db.prepare('SELECT * FROM restaurant_runs WHERE building_id = ? AND (? IS NULL OR company_id = ?) ORDER BY id DESC LIMIT 30')
-    .all(buildingId, companyId ?? null, companyId ?? null) as RestaurantRunDbRow[];
+  const rows = restaurantRepository.listRecentRunRows(buildingId, companyId) as RestaurantRunDbRow[];
   return rows.map(mapRunRow);
 }
 
@@ -954,51 +905,29 @@ export async function updateRestaurantProperties(
       moneyUpdate -= reconstructionCost;
       reconstructionStartedAt = new Date().toISOString();
       reconstructionUntil = new Date(Date.now() + building.size * RESTAURANT_RECONSTRUCTION_SECONDS * 1000).toISOString();
-      db.prepare('UPDATE buildings SET busy_until = ? WHERE id = ? AND company_id = ?').run(reconstructionUntil, buildingId, companyId);
+      buildingRepository.updateBusyUntil(buildingId, companyId, reconstructionUntil);
     }
     const activeRun = getActiveRestaurantRunRow(buildingId, companyId);
     let rating = computeCurrentRating(companyId, { goodService, isLuxury, menu, menuPrice });
     if (!keepOpen && current.keepOpen && !styleChanged && current.rating > 0) {
       rating = round2(current.rating * 0.875);
     }
-    const now = new Date().toISOString();
-    db.prepare(`
-      INSERT INTO restaurant_properties (
-        building_id, company_id, good_service, is_luxury, keep_open, menu_json, menu_price, rating, occupancy,
-        updated_at, professional_staff, last_cycle_at, reconstruction_started_at, reconstruction_until, rating_penalty_applied
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      ON CONFLICT(building_id) DO UPDATE SET
-        company_id = excluded.company_id,
-        good_service = excluded.good_service,
-        is_luxury = excluded.is_luxury,
-        keep_open = excluded.keep_open,
-        menu_json = excluded.menu_json,
-        menu_price = excluded.menu_price,
-        rating = excluded.rating,
-        occupancy = excluded.occupancy,
-        updated_at = excluded.updated_at,
-        professional_staff = excluded.professional_staff,
-        last_cycle_at = excluded.last_cycle_at,
-        reconstruction_started_at = excluded.reconstruction_started_at,
-        reconstruction_until = excluded.reconstruction_until,
-        rating_penalty_applied = excluded.rating_penalty_applied
-    `).run(
+    restaurantRepository.upsertProperties({
       buildingId,
       companyId,
-      goodService ? 1 : 0,
-      isLuxury ? 1 : 0,
-      keepOpen ? 1 : 0,
-      JSON.stringify(menu),
+      goodService,
+      isLuxury,
+      keepOpen,
+      menuJson: JSON.stringify(menu),
       menuPrice,
       rating,
-      0,
-      now,
-      goodService ? 1 : 0,
-      current.lastCycleAt,
+      occupancy: 0,
+      professionalStaff: goodService,
+      lastCycleAt: current.lastCycleAt,
       reconstructionStartedAt,
       reconstructionUntil,
-      !keepOpen && current.keepOpen ? 1 : 0
-    );
+      ratingPenaltyApplied: !keepOpen && current.keepOpen
+    });
     let cycle: RestaurantRun | null = null;
     let resourceTransactions: Array<{ kind: number; quality: number; amount: number }> = [];
     // The official PATCH endpoint starts a cycle only when keepOpen=true is
@@ -1052,9 +981,7 @@ export function getRestaurantRatings(buildingId?: number): {
 } {
   const props = buildingId ? getRestaurantProperties(buildingId) : null;
   const rating = props?.rating || 0;
-  const totalReviews = buildingId
-    ? Number((db.prepare('SELECT COUNT(*) AS count FROM restaurant_runs WHERE building_id = ? AND resolved = 1').get(buildingId) as { count: number })?.count || 0)
-    : 0;
+  const totalReviews = buildingId ? restaurantRepository.countResolvedRuns(buildingId) : 0;
   return {
     overallRating: rating,
     foodRating: round2(rating),
