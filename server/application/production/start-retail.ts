@@ -3,13 +3,13 @@ import { runInTransaction } from '../../db/transaction.ts';
 import { buildingRepository, type BuildingEntity } from '../../repositories/building-repository.ts';
 import { companyRepository } from '../../repositories/company-repository.ts';
 import { NotFoundError, ForbiddenError, ValidationError } from '../../errors/domain-error.ts';
-import { db } from '../../db/database.ts';
 import { updateCompanyMoney } from '../../game/company.ts';
 import { recordCashLedger, refreshDailyFinanceSnapshot } from '../../game/cash-ledger.ts';
 import { getResourceDef } from '../../game-data/resources.ts';
 import { assertQueueDuration } from '../../domain/leveling/level-rules.ts';
 import { addCompanyExperience } from '../../game/company.ts';
 import { getWarehouseItemExact, consumeResourceExactWithTransactions } from '../../game/warehouse.ts';
+import { retailRepository } from '../../repositories/retail-repository.ts';
 import {
   RETAIL_PRODUCTS,
   getAuthoritativeRetailPrice,
@@ -139,30 +139,19 @@ export async function startRetailUseCase(
     const finishesAt = new Date(Date.now() + durationSeconds * 1000).toISOString();
     const updatedBuilding = buildingRepository.updateBusyUntil(building.id, ctx.companyId, finishesAt);
 
-    // Track in retail_orders table (NOT active production_queues to prevent collect-production duplication exploit)
-    db.prepare(`
-      INSERT INTO retail_orders (
-        building_id,
-        company_id,
-        resource_kind,
-        quality,
-        units,
-        unit_price,
-        cost,
-        finished_at,
-        created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      building.id,
-      ctx.companyId,
-      input.kind,
+    // Track in retail_orders table (NOT active production_queues to prevent
+    // collect-production duplication exploit) — via the retail repository.
+    retailRepository.insert({
+      buildingId: building.id,
+      companyId: ctx.companyId,
+      resourceKind: input.kind,
       quality,
-      input.amount,
+      units: input.amount,
       unitPrice,
-      revenue,
-      finishesAt,
-      now
-    );
+      cost: revenue,
+      finishedAt: finishesAt,
+      createdAt: now
+    });
     // 4. Award leveling XP (1s retail = 1 XP per building size unit)
     const xpEarned = Math.max(1, Math.round(durationSeconds * (building.size || 1)));
     addCompanyExperience(ctx.companyId, xpEarned);

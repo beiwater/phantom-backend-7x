@@ -6,8 +6,8 @@
  * transaction (Issue #68); domain events fire post-commit only.
  */
 import type { GameContext } from '../../context/game-context.ts';
-import { db } from '../../db/connection.ts';
 import { runInTransaction, type TransactionContext } from '../../db/transaction.ts';
+import { recordCashLedger } from '../../game/cash-ledger.ts';
 import { eventBus } from '../../events/event-bus.ts';
 import { validateTakeOrderInput, computeExchangeFee, isSelfTrade } from '../../domain/market/market-rules.ts';
 import { ValidationError, NotFoundError, SelfTradeProhibitedError } from '../../errors/domain-error.ts';
@@ -119,16 +119,13 @@ export async function takeMarketOrder(ctx: GameContext, input: TakeMarketOrderIn
     // P0-08: the market slice writes its own authoritative MARKET ledger row
     // (the repository debit is ledger-silent by design); the legacy path
     // reclassified a generic 'g' row, the use case records 'm' directly.
-    db.prepare(`
-      INSERT INTO cash_ledger (company_id, amount, category, description, description_key, details, created_at)
-      VALUES (?, ?, 'm', ?, ?, '', ?)
-    `).run(
-      ctx.companyId,
-      -totalCost,
-      `Market purchase of ${totalBought} units of resource #${resourceKind}`,
-      `market-${resourceKind}`,
-      new Date().toISOString().replace('Z', '+00:00')
-    );
+    recordCashLedger({
+      companyId: ctx.companyId,
+      amount: -totalCost,
+      category: 'm',
+      description: `Market purchase of ${totalBought} units of resource #${resourceKind}`,
+      descriptionKey: `market-${resourceKind}`
+    });
 
     for (const fill of fills) {
       warehouseRepository.addResource(ctx.companyId, fill.kind, fill.quality, fill.amount, { market: fill.price });

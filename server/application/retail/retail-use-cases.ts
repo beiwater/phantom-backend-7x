@@ -7,6 +7,7 @@
  */
 import type { GameContext } from '../../context/game-context.ts';
 import { runInTransaction, type TransactionContext } from '../../db/transaction.ts';
+import { recordCashLedger } from '../../game/cash-ledger.ts';
 import { eventBus } from '../../events/event-bus.ts';
 import { ValidationError, NotFoundError, ConflictError } from '../../errors/domain-error.ts';
 import {
@@ -172,14 +173,13 @@ export async function collectRetailOrderUseCase(ctx: GameContext, orderId: numbe
     // Legacy parity: updateCompanyMoney recorded a generic 'g' (GAME) row;
     // the repository credit is ledger-silent, so the use case reproduces the
     // exact observable row the legacy path produced.
-    tx.db.prepare(`
-      INSERT INTO cash_ledger (company_id, amount, category, description, description_key, details, created_at)
-      VALUES (?, ?, 'g', 'Company money change', '', '', ?)
-    `).run(
-      ctx.companyId,
-      revenue,
-      new Date().toISOString().replace('Z', '+00:00')
-    );
+    recordCashLedger({
+      companyId: ctx.companyId,
+      amount: revenue,
+      category: 'g',
+      description: 'Company money change',
+      descriptionKey: ''
+    });
 
     if (!retailRepository.deleteOwned(order.id, ctx.companyId)) {
       throw new ConflictError('Retail order is no longer available');

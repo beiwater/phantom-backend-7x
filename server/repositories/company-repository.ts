@@ -194,6 +194,45 @@ export class CompanyRepository {
     }
     return result.simboosts;
   }
+
+  /** Accounting-overhead stats for one company (building count/size, COO skill). */
+  getAccountingOverheadStats(companyId: number): {
+    buildingCount: number;
+    totalSize: number;
+    cooSkill: number;
+  } {
+    const stats = this.database.prepare(`
+      SELECT
+        (SELECT COUNT(*) FROM buildings WHERE company_id = ?) AS building_count,
+        (SELECT COALESCE(SUM(size), 0) FROM buildings WHERE company_id = ?) AS total_size,
+        (SELECT COALESCE(MAX(COALESCE(skill_accounting, 0)), 0) FROM executives
+           WHERE company_id = ? AND status = 'employed' AND position = 'coo') AS coo_skill
+    `).get(companyId, companyId, companyId) as {
+      building_count: number;
+      total_size: number;
+      coo_skill: number;
+    };
+    return {
+      buildingCount: Number(stats.building_count) || 0,
+      totalSize: Number(stats.total_size) || 0,
+      cooSkill: Number(stats.coo_skill) || 0
+    };
+  }
+
+  /** Payroll rows for every company: (companyId, money, employed salary total). */
+  listExecutivePayrolls(): Array<{ companyId: number; money: number; salaries: number }> {
+    const rows = this.database.prepare(`
+      SELECT c.company_id AS company_id, c.money AS money,
+             COALESCE((SELECT SUM(e.salary) FROM executives e
+                       WHERE e.company_id = c.company_id AND e.status = 'employed'), 0) AS salaries
+      FROM companies c
+    `).all() as Array<{ company_id: number; money: number; salaries: number }>;
+    return rows.map(r => ({
+      companyId: Number(r.company_id),
+      money: Number(r.money),
+      salaries: Number(r.salaries)
+    }));
+  }
 }
 
 export const companyRepository = new CompanyRepository();

@@ -51,16 +51,7 @@ function testArchitectureGates() {
   // in repositories. Legacy violators are enumerated so the list can only
   // shrink (same policy as the route allowlist above).
   const appDir = path.resolve('server/application');
-  const applicationRawSqlAllowlist = new Set([
-    // Phase 8: scheduler business jobs still move money via inline SQL;
-    // repository extraction tracked by the hardening issue.
-    'daily-jobs.ts',
-    // Market take-order + retail fulfilment write their authoritative
-    // cash-ledger rows inline; moves to a ledger repository.
-    'take-order.ts',
-    'retail-use-cases.ts',
-    'start-retail.ts'
-  ]);
+  const applicationRawSqlAllowlist = new Set<string>([]);
 
   const applicationViolations: string[] = [];
   for (const entry of fs.readdirSync(appDir, { recursive: true })) {

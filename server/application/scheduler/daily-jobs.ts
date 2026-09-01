@@ -10,6 +10,10 @@
 import { db } from '../../db/database.ts';
 import { runInTransaction } from '../../db/transaction.ts';
 import { getCompanyById, updateCompanyMoney } from '../../game/company.ts';
+import { bondRepository } from '../../repositories/bond-repository.ts';
+import { companyRepository } from '../../repositories/company-repository.ts';
+import { governmentOrdersRepository } from '../../repositories/government-orders-repository.ts';
+import { schedulerStateRepository } from '../../repositories/scheduler-state-repository.ts';
 import { recordCashLedger } from '../../game/cash-ledger.ts';
 import { ensureSeededProjects } from '../../game/government.ts';
 import { getAllResourceDefs } from '../../game-data/resources.ts';
@@ -28,24 +32,15 @@ function round2(value: number): number {
  * bonds (issuer 999900, no company row) pay the yield to the holder directly.
  */
 export function chargeDailyBondInterest(): void {
-  const bonds = db.prepare(`
-    SELECT id, seller_company_id, buyer_company_id, amount, interest_rate
-    FROM bonds
-    WHERE status = 'active' AND buyer_company_id IS NOT NULL
-  `).all() as Array<{
-    id: number; seller_company_id: number | null; buyer_company_id: number;
-    amount: number; interest_rate: number;
-  }>;
-
-  for (const bond of bonds) {
-    const interest = round2(Number(bond.amount) * Number(bond.interest_rate));
+  for (const bond of bondRepository.findActiveHeld()) {
+    const interest = round2(bond.amount * bond.interestRate);
     if (!(interest > 0)) continue;
 
-    const holderId = Number(bond.buyer_company_id);
+    const holderId = bond.buyerCompanyId as number;
     const holder = getCompanyById(holderId);
     if (!holder) continue;
 
-    const issuerId = bond.seller_company_id === null ? null : Number(bond.seller_company_id);
+    const issuerId = bond.sellerCompanyId;
     const issuer = issuerId !== null ? getCompanyById(issuerId) : null;
 
     if (issuer) {
@@ -72,7 +67,7 @@ export function chargeDailyBondInterest(): void {
         updateCompanyMoney(holderId, paid, true);
       }
       if (paid < interest) {
-        db.prepare(`UPDATE bonds SET status = 'defaulted' WHERE id = ?`).run(bond.id);
+        bondRepository.markDefaulted(bond.id);
       }
     } else {
       recordCashLedger({
@@ -96,29 +91,20 @@ export function chargeDailyBondInterest(): void {
  * Booked to cash ledger category 'a' (accounting).
  */
 export function chargeDailyAccountingOverhead(): void {
-  const companies = db.prepare('SELECT company_id, money FROM companies').all() as Array<{
-    company_id: number; money: number;
-  }>;
-  for (const comp of companies) {
-    const companyId = Number(comp.company_id);
-    const stats = db.prepare(`
-      SELECT
-        (SELECT COUNT(*) FROM buildings WHERE company_id = ?) AS building_count,
-        (SELECT COALESCE(SUM(size), 0) FROM buildings WHERE company_id = ?) AS total_size,
-        (SELECT COALESCE(MAX(COALESCE(skill_accounting, 0)), 0) FROM executives
-           WHERE company_id = ? AND status = 'employed' AND position = 'coo') AS coo_skill
-    `).get(companyId, companyId, companyId) as { building_count: number; total_size: number; coo_skill: number };
+  for (const comp of bondRepository.listCompanyCash()) {
+    const companyId = comp.companyId;
+    const stats = companyRepository.getAccountingOverheadStats(companyId);
 
-    const buildingCount = Number(stats.building_count) || 0;
+    const buildingCount = stats.buildingCount;
     if (buildingCount === 0) continue;
 
     const ao = 1 + Math.max(0, buildingCount - 1) * 0.035;
-    const cooSkill = Math.max(0, Math.min(100, Number(stats.coo_skill) || 0));
+    const cooSkill = Math.max(0, Math.min(100, stats.cooSkill));
     const effective = ao - (ao - 1) * cooSkill / 100;
-    const charge = round2((Number(stats.total_size) || 0) * 100 * (effective - 1));
+    const charge = round2(stats.totalSize * 100 * (effective - 1));
     if (!(charge > 0)) continue;
 
-    const funds = Number(comp.money) || 0;
+    const funds = comp.money;
     const paid = round2(Math.max(0, Math.min(funds, charge)));
     if (!(paid > 0)) continue;
 
@@ -141,18 +127,11 @@ export function chargeDailyAccountingOverhead(): void {
  * daily loan accrual already uses (loans.ts).
  */
 export function debitExecutiveSalaries(): void {
-  const rows = db.prepare(`
-    SELECT c.company_id AS company_id, c.money AS money,
-           COALESCE((SELECT SUM(e.salary) FROM executives e
-                     WHERE e.company_id = c.company_id AND e.status = 'employed'), 0) AS salaries
-    FROM companies c
-  `).all() as Array<{ company_id: number; money: number; salaries: number }>;
-
-  for (const row of rows) {
-    const total = round2(Number(row.salaries) || 0);
+  for (const row of companyRepository.listExecutivePayrolls()) {
+    const total = round2(row.salaries);
     if (!(total > 0)) continue;
-    const companyId = Number(row.company_id);
-    const funds = Number(row.money) || 0;
+    const companyId = row.companyId;
+    const funds = row.money;
     const paid = round2(Math.max(0, Math.min(funds, total)));
     if (!(paid > 0)) continue;
 
@@ -175,22 +154,17 @@ export function debitExecutiveSalaries(): void {
  * with a fresh window starting at this occurrence.
  */
 export function publishGovernmentOrders(occurrence: Date): void {
-  const realmRows = db.prepare('SELECT DISTINCT realm_id FROM government_orders').all() as Array<{ realm_id: number }>;
-  const realms = realmRows.length > 0 ? realmRows.map(r => Number(r.realm_id)) : [0];
+  const realmRows = governmentOrdersRepository.listRealms();
+  const realms = realmRows.length > 0 ? realmRows : [0];
   for (const realmId of realms) {
     ensureSeededProjects(realmId);
   }
 
   const occIso = occurrence.toISOString();
-  const stale = db.prepare(`
-    SELECT id, days_to_fulfill FROM government_orders
-    WHERE deadline IS NULL OR deadline < ?
-  `).all(occIso) as Array<{ id: number; days_to_fulfill: number }>;
-  for (const order of stale) {
-    const days = Math.max(1, Number(order.days_to_fulfill) || 7);
+  for (const order of governmentOrdersRepository.listStaleOrders(occIso)) {
+    const days = Math.max(1, order.daysToFulfill || 7);
     const deadline = new Date(occurrence.getTime() + days * DAY_MS).toISOString();
-    db.prepare('UPDATE government_orders SET start_date = ?, deadline = ? WHERE id = ?')
-      .run(occIso, deadline, order.id);
+    governmentOrdersRepository.republishOrder(order.id, occIso, deadline);
   }
 }
 
@@ -232,19 +206,8 @@ export function bidTotalValue(
  * deposits refunded (same refund behaviour as deleteGovernmentBid).
  */
 export function awardGovernmentBids(occurrence: Date): void {
-  const templates = db.prepare(`
-    SELECT id, required_resources_json, unit_compensation_price
-    FROM government_orders
-    WHERE deadline IS NOT NULL AND deadline <= ? AND resource_multiplier_awarded IS NULL
-  `).all(occurrence.toISOString()) as Array<{
-    id: number; required_resources_json: string; unit_compensation_price: number;
-  }>;
-
-  for (const template of templates) {
-    const openBids = db.prepare(`
-      SELECT id, secret, price_breakdown_json FROM government_bids
-      WHERE template_id = ? AND status = 'OPEN'
-    `).all(template.id) as Array<{ id: number; secret: string; price_breakdown_json: string | null }>;
+  for (const template of governmentOrdersRepository.listAwardableTemplates(occurrence.toISOString())) {
+    const openBids = governmentOrdersRepository.listOpenBids(template.id);
     if (openBids.length === 0) continue;
 
     let winner = openBids[0];
@@ -259,31 +222,20 @@ export function awardGovernmentBids(occurrence: Date): void {
 
     for (const bid of openBids) {
       if (bid.id === winner.id) {
-        db.prepare(`UPDATE government_bids SET status = 'AWARDED' WHERE id = ?`).run(bid.id);
+        governmentOrdersRepository.markBidAwarded(bid.id);
         continue;
       }
-      db.prepare(`UPDATE government_bids SET status = 'REJECTED' WHERE id = ?`).run(bid.id);
-      const contractors = db.prepare(`
-        SELECT company_id, deposit_paid FROM government_bid_contractors
-        WHERE bid_secret = ? AND deposit_paid > 0
-      `).all(bid.secret) as Array<{ company_id: number; deposit_paid: number }>;
-      for (const contractor of contractors) {
-        const companyId = Number(contractor.company_id);
-        if (getCompanyById(companyId)) {
-          updateCompanyMoney(companyId, Number(contractor.deposit_paid) || 0);
+      governmentOrdersRepository.markBidRejected(bid.id);
+      for (const contractor of governmentOrdersRepository.listDepositHolders(bid.secret)) {
+        if (getCompanyById(contractor.companyId)) {
+          updateCompanyMoney(contractor.companyId, contractor.depositPaid);
         }
-        db.prepare('UPDATE government_bid_contractors SET deposit_paid = 0 WHERE bid_secret = ? AND company_id = ?')
-          .run(bid.secret, contractor.company_id);
+        governmentOrdersRepository.forfeitDeposits(bid.secret, contractor.companyId);
       }
     }
 
-    const mainContractor = db.prepare(`
-      SELECT tier_multiplier FROM government_bid_contractors
-      WHERE bid_secret = ? AND is_main = 1
-    `).get(winner.secret) as { tier_multiplier: number } | undefined;
-    const multiplier = Number(mainContractor?.tier_multiplier) || 1;
-    db.prepare('UPDATE government_orders SET resource_multiplier_awarded = ? WHERE id = ?')
-      .run(multiplier, template.id);
+    const multiplier = governmentOrdersRepository.mainContractorTierMultiplier(winner.secret);
+    governmentOrdersRepository.setAwardedMultiplier(template.id, multiplier);
   }
 }
 
@@ -305,22 +257,18 @@ const ECONOMY_TRANSITIONS: Record<number, Array<readonly [number, number]>> = {
 export function getEconomyPhase(realmId: number = 0): {
   realmId: number; state: number; stateName: string; updatedAt: string | null;
 } {
-  const row = db.prepare('SELECT state, updated_at FROM economy_state WHERE realm_id = ?')
-    .get(realmId) as { state: number; updated_at: string } | undefined;
-  const state = row ? Number(row.state) : 1;
+  const row = schedulerStateRepository.getEconomyPhase(realmId);
+  const state = row ? row.state : 1;
   return {
     realmId,
     state,
     stateName: ECONOMY_STATE_NAMES[state] ?? 'Normal',
-    updatedAt: row?.updated_at ?? null
+    updatedAt: row?.updatedAt ?? null
   };
 }
 
 export function setEconomyPhase(realmId: number, state: number, updatedAt: Date = new Date()): void {
-  db.prepare(`
-    INSERT INTO economy_state (realm_id, state, updated_at) VALUES (?, ?, ?)
-    ON CONFLICT(realm_id) DO UPDATE SET state = excluded.state, updated_at = excluded.updated_at
-  `).run(realmId, state, updatedAt.toISOString());
+  schedulerStateRepository.upsertEconomyPhase(realmId, state, updatedAt.toISOString());
 }
 
 export function rollEconomyPhase(occurrence: Date): void {
@@ -359,9 +307,8 @@ export function computeDailySaturation(kind: number, dateKey: string): number {
 
 /** Persisted daily saturation; falls back to the deterministic computation when absent. */
 export function getRetailSaturation(dateKey: string, kind: number): number {
-  const row = db.prepare('SELECT saturation FROM retail_saturation WHERE date = ? AND kind = ?')
-    .get(dateKey, kind) as { saturation: number } | undefined;
-  return row ? Number(row.saturation) : computeDailySaturation(kind, dateKey);
+  const persisted = schedulerStateRepository.getRetailSaturation(dateKey, kind);
+  return persisted ?? computeDailySaturation(kind, dateKey);
 }
 
 export function recalculateRetailSaturation(occurrence: Date): void {
@@ -371,10 +318,7 @@ export function recalculateRetailSaturation(occurrence: Date): void {
     if (!(Number(def.unitsSoldAnHour) > 0)) continue;
     const kind = Number(kindStr);
     const saturation = computeDailySaturation(kind, dateKey);
-    db.prepare(`
-      INSERT INTO retail_saturation (date, kind, saturation, updated_at) VALUES (?, ?, ?, ?)
-      ON CONFLICT(date, kind) DO UPDATE SET saturation = excluded.saturation, updated_at = excluded.updated_at
-    `).run(dateKey, kind, saturation, occIso);
+    schedulerStateRepository.upsertRetailSaturation(dateKey, kind, saturation, occIso);
   }
 }
 
