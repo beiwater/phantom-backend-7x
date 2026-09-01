@@ -197,3 +197,75 @@ export class MarketRepository {
 }
 
 export const marketRepository = new MarketRepository();
+
+export interface MarketReferencePriceEntity {
+  kind: number;
+  quality: number;
+  vwap: number;
+  date: string;
+}
+
+export class MarketTradeRepository {
+  private database: DatabaseSync;
+
+  constructor(database: DatabaseSync = db) {
+    this.database = database;
+  }
+
+  recordFill(entry: {
+    kind: number;
+    quality: number;
+    price: number;
+    amount: number;
+    fee: number;
+    buyerId: number;
+    sellerId: number;
+    tradedAt: string;
+  }): void {
+    this.database.prepare(`
+      INSERT INTO market_trades (kind, quality, price, amount, fee, buyer_id, seller_id, trade_date, traded_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      entry.kind,
+      entry.quality,
+      entry.price,
+      entry.amount,
+      entry.fee,
+      entry.buyerId,
+      entry.sellerId,
+      entry.tradedAt.slice(0, 10),
+      entry.tradedAt
+    );
+  }
+
+  /** Issue #100: daily VWAP per resource+quality over the latest trading day. */
+  findDailyReferencePrices(): MarketReferencePriceEntity[] {
+    const rows = this.database.prepare(`
+      SELECT kind, quality, trade_date,
+             SUM(price * amount) AS notional,
+             SUM(amount) AS volume
+      FROM market_trades
+      GROUP BY kind, quality, trade_date
+    `).all() as Array<{ kind: number; quality: number; trade_date: string; notional: number; volume: number }>;
+
+    const latestByPair = new Map<string, { kind: number; quality: number; trade_date: string; notional: number; volume: number }>();
+    for (const row of rows) {
+      const key = `${row.kind}:${row.quality}`;
+      const existing = latestByPair.get(key);
+      if (!existing || row.trade_date > existing.trade_date) {
+        latestByPair.set(key, row);
+      }
+    }
+
+    return Array.from(latestByPair.values())
+      .map(row => ({
+        kind: row.kind,
+        quality: row.quality,
+        vwap: Math.round((row.notional / row.volume) * 1e6) / 1e6,
+        date: row.trade_date
+      }))
+      .sort((a, b) => (a.kind - b.kind) || (a.quality - b.quality));
+  }
+}
+
+export const marketTradeRepository = new MarketTradeRepository();

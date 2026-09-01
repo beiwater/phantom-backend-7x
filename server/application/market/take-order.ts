@@ -6,17 +6,12 @@
  * transaction (Issue #68); domain events fire post-commit only.
  */
 import type { GameContext } from '../../context/game-context.ts';
-import type { MarketOrderEntity } from '../../repositories/market-repository.ts';
 import { db } from '../../db/connection.ts';
 import { runInTransaction, type TransactionContext } from '../../db/transaction.ts';
 import { eventBus } from '../../events/event-bus.ts';
-import { ValidationError, NotFoundError } from '../../errors/domain-error.ts';
-import {
-  validateTakeOrderInput,
-  computeExchangeFee,
-  isSelfTrade
-} from '../../domain/market/market-rules.ts';
-import { marketRepository } from '../../repositories/market-repository.ts';
+import { validateTakeOrderInput, computeExchangeFee, isSelfTrade } from '../../domain/market/market-rules.ts';
+import { ValidationError, NotFoundError, SelfTradeProhibitedError } from '../../errors/domain-error.ts';
+import { marketRepository, marketTradeRepository } from '../../repositories/market-repository.ts';
 import { warehouseRepository } from '../../repositories/warehouse-repository.ts';
 import { companyRepository } from '../../repositories/company-repository.ts';
 
@@ -81,7 +76,7 @@ export async function takeMarketOrder(ctx: GameContext, input: TakeMarketOrderIn
       // Issue #85: Self-Trading (Wash Trading) Prevention
       const sellerComp = order.sellerId !== 999900 ? companyRepository.findById(order.sellerId) : null;
       if (isSelfTrade(ctx.companyId, buyer.playerId, order.sellerId, sellerComp?.playerId)) {
-        throw new ValidationError('Cannot purchase your own market order');
+        throw new SelfTradeProhibitedError();
       }
 
       const available = order.quantity;
@@ -121,10 +116,19 @@ export async function takeMarketOrder(ctx: GameContext, input: TakeMarketOrderIn
 
     const newMoney = companyRepository.debitMoney(ctx.companyId, totalCost);
 
-    // P0-08: reclassify the buyer's generic 'g' ledger row (written by the
-    // money debit path) as a MARKET purchase 'm' so the accounting page
-    // reports it correctly.
-    recordMarketPurchaseLedger(ctx.companyId, totalCost, totalBought, resourceKind);
+    // P0-08: the market slice writes its own authoritative MARKET ledger row
+    // (the repository debit is ledger-silent by design); the legacy path
+    // reclassified a generic 'g' row, the use case records 'm' directly.
+    db.prepare(`
+      INSERT INTO cash_ledger (company_id, amount, category, description, description_key, details, created_at)
+      VALUES (?, ?, 'm', ?, ?, '', ?)
+    `).run(
+      ctx.companyId,
+      -totalCost,
+      `Market purchase of ${totalBought} units of resource #${resourceKind}`,
+      `market-${resourceKind}`,
+      new Date().toISOString().replace('Z', '+00:00')
+    );
 
     for (const fill of fills) {
       warehouseRepository.addResource(ctx.companyId, fill.kind, fill.quality, fill.amount, { market: fill.price });
@@ -133,7 +137,18 @@ export async function takeMarketOrder(ctx: GameContext, input: TakeMarketOrderIn
     // Issue #100: record every fill in the trade ledger backing the daily
     // VWAP reference prices.
     const tradedAt = new Date().toISOString();
-    recordMarketFills(fills, ctx.companyId, tradedAt);
+    for (const fill of fills) {
+      marketTradeRepository.recordFill({
+        kind: fill.kind,
+        quality: fill.quality,
+        price: fill.price,
+        amount: fill.amount,
+        fee: fill.fee,
+        buyerId: ctx.companyId,
+        sellerId: fill.sellerId,
+        tradedAt
+      });
+    }
 
     tx.addAfterCommitHook(() => {
       for (const fill of fills) {
@@ -163,48 +178,3 @@ export async function takeMarketOrder(ctx: GameContext, input: TakeMarketOrderIn
     };
   }, { immediate: true });
 }
-
-// --- Transaction-scoped SQL helpers (market_trades + cash ledger) ----------
-// These belong to the market aggregate's write model; the repository owns
-// them once the trade ledger gains its own repository (follow-up slice).
-
-function recordMarketPurchaseLedger(companyId: number, totalCost: number, totalBought: number, resourceKind: number): void {
-  db.prepare(`
-    UPDATE cash_ledger
-    SET category = 'm', description = ?, description_key = ?
-    WHERE id = (SELECT MAX(id) FROM cash_ledger WHERE company_id = ? AND category = 'g' AND amount = ?)
-  `).run(
-    `Market purchase of ${totalBought} units of resource #${resourceKind}`,
-    `market-${resourceKind}`,
-    companyId,
-    -totalCost
-  );
-}
-
-function recordMarketFills(
-  fills: MarketFillRecord[],
-  buyerId: number,
-  tradedAt: string
-): void {
-  const stmt = db.prepare(`
-    INSERT INTO market_trades (kind, quality, price, amount, fee, buyer_id, seller_id, trade_date, traded_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `);
-  for (const fill of fills) {
-    stmt.run(
-      fill.kind,
-      fill.quality,
-      fill.price,
-      fill.amount,
-      fill.fee,
-      buyerId,
-      fill.sellerId,
-      tradedAt.slice(0, 10),
-      tradedAt
-    );
-  }
-}
-
-// Keep the repository entity type exported for downstream consumers of the
-// market slice's write model.
-export type { MarketOrderEntity };

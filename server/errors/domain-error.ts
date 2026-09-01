@@ -71,3 +71,14 @@ export class BondCollateralViolationError extends DomainError {
     super(message, 400, 'BOND_COLLATERAL_VIOLATION', details);
   }
 }
+
+/**
+ * Issue #85: a company must not fill its own (or its owner player's)
+ * resting exchange order. Serialized as 400 with code
+ * 'SELF_TRADE_PROHIBITED' (contract asserted by verify-issue-85).
+ */
+export class SelfTradeProhibitedError extends DomainError {
+  constructor(message: string = 'Cannot purchase your own market order') {
+    super(message, 400, 'SELF_TRADE_PROHIBITED');
+  }
+}

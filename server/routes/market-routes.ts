@@ -1,14 +1,42 @@
+/**
+ * Market routes (Issue #105 Phase 3 / Issue #104 Stage 2).
+ * Protocol layer only: parse HTTP, resolve the authenticated GameContext,
+ * dispatch to application/market use cases (mutations) or repository-backed
+ * read services (queries), and map to frontend compatibility DTOs.
+ * No SQL, no business rules here.
+ */
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { readJsonBody, sendJson } from './utils.ts';
-import {
-  getMarketTicker,
-  getMarketOrdersForResource,
-  getCompanyMarketOrders,
-  postMarketOrder,
-  takeMarketOrder,
-  cancelMarketOrder,
-  getMarketReferencePrices
-} from '../game/market.ts';
+import { createGameContext } from '../context/game-context.ts';
+import { sendDomainError } from '../compatibility/simcompanies/response-helpers.ts';
+import { formatMarketOrder } from '../compatibility/simcompanies/market-dto.ts';
+import { placeMarketOrder } from '../application/market/place-order.ts';
+import { takeMarketOrder } from '../application/market/take-order.ts';
+import { cancelMarketOrder } from '../application/market/cancel-order.ts';
+import { marketRepository, marketTradeRepository } from '../repositories/market-repository.ts';
+import { getAllResourceDefs } from '../game-data/resources.ts';
+
+// --- Read services (queries; pure reads, no mutation) -----------------------
+
+function getMarketTicker(realmId: number) {
+  const tickerList: Array<{ kind: number; image: string; price: number; is_up: boolean; realmId: number }> = [];
+
+  for (const [kindStr, def] of Object.entries(getAllResourceDefs())) {
+    const kind = Number(kindStr);
+    if (def.isExchangeTradable === false) continue;
+
+    const price = marketRepository.findLowestActivePrice(kind, realmId) ?? 1.0;
+
+    tickerList.push({
+      kind,
+      image: def.image,
+      price,
+      is_up: true,
+      realmId
+    });
+  }
+  return tickerList;
+}
 
 export async function handleMarketRoutes(
   req: IncomingMessage,
@@ -51,22 +79,19 @@ export async function handleMarketRoutes(
   if (marketBuyOrdersMatch) {
     const realmId = Number(marketBuyOrdersMatch[1]);
     const resourceId = Number(marketBuyOrdersMatch[2]);
-    sendJson(res, getMarketOrdersForResource(realmId, resourceId));
+    sendJson(res, marketRepository.findActiveSellOrdersForBook(realmId, resourceId).map(formatMarketOrder));
     return true;
   }
 
   // 5. Market collectibles & NFT endpoints (Issue #82) live in
-  //    routes/collectible-routes.ts: /api/v2/market-collectibles/,
-  //    /api/v2/market-collectibles-sbs/, /api/v2/nfts/*. The static stubs
-  //    that used to sit here were replaced by the persisted implementation,
-  //    registered from router.ts.
+  //    routes/collectible-routes.ts.
 
   // 6. Market orderbook for resource
   const marketListMatch = pathname.match(/^\/api\/v3\/market\/(\d+)\/(\d+)\/$/);
   if (marketListMatch) {
     const realmId = Number(marketListMatch[1]);
     const resourceId = Number(marketListMatch[2]);
-    sendJson(res, getMarketOrdersForResource(realmId, resourceId));
+    sendJson(res, marketRepository.findActiveSellOrdersForBook(realmId, resourceId).map(formatMarketOrder));
     return true;
   }
 
@@ -75,7 +100,7 @@ export async function handleMarketRoutes(
   if (allMarketListMatch) {
     const realmId = Number(allMarketListMatch[1]);
     const resourceId = Number(allMarketListMatch[2]);
-    sendJson(res, getMarketOrdersForResource(realmId, resourceId));
+    sendJson(res, marketRepository.findActiveSellOrdersForBook(realmId, resourceId).map(formatMarketOrder));
     return true;
   }
 
@@ -89,7 +114,7 @@ export async function handleMarketRoutes(
       sendJson(res, { error: 'Unauthorized' }, 401);
       return true;
     }
-    sendJson(res, getCompanyMarketOrders(currentCompanyId));
+    sendJson(res, marketRepository.findActiveBySeller(currentCompanyId).map(formatMarketOrder));
     return true;
   }
 
@@ -107,7 +132,7 @@ export async function handleMarketRoutes(
     return true;
   }
 
-  // 10. Post market order
+  // 10. Post market order — PlaceMarketOrder command
   if (pathname === '/api/v2/market-order/' || pathname === '/api/v2/market-order') {
     if (method === 'POST') {
       if (!currentCompanyId) {
@@ -116,22 +141,17 @@ export async function handleMarketRoutes(
       }
       const body = await readJsonBody<{ resourceId?: number; kind: number; price: number; quantity: number; quality?: number }>(req);
       try {
-        const result = postMarketOrder(currentCompanyId, body);
+        const ctx = createGameContext(currentCompanyId, currentCompanyId, 0);
+        const result = await placeMarketOrder(ctx, body);
         sendJson(res, result);
       } catch (err: unknown) {
-        if (err && typeof err === 'object' && 'code' in err) {
-          const domainErr = err as { message: string; code: string; statusCode?: number };
-          sendJson(res, { error: domainErr.message, code: domainErr.code }, domainErr.statusCode || 400);
-        } else {
-          const msg = err instanceof Error ? err.message : String(err);
-          sendJson(res, { error: msg }, 400);
-        }
+        sendDomainError(res, err);
       }
       return true;
     }
   }
 
-  // 11. Take market order
+  // 11. Take market order — TakeMarketOrder command
   if (pathname === '/api/v2/market-order/take/' || pathname === '/api/v2/market-order/take') {
     if (method === 'POST') {
       if (!currentCompanyId) {
@@ -140,22 +160,17 @@ export async function handleMarketRoutes(
       }
       const body = await readJsonBody<{ resource: number; quantity: number; quality?: number; maxPrice: number; money?: number }>(req);
       try {
-        const result = takeMarketOrder(currentCompanyId, body);
+        const ctx = createGameContext(currentCompanyId, currentCompanyId, 0);
+        const result = await takeMarketOrder(ctx, body);
         sendJson(res, result);
       } catch (err: unknown) {
-        if (err && typeof err === 'object' && 'code' in err) {
-          const domainErr = err as { message: string; code: string; statusCode?: number };
-          sendJson(res, { error: domainErr.message, code: domainErr.code }, domainErr.statusCode || 400);
-        } else {
-          const msg = err instanceof Error ? err.message : String(err);
-          sendJson(res, { error: msg }, 400);
-        }
+        sendDomainError(res, err);
       }
       return true;
     }
   }
 
-  // 12. Cancel market order
+  // 12. Cancel market order — CancelMarketOrder command
   const marketOrderCancelMatch = pathname.match(/^\/api\/v2\/market-order\/(\d+)\/?$/);
   if (marketOrderCancelMatch && method === 'DELETE') {
     if (!currentCompanyId) {
@@ -164,16 +179,11 @@ export async function handleMarketRoutes(
     }
     const orderId = Number(marketOrderCancelMatch[1]);
     try {
-      const result = cancelMarketOrder(currentCompanyId, orderId);
+      const ctx = createGameContext(currentCompanyId, currentCompanyId, 0);
+      const result = await cancelMarketOrder(ctx, { orderId });
       sendJson(res, result);
     } catch (err: unknown) {
-      if (err && typeof err === 'object' && 'code' in err) {
-        const domainErr = err as { message: string; code: string; statusCode?: number };
-        sendJson(res, { error: domainErr.message, code: domainErr.code }, domainErr.statusCode || 400);
-      } else {
-        const msg = err instanceof Error ? err.message : String(err);
-        sendJson(res, { error: msg }, 400);
-      }
+      sendDomainError(res, err);
     }
     return true;
   }
@@ -190,4 +200,11 @@ export async function handleMarketRoutes(
   }
 
   return false;
+}
+
+// --- VWAP reference price read service (Issue #100) --------------------------
+// Thin query delegate: aggregation lives in marketTradeRepository.
+
+function getMarketReferencePrices() {
+  return { referencePrices: marketTradeRepository.findDailyReferencePrices() };
 }
