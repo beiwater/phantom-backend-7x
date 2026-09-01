@@ -16,7 +16,7 @@ import {
   getRestaurantBusy,
   resolveDueRestaurantRunsSync,
   type LegacyRestaurantProperties
-} from '../../game/restaurant.ts';
+} from '../../application/restaurant/restaurant-use-cases.ts';
 
 export interface SimCompaniesBuildingDTO {
   id: number;

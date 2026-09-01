@@ -1,18 +1,28 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { readJsonBody, sendJson } from './utils.ts';
 import {
-  getRestaurantProperties,
-  updateRestaurantProperties,
-  getRestaurantRuns,
-  executeRestaurantRun,
   getRestaurantRatings,
   getRestaurantMenuGuide,
   getLegacyRestaurantProperties,
   getLegacyRestaurantRun,
   RESTAURANT_DISHES,
   validateRestaurantMenuPrice,
+  getRestaurantProperties,
   type RestaurantMenuItem
 } from '../game/restaurant.ts';
+import { createGameContext } from '../context/game-context.ts';
+import {
+  updateRestaurantPropertiesUseCase,
+  startRestaurantCycleUseCase,
+  getRestaurantRunsQuery
+} from '../application/restaurant/restaurant-use-cases.ts';
+
+// The use cases require an authenticated GameContext; the handler binds the
+// authenticated company id once past the auth gate below.
+let _companyId: number | null = null;
+function gameContext() {
+  return createGameContext(_companyId as number, _companyId as number, 0);
+}
 import { getCompanyBuildings, getBuildingById } from '../game/buildings.ts';
 import { buildingRepository } from '../repositories/building-repository.ts';
 import { toSimCompaniesBuildingDTO } from '../compatibility/simcompanies/building-dto.ts';
@@ -54,6 +64,7 @@ export async function handleRestaurantRoutes(
     sendJson(res, { error: 'Authentication required', code: 'UNAUTHORIZED' }, 401);
     return true;
   }
+  _companyId = currentCompanyId;
 
   // The shipped client still calls these legacy building-scoped endpoints.
   // Adapt them to the Issue #92 restaurant domain instead of returning the
@@ -76,7 +87,7 @@ export async function handleRestaurantRoutes(
         try {
           const body = await readJsonBody<Record<string, unknown>>(req);
           const updates = legacyUpdatesToDomain(body);
-          const result = await updateRestaurantProperties(buildingId, currentCompanyId, updates);
+          const result = await updateRestaurantPropertiesUseCase(gameContext(), buildingId, updates);
           const updatedProperties = getLegacyRestaurantProperties(buildingId, currentCompanyId);
           const updatedBuilding = buildingRepository.findById(buildingId);
           sendJson(res, {
@@ -97,14 +108,14 @@ export async function handleRestaurantRoutes(
     }
 
     if (method === 'GET') {
-      const runs = (await getRestaurantRuns(buildingId, currentCompanyId))
+      const runs = (await getRestaurantRunsQuery(gameContext(), buildingId))
         .map(run => getLegacyRestaurantRun(run, properties));
       sendJson(res, runs);
       return true;
     }
     if (method === 'POST') {
       try {
-        const result = await executeRestaurantRun(buildingId, currentCompanyId);
+        const result = await startRestaurantCycleUseCase(gameContext(), buildingId);
         const updatedProperties = getLegacyRestaurantProperties(buildingId, currentCompanyId);
         const updatedBuilding = buildingRepository.findById(buildingId);
         sendJson(res, {
@@ -170,12 +181,12 @@ export async function handleRestaurantRoutes(
 
   if (runsMatch) {
     if (method === 'GET') {
-      sendJson(res, { runs: await getRestaurantRuns(buildingId, currentCompanyId) });
+      sendJson(res, { runs: await getRestaurantRunsQuery(gameContext(), buildingId) });
       return true;
     }
     if (method === 'POST') {
       try {
-        const result = await executeRestaurantRun(buildingId, currentCompanyId);
+        const result = await startRestaurantCycleUseCase(gameContext(), buildingId);
         sendJson(res, result);
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -221,7 +232,7 @@ export async function handleRestaurantRoutes(
         if (body.keepOpen !== undefined) updates.keepOpen = Boolean(body.keepOpen);
         if (body.menu !== undefined) updates.menu = parseMenu(body.menu);
         if (body.menuPrice !== undefined) updates.menuPrice = validateRestaurantMenuPrice(body.menuPrice);
-        const result = await updateRestaurantProperties(buildingId, currentCompanyId, updates);
+        const result = await updateRestaurantPropertiesUseCase(gameContext(), buildingId, updates);
         sendJson(res, result);
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
