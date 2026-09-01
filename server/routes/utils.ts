@@ -142,6 +142,11 @@ export function sendJson(
     'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
     ...(status === 501 ? { 'x-backend-stub': 'true' } : {})
   };
+  for (const [key, value] of Object.entries(extraHeaders)) {
+    if (typeof value === 'string') {
+      headers[key] = value;
+    }
+  }
   if (allowOrigin && allowOrigin !== '*') {
     headers['Access-Control-Allow-Credentials'] = 'true';
   }

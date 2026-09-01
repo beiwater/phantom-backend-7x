@@ -141,38 +141,128 @@ export async function handleAuditRoutes(
   }
 
   // 4. Moderator notes: /api/v2/moderator-notes/
-  if (pathname === '/api/v2/moderator-notes/' && method === 'GET') {
+  const playerModNotesMatch = pathname.match(/^\/api\/v2\/players\/(\d+)\/moderator-notes\/?(?:\d+\/?)?$/);
+  if ((pathname.startsWith('/api/v2/moderator-notes/') || pathname === '/api/v2/moderator-notes' || playerModNotesMatch) && method === 'GET') {
     sendJson(res, [
       {
         id: 201,
-        companyId: 7706929,
-        companyName: "Shadow Automation Ltd.",
+        company: {
+          id: 7706929,
+          company: "Shadow Automation Ltd.",
+          logo: "images/buildings/other/hq_cyberpunk_tier01.png",
+          realmId: 0
+        },
         note: "Suspected multi-boxing farm across residential IP pool.",
+        moderatorNote: "Suspected multi-boxing farm across residential IP pool.",
         datetime: new Date(now.getTime() - 3600 * 1000 * 6).toISOString(),
-        moderator: "UN Chief Inspector"
+        moderator: {
+          id: 1,
+          name: "UN Chief Inspector",
+          company: "UN Compliance"
+        },
+        author: {
+          id: 1,
+          name: "UN Chief Inspector",
+          company: { id: 1, company: "UN Compliance", logo: "", realmId: 0 }
+        },
+        about: {
+          id: 7706929,
+          company: "Shadow Automation Ltd.",
+          logo: "images/buildings/other/hq_cyberpunk_tier01.png",
+          realmId: 0
+        }
       },
       {
         id: 202,
-        companyId: 4775639,
-        companyName: "Zero Cent Resource Dumping Co.",
+        company: {
+          id: 4775639,
+          company: "Zero Cent Resource Dumping Co.",
+          logo: "images/buildings/other/hq_tier02.png",
+          realmId: 0
+        },
         note: "Contract transfer history shows recurring $0.01 contracts under investigation.",
+        moderatorNote: "Contract transfer history shows recurring $0.01 contracts under investigation.",
         datetime: new Date(now.getTime() - 3600 * 1000 * 20).toISOString(),
-        moderator: "UN Auditor Alpha"
+        moderator: {
+          id: 2,
+          name: "UN Auditor Alpha",
+          company: "UN Market Compliance"
+        },
+        author: {
+          id: 2,
+          name: "UN Auditor Alpha",
+          company: { id: 2, company: "UN Market Compliance", logo: "", realmId: 0 }
+        },
+        about: {
+          id: 4775639,
+          company: "Zero Cent Resource Dumping Co.",
+          logo: "images/buildings/other/hq_tier02.png",
+          realmId: 0
+        }
       }
     ]);
     return true;
   }
 
-  // 5. Messages cases (reported chats): /api/v2/messages-cases/
-  if (pathname === '/api/v2/messages-cases/' && method === 'GET') {
+  // 5. Messages cases (reported chats): /api/v2/messages-cases/ & /api/v2/messages-cases/:id/
+  const messageCaseDetailMatch = pathname.match(/^\/api\/v2\/messages-cases\/(\d+)\/?$/);
+  if (messageCaseDetailMatch) {
+    const caseId = Number(messageCaseDetailMatch[1]);
+    const caseDetail = {
+      id: caseId,
+      snitch: { id: 4259175, company: "lifeline", logo: "images/buildings/other/hq_tier01.png" },
+      offender: { id: 6804787, company: "Off-Platform RMT Spammer", logo: "images/buildings/other/hq_banana.png" },
+      snitchBanned: false,
+      offenderBanned: true,
+      datetime: new Date(now.getTime() - 3600 * 1000 * 43).toISOString(),
+      message: "Selling 1M SimBoosts and Q10 items on external Discord! PM me for link!",
+      resolvedBy: { id: 1, company: "UN System Superadmin", logo: "images/buildings/other/hq_tier01.png" },
+      messages: [
+        {
+          id: 1001,
+          sender: { id: 6804787, company: "Off-Platform RMT Spammer" },
+          text: "Selling 1M SimBoosts and Q10 items on external Discord! PM me for link!",
+          body: "Selling 1M SimBoosts and Q10 items on external Discord! PM me for link!",
+          datetime: new Date(now.getTime() - 3600 * 1000 * 43).toISOString()
+        },
+        {
+          id: 1002,
+          sender: { id: 4259175, company: "lifeline" },
+          text: "Reported to UN Compliance.",
+          body: "Reported to UN Compliance.",
+          datetime: new Date(now.getTime() - 3600 * 1000 * 42).toISOString()
+        }
+      ]
+    };
+
+    if (method === 'GET') {
+      sendJson(res, caseDetail);
+      return true;
+    }
+    if (method === 'PATCH') {
+      const body = await readJsonBody<{ banOffender?: boolean; banSnitch?: boolean }>(req);
+      const updatedCase = {
+        ...caseDetail,
+        offenderBanned: body?.banOffender ?? caseDetail.offenderBanned,
+        snitchBanned: body?.banSnitch ?? caseDetail.snitchBanned,
+        resolvedBy: { id: 1, company: "UN System Superadmin", logo: "images/buildings/other/hq_tier01.png" }
+      };
+      sendJson(res, updatedCase);
+      return true;
+    }
+  }
+
+  if ((pathname === '/api/v2/messages-cases/' || pathname === '/api/v2/messages-cases') && method === 'GET') {
     sendJson(res, [
       {
         id: 301,
-        sender: { id: 6804787, name: "Off-Platform RMT Spammer" },
-        reportedBy: { id: 4259175, name: "lifeline" },
-        message: "Selling 1M SimBoosts and Q10 items on external Discord! PM me for link!",
+        snitch: { id: 4259175, company: "lifeline", logo: "images/buildings/other/hq_tier01.png" },
+        offender: { id: 6804787, company: "Off-Platform RMT Spammer", logo: "images/buildings/other/hq_banana.png" },
+        snitchBanned: false,
+        offenderBanned: true,
         datetime: new Date(now.getTime() - 3600 * 1000 * 43).toISOString(),
-        status: "RESOLVED_BANNED"
+        message: "Selling 1M SimBoosts and Q10 items on external Discord! PM me for link!",
+        resolvedBy: null
       }
     ]);
     return true;
@@ -202,11 +292,7 @@ export async function handleAuditRoutes(
 
   // 8. Admin analytics endpoints
   if (pathname.startsWith('/api/v2/analytics/') || pathname.startsWith('/api/v3/analytics/')) {
-    if (pathname.includes('/revenue-') || pathname.includes('/simboosts-spend/') || pathname.includes('/player-')) {
-      sendJson(res, []);
-      return true;
-    }
-    sendJson(res, {});
+    sendJson(res, []);
     return true;
   }
 
@@ -267,6 +353,13 @@ export async function handleAuditRoutes(
         }
       },
       buildings: buildingsDTO,
+      email: player?.email || `user_${targetCompanyId}@simcompanies.local`,
+      language: player?.language || 'zh-cn',
+      countryCode: 'AU',
+      previousEmailAddresses: [],
+      recentIpAddresses: ['127.0.0.1'],
+      moderatorNotes: [],
+      companiesRegisteredFromTheSameIP: [],
       teachingCourses: [],
       course: null,
       featureFlags: '{}',
@@ -339,6 +432,68 @@ export async function handleAuditRoutes(
   const personalDataMatch = pathname.match(/^\/api\/v2\/players\/(\d+)\/personal-data\/?$/);
   if (personalDataMatch && method === 'GET') {
     sendJson(res, { data: 'Personal data export ready' });
+    return true;
+  }
+  // 12. Newcomers: /api/v2/newcomers/
+  if ((pathname === '/api/v2/newcomers/' || pathname === '/api/v2/newcomers') && method === 'GET') {
+    const rows = db.prepare(`
+      SELECT company_id, name, logo, realm_id, created_at, note
+      FROM companies
+      ORDER BY id DESC
+      LIMIT 50
+    `).all() as Array<{
+      company_id: number;
+      name: string;
+      logo: string | null;
+      realm_id: number | null;
+      created_at: string | null;
+      note: string | null;
+    }>;
+
+    const newcomers = rows.map(r => ({
+      id: r.company_id,
+      company: r.name,
+      logo: r.logo || '',
+      realmId: r.realm_id ?? 0,
+      dateJoined: r.created_at || new Date().toISOString(),
+      noteTop: r.note || ''
+    }));
+
+    sendJson(res, newcomers);
+    return true;
+  }
+
+  // 13. Redeem bonus code: /api/v2/redeem-code/:playerId/
+  const redeemCodeMatch = pathname.match(/^\/api\/v2\/redeem-code\/(\d+)\/?$/);
+  if (redeemCodeMatch && method === 'POST') {
+    const playerId = Number(redeemCodeMatch[1]);
+    const body = await readJsonBody<{ code?: string }>(req);
+    const code = (body?.code || '').trim().toUpperCase();
+
+    const VALID_CODES: Record<string, true> = {
+      'WELCOME2026': true,
+      'PROMO50': true,
+      'SIMBOOSTS': true,
+      'BONUS2026': true
+    };
+    if (!code || !VALID_CODES[code]) {
+      sendJson(res, {
+        error: 'Invalid or expired bonus code',
+        code: 'INVALID_CODE'
+      }, 400);
+      return true;
+    }
+
+    // Credit 50 SimBoosts to player's first company if it exists
+    const company = db.prepare('SELECT company_id, simboosts FROM companies WHERE player_id = ? ORDER BY id ASC LIMIT 1').get(playerId) as { company_id: number; simboosts: number } | undefined;
+    if (company) {
+      db.prepare('UPDATE companies SET simboosts = simboosts + 50 WHERE company_id = ?').run(company.company_id);
+    }
+
+    sendJson(res, {
+      success: true,
+      reward: '50 SimBoosts'
+    });
     return true;
   }
 

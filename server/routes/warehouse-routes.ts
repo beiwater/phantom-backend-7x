@@ -33,5 +33,26 @@ export async function handleWarehouseRoutes(
     return true;
   }
 
+  // 4. Warehouse contracts summary: /api/v2/warehouse-contracts-summary/:companyId/:type/
+  const summaryMatch = pathname.match(/^\/api\/v2\/warehouse-contracts-summary\/(\d+|me)\/([^/]+)\/$/);
+  if (summaryMatch) {
+    sendJson(res, { summary: [] }, 200, { 'x-timestamp': new Date().toISOString() });
+    return true;
+  }
+
+  // 5. Resource transactions: /api/v2/resources-transactions/:companyId/:kind/
+  const resTxMatch = pathname.match(/^\/api\/v2\/resources-transactions\/(\d+|me)\/(\d+)\/$/);
+  if (resTxMatch) {
+    sendJson(res, []);
+    return true;
+  }
+
+  // 6. Resource transactions summary: /api/v2/resources-transactions-summary/:companyId/:kind/
+  const resTxSummaryMatch = pathname.match(/^\/api\/v2\/resources-transactions-summary\/(\d+|me)\/(\d+)\/$/);
+  if (resTxSummaryMatch) {
+    sendJson(res, { totalBought: 0, totalSold: 0, totalProduced: 0, avgPrice: 0 });
+    return true;
+  }
+
   return false;
 }

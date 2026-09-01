@@ -142,6 +142,52 @@ export async function handlePageRoutes(
 ): Promise<boolean> {
   if (method !== 'GET') return false;
 
+  // Admin Control Panel route
+  if (pathname === '/admin-xSwwtH67Cr' || pathname === '/admin-xSwwtH67Cr/') {
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    res.end(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Admin Dashboard - Sim Companies</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: #1a1a1a; color: #eee; margin: 0; padding: 20px; }
+    .container { max-width: 900px; margin: 0 auto; background: #2a2a2a; border-radius: 8px; padding: 24px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+    h1 { color: #4CAF50; border-bottom: 1px solid #444; padding-bottom: 12px; margin-top: 0; }
+    .card { background: #333; padding: 16px; border-radius: 6px; margin-bottom: 16px; }
+    .status { color: #8bc34a; font-weight: bold; }
+    ul { padding-left: 20px; }
+    li { margin-bottom: 8px; }
+    a { color: #64b5f6; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Sim Companies Admin Control Panel</h1>
+    <div class="card">
+      <h3>System Status</h3>
+      <p>Server Status: <span class="status">ONLINE</span></p>
+      <p>Audit System: <span class="status">OPERATIONAL</span></p>
+    </div>
+    <div class="card">
+      <h3>Admin Quick Links</h3>
+      <ul>
+        <li><a href="/api/v2/audits/">Audits Log (/api/v2/audits/)</a></li>
+        <li><a href="/api/v2/moderator-notes/">Moderator Notes (/api/v2/moderator-notes/)</a></li>
+        <li><a href="/api/v2/messages-cases/">Reported Messages Cases (/api/v2/messages-cases/)</a></li>
+        <li><a href="/api/v2/newcomers/">Newcomers (/api/v2/newcomers/)</a></li>
+        <li><a href="/api/v2/audit/recently-deleted/">Recently Deleted (/api/v2/audit/recently-deleted/)</a></li>
+        <li><a href="/api/v2/audit/suspended-companies/">Suspended Companies (/api/v2/audit/suspended-companies/)</a></li>
+      </ul>
+    </div>
+  </div>
+</body>
+</html>`);
+    return true;
+  }
+
   // Frontend api_v3_pages: GET /api/v3/pages/:locale/:slug/
   const pageMatch = pathname.match(/^\/api\/v3\/pages\/([a-z-]+)\/([a-z0-9-]+)\/$/);
   if (pageMatch) {

@@ -20,50 +20,45 @@ export async function handleContractRoutes(
   // 1. Incoming contracts (v2 & v3)
   if (
     pathname === '/api/v2/contracts-incoming/' ||
-    pathname.match(/^\/api\/v3\/contracts-incoming\/(?:(?:\d+\/)?(?:\d+|me)|me)\/$/)
+    pathname.match(/^\/api\/v3\/contracts-incoming\/(?:(?:\d+|me)\/)?(?:\d+|me)\/$/) ||
+    pathname.match(/^\/api\/v3\/contracts-incoming\/(\d+|me)\/$/)
   ) {
     if (!currentCompanyId) {
       sendJson(res, { error: 'Unauthorized' }, 401);
       return true;
     }
-    sendJson(res, getIncomingContracts(currentCompanyId));
+    sendJson(res, getIncomingContracts(currentCompanyId), 200, { 'x-timestamp': new Date().toISOString() });
     return true;
   }
 
   // 2. Outgoing contracts (v2 & v3)
   if (
     pathname === '/api/v2/contracts-outgoing/' ||
-    pathname.match(/^\/api\/v3\/contracts-outgoing\/(?:(?:\d+\/)?(?:\d+|me)|me)\/$/)
+    pathname.match(/^\/api\/v3\/contracts-outgoing\/(?:(?:\d+|me)\/)?(?:\d+|me)\/$/) ||
+    pathname.match(/^\/api\/v3\/contracts-outgoing\/(\d+|me)\/$/)
   ) {
     if (!currentCompanyId) {
       sendJson(res, { error: 'Unauthorized' }, 401);
       return true;
     }
-    sendJson(res, getOutgoingContracts(currentCompanyId));
+    sendJson(res, getOutgoingContracts(currentCompanyId), 200, { 'x-timestamp': new Date().toISOString() });
     return true;
   }
 
   // 3. Contracts history incoming / outgoing
-  if (pathname === '/api/v2/contracts-history-incoming/' || pathname === '/api/v2/contracts-history-outgoing/') {
-    sendJson(res, []);
+  if (
+    pathname === '/api/v2/contracts-history-incoming/' ||
+    pathname === '/api/v2/contracts-history-outgoing/' ||
+    pathname.match(/^\/api\/v2\/contracts-history-(?:incoming|outgoing)\/(?:\d+|me)\/$/)
+  ) {
+    sendJson(res, [], 200, { 'x-timestamp': new Date().toISOString() });
     return true;
   }
 
   // 4. Warehouse contracts summary: /api/v2/warehouse-contracts-summary/:realm/:kindOrDirection/
-  const contractsSummaryMatch = pathname.match(/^\/api\/v2\/warehouse-contracts-summary\/(\d+)\/([^/]+)\/$/);
+  const contractsSummaryMatch = pathname.match(/^\/api\/v2\/warehouse-contracts-summary\/(\d+|me)\/([^/]+)\/$/);
   if (contractsSummaryMatch) {
-    const rawParam = contractsSummaryMatch[2];
-    if (rawParam === 'i' || rawParam === 'o' || rawParam === 'incoming' || rawParam === 'outgoing') {
-      sendJson(res, []);
-      return true;
-    }
-    const kind = Number(rawParam) || 1;
-    sendJson(res, {
-      resourceKind: kind,
-      totalVolumeDaily: 50000,
-      averageDiscountPrice: 1.15,
-      activePartnersCount: 3
-    });
+    sendJson(res, { summary: [] }, 200, { 'x-timestamp': new Date().toISOString() });
     return true;
   }
 

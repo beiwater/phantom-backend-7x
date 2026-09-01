@@ -24,7 +24,8 @@ import { handleSimboostRoutes } from './routes/simboost-routes.ts';
 import { handleRetailRoutes } from './routes/retail-routes.ts';
 import { handlePageRoutes } from './routes/page-routes.ts';
 import { handleAuditRoutes } from './routes/audit-routes.ts';
-// A small compatibility manifest keeps method errors distinct from unknown routes.
+import { handleGovernmentRoutes } from './routes/government-routes.ts';
+import { handleAerospaceRoutes } from './routes/aerospace-routes.ts';
 const methodManifest: Array<{ pattern: RegExp; methods: string[] }> = [
   { pattern: /^\/api\/v2\/time-millis\/$/, methods: ['GET'] },
   { pattern: /^\/api\/time\/$/, methods: ['GET'] },
@@ -146,6 +147,9 @@ export async function handleRequest(req: IncomingMessage, res: ServerResponse) {
   if (await handleMarketRoutes(req, res, pathname, method, currentCompanyId)) {
     return;
   }
+  if (await handleGovernmentRoutes(req, res, pathname, method, currentCompanyId)) {
+    return;
+  }
   if (await handleEncyclopediaRoutes(req, res, pathname, method, currentCompanyId)) {
     return;
   }
@@ -166,6 +170,9 @@ export async function handleRequest(req: IncomingMessage, res: ServerResponse) {
     return;
   }
   if (await handleResearchRoutes(req, res, pathname, method, currentCompanyId)) {
+    return;
+  }
+  if (await handleAerospaceRoutes(req, res, pathname, method, currentCompanyId)) {
     return;
   }
   if (await handlePageRoutes(req, res, pathname, method)) {

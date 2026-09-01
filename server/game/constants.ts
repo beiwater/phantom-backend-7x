@@ -55,7 +55,8 @@ export const BUILDING_NAMES: Record<string, { name: string; cost: number; catego
   'j': { name: 'Bakery', cost: 10350, category: 'production' },
   'k': { name: 'Food processing plant', cost: 10350, category: 'production' },
   'm': { name: 'Restaurant', cost: 17250, category: 'sales' },
-  'z': { name: 'Beach market', cost: 0, category: 'seasonal' }
+  'z': { name: 'Beach market', cost: 0, category: 'seasonal' },
+  'l': { name: 'Launch Pad', cost: 36 * 3450, category: 'research' }
 };
 
 export function getBuildingMeta(kind: string) {
