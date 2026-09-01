@@ -12,6 +12,7 @@ Use the project skills under `.codex/skills/` as the canonical workflow:
 - [`missing-api-recorder`](./skills/missing-api-recorder/SKILL.md) — record missing/fake APIs, schema mismatches, empty fallbacks, loading failures, and state inconsistencies.
 - [`economy-integrity`](./skills/economy-integrity/SKILL.md) — audit money, SimBoosts, inventory, rewards, idempotency, ownership, and transactional state changes.
 - [`code-standards`](./skills/code-standards/SKILL.md) — enforce code formatting, anti-reinvention reuse rules, comments, ~500-line modularity boundaries, and verified Git delivery timing.
+- [`evidence-first-investigation`](./skills/evidence-first-investigation/SKILL.md) — keep narrow issue work evidence-first: targeted search, small working sets, explicit reading budgets, early hypothesis testing, and scope expansion only when causally justified.
 
 Core loop:
 
