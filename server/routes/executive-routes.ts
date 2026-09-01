@@ -1,30 +1,38 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { readJsonBody, sendJson, requireCapability } from './utils.ts';
+import { createGameContext, type GameContext } from '../context/game-context.ts';
 import {
-  getCompanyExecutives,
-  getExecutiveCandidates,
-  getExecutiveById,
-  hireExecutive,
-  fireExecutive,
-  assignExecutive,
-  updateExecutive,
-  trainExecutive,
-  createPoachingOffer,
-  getPoachingOffers,
-  getPoachingOfferById,
-  updatePoachingOffer,
-  dismissPoachingOffer,
-  refreshPoachingOffer,
-  researchEmployerByPoacher,
-  getHostileOffers,
-  getHostileOfferById,
-  counterHostileOffer,
-  letGoHostileOffer,
-  rejectHostileOffer,
-  researchPoacherByEmployer,
+  getCompanyExecutivesQuery,
+  getExecutiveCandidatesQuery,
+  getExecutiveByIdQuery,
+  hireExecutiveCommand,
+  fireExecutiveCommand,
+  assignExecutiveCommand,
+  updateExecutiveCommand,
+  trainExecutiveCommand,
+  createPoachingOfferCommand,
+  getPoachingOffersQuery,
+  getPoachingOfferByIdQuery,
+  updatePoachingOfferCommand,
+  dismissPoachingOfferCommand,
+  refreshPoachingOfferCommand,
+  researchEmployerCommand,
+  getHostileOffersQuery,
+  getHostileOfferByIdQuery,
+  counterHostileOfferCommand,
+  letGoHostileOfferCommand,
+  rejectHostileOfferCommand,
+  researchPoacherCommand,
   type CreatePoachingOfferInput,
   type CounterHostileOfferInput
-} from '../game/executives.ts';
+} from '../application/executives/executive-use-cases.ts';
+
+// Executive commands require an authenticated company; build the context
+// once per request past the route-level ownership checks.
+let _companyId: number | null = null;
+function gameCtx(): GameContext {
+  return createGameContext(_companyId as number, _companyId as number, 0);
+}
 
 export async function handleExecutiveRoutes(
   req: IncomingMessage,
@@ -33,7 +41,7 @@ export async function handleExecutiveRoutes(
   method: string,
   currentCompanyId: number | null
 ): Promise<boolean> {
-
+  _companyId = currentCompanyId;
   // Current executives list (v3 & v4)
   const executiveCompanyMatch = pathname.match(/^\/api\/v(3|4)\/(?:companies|executives\/company)\/(\d+|me)\/executives\/?$/) ||
     pathname.match(/^\/api\/v4\/executives\/company\/(\d+|me)\/$/);
@@ -52,10 +60,10 @@ export async function handleExecutiveRoutes(
       return true;
     }
     sendJson(res, {
-      executives: getCompanyExecutives(currentCompanyId),
-      candidates: getExecutiveCandidates(currentCompanyId),
-      offers: getPoachingOffers(currentCompanyId),
-      hostileOffers: getHostileOffers(currentCompanyId),
+      executives: getCompanyExecutivesQuery(currentCompanyId),
+      candidates: getExecutiveCandidatesQuery(currentCompanyId),
+      offers: getPoachingOffersQuery(currentCompanyId),
+      hostileOffers: getHostileOffersQuery(currentCompanyId),
       achievements: []
     });
     return true;
@@ -68,14 +76,14 @@ export async function handleExecutiveRoutes(
       return true;
     }
     if (method === 'GET') {
-      sendJson(res, { offers: getPoachingOffers(currentCompanyId) });
+      sendJson(res, { offers: getPoachingOffersQuery(currentCompanyId) });
       return true;
     }
     if (method === 'POST') {
       if (requireCapability(res, currentCompanyId, 'executives', 'create poaching offer')) return true;
       const body = await readJsonBody<CreatePoachingOfferInput>(req);
       try {
-        const offer = await createPoachingOffer(currentCompanyId, body);
+        const offer = await createPoachingOfferCommand(gameCtx(), body);
         sendJson(res, { ...offer, offer });
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -109,7 +117,7 @@ export async function handleExecutiveRoutes(
       if (requireCapability(res, currentCompanyId, 'executives', 'update poaching offer')) return true;
       const body = await readJsonBody<{ status?: string; executive?: boolean; salary?: number; accelerated?: boolean }>(req);
       try {
-        const offer = await updatePoachingOffer(currentCompanyId, offerId, body);
+        const offer = await updatePoachingOfferCommand(gameCtx(), offerId, body);
         sendJson(res, { ...offer, offer, moneyDelta: 0 });
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -122,7 +130,7 @@ export async function handleExecutiveRoutes(
       // Research employer (spends 5 SimBoosts)
       if (requireCapability(res, currentCompanyId, 'executives', 'research employer')) return true;
       try {
-        const result = await researchEmployerByPoacher(currentCompanyId, offerId);
+        const result = await researchEmployerCommand(gameCtx(), offerId);
         sendJson(res, result);
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -135,7 +143,7 @@ export async function handleExecutiveRoutes(
       // Refresh / re-roll offer
       if (requireCapability(res, currentCompanyId, 'executives', 'refresh offer')) return true;
       try {
-        const offer = await refreshPoachingOffer(currentCompanyId, offerId);
+        const offer = await refreshPoachingOfferCommand(gameCtx(), offerId);
         sendJson(res, { ...offer, offer });
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -148,7 +156,7 @@ export async function handleExecutiveRoutes(
       // Dismiss offer
       if (requireCapability(res, currentCompanyId, 'executives', 'dismiss offer')) return true;
       try {
-        const result = await dismissPoachingOffer(currentCompanyId, offerId);
+        const result = await dismissPoachingOfferCommand(gameCtx(), offerId);
         sendJson(res, result);
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -169,7 +177,7 @@ export async function handleExecutiveRoutes(
     const offerId = Number(hostileCounterMatch[1]);
     const body = await readJsonBody<CounterHostileOfferInput>(req);
     try {
-      const result = await counterHostileOffer(currentCompanyId, offerId, body);
+      const result = await counterHostileOfferCommand(gameCtx(), offerId, body);
       sendJson(res, result);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -184,7 +192,7 @@ export async function handleExecutiveRoutes(
       sendJson(res, { error: 'Unauthorized' }, 401);
       return true;
     }
-    sendJson(res, { offers: getHostileOffers(currentCompanyId) });
+    sendJson(res, { offers: getHostileOffersQuery(currentCompanyId) });
     return true;
   }
 
@@ -212,7 +220,7 @@ export async function handleExecutiveRoutes(
       // Let go to competitor (accept poaching)
       if (requireCapability(res, currentCompanyId, 'executives', 'let go executive')) return true;
       try {
-        const result = await letGoHostileOffer(currentCompanyId, offerId);
+        const result = await letGoHostileOfferCommand(gameCtx(), offerId);
         sendJson(res, result);
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -225,7 +233,7 @@ export async function handleExecutiveRoutes(
       // Research poacher (spends 5 SimBoosts)
       if (requireCapability(res, currentCompanyId, 'executives', 'research poacher')) return true;
       try {
-        const result = await researchPoacherByEmployer(currentCompanyId, offerId);
+        const result = await researchPoacherCommand(gameCtx(), offerId);
         sendJson(res, result);
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -238,7 +246,7 @@ export async function handleExecutiveRoutes(
       // Reject offer
       if (requireCapability(res, currentCompanyId, 'executives', 'reject hostile offer')) return true;
       try {
-        const result = await rejectHostileOffer(currentCompanyId, offerId);
+        const result = await rejectHostileOfferCommand(gameCtx(), offerId);
         sendJson(res, result);
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -260,7 +268,7 @@ export async function handleExecutiveRoutes(
       sendJson(res, { error: 'Unauthorized' }, 401);
       return true;
     }
-    sendJson(res, getExecutiveCandidates(currentCompanyId));
+    sendJson(res, getExecutiveCandidatesQuery(currentCompanyId));
     return true;
   }
 
@@ -273,7 +281,7 @@ export async function handleExecutiveRoutes(
     if (requireCapability(res, currentCompanyId, 'executives', 'hire executive')) return true;
     const body = await readJsonBody<{ candidateId: number; position?: string }>(req);
     try {
-      const exec = await hireExecutive(currentCompanyId, body.candidateId, body.position || 'unassigned');
+      const exec = await hireExecutiveCommand(gameCtx(), body.candidateId, body.position || 'unassigned');
       sendJson(res, { executive: exec });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -292,7 +300,7 @@ export async function handleExecutiveRoutes(
     if (requireCapability(res, currentCompanyId, 'executives', 'fire executive')) return true;
     const execId = Number(fireMatch[1]);
     try {
-      const result = await fireExecutive(currentCompanyId, execId);
+      const result = await fireExecutiveCommand(gameCtx(), execId);
       sendJson(res, result);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -312,7 +320,7 @@ export async function handleExecutiveRoutes(
     const execId = Number(assignMatch[1]);
     const body = await readJsonBody<{ position: string }>(req);
     try {
-      const exec = await assignExecutive(currentCompanyId, execId, body.position);
+      const exec = await assignExecutiveCommand(gameCtx(), execId, body.position);
       sendJson(res, { executive: exec });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -331,7 +339,7 @@ export async function handleExecutiveRoutes(
     if (requireCapability(res, currentCompanyId, 'executives', 'train executive')) return true;
     const execId = Number(trainMatch[1]);
     try {
-      const result = await trainExecutive(currentCompanyId, execId);
+      const result = await trainExecutiveCommand(gameCtx(), execId);
       sendJson(res, result);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -351,7 +359,7 @@ export async function handleExecutiveRoutes(
 
     if (method === 'GET') {
       try {
-        const exec = getExecutiveById(currentCompanyId, execId);
+        const exec = getExecutiveByIdQuery(currentCompanyId, execId);
         sendJson(res, { executive: exec });
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -364,7 +372,7 @@ export async function handleExecutiveRoutes(
       if (requireCapability(res, currentCompanyId, 'executives', 'update executive')) return true;
       const body = await readJsonBody<{ salary?: number; position?: string; strikeUntil?: string | null; plansToRetire?: boolean }>(req);
       try {
-        const exec = await updateExecutive(currentCompanyId, execId, body);
+        const exec = await updateExecutiveCommand(gameCtx(), execId, body);
         sendJson(res, { executive: exec });
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -377,7 +385,7 @@ export async function handleExecutiveRoutes(
       // Dismiss executive with severance
       if (requireCapability(res, currentCompanyId, 'executives', 'fire executive')) return true;
       try {
-        const result = await fireExecutive(currentCompanyId, execId);
+        const result = await fireExecutiveCommand(gameCtx(), execId);
         sendJson(res, result);
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
