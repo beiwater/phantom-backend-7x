@@ -8,11 +8,19 @@ import {
   unlockExecutiveSlot,
   unlockTagSlot,
   unlockDisplayCaseSlot,
-  rushBuildingUpgradeOrConstruction
 } from '../server/game/simboosts.ts';
+import { rushBuildingConstructionUseCase } from '../server/application/buildings/rush-construction.ts';
+import { createGameContext } from '../server/context/game-context.ts';
 import { handleSimboostRoutes } from '../server/routes/simboost-routes.ts';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { EventEmitter } from 'node:events';
+
+// The rush path now runs through the application use case, which requires an
+// authenticated GameContext bound to the company under test.
+function testCtx(companyId: number) {
+  return createGameContext(companyId, companyId, 0);
+}
+
 
 interface MockHttpHandler {
   req: IncomingMessage;
@@ -93,7 +101,7 @@ async function runIssue65Verification() {
   // Attempt rush on idle building - MUST fail and NOT deduct 5 SimBoosts
   let errorCaught = false;
   try {
-    await rushBuildingUpgradeOrConstruction(companyId, idleBuildingId);
+    await rushBuildingConstructionUseCase(testCtx(companyId), { buildingId: idleBuildingId });
   } catch (err: unknown) {
     errorCaught = true;
     const msg = err instanceof Error ? err.message : String(err);
@@ -111,7 +119,7 @@ async function runIssue65Verification() {
 
   errorCaught = false;
   try {
-    await rushBuildingUpgradeOrConstruction(companyId, idleBuildingId);
+    await rushBuildingConstructionUseCase(testCtx(companyId), { buildingId: idleBuildingId });
   } catch (err: unknown) {
     errorCaught = true;
     const msg = err instanceof Error ? err.message : String(err);
@@ -127,9 +135,9 @@ async function runIssue65Verification() {
   const futureIso = new Date(Date.now() + 60000).toISOString();
   db.prepare('UPDATE buildings SET busy_until = ? WHERE id = ?').run(futureIso, idleBuildingId);
 
-  const rushResult = await rushBuildingUpgradeOrConstruction(companyId, idleBuildingId);
-  assert.equal(rushResult.success, true);
-  assert.equal(rushResult.simBoosts, 495, 'SimBoosts must be decremented by 5 (500 -> 495)');
+  const rushResult = await rushBuildingConstructionUseCase(testCtx(companyId), { buildingId: idleBuildingId });
+  assert.equal(rushResult.simboostsRemaining, 495, 'SimBoosts must be decremented by 5 (500 -> 495)');
+  assert.equal(rushResult.building.busyUntil, null, 'Entity busyUntil must be cleared to NULL');
 
   const buildingAfterRush = db.prepare('SELECT busy_until FROM buildings WHERE id = ?').get(idleBuildingId) as { busy_until: string | null };
   assert.equal(buildingAfterRush.busy_until, null, 'busy_until must be cleared to NULL');

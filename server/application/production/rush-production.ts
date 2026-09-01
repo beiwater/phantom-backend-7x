@@ -2,6 +2,7 @@ import type { GameContext } from '../../context/game-context.ts';
 import { runInTransaction } from '../../db/transaction.ts';
 import { buildingRepository, type BuildingEntity } from '../../repositories/building-repository.ts';
 import { productionRepository, type ProductionQueueEntity } from '../../repositories/production-repository.ts';
+import { warehouseRepository } from '../../repositories/warehouse-repository.ts';
 import { companyRepository } from '../../repositories/company-repository.ts';
 import { eventBus } from '../../events/event-bus.ts';
 import { NotFoundError, ForbiddenError, ValidationError } from '../../errors/domain-error.ts';
@@ -49,12 +50,18 @@ export async function rushProductionUseCase(
     // 3. Debit SimBoosts
     const simboostsRemaining = companyRepository.debitSimboosts(ctx.companyId, cost);
 
-    // 4. Finish immediately
+    // 4. Finish immediately and DELIVER the output now (legacy semantics:
+    // resolved=1, output added to warehouse, building freed — Issue #68:
+    // inventory credit must be inside the same atomic transaction).
     const nowIso = new Date().toISOString();
     const finishedItem = productionRepository.finishImmediately(queueItem.id, ctx.companyId, nowIso);
+    if (!productionRepository.markResolved(queueItem.id, ctx.companyId)) {
+      throw new ValidationError('Production queue is no longer active');
+    }
+    warehouseRepository.addResource(ctx.companyId, queueItem.kind, queueItem.quality, queueItem.amount);
 
-    // 5. Update building busy state
-    const updatedBuilding = buildingRepository.updateBusyUntil(building.id, ctx.companyId, nowIso);
+    // 5. Free the building (legacy: busy_until = NULL)
+    const updatedBuilding = buildingRepository.updateBusyUntil(building.id, ctx.companyId, null);
 
     // 6. Publish domain event on transaction commit
     eventBus.publishCommitted(txCtx, 'ProductionRushed', {
@@ -65,7 +72,7 @@ export async function rushProductionUseCase(
     });
 
     return {
-      queueItem: finishedItem,
+      queueItem: { ...finishedItem, resolved: true },
       building: updatedBuilding,
       simboostsRemaining
     };

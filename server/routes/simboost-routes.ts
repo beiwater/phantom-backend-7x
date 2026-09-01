@@ -1,24 +1,27 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { CONFIG } from '../config.ts';
 import { readJsonBody, sendJson } from './utils.ts';
- import {
-   getPaymentPackagesList,
-   getPaymentPricingInfo,
-   getPlayerBonusesList,
-   canPurchasePaymentPackage,
-   purchasePaymentPackage,
+import {
+  getPaymentPackagesList,
+  getPaymentPricingInfo,
+  getPlayerBonusesList,
+  canPurchasePaymentPackage,
+  purchasePaymentPackage,
   exchangeCashForSimboosts,
   realignProductionSalesBonus,
   getCompanyBonusModifiers,
-   exchangeSimBoosts,
-   unlockDisplayCaseSlot,
-   unlockExecutiveSlot,
-   unlockTagSlot,
-   unlockBuildingSlot,
-   rushProduction,
-   PAYMENT_PACKAGES,
-   rushBuildingUpgradeOrConstruction
- } from '../game/simboosts.ts';
+  exchangeSimBoosts,
+  unlockDisplayCaseSlot,
+  unlockExecutiveSlot,
+  unlockTagSlot,
+  unlockBuildingSlot,
+  PAYMENT_PACKAGES
+} from '../game/simboosts.ts';
+import { createGameContext } from '../context/game-context.ts';
+import { rushProductionUseCase } from '../application/production/rush-production.ts';
+import { rushBuildingConstructionUseCase } from '../application/buildings/rush-construction.ts';
+import { productionRepository } from '../repositories/production-repository.ts';
+import { getResourceDef } from '../game-data/resources.ts';
 import { getCompanyBoostSettings } from '../game/simboost-settings.ts';
 import {
   activateSupporter,
@@ -464,15 +467,45 @@ export async function handleSimboostRoutes(
     const buildingId = Number(rushQueueMatch[1]);
     const queueId = rushQueueMatch[2] ? Number(rushQueueMatch[2]) : undefined;
     try {
-      const result = await rushProduction(currentCompanyId, buildingId, queueId);
-      sendJson(res, result);
+      const ctx = createGameContext(currentCompanyId, currentCompanyId, 0);
+      const result = await rushProductionUseCase(ctx, { buildingId, queueId: queueId ?? null });
+      const queueEntities = productionRepository.findActiveByBuilding(buildingId, currentCompanyId);
+      const queue = queueEntities.map(q => {
+        const res = getResourceDef(q.kind);
+        return {
+          id: q.id,
+          kind: q.kind,
+          amount: q.amount,
+          duration: q.durationSeconds,
+          started: q.startedAt,
+          finishes: q.finishesAt,
+          resource: res ? { name: `Resource #${q.kind}`, image: res.image } : null
+        };
+      });
+      sendJson(res, {
+        success: true,
+        message: 'Production completed instantly!',
+        simBoosts: result.simboostsRemaining,
+        building: formatBuilding({
+          id: result.building.id,
+          company_id: result.building.companyId,
+          position: result.building.position,
+          kind: result.building.kind,
+          size: result.building.size,
+          name: result.building.name,
+          cost: result.building.cost,
+          category: result.building.category,
+          created_at: '',
+          busy_until: result.building.busyUntil
+        }),
+        queue
+      });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       sendJson(res, { error: msg }, 400);
     }
     return true;
   }
-
   // 12. Rush Construction / Upgrade: POST /api/v2/companies/buildings/:id/construction-rush/
   const rushConstructMatch = pathname.match(/^\/api\/v2\/companies\/buildings\/(\d+)\/construction-rush\/$/);
   if (rushConstructMatch && method === 'POST') {
@@ -482,8 +515,25 @@ export async function handleSimboostRoutes(
     }
     const buildingId = Number(rushConstructMatch[1]);
     try {
-      const result = await rushBuildingUpgradeOrConstruction(currentCompanyId, buildingId);
-      sendJson(res, result);
+      const ctx = createGameContext(currentCompanyId, currentCompanyId, 0);
+      const result = await rushBuildingConstructionUseCase(ctx, { buildingId });
+      sendJson(res, {
+        success: true,
+        message: 'Construction rushed successfully',
+        simBoosts: result.simboostsRemaining,
+        building: formatBuilding({
+          id: result.building.id,
+          company_id: result.building.companyId,
+          position: result.building.position,
+          kind: result.building.kind,
+          size: result.building.size,
+          name: result.building.name,
+          cost: result.building.cost,
+          category: result.building.category,
+          created_at: '',
+          busy_until: result.building.busyUntil
+        })
+      });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       sendJson(res, { error: msg }, 400);

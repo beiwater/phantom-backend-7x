@@ -2,7 +2,6 @@
  import { runInTransaction } from '../db/transaction.ts';
  import { getCompanyById, updateCompanyMoney, updateCompanySimBoosts } from './company.ts';
  import { getBuildingById, formatBuilding } from './buildings.ts';
- import { getBuildingQueue } from './production.ts';
  import { addResource } from './warehouse.ts';
  import {
    ensureBoostSettingsTable,
@@ -392,95 +391,3 @@ export async function unlockTagSlot(companyId: number) {
   }, { immediate: true });
 }
 
-export async function rushProduction(companyId: number, buildingId: number, queueId?: number) {
-  const cost = 1;
-  return runInTransaction(async () => {
-    const comp = getCompanyById(companyId);
-    if (!comp || comp.simboosts < cost) {
-      throw new Error('Need at least 1 SimBoost to rush production');
-    }
-
-    const building = getBuildingById(buildingId);
-    if (!building || building.company_id !== companyId) {
-      throw new Error('Building not found');
-    }
-
-    const item = queueId
-      ? db.prepare(`
-          SELECT id, kind, quality, amount
-          FROM production_queues
-          WHERE id = ? AND building_id = ? AND company_id = ? AND resolved = 0
-        `).get(queueId, buildingId, companyId) as { id: number; kind: number; quality?: number; amount: number } | undefined
-      : db.prepare(`
-          SELECT id, kind, quality, amount
-          FROM production_queues
-          WHERE building_id = ? AND company_id = ? AND resolved = 0
-          ORDER BY id ASC
-          LIMIT 1
-        `).get(buildingId, companyId) as { id: number; kind: number; quality?: number; amount: number } | undefined;
-    if (!item) {
-      throw new Error('No active production queue found for this building');
-    }
-
-    updateCompanySimBoosts(companyId, -cost);
-    const claimed = db.prepare(`
-      UPDATE production_queues SET resolved = 1, finishes_at = ?
-      WHERE id = ? AND building_id = ? AND company_id = ? AND resolved = 0
-    `).run(new Date().toISOString(), item.id, buildingId, companyId);
-    if (claimed.changes !== 1) {
-      throw new Error('Production queue is no longer active');
-    }
-    addResource(companyId, item.kind, item.quality ?? 0, item.amount);
-    const updatedBuilding = db.prepare(`
-      UPDATE buildings SET busy_until = NULL
-      WHERE id = ? AND company_id = ?
-    `).run(buildingId, companyId);
-    if (updatedBuilding.changes !== 1) throw new Error('Building not found');
-
-    const latestBuilding = getBuildingById(buildingId);
-    const updatedComp = getCompanyById(companyId);
-    return {
-      success: true,
-      message: "Production completed instantly!",
-      simBoosts: updatedComp?.simboosts ?? 0,
-      building: latestBuilding ? formatBuilding(latestBuilding) : null,
-      queue: getBuildingQueue(companyId, buildingId)
-    };
-  }, { immediate: true });
-}
-
-export async function rushBuildingUpgradeOrConstruction(companyId: number, buildingId: number) {
-  const cost = 5;
-  return runInTransaction(async () => {
-    const comp = getCompanyById(companyId);
-    if (!comp || comp.simboosts < cost) {
-      throw new Error('Need at least 5 SimBoosts to rush construction');
-    }
-
-    const building = getBuildingById(buildingId);
-    if (!building || building.company_id !== companyId) {
-      throw new Error('Building not found');
-    }
-
-    const busyUntilMs = building.busy_until ? new Date(building.busy_until).getTime() : 0;
-    if (busyUntilMs <= Date.now()) {
-      throw new Error('Building is not under construction or upgrade');
-    }
-
-    updateCompanySimBoosts(companyId, -cost);
-    const updated = db.prepare(`
-      UPDATE buildings SET busy_until = NULL
-      WHERE id = ? AND company_id = ?
-    `).run(buildingId, companyId);
-    if (updated.changes !== 1) throw new Error('Building not found');
-
-    const updatedBuilding = getBuildingById(buildingId);
-    const updatedComp = getCompanyById(companyId);
-    return {
-      success: true,
-      message: "Construction rushed successfully",
-      simBoosts: updatedComp?.simboosts ?? 0,
-      building: updatedBuilding ? formatBuilding(updatedBuilding) : null
-    };
-  }, { immediate: true });
-}

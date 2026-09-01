@@ -31,7 +31,7 @@ export interface DomainEventMap {
   ProductionRushed: {
     companyId: number;
     buildingId: number;
-    queueId: number;
+    queueId: number | null;
     simboostsCost: number;
   };
   BuildingConstructed: {
