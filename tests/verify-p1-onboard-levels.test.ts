@@ -133,14 +133,16 @@ async function runTest(): Promise<void> {
   const waitMs = Math.max(0, Date.parse(queue.finishes) - Date.now()) + 500;
   await new Promise(r => setTimeout(r, waitMs));
 
+  // Arrange: pin the company at level 1 with experience 5 XP below the
+  // level-up threshold (L1 needs 45 XP) so this single collect both raises
+  // experience AND proves threshold-derived level-ups. Level is pinned to 1
+  // because getAuthData clamps displayed level to >= 1 (upstream behavior),
+  // which would otherwise make lvlBefore inconsistent with the DB row.
+  db.prepare('UPDATE companies SET level = 1, experience = 40 WHERE company_id = ?')
+    .run(firstAuth.authCompany.companyId);
   const before = await authData(cookie);
-  const expBefore = before.levelInfo!.experience;
   const lvlBefore = before.levelInfo!.level;
-  const xpNeeded = before.levelInfo!.experienceToNextLevel;
-  // Arrange: put experience 5 XP below the level-up threshold so this single
-  // collect both raises experience AND proves threshold-derived level-ups.
-  db.prepare('UPDATE companies SET experience = ? WHERE company_id = ?')
-    .run(xpNeeded - 5, firstAuth.authCompany.companyId);
+  assert.equal(lvlBefore, 1, 'arranged company must report level 1');
 
   const collectRes = await fetch(`${baseUrl}/api/v2/order/take/${queue.id}/`, {
     method: 'POST', headers: { Cookie: cookie }

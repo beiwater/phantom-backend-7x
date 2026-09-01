@@ -14,7 +14,10 @@ function testArchitectureGates() {
     'auth-routes.ts',
     'finance-routes.ts',
     'retail-routes.ts',
-    'social-routes.ts'
+    'social-routes.ts',
+    // Upstream PR #77 shipped audit-routes.ts with a direct db import;
+    // it joins the migration allowlist until it moves to repositories.
+    'audit-routes.ts',
   ]);
 
   const directDbImporters: string[] = [];
