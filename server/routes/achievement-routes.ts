@@ -2,6 +2,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { readJsonBody, sendJson } from './utils.ts';
 import { DomainError } from '../errors/domain-error.ts';
 import { getCompanyCollectibles } from '../game/collectibles.ts';
+import { getGovernmentOrders, getGovernmentTier } from '../game/government.ts';
 import {
   getIndividualAchievements,
   getAchievementsOverview,
@@ -203,12 +204,14 @@ export async function handleAchievementRoutes(
     return true;
   }
 
-  // 10. Government Orders
+  // 10. Government Orders — real data from the government engine
   if (pathname.startsWith('/api/') && pathname.includes('/government-orders/')) {
+    const realmOrders = getGovernmentOrders(0);
+    const tierInfo = getGovernmentTier(currentCompanyId);
     sendJson(res, {
-      orders: [],
-      tier: 1,
-      completedOrders: []
+      orders: realmOrders,
+      tier: tierInfo.tierIndex,
+      completedOrders: realmOrders.filter(o => o.resourceMultiplierAwarded !== null)
     });
     return true;
   }

@@ -7,6 +7,9 @@ import {
   getResourceDef
 } from '../game/constants.ts';
 import { getCompanyById } from '../game/company.ts';
+import { getWeather } from '../game-data/weather.ts';
+import { getCertificates } from '../game/achievements.ts';
+import { getGovernmentOrders, getGovernmentTier, getGovernmentBids } from '../game/government.ts';
 import { getCompanyRankings } from '../game/encyclopedia.ts';
 
 export async function handleEncyclopediaRoutes(
@@ -43,13 +46,7 @@ export async function handleEncyclopediaRoutes(
   const weatherMatch = pathname.match(/^\/api\/v2\/weather\/(\d+)\/$/);
   if (weatherMatch) {
     const realmId = Number(weatherMatch[1]);
-    sendJson(res, {
-      id: 1,
-      realm: realmId,
-      sellingSpeedMultiplier: 1.0,
-      since: '2026-01-01T00:00:00.000Z',
-      until: '2030-01-01T00:00:00.000Z'
-    });
+    sendJson(res, getWeather(realmId));
     return true;
   }
 
@@ -191,19 +188,22 @@ export async function handleEncyclopediaRoutes(
 
   // 10. Certificates and Tags (API endpoints only)
   if (pathname.startsWith('/api/') && pathname.includes('/certificates-explorer/')) {
+    const all = getCertificates(0);
+    const latest = [...all].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 20);
+    const rarest = [...all].sort((a, b) => a.rank - b.rank).slice(0, 20);
     if (pathname.includes('/latest/')) {
-      sendJson(res, { latestCertificates: [] });
+      sendJson(res, { latestCertificates: latest });
       return true;
     }
     if (pathname.includes('/rarest/')) {
-      sendJson(res, { rarestCertificates: [] });
+      sendJson(res, { rarestCertificates: rarest });
       return true;
     }
-    sendJson(res, { latestCertificates: [], rarestCertificates: [] });
+    sendJson(res, { latestCertificates: latest, rarestCertificates: rarest });
     return true;
   }
   if (pathname.startsWith('/api/') && pathname.includes('/certificates/')) {
-    sendJson(res, []);
+    sendJson(res, getCertificates(0));
     return true;
   }
   if (pathname.startsWith('/api/') && pathname.includes('/tags/')) {
@@ -214,7 +214,13 @@ export async function handleEncyclopediaRoutes(
   // 10b. Government Orders (v3/v2 data APIs only — must not swallow the
   // /api/v3/pages/... guide article whose slug contains "government-orders")
   if (pathname.startsWith('/api/v') && !pathname.includes('/pages/') && pathname.includes('/government-orders/')) {
-    sendJson(res, { governmentOrders: [], applications: [], tier: 1 });
+    const orders = getGovernmentOrders(0);
+    const tierInfo = getGovernmentTier(currentCompanyId);
+    sendJson(res, {
+      governmentOrders: orders,
+      applications: getGovernmentBids(0),
+      tier: tierInfo.tierIndex
+    });
     return true;
   }
   // 11. Stats / Top Leaderboards

@@ -460,10 +460,40 @@ export function removeDisplayCaseSlot(companyId: number, slot: number) {
 }
 
 export function getCertificates(realmId: number) {
-  return [
-    { id: 1, title: 'Top Producer of Apples', company: 'lifeline', date: new Date().toISOString(), rank: 1 },
-    { id: 2, title: 'Fastest Growing Company', company: 'Solaris Energy Ltd', date: new Date().toISOString(), rank: 1 }
-  ];
+  // Certificates derive from real collected achievements: one certificate per
+  // collected achievement, ranked by (level, unlock time) within its
+  // achievement id. No hardcoded entries.
+  const rows = db.prepare(`
+    SELECT a.achievement_id, a.collected_at, a.company_id, c.name
+    FROM company_achievements a
+    JOIN companies c ON c.company_id = a.company_id
+    ORDER BY a.achievement_id ASC, a.collected_at ASC
+  `).all() as Array<{
+    achievement_id: number | string;
+    claimed_at: string;
+    company_id: number;
+    name: string;
+  }>;
+
+  const rankCounter = new Map<string, number>();
+  const certificates: Array<{ id: number; title: string; company: string; companyId: number; date: string; rank: number }> = [];
+  let certId = 1;
+  for (const row of rows) {
+    const def = ALL_ACHIEVEMENTS.find(a => String(a.id) === String(row.achievement_id));
+    const title = def ? def.name : `Achievement #${row.achievement_id}`;
+    const key = String(row.achievement_id);
+    const rank = (rankCounter.get(key) ?? 0) + 1;
+    rankCounter.set(key, rank);
+    certificates.push({
+      id: certId++,
+      title,
+      company: row.name || `Company #${row.company_id}`,
+      companyId: row.company_id,
+      date: row.collected_at,
+      rank
+    });
+  }
+  return certificates;
 }
 
 // ---------------------------------------------------------------------------

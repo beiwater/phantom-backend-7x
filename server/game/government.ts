@@ -55,6 +55,16 @@ db.exec(`
   );
 `);
 
+// Older databases may predate later columns; ALTER defensively (no-op if present).
+for (const [table, column, ddl] of [
+  ['government_orders', 'unit_compensation_price', 'ALTER TABLE government_orders ADD COLUMN unit_compensation_price REAL DEFAULT 0'],
+  ['government_orders', 'start_date', 'ALTER TABLE government_orders ADD COLUMN start_date TEXT'],
+  ['government_orders', 'deadline', 'ALTER TABLE government_orders ADD COLUMN deadline TEXT']
+] as const) {
+  const cols = (db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>).map(c => c.name);
+  if (!cols.includes(column)) db.exec(ddl);
+}
+
 export interface GovernmentRequiredResource {
   id: number;
   kind: number;
