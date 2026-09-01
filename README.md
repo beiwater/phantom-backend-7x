@@ -88,3 +88,111 @@ Issue #57 and the `.omp/` project workflow configuration.
   endpoints.
 - Decompile reference data lives in `server/data/decompile/` and
   `server/game-data/` and is the canonical source for formulas.
+
+## API Endpoints
+
+All core REST endpoints implemented across compatibility route handlers:
+
+### Authentication & Profile (`/api/v1/auth/`, `/api/v2/auth/`, `/api/v1/companies/`)
+- `POST /api/v2/auth/email/connect/` — Register / login with email & password
+- `POST /api/v2/auth/logout/` — End current session
+- `GET /api/v1/auth/user/` — Current logged-in user profile & state
+- `GET /api/v1/companies/me/` — Active company profile, level, money, simboosts
+- `PATCH /api/v1/companies/me/` — Update company settings, notes, theme
+
+### Buildings & Production (`/api/v1/buildings/`, `/api/v2/order/`)
+- `GET /api/v1/buildings/` — List all company buildings
+- `POST /api/v1/buildings/` — Construct new building
+- `POST /api/v1/buildings/:id/upgrade/` — Upgrade existing building
+- `POST /api/v1/buildings/:id/demolish/` — Demolish building
+- `POST /api/v2/order/start/` — Start production queue
+- `POST /api/v2/order/cancel/:id/` — Cancel queued production
+- `POST /api/v2/order/take/:id/` — Collect finished goods into warehouse
+- `POST /api/v2/order/rush/:id/` — Rush production using SimBoosts
+
+### Warehouse & Inventory (`/api/v1/warehouse/`)
+- `GET /api/v1/warehouse/` — Query inventory resources and quantities
+- `GET /api/v1/warehouse/:id/` — Detail for specific inventory slot
+
+### Market & Exchange (`/api/v1/market/`, `/api/v2/market/`, `/api/v3/market/`)
+- `GET /api/v3/market/:realm/:resource/` — Market listings for a given resource kind
+- `POST /api/v2/market/orders/` — Post market sell order
+- `POST /api/v2/market/buy/` — Buy order fulfillment
+- `DELETE /api/v2/market/orders/:id/` — Cancel active market order
+
+### Contracts (`/api/v1/contracts/`, `/api/v2/contracts/`)
+- `GET /api/v1/contracts/` — List incoming & outgoing contracts
+- `POST /api/v1/contracts/` — Send contract to another company
+- `POST /api/v1/contracts/:id/accept/` — Accept contract
+- `POST /api/v1/contracts/:id/reject/` — Reject/cancel contract
+
+### Bonds & Banking (`/api/v1/bonds/`)
+- `GET /api/v1/bonds/` — List company bonds & market bonds
+- `POST /api/v1/bonds/issue/` — Issue new bonds
+- `POST /api/v1/bonds/:id/buy/` — Buy bonds from exchange
+- `POST /api/v1/bonds/:id/call/` — Call (repay) issued bonds
+
+### Executives & Board (`/api/v1/executives/`)
+- `GET /api/v1/executives/` — List company executives
+- `POST /api/v1/executives/hire/` — Hire new executive candidate
+- `POST /api/v1/executives/:id/assign/` — Assign executive to position (COO, CFO, CMO, CTO)
+- `POST /api/v1/executives/:id/train/` — Train executive skill
+- `DELETE /api/v1/executives/:id/` — Fire executive
+
+### Research & Patents (`/api/v1/research/`)
+- `GET /api/v1/research/` — Query company research disciplines and patent levels
+- `POST /api/v1/research/apply/` — Apply research points to unlock patent tier
+
+### Achievements & Rewards (`/api/v1/achievements/`)
+- `GET /api/v1/achievements/` — List player achievement progression
+- `POST /api/v1/achievements/:id/claim/` — Claim unlocked achievement rewards
+
+### Social, Newspaper & Chat (`/api/v1/social/`, `/api/v1/newspaper/`, `/api/v1/chat/`)
+- `GET /api/v1/newspaper/:realm/latest/` — Latest newspaper issue and articles
+- `GET /api/v1/chat/messages/` — Query chat history for channel
+- `POST /api/v1/chat/messages/` — Send chat message
+
+## Cookies and Session Management
+
+The test suite includes session cookie helpers:
+
+```bash
+# Save/verify session cookie
+npm run test:cookie
+```
+
+Session tokens are stored in `tests/cookies.json` as:
+```json
+[
+  {
+    "name": "sessionid",
+    "value": "<session_token>",
+    "domain": "127.0.0.1",
+    "path": "/"
+  }
+]
+```
+Browser E2E scripts load this cookie to bypass the login screen and resume active player sessions directly.
+
+## Database Structure
+
+Core SQLite tables (`simcompanies.sqlite`):
+
+| Table | Key Fields | Description |
+| --- | --- | --- |
+| `players` | `id`, `player_id`, `email`, `password_hash`, `is_admin` | Player accounts and credentials |
+| `sessions` | `session_token`, `player_id`, `active_company_id`, `expires_at` | Active authentication sessions |
+| `companies` | `company_id`, `player_id`, `name`, `money`, `simboosts`, `level` | Company profiles and economic state |
+| `buildings` | `id`, `company_id`, `position`, `kind`, `size`, `busy_until` | Physical buildings constructed on map |
+| `production_queues` | `id`, `building_id`, `company_id`, `kind`, `cost`, `amount`, `finishes_at` | In-flight and completed production |
+| `retail_orders` | `id`, `building_id`, `company_id`, `resource_kind`, `units`, `unit_price` | Active retail sales queues |
+| `warehouse` | `id`, `company_id`, `kind`, `quality`, `amount`, `cost_workers` | Company resource inventories |
+| `market_orders` | `id`, `seller_id`, `kind`, `quality`, `quantity`, `price`, `active` | Active and fulfilled market listings |
+| `contracts` | `id`, `sender_company_id`, `recipient_company_id`, `kind`, `amount`, `price`, `status` | Direct B2B contracts |
+| `bonds` | `id`, `seller_company_id`, `buyer_company_id`, `amount`, `interest_rate`, `status` | Financial bonds and liabilities |
+| `executives` | `id`, `company_id`, `name`, `position`, `skill_management`, `salary`, `status` | Hired company management team |
+| `research` | `id`, `company_id`, `discipline`, `points`, `patents` | Research investment and quality levels |
+
+## License
+
+MIT License. Free and open source for private, educational, and self-hosted compatibility use.

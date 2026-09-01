@@ -289,18 +289,26 @@ export function initializeDatabaseSchema(database: DatabaseSync = db): void {
 
   // Create standard indices for performance and ownership checks
   database.exec(`
+    CREATE INDEX IF NOT EXISTS idx_players_email ON players(email);
     CREATE INDEX IF NOT EXISTS idx_companies_player_id ON companies(player_id);
+    CREATE INDEX IF NOT EXISTS idx_buildings_company_id ON buildings(company_id);
     CREATE INDEX IF NOT EXISTS idx_buildings_company_position ON buildings(company_id, position);
+    CREATE INDEX IF NOT EXISTS idx_production_queues_company_id ON production_queues(company_id);
     CREATE INDEX IF NOT EXISTS idx_production_queues_company_building_resolved
       ON production_queues(company_id, building_id, resolved);
     CREATE INDEX IF NOT EXISTS idx_cash_ledger_company_created
       ON cash_ledger(company_id, created_at);
     CREATE INDEX IF NOT EXISTS idx_finance_snapshots_company
       ON finance_daily_snapshots(company_id, snapshot_date);
+    CREATE INDEX IF NOT EXISTS idx_warehouse_company_id ON warehouse(company_id);
     CREATE INDEX IF NOT EXISTS idx_warehouse_company_kind_quality
       ON warehouse(company_id, kind, quality);
+    CREATE INDEX IF NOT EXISTS idx_market_orders_active ON market_orders(active);
+    CREATE INDEX IF NOT EXISTS idx_market_orders_seller_id ON market_orders(seller_id);
     CREATE INDEX IF NOT EXISTS idx_market_orders_active_kind_quality_price
       ON market_orders(active, kind, quality, price);
+    CREATE INDEX IF NOT EXISTS idx_contracts_sender_company_id ON contracts(sender_company_id);
+    CREATE INDEX IF NOT EXISTS idx_contracts_recipient_company_id ON contracts(recipient_company_id);
     CREATE INDEX IF NOT EXISTS idx_contracts_recipient_status
       ON contracts(recipient_company_id, status);
     CREATE INDEX IF NOT EXISTS idx_bonds_status_buyer_seller

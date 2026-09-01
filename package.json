@@ -10,6 +10,8 @@
     "test:unit": "bash scripts/test-unit.sh",
     "test:api": "bash scripts/test-api.sh",
     "test:e2e": "playwright test",
+    "test:cookie": "node --experimental-strip-types tests/cookie-saver.ts",
+    "typecheck": "tsc --noEmit",
     "e2e": "playwright test",
     "e2e:headed": "playwright test --headed",
     "e2e:browser": "node --experimental-strip-types scripts/e2e/find-browser.ts",

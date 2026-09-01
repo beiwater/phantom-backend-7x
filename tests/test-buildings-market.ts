@@ -10,15 +10,24 @@ function getFormattedTimestamp(): string {
 }
 
 function createGitCheckpoint(round: number, timestamp: string) {
-  console.log(`\n--- [GIT CHECKPOINT] Creating Git commit for Round ${round} (${timestamp}) ---`);
+  console.log(`\n--- [CHECKPOINT] Recording checkpoint for Round ${round} (${timestamp}) ---`);
   try {
-    execSync('git add -A', { stdio: 'pipe' });
-    const commitMsg = `checkpoint: round ${round} building mechanics & market Q0-Q12 [${timestamp}]`;
-    execSync(`git commit -m "${commitMsg}" --allow-empty`, { stdio: 'pipe' });
-    const log = execSync('git log -1 --oneline', { encoding: 'utf-8' }).trim();
-    console.log(`  -> Git Checkpoint Created: ${log}`);
+    let commitSha = 'unknown';
+    try {
+      commitSha = execSync('git rev-parse HEAD', { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] }).trim();
+    } catch {}
+    const artifactDir = path.join(process.cwd(), 'artifacts', 'e2e');
+    fs.mkdirSync(artifactDir, { recursive: true });
+    const metadata = {
+      round,
+      timestamp,
+      commitSha,
+      createdAt: new Date().toISOString()
+    };
+    fs.writeFileSync(path.join(artifactDir, `checkpoint_round${round}_${timestamp}.json`), JSON.stringify(metadata, null, 2));
+    console.log(`  -> Artifact Checkpoint Recorded (commit: ${commitSha})`);
   } catch (err: unknown) {
-    console.log('  -> Git checkpoint note:', err instanceof Error ? err.message : String(err));
+    console.log('  -> Checkpoint note:', err instanceof Error ? err.message : String(err));
   }
 }
 

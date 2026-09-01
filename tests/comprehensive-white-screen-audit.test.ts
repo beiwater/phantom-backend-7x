@@ -135,9 +135,14 @@ async function runComprehensiveAudit() {
   console.log('================================================================');
 
   const baseUrl = 'http://127.0.0.1:3000';
+  const browserArgs = ['--no-sandbox', '--disable-setuid-sandbox', '--window-size=1440,900'];
+  if (process.env.E2E_DISABLE_WEB_SECURITY === '1') {
+    console.warn('  [WARN] NON-RELEASE / INSECURE BROWSER MODE: --disable-web-security enabled');
+    browserArgs.push('--disable-web-security');
+  }
   const browser = await puppeteer.launch({
     headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox', '--window-size=1440,900', '--disable-web-security']
+    args: browserArgs
   });
 
   const page = await browser.newPage();

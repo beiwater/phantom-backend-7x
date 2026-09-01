@@ -10,15 +10,24 @@ function getFormattedTimestamp(): string {
 }
 
 function createGitCheckpoint(round: number, timestamp: string) {
-  console.log(`\n--- [GIT CHECKPOINT] Creating Git commit for Round ${round} (${timestamp}) ---`);
+  console.log(`\n--- [CHECKPOINT] Recording checkpoint for Round ${round} (${timestamp}) ---`);
   try {
-    execSync('git add -A', { stdio: 'pipe' });
-    const commitMsg = `checkpoint: round ${round} all subpages and chatroom pure DOM verification [${timestamp}]`;
-    execSync(`git commit -m "${commitMsg}" --allow-empty`, { stdio: 'pipe' });
-    const log = execSync('git log -1 --oneline', { encoding: 'utf-8' }).trim();
-    console.log(`  -> Git Checkpoint Created: ${log}`);
+    let commitSha = 'unknown';
+    try {
+      commitSha = execSync('git rev-parse HEAD', { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] }).trim();
+    } catch {}
+    const artifactDir = path.join(process.cwd(), 'artifacts', 'e2e');
+    fs.mkdirSync(artifactDir, { recursive: true });
+    const metadata = {
+      round,
+      timestamp,
+      commitSha,
+      createdAt: new Date().toISOString()
+    };
+    fs.writeFileSync(path.join(artifactDir, `checkpoint_round${round}_${timestamp}.json`), JSON.stringify(metadata, null, 2));
+    console.log(`  -> Artifact Checkpoint Recorded (commit: ${commitSha})`);
   } catch (err: unknown) {
-    console.log('  -> Git checkpoint note:', err instanceof Error ? err.message : String(err));
+    console.log('  -> Checkpoint note:', err instanceof Error ? err.message : String(err));
   }
 }
 
@@ -44,9 +53,14 @@ async function runAllSubpagesVerification(round: number = 5) {
   createGitCheckpoint(round, timestamp);
 
   const baseUrl = 'http://127.0.0.1:3000';
+  const browserArgs = ['--no-sandbox', '--disable-setuid-sandbox', '--window-size=1440,900'];
+  if (process.env.E2E_DISABLE_WEB_SECURITY === '1') {
+    console.warn('  [WARN] NON-RELEASE / INSECURE BROWSER MODE: --disable-web-security enabled');
+    browserArgs.push('--disable-web-security');
+  }
   const browser = await puppeteer.launch({
     headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox', '--window-size=1440,900', '--disable-web-security']
+    args: browserArgs
   });
 
   const page = await browser.newPage();

@@ -5,7 +5,13 @@ cd "$(dirname "$0")/.."
 
 PORT="${PORT:-3100}"
 BASE="${BASE_URL:-http://127.0.0.1:$PORT}"
-NODE_BIN="${NODE_BIN:-/opt/magnate/.node22/bin/node --experimental-strip-types}"
+if [ -z "${NODE_BIN:-}" ]; then
+  if [ -x "/opt/magnate/.node22/bin/node" ]; then
+    NODE_BIN="/opt/magnate/.node22/bin/node --experimental-strip-types"
+  else
+    NODE_BIN="node --experimental-strip-types"
+  fi
+fi
 
 # Suites that must run standalone (spawn isolated servers).
 STANDALONE_RE="verify-issue-70-rest|verify-issue-7[8-9]|verify-issue-8[0-9]|verify-issue-9[0-9]|verify-issue-84-90"

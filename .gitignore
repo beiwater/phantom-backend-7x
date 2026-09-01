@@ -6,3 +6,4 @@ test-results/
 *.sqlite-shm
 *.sqlite
 *.sqlite-wal
+artifacts/
