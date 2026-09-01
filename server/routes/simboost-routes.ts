@@ -22,6 +22,7 @@ import { rushProductionUseCase } from '../application/production/rush-production
 import { rushBuildingConstructionUseCase } from '../application/buildings/rush-construction.ts';
 import { productionRepository } from '../repositories/production-repository.ts';
 import { getResourceDef } from '../game-data/resources.ts';
+import { formatBuilding } from '../game/buildings.ts';
 import { getCompanyBoostSettings } from '../game/simboost-settings.ts';
 import {
   activateSupporter,
