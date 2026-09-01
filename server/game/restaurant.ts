@@ -210,6 +210,106 @@ const DEFAULT_MENU: RestaurantMenuItem[] = [
   { resource: 142, quality: 0, price: 8.0 }   // Orange Juice
 ];
 
+// The bundled game client still consumes the original restaurant payload
+// shape. Keep the new domain model as the source of truth, but expose a
+// compatibility projection for the legacy building-detail screen.
+const LEGACY_SALAD_BAR = [117, 121, 134, 122, 119, 123];
+const LEGACY_MAINS = [129, 130, 131, 142, 143, 149];
+const LEGACY_DRINKS = [132, 124, 125, 126];
+
+export interface LegacyRestaurantMenuItem {
+  kind: number;
+  serving: 'TOP' | 'BOTTOM' | 'NONE';
+  quality: number;
+  price: number;
+}
+
+export interface LegacyRestaurantProperties {
+  isLuxury: boolean;
+  goodService: boolean;
+  saladBar: LegacyRestaurantMenuItem[];
+  mains: LegacyRestaurantMenuItem[];
+  drinks: LegacyRestaurantMenuItem[];
+  menuPrice: number;
+  keepOpen: boolean;
+  rating: number;
+  occupancy: number;
+  seats: number;
+  professionalStaff: boolean;
+  lastCycleAt: string | null;
+}
+
+function toLegacyMenuItem(item: RestaurantMenuItem): LegacyRestaurantMenuItem {
+  return {
+    kind: item.resource,
+    // The legacy UI uses serving to indicate that a dish is enabled. The new
+    // API stores enabled dishes directly in menu, so enabled items map to the
+    // default bottom shelf until the user changes them in the UI.
+    serving: 'BOTTOM',
+    quality: item.quality,
+    price: item.price
+  };
+}
+
+function projectLegacyGroup(menu: RestaurantMenuItem[], kinds: number[]): LegacyRestaurantMenuItem[] {
+  return kinds
+    .map(kind => menu.find(item => item.resource === kind))
+    .filter((item): item is RestaurantMenuItem => item !== undefined)
+    .map(toLegacyMenuItem);
+}
+
+export function getLegacyRestaurantProperties(
+  buildingId: number,
+  companyId?: number | null
+): LegacyRestaurantProperties {
+  const props = getRestaurantProperties(buildingId, companyId);
+  const menuPrice = props.menu.length > 0
+    ? round2(props.menu.reduce((sum, item) => sum + item.price, 0) / props.menu.length)
+    : 10;
+  return {
+    isLuxury: props.isLuxury,
+    goodService: props.goodService,
+    saladBar: projectLegacyGroup(props.menu, LEGACY_SALAD_BAR),
+    mains: projectLegacyGroup(props.menu, LEGACY_MAINS),
+    drinks: projectLegacyGroup(props.menu, LEGACY_DRINKS),
+    menuPrice,
+    keepOpen: props.keepOpen,
+    rating: props.rating,
+    occupancy: props.occupancy,
+    seats: props.seats,
+    professionalStaff: props.professionalStaff,
+    lastCycleAt: props.lastCycleAt
+  };
+}
+
+export function getLegacyRestaurantRun(
+  run: RestaurantRun,
+  properties: LegacyRestaurantProperties
+): Record<string, unknown> {
+  return {
+    id: run.id,
+    datetime: run.datetime,
+    rating: run.rating,
+    newRating: run.rating,
+    occupied: run.occupied,
+    capacity: run.capacity,
+    occupancy: run.capacity > 0 ? round2(run.occupied / run.capacity) : 0,
+    revenue: run.revenue,
+    wages: run.wages,
+    cogs: run.foodCost,
+    profit: run.profit,
+    menuPrice: properties.menuPrice,
+    review: '',
+    resolved: run.resolved,
+    cycleStart: run.cycleStart,
+    cycleEnd: run.cycleEnd,
+    prepared: run.prepared,
+    served: run.served,
+    spoiled: run.spoiled,
+    foodCost: run.foodCost
+  };
+}
+
 export function getRestaurantProperties(buildingId: number, companyId?: number | null): RestaurantProperties {
   const row = db.prepare('SELECT * FROM restaurant_properties WHERE building_id = ?').get(buildingId) as {
     building_id: number;

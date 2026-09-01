@@ -482,7 +482,7 @@ export function registerBuildingRoutes(registry: RouteRegistry = globalRouteRegi
     handler: deleteBuildingHandler
   });
 
-  // Sales orders and Restaurant stubs for building detail page
+  // Sales orders compatibility endpoint for building detail page
   registry.register({
     method: 'GET',
     pattern: '/api/v2/companies/buildings/:id/sales-orders/',
@@ -492,30 +492,6 @@ export function registerBuildingRoutes(registry: RouteRegistry = globalRouteRegi
     }
   });
 
-  registry.register({
-    method: 'GET',
-    pattern: '/api/v2/companies/buildings/:id/restaurant-properties/',
-    auth: 'none',
-    handler: async (_req, res) => {
-      sendJson(res, {
-        isLuxury: false,
-        goodService: false,
-        saladBar: [],
-        mains: [],
-        drinks: [],
-        menuPrice: 10
-      });
-    }
-  });
-
-  registry.register({
-    method: 'GET',
-    pattern: '/api/v2/companies/buildings/:id/restaurant-runs/',
-    auth: 'none',
-    handler: async (_req, res) => {
-      sendJson(res, []);
-    }
-  });
   // 7. Building Abundance (Issue #93)
   registry.register({
     method: 'GET',

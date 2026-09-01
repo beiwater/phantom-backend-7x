@@ -11,6 +11,7 @@ import {
   requiredRobotCount,
   requiredRobotQuality
 } from '../../game/robotics.ts';
+import { getLegacyRestaurantProperties, type LegacyRestaurantProperties } from '../../game/restaurant.ts';
 
 export interface SimCompaniesBuildingDTO {
   id: number;
@@ -43,6 +44,8 @@ export interface SimCompaniesBuildingDTO {
     lockedProduct: number | null;
     wageMultiplier: number;
   } | null;
+  /** Compatibility payload consumed by the bundled restaurant detail view. */
+  restaurantProperties?: LegacyRestaurantProperties;
 }
 
 export function toSimCompaniesBuildingDTO(
@@ -108,7 +111,7 @@ export function toSimCompaniesBuildingDTO(
     };
   }
 
-  return {
+  const dto: SimCompaniesBuildingDTO = {
     id: building.id,
     busy: busyObj,
     category: building.category || meta.category || 'production',
@@ -149,6 +152,11 @@ export function toSimCompaniesBuildingDTO(
         },
     workers: (building.size || 1) * 10
   };
+
+  if (building.kind === 'r') {
+    dto.restaurantProperties = getLegacyRestaurantProperties(building.id, building.companyId);
+  }
+  return dto;
 }
 
 export function toSimCompaniesBuildingsListDTO(
