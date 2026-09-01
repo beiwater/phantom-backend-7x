@@ -72,20 +72,20 @@ async function runIssue66ExecutivesTest() {
   assert.equal(crossTrainRes.status, 400);
   console.log('  -> Cross-company training rejected with 400');
 
-  // 3. Valid Executive Training -> atomic $2500 deduction and +1 to all skills
-  console.log('[3/6] Verifying valid training increments skills and deducts $2500 atomically...');
+  // 3. Valid Executive Training -> atomic $30,000 deduction and +1 to all skills
+  console.log('[3/6] Verifying valid training increments skills and deducts $30,000 atomically...');
   const validTrainRes = await fetch(`${baseUrl}/api/v4/executives/${validExec.id}/train/`, {
     method: 'POST',
     headers: headers1
   });
   assert.equal(validTrainRes.status, 200);
   const trainData = (await validTrainRes.json()) as any;
-  assert.equal(trainData.cost, 2500);
+  assert.equal(trainData.cost, 30000);
   assert.equal(trainData.executive.skills.management, validExec.skills.management + 1);
   assert.equal(trainData.executive.skills.accounting, validExec.skills.accounting + 1);
 
   const authAfterTrain = (await (await fetch(`${baseUrl}/api/v3/companies/auth-data/`, { headers: headers1 })).json()) as any;
-  assert.equal(authAfterTrain.authCompany.money, moneyBefore - 2500, 'Money accurately decremented by 2500');
+  assert.equal(authAfterTrain.authCompany.money, moneyBefore - 30000, 'Money accurately decremented by 30000');
   console.log('  -> Valid training succeeded atomically');
 
   // 4. Fire Non-Owned or Invalid Executive -> rejected with 400

@@ -150,6 +150,14 @@ export function runMigrations(db: DatabaseSync): void {
   const buildingCols = (db.prepare('PRAGMA table_info(buildings)').all() as { name: string }[]).map(c => c.name);
   if (!buildingCols.includes('upkeep_active')) db.exec('ALTER TABLE buildings ADD COLUMN upkeep_active INTEGER DEFAULT 0');
 
+  // Issue #85: market_orders unit cost basis columns for escrow preservation
+  const marketCols = (db.prepare('PRAGMA table_info(market_orders)').all() as { name: string }[]).map(c => c.name);
+  if (!marketCols.includes('cost_workers')) db.exec('ALTER TABLE market_orders ADD COLUMN cost_workers REAL DEFAULT 0');
+  if (!marketCols.includes('cost_admin')) db.exec('ALTER TABLE market_orders ADD COLUMN cost_admin REAL DEFAULT 0');
+  if (!marketCols.includes('cost_material1')) db.exec('ALTER TABLE market_orders ADD COLUMN cost_material1 REAL DEFAULT 0');
+  if (!marketCols.includes('cost_material2')) db.exec('ALTER TABLE market_orders ADD COLUMN cost_material2 REAL DEFAULT 0');
+  if (!marketCols.includes('cost_market')) db.exec('ALTER TABLE market_orders ADD COLUMN cost_market REAL DEFAULT 0');
+
   db.exec(`
     CREATE UNIQUE INDEX IF NOT EXISTS uq_buildings_company_position
       ON buildings(company_id, position);

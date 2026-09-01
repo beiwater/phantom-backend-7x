@@ -3,6 +3,33 @@ import { getResourceDef } from './constants.ts';
 import { getCompanyById } from './company.ts';
 import { consumeResourceExactWithTransactions, getWarehouseItemExact } from './warehouse.ts';
 import { runInTransaction } from '../db/transaction.ts';
+import { checkCapability } from '../domain/leveling/level-rules.ts';
+import {
+  CUMULATIVE_PATENT_THRESHOLDS,
+  DISCIPLINES,
+  RESEARCH_RESOURCE_BY_DISCIPLINE,
+  DEFAULT_DISCIPLINE,
+  DISCIPLINE_BY_PRODUCED_AT,
+  RESOURCE_TO_DISCIPLINE,
+  getQualityFromPatents,
+  getPatentsNeededForNextQuality,
+  getDisciplineForResource,
+  calculatePatentsFromPoints
+} from '../domain/research/research-rules.ts';
+
+export {
+  CUMULATIVE_PATENT_THRESHOLDS,
+  DISCIPLINES,
+  RESEARCH_RESOURCE_BY_DISCIPLINE,
+  DEFAULT_DISCIPLINE,
+  DISCIPLINE_BY_PRODUCED_AT,
+  RESOURCE_TO_DISCIPLINE,
+  getQualityFromPatents,
+  getPatentsNeededForNextQuality,
+  getDisciplineForResource,
+  calculatePatentsFromPoints
+};
+
 export interface ResearchRow {
   id: number;
   company_id: number;
@@ -11,52 +38,25 @@ export interface ResearchRow {
   patents: number;
 }
 
-const DISCIPLINES: Record<number, string> = {
-  1: 'Plant research',
-  2: 'Energy research',
-  3: 'Mining research',
-  4: 'Electronics research',
-  5: 'Breeding research',
-  6: 'Chemistry research',
-  7: 'Software research',
-  8: 'Automotive research',
-  9: 'Aerospace research',
-  10: 'Materials research',
-  11: 'Fashion research',
-  12: 'Recipes research'
-};
-const RESEARCH_RESOURCE_BY_DISCIPLINE: Record<number, number> = {
-  1: 29,
-  2: 30,
-  3: 31,
-  4: 32,
-  5: 33,
-  6: 34,
-  7: 35,
-  8: 58,
-  9: 100,
-  10: 113,
-  11: 59,
-  12: 145
-};
+/**
+ * Returns the science skill of an active employed CTO for the company.
+ * Requires executives capability to be unlocked (level >= 15).
+ */
+export function getCompanyCtoScienceSkill(companyId: number): number {
+  const company = db.prepare('SELECT level FROM companies WHERE company_id = ?').get(companyId) as { level: number } | undefined;
+  if (!company) return 0;
+  if (!checkCapability(company.level, 'executives').allowed) {
+    return 0;
+  }
+  const row = db.prepare(`
+    SELECT skill_science FROM executives
+    WHERE company_id = ? AND status = 'employed' AND LOWER(position) = 'cto'
+    LIMIT 1
+  `).get(companyId) as { skill_science: number } | undefined;
 
-
-// Coarse mapping: producedAt building letter -> research discipline.
-// Assumptions: extraction buildings (Oil rig, Mine, Quarry) -> Mining; Refinery/Gas station -> Chemistry;
-// generic Factory -> Materials; food/drink production (Brewery, Bakery, Food processing, Restaurant) -> Recipes;
-// Water reservoir/Power plant -> Energy; Orchards (e) grouped with Farms under Plant research.
-export const DEFAULT_DISCIPLINE = 10; // Materials research fallback
-export const DISCIPLINE_BY_PRODUCED_AT: Record<string, number> = {
-  E: 4, W: 2, P: 1, e: 1, F: 11, O: 3, R: 6, S: 6, M: 3, Y: 10,
-  L: 4, T: 2, Q: 3, '1': 8, '6': 12, j: 12, k: 12, m: 12, A: 9, a: 9,
-  '0': 8, '7': 9, '8': 9, '9': 9, D: 8, o: 9, x: 4, g: 6, i: 9, v: 8
-};
-
-export function getDisciplineForResource(resourceKind: number): number {
-  const def = getResourceDef(resourceKind);
-  const letter = def?.producedAt != null ? String(def.producedAt) : undefined;
-  return (letter && DISCIPLINE_BY_PRODUCED_AT[letter]) || DEFAULT_DISCIPLINE;
+  return row ? Math.max(0, Number(row.skill_science) || 0) : 0;
 }
+
 
 // Quality cap achievable for a resource given the company's research in the
 // relevant discipline. Returns 0 when the company has no research rows at all
@@ -68,8 +68,9 @@ export function getProductionQualityCap(companyId: number, resourceKind: number)
   `).get(companyId, discipline) as unknown as { patents: number } | undefined;
 
   if (!row) return 0;
-  return Math.min(12, Math.floor(row.patents / 2) + 1);
+  return getQualityFromPatents(Number(row.patents || 0));
 }
+
 
 export interface ResourceResearchAbility {
   kind: number;
@@ -87,18 +88,17 @@ export function getResourceResearchAbility(companyId: number, resourceKind: numb
   `).get(companyId, discipline) as { points: number; patents: number } | undefined;
 
   const patents = Number(row?.patents || 0);
-  const quality = row ? Math.min(12, Math.floor(patents / 2) + 1) : 0;
+  const quality = getQualityFromPatents(patents);
 
   return {
     kind: resourceKind,
     quality,
     patents,
-    // The frontend uses this value to display the cost of the next quality
-    // tier. The first tier requires twelve patents in the original tree.
-    patentsNeeded: Math.max(12, (quality + 1) * 12),
+    patentsNeeded: getPatentsNeededForNextQuality(quality),
     researchUnits: Number(row?.points || 0)
   };
 }
+
 
 export async function applyResourceResearch(companyId: number, resourceKind: number, points: number) {
   if (!getResourceDef(resourceKind)) {
@@ -137,9 +137,10 @@ export function getCompanyResearch(companyId: number) {
       name: DISCIPLINES[d] || `Discipline #${d}`,
       points,
       patents,
-      qualityCap: found ? Math.min(12, Math.floor(patents / 2) + 1) : 0
+      qualityCap: found ? getQualityFromPatents(patents) : 0
     };
   }
+
 
   return { research: researchMap };
 }
@@ -176,9 +177,8 @@ export async function applyResearch(companyId: number, discipline: number, point
 
     const currentPoints = Number(existing?.points || 0);
     const newPoints = currentPoints + pointsToApply;
-    // Cumulative patent threshold: exactly 1 patent per 50 total research points
-    const newPatents = Math.floor(newPoints / 50);
-
+    const ctoScience = getCompanyCtoScienceSkill(companyId);
+    const newPatents = calculatePatentsFromPoints(newPoints, ctoScience);
     if (existing) {
       db.prepare(`
         UPDATE research

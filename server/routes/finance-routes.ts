@@ -21,14 +21,14 @@ function inventoryValue(companyId: number): number {
 
 function buildingsValue(companyId: number): number {
   const row = db.prepare(
-    'SELECT COALESCE(SUM(cost), 0) AS total FROM buildings WHERE company_id = ?'
+    'SELECT COALESCE(SUM(cost * size), 0) AS total FROM buildings WHERE company_id = ?'
   ).get(companyId) as { total: number | null };
   return Number(row?.total) || 0;
 }
 
 function bondsHeldValue(companyId: number): number {
   const row = db.prepare(
-    `SELECT COALESCE(SUM(amount), 0) AS total FROM bonds WHERE buyer_company_id = ? AND status = 'active'`
+    `SELECT COALESCE(SUM(amount) * 5000, 0) AS total FROM bonds WHERE buyer_company_id = ? AND status = 'active'`
   ).get(companyId) as { total: number | null };
   return Number(row?.total) || 0;
 }
@@ -179,7 +179,7 @@ export async function handleFinanceRoutes(
       patents: 0,
       bondsPayable: liabilities,
       contributedCapital: 100000,
-      retainedEarnings: round2(Math.max(0, money + inventory + buildings + bondsHeld - liabilities - 100000)),
+      retainedEarnings: round2(money + inventory + buildings + bondsHeld - liabilities - 100000),
       valuationAllowance: 0,
       deposits: 0,
       employees: employeeCount(companyId)
@@ -205,7 +205,7 @@ export async function handleFinanceRoutes(
       freightOut: 0,
       constructionCosts: Math.min(0, cat('c')),
       marketFees: Math.min(0, cat('f') + cat('q')),
-      salariesCosts: Math.min(0, cat('e') + cat('o') + cat('t')),
+      salariesCosts: Math.min(0, cat('e')),
       trainingCosts: Math.min(0, cat('h')),
       poachingCosts: Math.min(0, cat('j')),
       gameIncome: cat('g') > 0 ? cat('g') : 0,
@@ -273,13 +273,13 @@ export async function handleFinanceRoutes(
     const fromExchange = Math.max(0, pos('u'));
     const fromInterest = Math.max(0, pos('i') + pos('n') + pos('b'));
     const fromRoyalties = Math.max(0, pos('e'));
-    const toEmployees = Math.min(0, pos('e'));
+    const toEmployees = Math.min(0, pos('p'));
 
     const payload = {
       date: w.date,
       dateFrom: w.dateFrom,
       fromRetail,
-      fromCustomers: 0,
+      fromCustomers: Math.max(0, pos('k') + pos('c') + pos('t') + pos('o')),
       fromExchange,
       fromInterest,
       fromPoaching: 0,
@@ -287,10 +287,10 @@ export async function handleFinanceRoutes(
       fromEmployees: 0,
       fromRoyalties,
       toGame: 0,
-      toSuppliers: Math.min(0, pos('m') + pos('b') + pos('u')),
+      toSuppliers: Math.min(0, pos('m') + pos('b') + pos('u') + pos('k') + pos('c') + pos('t')),
       toExchange: 0,
       toEmployees,
-      toExecutives: Math.min(0, pos('e') + pos('h')),
+      toExecutives: Math.min(0, pos('e') + pos('h') + pos('j')),
       forInterest: 0,
       forFees: Math.min(0, pos('f') + pos('q')),
       forAccounting: Math.min(0, pos('a')),

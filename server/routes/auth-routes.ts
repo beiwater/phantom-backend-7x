@@ -428,7 +428,7 @@ export async function handleAuthRoutes(
   }
 
   // Company Profile & Edit
-  const companyMatch = pathname.match(/^\/api\/v3\/companies\/(\d+|me)\/$/);
+  const companyMatch = pathname.match(/^\/api\/(?:v2|v3)\/companies\/(\d+|me)\/?$/);
   if (companyMatch) {
     const requestedCompany = companyMatch[1];
     const targetCompId = requestedCompany === 'me' ? currentCompanyId : Number(requestedCompany);
@@ -510,8 +510,12 @@ export async function handleAuthRoutes(
       sendJson(res, { error: 'Company not found' }, 404);
       return true;
     }
+    const isCallerAdmin = currentPlayerId ? Boolean(
+      (db.prepare('SELECT is_admin FROM players WHERE player_id = ?').get(currentPlayerId) as { is_admin?: number } | undefined)?.is_admin === 1
+    ) : false;
+
     const buildings = getCompanyBuildings(targetCompId);
-    sendJson(res, {
+    const profileResponse: Record<string, unknown> = {
       companyPublicInfo: {
         id: targetCompId,
         company: comp.name,
@@ -523,7 +527,15 @@ export async function handleAuthRoutes(
         levelKind: 'FamilyBusiness',
         note: comp.note || ''
       },
-      auditInfo: {
+      history: [],
+      infrastructure: { recreationBonus: 0, workers: 300, administrationOverhead: 1.0, buildings },
+      player: { id: comp.player_id, supporter: false, certificates: 0, contestWins: 0 },
+      previousNames: [],
+      governmentOrderTierIndex: 0
+    };
+
+    if (isCallerAdmin) {
+      profileResponse.auditInfo = {
         company: {
           id: comp.company_id,
           name: comp.name,
@@ -533,20 +545,17 @@ export async function handleAuthRoutes(
           rating: comp.rating,
           created: comp.created_at
         }
-      },
-      moderatorInfo: {
+      };
+      profileResponse.moderatorInfo = {
         player: {
           id: comp.player_id,
           ip: '127.0.0.1',
           lastSeen: new Date().toISOString()
         }
-      },
-      history: [],
-      infrastructure: { recreationBonus: 0, workers: 300, administrationOverhead: 1.0, buildings },
-      player: { id: comp.player_id, supporter: false, certificates: 0, contestWins: 0 },
-      previousNames: [],
-      governmentOrderTierIndex: 0
-    });
+      };
+    }
+
+    sendJson(res, profileResponse);
     return true;
   }
 

@@ -98,8 +98,8 @@ function readCompanySnapshotValues(companyId: number): {
 } {
   const cashRow = db.prepare('SELECT money FROM companies WHERE company_id = ?').get(companyId) as { money: number | null } | undefined;
   const invRow = db.prepare('SELECT COALESCE(SUM(amount * cost_market), 0) AS total FROM warehouse WHERE company_id = ?').get(companyId) as { total: number | null };
-  const bldRow = db.prepare('SELECT COALESCE(SUM(cost), 0) AS total FROM buildings WHERE company_id = ?').get(companyId) as { total: number | null };
-  const bondRow = db.prepare(`SELECT COALESCE(SUM(amount), 0) AS total FROM bonds WHERE buyer_company_id = ? AND status = 'active'`).get(companyId) as { total: number | null };
+  const bldRow = db.prepare('SELECT COALESCE(SUM(cost * size), 0) AS total FROM buildings WHERE company_id = ?').get(companyId) as { total: number | null };
+  const bondRow = db.prepare(`SELECT COALESCE(SUM(amount) * 5000, 0) AS total FROM bonds WHERE buyer_company_id = ? AND status = 'active'`).get(companyId) as { total: number | null };
   const liabRow = db.prepare(`SELECT COALESCE(SUM(remaining), 0) AS total FROM loans WHERE company_id = ? AND status = 'active'`).get(companyId) as { total: number | null };
   return {
     cash: Math.round((Number(cashRow?.money) || 0) * 100) / 100,

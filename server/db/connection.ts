@@ -117,7 +117,12 @@ export function initializeDatabaseSchema(database: DatabaseSync = db): void {
       fees REAL DEFAULT 0,
       posted_at TEXT,
       active INTEGER DEFAULT 1,
-      is_npc INTEGER DEFAULT 0
+      is_npc INTEGER DEFAULT 0,
+      cost_workers REAL DEFAULT 0,
+      cost_admin REAL DEFAULT 0,
+      cost_material1 REAL DEFAULT 0,
+      cost_material2 REAL DEFAULT 0,
+      cost_market REAL DEFAULT 0
     );
 
     CREATE TABLE IF NOT EXISTS contracts (

@@ -25,12 +25,10 @@ export async function handleMarketRoutes(
   }
 
   // 2. Market ticker (v2 & v3)
-  if (
-    pathname === '/api/v2/market-ticker/' ||
-    pathname === '/api/v3/market-ticker/' ||
-    pathname.match(/^\/api\/v[23]\/market-ticker\/\d+\/$/)
-  ) {
-    sendJson(res, getMarketTicker(0));
+  const marketTickerMatch = pathname.match(/^\/api\/v[23]\/market-ticker\/(?:(\d+)\/?)?$/);
+  if (marketTickerMatch) {
+    const realmId = marketTickerMatch[1] !== undefined ? Number(marketTickerMatch[1]) : 0;
+    sendJson(res, getMarketTicker(realmId));
     return true;
   }
 
@@ -151,8 +149,13 @@ export async function handleMarketRoutes(
         const result = postMarketOrder(currentCompanyId, body);
         sendJson(res, result);
       } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        sendJson(res, { error: msg }, 400);
+        if (err && typeof err === 'object' && 'code' in err) {
+          const domainErr = err as { message: string; code: string; statusCode?: number };
+          sendJson(res, { error: domainErr.message, code: domainErr.code }, domainErr.statusCode || 400);
+        } else {
+          const msg = err instanceof Error ? err.message : String(err);
+          sendJson(res, { error: msg }, 400);
+        }
       }
       return true;
     }
@@ -170,15 +173,20 @@ export async function handleMarketRoutes(
         const result = takeMarketOrder(currentCompanyId, body);
         sendJson(res, result);
       } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        sendJson(res, { error: msg }, 400);
+        if (err && typeof err === 'object' && 'code' in err) {
+          const domainErr = err as { message: string; code: string; statusCode?: number };
+          sendJson(res, { error: domainErr.message, code: domainErr.code }, domainErr.statusCode || 400);
+        } else {
+          const msg = err instanceof Error ? err.message : String(err);
+          sendJson(res, { error: msg }, 400);
+        }
       }
       return true;
     }
   }
 
   // 12. Cancel market order
-  const marketOrderCancelMatch = pathname.match(/^\/api\/v2\/market-order\/(\d+)\/$/);
+  const marketOrderCancelMatch = pathname.match(/^\/api\/v2\/market-order\/(\d+)\/?$/);
   if (marketOrderCancelMatch && method === 'DELETE') {
     if (!currentCompanyId) {
       sendJson(res, { error: 'Unauthorized' }, 401);
@@ -189,8 +197,13 @@ export async function handleMarketRoutes(
       const result = cancelMarketOrder(currentCompanyId, orderId);
       sendJson(res, result);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      sendJson(res, { error: msg }, 400);
+      if (err && typeof err === 'object' && 'code' in err) {
+        const domainErr = err as { message: string; code: string; statusCode?: number };
+        sendJson(res, { error: domainErr.message, code: domainErr.code }, domainErr.statusCode || 400);
+      } else {
+        const msg = err instanceof Error ? err.message : String(err);
+        sendJson(res, { error: msg }, 400);
+      }
     }
     return true;
   }

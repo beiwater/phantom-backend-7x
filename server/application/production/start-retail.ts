@@ -115,17 +115,40 @@ export async function startRetailUseCase(
     });
     refreshDailyFinanceSnapshot(ctx.companyId);
 
-    // 3. Occupy the building's busy window for the sale duration and persist queue
-    const durationSeconds = calculateRetailDuration(input.kind, input.amount, building.size || 1);
+    // 3. Occupy the building's busy window for the sale duration and persist in retail_orders
+    const durationSeconds = calculateRetailDuration(input.kind, input.amount, building.size || 1, {
+      quality,
+      price: unitPrice,
+      buildingKind: building.kind
+    });
     const now = new Date().toISOString();
     const finishesAt = new Date(Date.now() + durationSeconds * 1000).toISOString();
     const updatedBuilding = buildingRepository.updateBusyUntil(building.id, ctx.companyId, finishesAt);
 
+    // Track in retail_orders table (NOT active production_queues to prevent collect-production duplication exploit)
     db.prepare(`
-      INSERT INTO production_queues (building_id, company_id, kind, quality, cost, amount, started_at, finishes_at, resolved)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)
-    `).run(building.id, ctx.companyId, input.kind, quality, unitPrice, input.amount, now, finishesAt);
-
+      INSERT INTO retail_orders (
+        building_id,
+        company_id,
+        resource_kind,
+        quality,
+        units,
+        unit_price,
+        cost,
+        finished_at,
+        created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      building.id,
+      ctx.companyId,
+      input.kind,
+      quality,
+      input.amount,
+      unitPrice,
+      revenue,
+      finishesAt,
+      now
+    );
     // 4. Award leveling XP (1s retail = 1 XP per building size unit)
     const xpEarned = Math.max(1, Math.round(durationSeconds * (building.size || 1)));
     addCompanyExperience(ctx.companyId, xpEarned);

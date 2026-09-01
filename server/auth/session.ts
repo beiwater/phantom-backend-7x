@@ -85,11 +85,16 @@ export function switchSessionCompany(token: string, newCompanyId: number): void 
     .run(newCompanyId, token, session.player_id);
 }
 
+export const SESSION_TOKEN_REGEX = /^sess_[0-9a-f]{24,64}$/;
+
 export function extractSessionToken(req: IncomingMessage): string | null {
   // Check Authorization header
   const authHeader = req.headers.authorization;
   if (authHeader && authHeader.startsWith('Bearer ')) {
-    return authHeader.slice(7).trim();
+    const candidate = authHeader.slice(7).trim();
+    if (SESSION_TOKEN_REGEX.test(candidate)) {
+      return candidate;
+    }
   }
 
   // Check Cookie header
@@ -98,7 +103,10 @@ export function extractSessionToken(req: IncomingMessage): string | null {
     const cookies = cookieHeader.split(';').map(c => c.trim());
     for (const c of cookies) {
       if (c.startsWith('sessionid=')) {
-        return c.slice(10).trim();
+        const candidate = c.slice(10).trim();
+        if (SESSION_TOKEN_REGEX.test(candidate)) {
+          return candidate;
+        }
       }
     }
   }

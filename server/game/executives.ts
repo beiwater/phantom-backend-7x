@@ -1,7 +1,10 @@
 import { db } from '../db/database.ts';
 import type { DatabaseSync } from 'node:sqlite';
 import { updateCompanyMoney, updateCompanySimBoosts, getCompanyById } from './company.ts';
+import { recordCashLedger } from './cash-ledger.ts';
 import { runInTransaction } from '../db/transaction.ts';
+
+export const EXECUTIVE_TRAINING_COST = 30000;
 
 // Ensure executive_offers table exists
 db.exec(`
@@ -112,10 +115,10 @@ export function formatExecutive(e: ExecutiveRow) {
     avatar: e.avatar || 'images/avatars/male_01.png',
     position: e.position || 'unassigned',
     skills: {
-      management: Number(e.skill_management) || 5,
-      accounting: Number(e.skill_accounting) || 5,
-      science: Number(e.skill_science) || 5,
-      communication: Number(e.skill_communication) || 5
+      management: Number(e.skill_management) || 0,
+      accounting: Number(e.skill_accounting) || 0,
+      science: Number(e.skill_science) || 0,
+      communication: Number(e.skill_communication) || 0
     },
     currentWorkHistory: {
       position: pos === 'unassigned' ? 'none' : pos,
@@ -124,7 +127,7 @@ export function formatExecutive(e: ExecutiveRow) {
     salary: Number(e.salary) || 250,
     status: e.status || 'employed',
     trainingFinishAt: e.training_finish_at,
-    totalSkill: (Number(e.skill_management) || 5) + (Number(e.skill_accounting) || 5) + (Number(e.skill_science) || 5) + (Number(e.skill_communication) || 5)
+    totalSkill: (Number(e.skill_management) || 0) + (Number(e.skill_accounting) || 0) + (Number(e.skill_science) || 0) + (Number(e.skill_communication) || 0)
   };
 }
 
@@ -136,12 +139,12 @@ export function formatOffer(offer: ExecutiveOfferRow, exec: ExecutiveRow | null)
     position: exec.position || 'unassigned',
     salary: Number(exec.salary) || 250,
     skills: {
-      management: Number(exec.skill_management) || 5,
-      accounting: Number(exec.skill_accounting) || 5,
-      science: Number(exec.skill_science) || 5,
-      communication: Number(exec.skill_communication) || 5
+      management: Number(exec.skill_management) || 0,
+      accounting: Number(exec.skill_accounting) || 0,
+      science: Number(exec.skill_science) || 0,
+      communication: Number(exec.skill_communication) || 0
     },
-    totalSkill: (Number(exec.skill_management) || 5) + (Number(exec.skill_accounting) || 5) + (Number(exec.skill_science) || 5) + (Number(exec.skill_communication) || 5),
+    totalSkill: (Number(exec.skill_management) || 0) + (Number(exec.skill_accounting) || 0) + (Number(exec.skill_science) || 0) + (Number(exec.skill_communication) || 0),
     isCandidate: exec.status === 'candidate',
     status: exec.status,
     age: 35
@@ -176,12 +179,12 @@ export function formatHostileOffer(offer: ExecutiveOfferRow, exec: ExecutiveRow 
     position: exec.position || 'unassigned',
     salary: Number(exec.salary) || 250,
     skills: {
-      management: Number(exec.skill_management) || 5,
-      accounting: Number(exec.skill_accounting) || 5,
-      science: Number(exec.skill_science) || 5,
-      communication: Number(exec.skill_communication) || 5
+      management: Number(exec.skill_management) || 0,
+      accounting: Number(exec.skill_accounting) || 0,
+      science: Number(exec.skill_science) || 0,
+      communication: Number(exec.skill_communication) || 0
     },
-    totalSkill: (Number(exec.skill_management) || 5) + (Number(exec.skill_accounting) || 5) + (Number(exec.skill_science) || 5) + (Number(exec.skill_communication) || 5),
+    totalSkill: (Number(exec.skill_management) || 0) + (Number(exec.skill_accounting) || 0) + (Number(exec.skill_science) || 0) + (Number(exec.skill_communication) || 0),
     status: exec.status
   } : null;
 
@@ -256,20 +259,20 @@ export function getExecutiveById(companyId: number, executiveId: number) {
 }
 
 export function hireExecutive(companyId: number, candidateId: number, position: string = 'unassigned') {
-  const c = db.prepare('SELECT * FROM executives WHERE id = ? AND company_id = ?').get(candidateId, companyId) as unknown as ExecutiveRow | undefined;
-  if (!c) throw new Error('Candidate not found');
-  if (c.status !== 'candidate') throw new Error('Executive is not an available candidate');
-
-  const comp = getCompanyById(companyId);
-  if (!comp) throw new Error('Company not found');
-
-  const countRow = db.prepare("SELECT COUNT(*) AS count FROM executives WHERE company_id = ? AND status = 'employed'").get(companyId) as { count: number };
-  const maxSlots = 4 + (Number(comp.extra_executive_slots) || 0);
-  if (countRow.count >= maxSlots) {
-    throw new Error(`Executive slot limit reached (${countRow.count}/${maxSlots}). Unlock more slots with SimBoosts.`);
-  }
-
   return runInTransaction(async () => {
+    const c = db.prepare('SELECT * FROM executives WHERE id = ? AND company_id = ?').get(candidateId, companyId) as unknown as ExecutiveRow | undefined;
+    if (!c) throw new Error('Candidate not found');
+    if (c.status !== 'candidate') throw new Error('Executive is not an available candidate');
+
+    const comp = getCompanyById(companyId);
+    if (!comp) throw new Error('Company not found');
+
+    const countRow = db.prepare("SELECT COUNT(*) AS count FROM executives WHERE company_id = ? AND status = 'employed'").get(companyId) as { count: number };
+    const maxSlots = 4 + (Number(comp.extra_executive_slots) || 0);
+    if (countRow.count >= maxSlots) {
+      throw new Error(`Executive slot limit reached (${countRow.count}/${maxSlots}). Unlock more slots with SimBoosts.`);
+    }
+
     const updated = db.prepare("UPDATE executives SET status = 'employed', position = ? WHERE id = ? AND company_id = ? AND status = 'candidate'").run(position, candidateId, companyId);
     if (updated.changes !== 1) throw new Error('Failed to hire candidate');
     const row = db.prepare('SELECT * FROM executives WHERE id = ?').get(candidateId) as unknown as ExecutiveRow;
@@ -278,13 +281,13 @@ export function hireExecutive(companyId: number, candidateId: number, position: 
 }
 
 export function fireExecutive(companyId: number, executiveId: number) {
-  const exec = db.prepare("SELECT * FROM executives WHERE id = ? AND company_id = ? AND status = 'employed'").get(executiveId, companyId) as unknown as ExecutiveRow | undefined;
-  if (!exec) throw new Error('Employed executive not found');
-
-  // Dismissal severance = executive.salary * 3
-  const severance = Math.round((Number(exec.salary) || 250) * 3);
-
   return runInTransaction(async () => {
+    const exec = db.prepare("SELECT * FROM executives WHERE id = ? AND company_id = ? AND status = 'employed'").get(executiveId, companyId) as unknown as ExecutiveRow | undefined;
+    if (!exec) throw new Error('Employed executive not found');
+
+    // Dismissal severance = executive.salary * 3
+    const severance = Math.round((Number(exec.salary) || 250) * 3);
+
     updateCompanyMoney(companyId, -severance);
     const deleted = db.prepare("DELETE FROM executives WHERE id = ? AND company_id = ? AND status = 'employed'").run(executiveId, companyId);
     if (deleted.changes !== 1) throw new Error('Employed executive not found');
@@ -310,10 +313,10 @@ export function updateExecutive(
   executiveId: number,
   updates: { salary?: number; position?: string; strikeUntil?: string | null; plansToRetire?: boolean }
 ) {
-  const exec = db.prepare("SELECT * FROM executives WHERE id = ? AND company_id = ? AND status = 'employed'").get(executiveId, companyId) as unknown as ExecutiveRow | undefined;
-  if (!exec) throw new Error('Employed executive not found');
-
   return runInTransaction(async () => {
+    const exec = db.prepare("SELECT * FROM executives WHERE id = ? AND company_id = ? AND status = 'employed'").get(executiveId, companyId) as unknown as ExecutiveRow | undefined;
+    if (!exec) throw new Error('Employed executive not found');
+
     if (updates.salary !== undefined) {
       if (!Number.isFinite(updates.salary) || updates.salary <= 0) {
         throw new Error('Salary must be a positive number');
@@ -329,19 +332,29 @@ export function updateExecutive(
 }
 
 export function trainExecutive(companyId: number, executiveId: number) {
-  const trainingCost = 2500;
-  const exec = db.prepare("SELECT * FROM executives WHERE id = ? AND company_id = ? AND status = 'employed'").get(executiveId, companyId) as unknown as ExecutiveRow | undefined;
-  if (!exec) {
-    throw new Error('Employed executive not found');
-  }
-
-  const comp = getCompanyById(companyId);
-  if (!comp || comp.money < trainingCost) {
-    throw new Error('Not enough money for executive training');
-  }
+  const trainingCost = EXECUTIVE_TRAINING_COST;
 
   return runInTransaction(async () => {
-    updateCompanyMoney(companyId, -trainingCost);
+    const exec = db.prepare("SELECT * FROM executives WHERE id = ? AND company_id = ? AND status = 'employed'").get(executiveId, companyId) as unknown as ExecutiveRow | undefined;
+    if (!exec) {
+      throw new Error('Employed executive not found');
+    }
+
+    const comp = getCompanyById(companyId);
+    if (!comp || comp.money < trainingCost) {
+      throw new Error('Not enough money for executive training');
+    }
+
+    recordCashLedger({
+      companyId,
+      amount: -trainingCost,
+      category: 'h',
+      description: 'Executive training',
+      descriptionKey: '1-training',
+      details: { executiveId, name: exec.name }
+    });
+    updateCompanyMoney(companyId, -trainingCost, true);
+
     const updated = db.prepare(`
       UPDATE executives
       SET skill_management = skill_management + 1,

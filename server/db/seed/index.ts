@@ -33,14 +33,20 @@ export function seedMarketOrders(database: DatabaseSync = db): void {
     VALUES (999900, ?, ?, 100000, ?, 0, ?, 1)
   `);
   const now = new Date().toISOString();
-
-  for (const [kindStr, def] of Object.entries(CONSTANTS_RESOURCES)) {
-    const kind = Number(kindStr);
-    if (def.isExchangeTradable === false) continue;
-    for (let q = 0; q <= 12; q++) {
-      const price = 1.0 + q;
-      insertStmt.run(kind, q, price, now);
+  database.exec('BEGIN');
+  try {
+    for (const [kindStr, def] of Object.entries(CONSTANTS_RESOURCES)) {
+      const kind = Number(kindStr);
+      if (def.isExchangeTradable === false) continue;
+      for (let q = 0; q <= 12; q++) {
+        const price = 1.0 + q;
+        insertStmt.run(kind, q, price, now);
+      }
     }
+    database.exec('COMMIT');
+  } catch (err) {
+    database.exec('ROLLBACK');
+    throw err;
   }
 }
 

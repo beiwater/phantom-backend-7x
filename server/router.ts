@@ -181,7 +181,7 @@ export async function handleRequest(req: IncomingMessage, res: ServerResponse) {
   if (await handleAchievementRoutes(req, res, pathname, method, currentCompanyId)) {
     return;
   }
-  if (await handleAuditRoutes(req, res, pathname, method, currentCompanyId)) {
+  if (await handleAuditRoutes(req, res, pathname, method, currentPlayerId, currentCompanyId)) {
     return;
   }
 
@@ -198,7 +198,7 @@ export async function handleRequest(req: IncomingMessage, res: ServerResponse) {
   const htmlPath = path.join(CONFIG.HTML_DIR, 'index.html');
   if (fs.existsSync(htmlPath)) {
     const htmlContent = fs.readFileSync(htmlPath, 'utf-8');
-    const setCookieHeaders = sessionToken ? [
+    const setCookieHeaders = (session && sessionToken) ? [
       buildSessionCookie(sessionToken),
       'django_language=zh-cn; Path=/; SameSite=Lax'
     ] : [

@@ -10,10 +10,41 @@ export async function handleAuditRoutes(
   res: ServerResponse,
   pathname: string,
   method: string,
-  _currentCompanyId: number | null
+  currentPlayerId: number | null,
+  currentCompanyId: number | null
 ): Promise<boolean> {
   const now = new Date();
 
+  // Issue #84: Admin authorization check
+  let isAdmin = false;
+  if (currentPlayerId) {
+    const player = db.prepare('SELECT is_admin FROM players WHERE player_id = ?').get(currentPlayerId) as { is_admin?: number } | undefined;
+    isAdmin = Boolean(player && player.is_admin === 1);
+  } else if (currentCompanyId) {
+    const player = db.prepare('SELECT p.is_admin FROM players p JOIN companies c ON c.player_id = p.player_id WHERE c.company_id = ?').get(currentCompanyId) as { is_admin?: number } | undefined;
+    isAdmin = Boolean(player && player.is_admin === 1);
+  }
+
+  const isAdminOnlyRoute =
+    pathname.startsWith('/api/v2/audit/') ||
+    pathname === '/api/v2/audits/' ||
+    pathname === '/api/v2/audits' ||
+    pathname.startsWith('/api/v2/moderator-notes') ||
+    Boolean(pathname.match(/^\/api\/v2\/players\/\d+\/moderator-notes/)) ||
+    pathname.startsWith('/api/v2/messages-cases') ||
+    pathname.startsWith('/api/v2/audit-ip/') ||
+    pathname.startsWith('/api/v1/audit-requests') ||
+    pathname.startsWith('/api/v2/admin/') ||
+    pathname.startsWith('/api/v2/analytics/') ||
+    pathname.startsWith('/api/v3/analytics/') ||
+    Boolean(pathname.match(/^\/api\/v2\/companies\/\d+\/ban/));
+
+  if (isAdminOnlyRoute) {
+    if (!isAdmin) {
+      sendJson(res, { error: 'Forbidden' }, 403);
+      return true;
+    }
+  }
   // 1. Recently deleted companies/players: /api/v2/audit/recently-deleted/
   if (pathname === '/api/v2/audit/recently-deleted/' && method === 'GET') {
     sendJson(res, {
@@ -431,6 +462,11 @@ export async function handleAuditRoutes(
   // 11. Player personal data export: /api/v2/players/:id/personal-data/
   const personalDataMatch = pathname.match(/^\/api\/v2\/players\/(\d+)\/personal-data\/?$/);
   if (personalDataMatch && method === 'GET') {
+    const targetPlayerId = Number(personalDataMatch[1]);
+    if (!isAdmin && (!currentPlayerId || targetPlayerId !== currentPlayerId)) {
+      sendJson(res, { error: 'Forbidden' }, 403);
+      return true;
+    }
     sendJson(res, { data: 'Personal data export ready' });
     return true;
   }

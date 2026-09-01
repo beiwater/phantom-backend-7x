@@ -44,7 +44,7 @@ export function getWarehouseResources(companyId: number) {
       material3: 0,
       material4: 0,
       material5: 0,
-      market: Number(r.cost_market) || 1.0
+      market: Number.isFinite(Number(r.cost_market)) ? Number(r.cost_market) : 1.0
     },
     datetime: r.updated_at || new Date().toISOString(),
     materials: ["", "", "", "", ""]
@@ -128,7 +128,12 @@ export function addResource(
     SELECT * FROM warehouse WHERE company_id = ? AND kind = ? AND quality = ?
   `).get(companyId, kind, quality) as unknown as WarehouseRow | undefined;
   const now = new Date().toISOString();
-  const incomingCost = Number(cost.market ?? 1);
+  const incomingCost = cost.market !== undefined && cost.market !== null ? Number(cost.market) : 1;
+  const incomingWorkers = cost.workers !== undefined && cost.workers !== null ? Number(cost.workers) : 0;
+  const incomingAdmin = cost.admin !== undefined && cost.admin !== null ? Number(cost.admin) : 0;
+  const incomingMat1 = cost.material1 !== undefined && cost.material1 !== null ? Number(cost.material1) : 0;
+  const incomingMat2 = cost.material2 !== undefined && cost.material2 !== null ? Number(cost.material2) : 0;
+
   if (!Number.isFinite(amount) || amount <= 0) {
     throw new Error('Resource amount must be a positive finite number');
   }
@@ -141,15 +146,36 @@ export function addResource(
     const existingCost = Number(existing.cost_market);
     const safeExistingCost = Number.isFinite(existingCost) && existingCost >= 0 ? existingCost : 1;
     const newAmount = existingAmount + amount;
+    const weightedWorkers = newAmount > 0
+      ? ((existingAmount * (Number(existing.cost_workers) || 0)) + (amount * incomingWorkers)) / newAmount
+      : incomingWorkers;
+    const weightedAdmin = newAmount > 0
+      ? ((existingAmount * (Number(existing.cost_admin) || 0)) + (amount * incomingAdmin)) / newAmount
+      : incomingAdmin;
+    const weightedMat1 = newAmount > 0
+      ? ((existingAmount * (Number(existing.cost_material1) || 0)) + (amount * incomingMat1)) / newAmount
+      : incomingMat1;
+    const weightedMat2 = newAmount > 0
+      ? ((existingAmount * (Number(existing.cost_material2) || 0)) + (amount * incomingMat2)) / newAmount
+      : incomingMat2;
     const weightedCost = newAmount > 0
       ? ((existingAmount * safeExistingCost) + (amount * incomingCost)) / newAmount
       : incomingCost;
     db.prepare(`
       UPDATE warehouse
-      SET amount = ?, cost_market = ?, updated_at = ?
+      SET amount = ?, cost_workers = ?, cost_admin = ?, cost_material1 = ?, cost_material2 = ?, cost_market = ?, updated_at = ?
       WHERE id = ?
-    `).run(newAmount, weightedCost, now, existing.id);
-    return { ...existing, amount: newAmount, cost_market: weightedCost, updated_at: now };
+    `).run(newAmount, weightedWorkers, weightedAdmin, weightedMat1, weightedMat2, weightedCost, now, existing.id);
+    return {
+      ...existing,
+      amount: newAmount,
+      cost_workers: weightedWorkers,
+      cost_admin: weightedAdmin,
+      cost_material1: weightedMat1,
+      cost_material2: weightedMat2,
+      cost_market: weightedCost,
+      updated_at: now
+    };
   } else {
     const res = db.prepare(`
       INSERT INTO warehouse (company_id, kind, quality, amount, cost_workers, cost_admin, cost_material1, cost_material2, cost_market, updated_at)
@@ -159,11 +185,11 @@ export function addResource(
       kind,
       quality,
       amount,
-      cost.workers || 0,
-      cost.admin || 0,
-      cost.material1 || 0,
-      cost.material2 || 0,
-      cost.market ?? 1.0,
+      incomingWorkers,
+      incomingAdmin,
+      incomingMat1,
+      incomingMat2,
+      incomingCost,
       now
     );
     return {
@@ -172,11 +198,11 @@ export function addResource(
       kind,
       quality,
       amount,
-      cost_workers: cost.workers || 0,
-      cost_admin: cost.admin || 0,
-      cost_material1: cost.material1 || 0,
-      cost_material2: cost.material2 || 0,
-      cost_market: cost.market ?? 1.0,
+      cost_workers: incomingWorkers,
+      cost_admin: incomingAdmin,
+      cost_material1: incomingMat1,
+      cost_material2: incomingMat2,
+      cost_market: incomingCost,
       updated_at: now
     };
   }

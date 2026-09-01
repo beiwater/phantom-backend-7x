@@ -2,6 +2,7 @@ import { db } from '../db/database.ts';
 import { getResourceDef, CONSTANTS_RESOURCES } from './constants.ts';
 import { consumeResourceExact, consumeResourceExactWithTransactions, addResource, getWarehouseItemById, getWarehouseItemExact } from './warehouse.ts';
 import { updateCompanyMoney, getCompanyById } from './company.ts';
+import { DomainError } from '../errors/domain-error.ts';
 
 export interface MarketOrderRow {
   id: number;
@@ -13,6 +14,11 @@ export interface MarketOrderRow {
   fees: number;
   posted_at: string;
   active: number;
+  cost_workers?: number;
+  cost_admin?: number;
+  cost_material1?: number;
+  cost_material2?: number;
+  cost_market?: number;
 }
 
 export function formatMarketOrder(o: MarketOrderRow) {
@@ -33,7 +39,7 @@ export function formatMarketOrder(o: MarketOrderRow) {
     seller: {
       id: seller.company_id,
       company: seller.name,
-      realmId: 0,
+      realmId: seller.realm_id ?? 0,
       logo: seller.logo || '',
       certificates: 0,
       contest_wins: 0,
@@ -54,8 +60,11 @@ export function getMarketTicker(realmId: number) {
     if (def.isExchangeTradable === false) continue;
 
     const lowest = db.prepare(`
-      SELECT MIN(price) as minPrice FROM market_orders WHERE kind = ? AND active = 1 AND quantity > 0
-    `).get(kind) as { minPrice: number | null } | undefined;
+      SELECT MIN(m.price) as minPrice FROM market_orders m
+      LEFT JOIN companies c ON m.seller_id = c.company_id
+      WHERE m.kind = ? AND m.active = 1 AND m.quantity > 0
+        AND (m.seller_id = 999900 OR c.realm_id = ? OR c.realm_id IS NULL)
+    `).get(kind, realmId) as { minPrice: number | null } | undefined;
 
     const price = (lowest && lowest.minPrice !== null) ? lowest.minPrice : 1.0;
 
@@ -73,11 +82,13 @@ export function getMarketTicker(realmId: number) {
 
 export function getMarketOrdersForResource(realmId: number, resourceKind: number) {
   const rows = db.prepare(`
-    SELECT * FROM market_orders
-    WHERE kind = ? AND active = 1 AND quantity > 0
-    ORDER BY price ASC, quality DESC, id ASC
+    SELECT m.* FROM market_orders m
+    LEFT JOIN companies c ON m.seller_id = c.company_id
+    WHERE m.kind = ? AND m.active = 1 AND m.quantity > 0
+      AND (m.seller_id = 999900 OR c.realm_id = ? OR c.realm_id IS NULL)
+    ORDER BY m.price ASC, m.quality DESC, m.id ASC
     LIMIT 200
-  `).all(resourceKind) as unknown as MarketOrderRow[];
+  `).all(resourceKind, realmId) as unknown as MarketOrderRow[];
 
   return rows.map(formatMarketOrder);
 }
@@ -131,7 +142,14 @@ export function postMarketOrder(
   const totalValue = price * quantity;
   const fee = Math.max(1, Math.round(totalValue * 0.03));
 
-  db.exec('BEGIN');
+  // Snapshot the unit cost basis before consuming
+  const costWorkers = Number(item.cost_workers) || 0;
+  const costAdmin = Number(item.cost_admin) || 0;
+  const costMaterial1 = Number(item.cost_material1) || 0;
+  const costMaterial2 = Number(item.cost_material2) || 0;
+  const costMarket = item.cost_market !== undefined && item.cost_market !== null ? Number(item.cost_market) : 0;
+
+  db.exec('BEGIN IMMEDIATE');
   try {
     const resourceTransactions = consumeResourceExactWithTransactions(companyId, kind, quality, quantity);
     if (!resourceTransactions) {
@@ -144,9 +162,9 @@ export function postMarketOrder(
     const newMoney = updateCompanyMoney(companyId, -fee);
     const now = new Date().toISOString();
     const res = db.prepare(`
-      INSERT INTO market_orders (seller_id, kind, quality, quantity, price, fees, posted_at, active)
-      VALUES (?, ?, ?, ?, ?, ?, ?, 1)
-    `).run(companyId, kind, quality, quantity, price, fee, now);
+      INSERT INTO market_orders (seller_id, kind, quality, quantity, price, fees, posted_at, active, cost_workers, cost_admin, cost_material1, cost_material2, cost_market)
+      VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?)
+    `).run(companyId, kind, quality, quantity, price, fee, now, costWorkers, costAdmin, costMaterial1, costMaterial2, costMarket);
 
     db.exec('COMMIT');
     const orderId = Number(res.lastInsertRowid);
@@ -183,7 +201,13 @@ export function cancelMarketOrder(companyId: number, orderId: number) {
     if (updatedOrder.changes !== 1) {
       throw new Error('Market order is no longer active');
     }
-    addResource(companyId, order.kind, order.quality, order.quantity);
+    addResource(companyId, order.kind, order.quality, order.quantity, {
+      workers: Number(order.cost_workers) || 0,
+      admin: Number(order.cost_admin) || 0,
+      material1: Number(order.cost_material1) || 0,
+      material2: Number(order.cost_material2) || 0,
+      market: order.cost_market !== undefined && order.cost_market !== null ? Number(order.cost_market) : 1.0
+    });
     db.exec('COMMIT');
   } catch (err: unknown) {
     db.exec('ROLLBACK');
@@ -259,6 +283,18 @@ export function takeMarketOrder(
     for (const order of orders) {
       if (quantityToBuy <= 0) break;
 
+      // Issue #85: Self-Trading (Wash Trading) Prevention
+      const sellerComp = order.seller_id !== 999900 ? getCompanyById(order.seller_id) : null;
+      const isSameCompany = order.seller_id === buyerCompanyId;
+      const isSamePlayer = Boolean(
+        buyer.player_id &&
+        sellerComp?.player_id &&
+        buyer.player_id === sellerComp.player_id
+      );
+      if ((isSameCompany || isSamePlayer) && order.seller_id !== 999900) {
+        throw new DomainError('Cannot purchase your own market order', 400, 'SELF_TRADE_PROHIBITED');
+      }
+
       const available = Number(order.quantity);
       const takeAmount = Math.min(available, quantityToBuy);
       const cost = takeAmount * Number(order.price);
@@ -305,7 +341,7 @@ export function takeMarketOrder(
       WHERE id = (SELECT MAX(id) FROM cash_ledger WHERE company_id = ? AND category = 'g' AND amount = ?)
     `).run(`Market purchase of ${totalBought} units of resource #${resourceKind}`, `market-${resourceKind}`, buyerCompanyId, -totalCost);
     for (const tx of transactions) {
-      addResource(buyerCompanyId, tx.kind, tx.quality, tx.amount, { market: tx.price * tx.amount });
+      addResource(buyerCompanyId, tx.kind, tx.quality, tx.amount, { market: tx.price });
     }
     db.exec('COMMIT');
 

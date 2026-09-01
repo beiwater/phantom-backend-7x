@@ -8,6 +8,7 @@ import { recordCashLedger, refreshDailyFinanceSnapshot } from './cash-ledger.ts'
 export interface CompanyRow {
   id: number;
   company_id: number;
+  player_id?: number;
   name: string;
   money: number;
   simboosts: number;
