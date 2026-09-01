@@ -3,6 +3,7 @@ import { readJsonBody, sendJson, requireCapability } from './utils.ts';
 import {
   getIncomingContractsQuery,
   getOutgoingContractsQuery,
+  getContractHistoryQuery,
   sendContractCommand,
   acceptContractCommand,
   rejectContractCommand,
@@ -59,7 +60,13 @@ export async function handleContractRoutes(
     pathname === '/api/v2/contracts-history-outgoing/' ||
     pathname.match(/^\/api\/v2\/contracts-history-(?:incoming|outgoing)\/(?:\d+|me)\/$/)
   ) {
-    sendJson(res, [], 200, { 'x-timestamp': new Date().toISOString() });
+    if (!currentCompanyId) {
+      sendJson(res, { error: 'Unauthorized' }, 401);
+      return true;
+    }
+    const direction = pathname.includes('history-incoming') ? 'incoming' : 'outgoing';
+    const history = getContractHistoryQuery(currentCompanyId, direction);
+    sendJson(res, history, 200, { 'x-timestamp': new Date().toISOString() });
     return true;
   }
 

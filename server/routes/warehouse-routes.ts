@@ -1,6 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { sendJson } from './utils.ts';
 import { getWarehouseResources } from '../game/warehouse.ts';
+import { warehouseRepository } from '../repositories/warehouse-repository.ts';
 
 export async function handleWarehouseRoutes(
   _req: IncomingMessage,
@@ -43,14 +44,30 @@ export async function handleWarehouseRoutes(
   // 5. Resource transactions: /api/v2/resources-transactions/:companyId/:kind/
   const resTxMatch = pathname.match(/^\/api\/v2\/resources-transactions\/(\d+|me)\/(\d+)\/$/);
   if (resTxMatch) {
-    sendJson(res, []);
+    const compId = resTxMatch[1] === 'me' ? currentCompanyId : Number(resTxMatch[1]);
+    if (!currentCompanyId || compId !== currentCompanyId) {
+      sendJson(res, { error: 'Unauthorized' }, 401);
+      return true;
+    }
+    sendJson(res, warehouseRepository.listResourceTransactions(compId, Number(resTxMatch[2])));
     return true;
   }
 
   // 6. Resource transactions summary: /api/v2/resources-transactions-summary/:companyId/:kind/
   const resTxSummaryMatch = pathname.match(/^\/api\/v2\/resources-transactions-summary\/(\d+|me)\/(\d+)\/$/);
   if (resTxSummaryMatch) {
-    sendJson(res, { totalBought: 0, totalSold: 0, totalProduced: 0, avgPrice: 0 });
+    const compId = resTxSummaryMatch[1] === 'me' ? currentCompanyId : Number(resTxSummaryMatch[1]);
+    if (!currentCompanyId || compId !== currentCompanyId) {
+      sendJson(res, { error: 'Unauthorized' }, 401);
+      return true;
+    }
+    const summary = warehouseRepository.getResourceTransactionSummary(compId, Number(resTxSummaryMatch[2]));
+    sendJson(res, {
+      totalBought: summary.totalBought,
+      totalSold: summary.totalSold,
+      totalProduced: 0,
+      avgPrice: summary.totalBought > 0 ? summary.avgBuyPrice : summary.avgSellPrice
+    });
     return true;
   }
 

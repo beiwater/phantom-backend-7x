@@ -59,6 +59,17 @@ export function getIncomingContracts(companyId: number) {
   };
 }
 
+export function getContractHistory(companyId: number, direction: 'incoming' | 'outgoing') {
+  const column = direction === 'incoming' ? 'recipient_company_id' : 'sender_company_id';
+  const rows = db.prepare(`
+    SELECT * FROM contracts
+    WHERE ${column} = ? AND status != 'pending'
+    ORDER BY id DESC
+    LIMIT 200
+  `).all(companyId) as unknown as ContractRow[];
+  return rows.map(formatContract);
+}
+
 export function getOutgoingContracts(companyId: number) {
   const rows = db.prepare(`
     SELECT * FROM contracts

@@ -17,6 +17,7 @@ import {
 import {
   getIncomingContracts,
   getOutgoingContracts,
+  getContractHistory,
   sendContract,
   acceptContract,
   rejectContract,
@@ -59,6 +60,10 @@ export function getIncomingContractsQuery(companyId: number) {
 
 export function getOutgoingContractsQuery(companyId: number) {
   return getOutgoingContracts(companyId);
+}
+
+export function getContractHistoryQuery(companyId: number, direction: 'incoming' | 'outgoing') {
+  return getContractHistory(companyId, direction);
 }
 
 // --- Contract commands ---------------------------------------------------------

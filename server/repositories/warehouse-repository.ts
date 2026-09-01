@@ -92,6 +92,92 @@ export class WarehouseRepository {
     return row ? mapWarehouseRow(row) : null;
   }
 
+  /**
+   * Resource transaction log for one company+kind, sourced from the
+   * authoritative market_trades ledger (both sides of every fill).
+   * Buys: company is buyer. Sells: company is seller.
+   */
+  listResourceTransactions(
+    companyId: number,
+    kind: number,
+    limit = 200
+  ): Array<{
+    id: number;
+    kind: number;
+    quality: number;
+    amount: number;
+    price: number;
+    fee: number;
+    direction: 'bought' | 'sold';
+    counterpartyId: number | null;
+    tradedAt: string;
+  }> {
+    const rows = this.database
+      .prepare(
+        `SELECT id, kind, quality, price, amount, fee, buyer_id, seller_id, traded_at
+         FROM market_trades
+         WHERE kind = ? AND (buyer_id = ? OR seller_id = ?)
+         ORDER BY traded_at DESC, id DESC
+         LIMIT ?`
+      )
+      .all(kind, companyId, companyId, limit) as Array<{
+        id: number;
+        kind: number;
+        quality: number;
+        price: number;
+        amount: number;
+        fee: number;
+        buyer_id: number | null;
+        seller_id: number | null;
+        traded_at: string;
+      }>;
+    return rows.map(r => {
+      const bought = Number(r.buyer_id) === companyId;
+      return {
+        id: Number(r.id),
+        kind: Number(r.kind),
+        quality: Number(r.quality),
+        amount: Number(r.amount),
+        price: Number(r.price),
+        fee: Number(r.fee),
+        direction: bought ? 'bought' : 'sold',
+        counterpartyId: bought ? (r.seller_id === null ? null : Number(r.seller_id)) : (r.buyer_id === null ? null : Number(r.buyer_id)),
+        tradedAt: r.traded_at
+      };
+    });
+  }
+
+  /** Aggregate bought/sold volume + average executed price for one company+kind. */
+  getResourceTransactionSummary(
+    companyId: number,
+    kind: number
+  ): { totalBought: number; totalSold: number; avgBuyPrice: number; avgSellPrice: number } {
+    const row = this.database
+      .prepare(
+        `SELECT
+           COALESCE(SUM(CASE WHEN buyer_id = ? THEN amount ELSE 0 END), 0) AS total_bought,
+           COALESCE(SUM(CASE WHEN seller_id = ? THEN amount ELSE 0 END), 0) AS total_sold,
+           COALESCE(SUM(CASE WHEN buyer_id = ? THEN price * amount ELSE 0 END), 0) AS buy_notional,
+           COALESCE(SUM(CASE WHEN seller_id = ? THEN price * amount ELSE 0 END), 0) AS sell_notional
+         FROM market_trades
+         WHERE kind = ? AND (buyer_id = ? OR seller_id = ?)`
+      )
+      .get(companyId, companyId, companyId, companyId, kind, companyId, companyId) as {
+        total_bought: number;
+        total_sold: number;
+        buy_notional: number;
+        sell_notional: number;
+      };
+    const bought = Number(row.total_bought) || 0;
+    const sold = Number(row.total_sold) || 0;
+    return {
+      totalBought: bought,
+      totalSold: sold,
+      avgBuyPrice: bought > 0 ? Math.round((Number(row.buy_notional) / bought) * 100) / 100 : 0,
+      avgSellPrice: sold > 0 ? Math.round((Number(row.sell_notional) / sold) * 100) / 100 : 0
+    };
+  }
+
   hasSufficientMaterials(companyId: number, requirements: Array<{ kind: number; amount: number; quality?: number }>): boolean {
     for (const req of requirements) {
       const q = req.quality ?? 0;
