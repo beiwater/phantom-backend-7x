@@ -1,5 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { readJsonBody, sendJson } from './utils.ts';
+import { DomainError } from '../errors/domain-error.ts';
+import { getCompanyCollectibles } from '../game/collectibles.ts';
 import {
   getIndividualAchievements,
   getAchievementsOverview,
@@ -7,9 +9,18 @@ import {
   getDisplayCase,
   updateDisplayCase,
   removeDisplayCaseSlot,
-  getCollectibles,
   getCertificates
 } from '../game/achievements.ts';
+
+/** Issue #88: DomainError carries an authoritative status + machine code. */
+function sendDomainError(res: ServerResponse, err: unknown): void {
+  if (err instanceof DomainError) {
+    sendJson(res, { error: err.message, code: err.code }, err.statusCode);
+    return;
+  }
+  const msg = err instanceof Error ? err.message : String(err);
+  sendJson(res, { error: msg }, 400);
+}
 
 export async function handleAchievementRoutes(
   req: IncomingMessage,
@@ -31,8 +42,7 @@ export async function handleAchievementRoutes(
       const result = claimAchievement(currentCompanyId, achId);
       sendJson(res, result);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      sendJson(res, { error: msg }, 400);
+      sendDomainError(res, err);
     }
     return true;
   }
@@ -68,6 +78,10 @@ export async function handleAchievementRoutes(
   }
 
   // 5. Display case (Must wrap in { displayCase: [...] })
+  //    Issue #88: the POST body follows the decompiled spec shape — exactly one
+  //    of achievement_id / certificate_id / nft_id / resource_id (legacy
+  //    resourceKind still accepted for resource placements). Slot must be 1..12
+  //    and the placed item must be owned by the company.
   const dcMatch = pathname.match(/^\/api\/v2\/companies\/(\d+|me)\/display-case\/$/);
   if (dcMatch) {
     const companyId = dcMatch[1] === 'me' ? currentCompanyId : Number(dcMatch[1]);
@@ -80,14 +94,67 @@ export async function handleAchievementRoutes(
         sendJson(res, { error: 'Unauthorized' }, 401);
         return true;
       }
-      const body = await readJsonBody<{ slot: number; resourceKind: number; quality?: number; title?: string }>(req);
-      try {
+      const body = await readJsonBody<{
+        slot: number;
+        resourceKind?: number;
+        quality?: number;
+        title?: string;
+        certificate_id?: number;
+        achievement_id?: string | number;
+        resource_id?: number;
+        nft_id?: number;
+        show_amount?: boolean;
+      }>(req);
+
+      const provided: string[] = [];
+      if (body.achievement_id !== undefined && body.achievement_id !== null) provided.push('achievement_id');
+      if (body.certificate_id !== undefined && body.certificate_id !== null) provided.push('certificate_id');
+      if (body.nft_id !== undefined && body.nft_id !== null) provided.push('nft_id');
+      if (body.resource_id !== undefined && body.resource_id !== null) provided.push('resource_id');
+      if (body.resourceKind !== undefined && body.resourceKind !== null) provided.push('resourceKind');
+      if (provided.length !== 1) {
         sendJson(res, {
-          displayCase: updateDisplayCase(currentCompanyId, body.slot, body.resourceKind, body.quality, body.title)
-        });
+          error: 'Exactly one display case item (achievement_id, certificate_id, nft_id or resource_id) must be provided',
+          code: 'INVALID_ITEM'
+        }, 400);
+        return true;
+      }
+
+      try {
+        let displayCase;
+        if (provided[0] === 'achievement_id') {
+          displayCase = updateDisplayCase(currentCompanyId, {
+            slot: body.slot,
+            itemKind: 'achievement',
+            achievementId: String(body.achievement_id),
+            title: body.title
+          });
+        } else if (provided[0] === 'certificate_id') {
+          displayCase = updateDisplayCase(currentCompanyId, {
+            slot: body.slot,
+            itemKind: 'certificate',
+            certificateId: Number(body.certificate_id),
+            title: body.title
+          });
+        } else if (provided[0] === 'nft_id') {
+          displayCase = updateDisplayCase(currentCompanyId, {
+            slot: body.slot,
+            itemKind: 'collectible',
+            nftId: Number(body.nft_id),
+            title: body.title
+          });
+        } else {
+          displayCase = updateDisplayCase(currentCompanyId, {
+            slot: body.slot,
+            itemKind: 'resource',
+            resourceKind: Number(provided[0] === 'resource_id' ? body.resource_id : body.resourceKind),
+            quality: body.quality,
+            title: body.title
+          });
+        }
+        sendJson(res, { displayCase });
       } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        sendJson(res, { error: msg }, 400);
+        sendDomainError(res, err);
       }
       return true;
     }
@@ -109,19 +176,21 @@ export async function handleAchievementRoutes(
     try {
       sendJson(res, { displayCase: removeDisplayCaseSlot(companyId, slot) });
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      sendJson(res, { error: msg }, 400);
+      sendDomainError(res, err);
     }
     return true;
   }
 
-  // 7. Collectibles (Must wrap in { collectibles: [...] })
-  if (pathname.startsWith('/api/') && pathname.includes('/collectibles/')) {
+  // 7. Company collectible vault: GET /api/v3/companies/{companyId}/collectibles/
+  //    (Must wrap in { collectibles: [...] }). Served from the authoritative
+  //    collectibles domain (issue #100) instead of the legacy static stub.
+  const vaultMatch = pathname.match(/^\/api\/v3\/companies\/(\d+|me)\/collectibles\/?$/);
+  if (vaultMatch && method === 'GET') {
     if (!currentCompanyId) {
       sendJson(res, { error: 'Unauthorized' }, 401);
       return true;
     }
-    sendJson(res, { collectibles: getCollectibles(currentCompanyId) });
+    sendJson(res, { collectibles: getCompanyCollectibles(currentCompanyId) });
     return true;
   }
 

@@ -1,5 +1,6 @@
 import { db } from '../db/database.ts';
 import { getCompanyById, updateCompanySimBoosts, type CompanyRow } from './company.ts';
+import { DomainError, NotFoundError, UnauthorizedError } from '../errors/domain-error.ts';
 
 export interface NewspaperIssueDbRow {
   id: number;
@@ -39,6 +40,65 @@ export interface NewspaperSponsorDbRow {
   text: string;
   logo: string;
   created_at: string;
+}
+
+// ---------------------------------------------------------------------------
+// Issue #83 — Newspaper domain constants (decompiled: formulas_newspaper.md)
+// entry.js: hsr = 20 (min reader level for reward reactions),
+//           uje = 5 (SimBoosts per reward reaction), gsr = 15 (top list size).
+// ---------------------------------------------------------------------------
+export const REWARD_MIN_LEVEL = 20;
+export const REWARD_COST = 5;
+export const TOP_ARTICLES_LIMIT = 15;
+
+export type SponsorTier = 'GOLDEN' | 'SILVER' | 'BRONZE';
+
+// 11 ad slots per issue across 3 pricing tiers (§3): Golden owns slot 0,
+// Silver slots 1-2, Bronze slots 3-10. Prices are in SimBoosts.
+export const SPONSOR_SLOT_COUNT = 11;
+export const SPONSOR_TIER_SLOTS: Record<SponsorTier, number[]> = {
+  GOLDEN: [0],
+  SILVER: [1, 2],
+  BRONZE: [3, 4, 5, 6, 7, 8, 9, 10]
+};
+export const SPONSOR_TIER_PRICES: Record<SponsorTier, number> = {
+  GOLDEN: 20,
+  SILVER: 10,
+  BRONZE: 5
+};
+export const SPONSOR_TIER_CHAR_LIMITS: Record<SponsorTier, number> = {
+  GOLDEN: 280,
+  SILVER: 200,
+  BRONZE: 140
+};
+export const DEFAULT_SPONSOR_TEXT = 'Top quality goods available on exchange and contracts!';
+
+export function getSponsorTierForSlot(position: number): SponsorTier {
+  for (const tier of Object.keys(SPONSOR_TIER_SLOTS) as SponsorTier[]) {
+    if (SPONSOR_TIER_SLOTS[tier].includes(position)) return tier;
+  }
+  throw new DomainError(
+    `Invalid sponsor slot ${position}: slots are 0-${SPONSOR_SLOT_COUNT - 1}`,
+    400, 'SPONSOR_INVALID_SLOT', { position }
+  );
+}
+
+// Publishing schedule (§2): every Thursday 16:00 UTC (ZFn.nextThursday()).
+export function nextPublishDate(now: Date = new Date()): Date {
+  const next = new Date(now);
+  next.setUTCHours(16, 0, 0, 0);
+  next.setUTCDate(next.getUTCDate() - next.getUTCDay() + 4);
+  if (next.getTime() <= now.getTime()) next.setUTCDate(next.getUTCDate() + 7);
+  return next;
+}
+
+function parseReactionMap(reactionsJson: string): Record<string, number> {
+  try {
+    const parsed: unknown = JSON.parse(reactionsJson || '{}');
+    return parsed && typeof parsed === 'object' ? parsed as Record<string, number> : {};
+  } catch {
+    return {};
+  }
 }
 
 function findCompany(idOrCompanyId: number): CompanyRow | null {
@@ -161,6 +221,28 @@ db.exec(`
     insertSponsor.run(2, 2, 3, 'Apex Aerospace', 'Premier supplier of high-tech guidance systems and rocket fuel.', '', publishedDate2);
   }
 })();
+
+// Issue #83 (§3): ads appear only in unpublished (upcoming) issues. The
+// bookable issue is the newest issue of the realm; when the newest one is
+// already published, a fresh unpublished issue is rolled forward.
+export function getCurrentBookableIssue(realmId: number = 0): NewspaperIssueDbRow {
+  const latest = db.prepare('SELECT * FROM newspaper_issues WHERE realm_id = ? ORDER BY issue_id DESC LIMIT 1').get(realmId) as NewspaperIssueDbRow | undefined;
+  if (latest && latest.published === null) return latest;
+
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    const maxRow = db.prepare('SELECT MAX(issue_id) AS maxIssue FROM newspaper_issues WHERE realm_id = ?').get(realmId) as { maxIssue: number | null };
+    const nextIssueId = (maxRow.maxIssue ?? 0) + 1;
+    const inserted = db.prepare('INSERT INTO newspaper_issues (issue_id, realm_id, published, created_at) VALUES (?, ?, NULL, ?)').run(
+      nextIssueId, realmId, new Date().toISOString()
+    );
+    db.exec('COMMIT');
+    return db.prepare('SELECT * FROM newspaper_issues WHERE id = ?').get(Number(inserted.lastInsertRowid)) as NewspaperIssueDbRow;
+  } catch (err) {
+    db.exec('ROLLBACK');
+    throw err;
+  }
+}
 
 // 3. Issue & Article Functions
 export function getNewspaperIssues(realmId: number = 0, belowId?: number, limit: number = 20) {
@@ -302,7 +384,9 @@ export function deleteArticle(articleId: number) {
   return { success: true };
 }
 
-export function getTopArticlesByReaction(realmId: number = 0, _reactionType: string = 'THUMBS_UP', limit: number = 15) {
+// Issue #83 (§6): top articles ranked by total reactions (upvotes + tips),
+// capped at the canonical gsr = 15 entries.
+export function getTopArticlesByReaction(realmId: number = 0, _reactionType: string = 'THUMBS_UP', limit: number = TOP_ARTICLES_LIMIT) {
   const rows = db.prepare(`
     SELECT a.*, i.issue_id, i.realm_id as issue_realm_id
     FROM newspaper_articles a
@@ -317,6 +401,7 @@ export function getTopArticlesByReaction(realmId: number = 0, _reactionType: str
       title: r.title,
       author: r.author_company_name ? { company: r.author_company_name, id: r.author_company_id } : { company: 'Sim Companies Times' },
       newspaper: { realmId: r.issue_realm_id ?? realmId, issueId: r.issue_id ?? 1, id: r.newspaper_id },
+      reactions: parseReactionMap(r.reactions_json),
       reactionCount: r.reaction_count || 0
     }))
   };
@@ -347,65 +432,134 @@ export function getCompanyReactionsForNewspaper(newspaperId: number, companyId: 
   return rows.map((r) => ({ articleId: r.article_id, reaction: r.reaction }));
 }
 
+// Applies a reaction-count delta and keeps the denormalized total in sync.
+function bumpReactionCounters(articleId: number, reactionsJson: string, reaction: string, delta: number): { reactions: Record<string, number>; count: number } {
+  const reactions = parseReactionMap(reactionsJson);
+  reactions[reaction] = Math.max(0, (reactions[reaction] || 0) + delta);
+  const count = Object.values(reactions).reduce((a, b) => a + b, 0);
+  db.prepare('UPDATE newspaper_articles SET reactions_json = ?, reaction_count = ? WHERE id = ?').run(
+    JSON.stringify(reactions), count, articleId
+  );
+  return { reactions, count };
+}
+
 export function addArticleReaction(articleId: number, companyId: number, reaction: string) {
   const article = db.prepare('SELECT * FROM newspaper_articles WHERE id = ?').get(articleId) as NewspaperArticleDbRow | undefined;
-  if (!article) throw new Error('Article not found');
+  if (!article) throw new NotFoundError('Article not found');
 
   const comp = findCompany(companyId);
-  const actualCompanyId = comp ? comp.company_id : companyId;
+  if (!comp) throw new UnauthorizedError('Company session required to react to an article');
+  const actualCompanyId = comp.company_id;
+
+  const alreadyReacted = db.prepare('SELECT id FROM newspaper_reactions WHERE article_id = ? AND company_id = ? AND reaction = ?')
+    .get(articleId, actualCompanyId, reaction) as { id: number } | undefined;
 
   if (reaction === 'REWARD') {
-    if (!comp || comp.simboosts < 5) throw new Error('Not enough SimBoosts to reward article (need 5 SimBoosts)');
-    updateCompanySimBoosts(actualCompanyId, -5);
-    if (article.author_company_id && article.author_company_id !== actualCompanyId) {
-      updateCompanySimBoosts(article.author_company_id, 5);
+    // §4: REWARD costs 5 SimBoosts (uje) and requires level >= 20 (hsr), an
+    // existing author, and not the reader's own article.
+    if (alreadyReacted) {
+      // Idempotent: a repeated reward must never double-charge.
+      const reactions = parseReactionMap(article.reactions_json);
+      return { success: true, reaction, count: reactions[reaction] ?? 0, reactions, idempotent: true };
+    }
+    if (Number(comp.level) < REWARD_MIN_LEVEL) {
+      throw new DomainError(
+        `Reward reactions unlock at level ${REWARD_MIN_LEVEL}`, 403, 'REWARD_LEVEL_TOO_LOW',
+        { requiredLevel: REWARD_MIN_LEVEL, level: Number(comp.level) }
+      );
+    }
+    if (!article.author_company_id || !getCompanyById(article.author_company_id)) {
+      throw new DomainError('This article has no author to reward', 400, 'REWARD_AUTHOR_MISSING');
+    }
+    if (article.author_company_id === actualCompanyId) {
+      throw new DomainError('You cannot reward your own article', 403, 'REWARD_OWN_ARTICLE');
+    }
+    if (Number(comp.simboosts) < REWARD_COST) {
+      throw new DomainError(`Not enough SimBoosts to reward article (need ${REWARD_COST} SimBoosts)`, 400, 'INSUFFICIENT_SIMBOOSTS');
+    }
+
+    db.exec('BEGIN IMMEDIATE');
+    try {
+      // Re-check inside the write transaction so a concurrent reward cannot
+      // double-charge (Issue #68: SimBoost mutations are atomic).
+      const raced = db.prepare('SELECT id FROM newspaper_reactions WHERE article_id = ? AND company_id = ? AND reaction = ?')
+        .get(articleId, actualCompanyId, reaction) as { id: number } | undefined;
+      if (raced) {
+        db.exec('COMMIT');
+        const reactions = parseReactionMap(article.reactions_json);
+        return { success: true, reaction, count: reactions[reaction] ?? 0, reactions, idempotent: true };
+      }
+      updateCompanySimBoosts(actualCompanyId, -REWARD_COST);
+      updateCompanySimBoosts(article.author_company_id, REWARD_COST);
+      db.prepare('INSERT INTO newspaper_reactions (newspaper_id, article_id, company_id, reaction, created_at) VALUES (?, ?, ?, ?, ?)').run(
+        article.newspaper_id, articleId, actualCompanyId, reaction, new Date().toISOString()
+      );
+      const { reactions, count } = bumpReactionCounters(articleId, article.reactions_json, reaction, +1);
+      db.exec('COMMIT');
+      return { success: true, reaction, count: reactions[reaction] ?? 0, reactionCount: count, reactions };
+    } catch (err) {
+      db.exec('ROLLBACK');
+      throw err;
     }
   }
 
-  const existing = db.prepare('SELECT id FROM newspaper_reactions WHERE article_id = ? AND (company_id = ? OR company_id = ?) AND reaction = ?').get(articleId, actualCompanyId, companyId, reaction);
-  if (!existing) {
+  // Free reactions (THUMBS_UP): toggle-on is idempotent and costs nothing.
+  if (alreadyReacted) {
+    const reactions = parseReactionMap(article.reactions_json);
+    return { success: true, reaction, count: reactions[reaction] ?? 0, reactions, idempotent: true };
+  }
+
+  db.exec('BEGIN IMMEDIATE');
+  try {
     db.prepare('INSERT INTO newspaper_reactions (newspaper_id, article_id, company_id, reaction, created_at) VALUES (?, ?, ?, ?, ?)').run(
       article.newspaper_id, articleId, actualCompanyId, reaction, new Date().toISOString()
     );
+    const { reactions, count } = bumpReactionCounters(articleId, article.reactions_json, reaction, +1);
+    db.exec('COMMIT');
+    return { success: true, reaction, count: reactions[reaction] ?? 0, reactionCount: count, reactions };
+  } catch (err) {
+    db.exec('ROLLBACK');
+    throw err;
   }
-
-  let reactions: Record<string, number> = {};
-  try { reactions = JSON.parse(article.reactions_json || '{}'); } catch {}
-  reactions[reaction] = (reactions[reaction] || 0) + 1;
-  const newReactionCount = Object.values(reactions).reduce((a, b) => a + b, 0);
-
-  db.prepare('UPDATE newspaper_articles SET reactions_json = ?, reaction_count = ? WHERE id = ?').run(
-    JSON.stringify(reactions), newReactionCount, articleId
-  );
-  return { success: true, reaction, count: reactions[reaction] };
 }
 
 export function removeArticleReaction(articleId: number, companyId: number, reaction: string) {
   const article = db.prepare('SELECT * FROM newspaper_articles WHERE id = ?').get(articleId) as NewspaperArticleDbRow | undefined;
-  if (!article) throw new Error('Article not found');
+  if (!article) throw new NotFoundError('Article not found');
 
   const comp = findCompany(companyId);
-  const actualCompanyId = comp ? comp.company_id : companyId;
+  if (!comp) throw new UnauthorizedError('Company session required to react to an article');
+  const actualCompanyId = comp.company_id;
 
-  db.prepare('DELETE FROM newspaper_reactions WHERE article_id = ? AND (company_id = ? OR company_id = ?) AND reaction = ?').run(articleId, actualCompanyId, companyId, reaction);
-
-  let reactions: Record<string, number> = {};
-  try { reactions = JSON.parse(article.reactions_json || '{}'); } catch {}
-  if (reactions[reaction] && reactions[reaction] > 0) reactions[reaction] -= 1;
-  const newReactionCount = Object.values(reactions).reduce((a, b) => a + b, 0);
-
-  db.prepare('UPDATE newspaper_articles SET reactions_json = ?, reaction_count = ? WHERE id = ?').run(
-    JSON.stringify(reactions), newReactionCount, articleId
-  );
-  return { success: true, reaction, count: reactions[reaction] || 0 };
+  // Toggle-off: only a row actually owned by this company decrements the
+  // counters. REWARD SimBoosts are never refunded — tips are final (§3).
+  const removed = db.prepare('DELETE FROM newspaper_reactions WHERE article_id = ? AND company_id = ? AND reaction = ?')
+    .run(articleId, actualCompanyId, reaction);
+  if (removed.changes === 0) {
+    const reactions = parseReactionMap(article.reactions_json);
+    return { success: true, reaction, count: reactions[reaction] ?? 0, reactions, idempotent: true };
+  }
+  const { reactions, count } = bumpReactionCounters(articleId, article.reactions_json, reaction, -1);
+  return { success: true, reaction, count: reactions[reaction] ?? 0, reactionCount: count, reactions };
 }
 
 // 5. Sponsors & Ads System
 export function getSponsorParams() {
   return {
-    0: { title: 'Bronze Sponsor', subTitle: '(Slots 3-10)', charLimit: 140 },
-    1: { title: 'Silver Sponsor', subTitle: '(Slots 1-2)', charLimit: 200 },
-    2: { title: 'Golden Sponsor', subTitle: '(Slot 0)', charLimit: 280 }
+    // Legacy tier metadata keyed by tier level (0 = Bronze, 1 = Silver, 2 = Golden).
+    0: { title: 'Bronze Sponsor', subTitle: '(Slots 3-10)', charLimit: SPONSOR_TIER_CHAR_LIMITS.BRONZE },
+    1: { title: 'Silver Sponsor', subTitle: '(Slots 1-2)', charLimit: SPONSOR_TIER_CHAR_LIMITS.SILVER },
+    2: { title: 'Golden Sponsor', subTitle: '(Slot 0)', charLimit: SPONSOR_TIER_CHAR_LIMITS.GOLDEN },
+    // Issue #83: per-tier SimBoost pricing + slot map (§3).
+    currency: 'SIMBOOSTS',
+    pricing: { goldenPrice: SPONSOR_TIER_PRICES.GOLDEN, silverPrice: SPONSOR_TIER_PRICES.SILVER, bronzePrice: SPONSOR_TIER_PRICES.BRONZE },
+    tiers: {
+      GOLDEN: { level: 2, price: SPONSOR_TIER_PRICES.GOLDEN, slots: SPONSOR_TIER_SLOTS.GOLDEN, charLimit: SPONSOR_TIER_CHAR_LIMITS.GOLDEN },
+      SILVER: { level: 1, price: SPONSOR_TIER_PRICES.SILVER, slots: SPONSOR_TIER_SLOTS.SILVER, charLimit: SPONSOR_TIER_CHAR_LIMITS.SILVER },
+      BRONZE: { level: 0, price: SPONSOR_TIER_PRICES.BRONZE, slots: SPONSOR_TIER_SLOTS.BRONZE, charLimit: SPONSOR_TIER_CHAR_LIMITS.BRONZE }
+    },
+    totalSlots: SPONSOR_SLOT_COUNT,
+    nextPublishAt: nextPublishDate().toISOString()
   };
 }
 
@@ -415,32 +569,71 @@ export function getSponsorsForNewspaper(newspaperId: number) {
   for (const r of rows) {
     sponsors[r.position] = { companyName: r.company_name, companyId: r.company_id, text: r.text, logo: r.logo || '' };
   }
-  return { sponsors, pricing: { goldenPrice: 20, silverPrice: 10, bronzePrice: 5 } };
+  return {
+    sponsors,
+    pricing: { goldenPrice: SPONSOR_TIER_PRICES.GOLDEN, silverPrice: SPONSOR_TIER_PRICES.SILVER, bronzePrice: SPONSOR_TIER_PRICES.BRONZE },
+    totalSlots: SPONSOR_SLOT_COUNT,
+    filledSlots: rows.length,
+    allSlotsTaken: rows.length >= SPONSOR_SLOT_COUNT
+  };
 }
 
-export function buyNewspaperSponsor(newspaperId: number, position: number, companyId: number, text: string = 'Top quality goods available on exchange and contracts!', priceOverride?: number) {
-  const price = priceOverride ?? (position === 0 ? 20 : position <= 2 ? 10 : 5);
-  const comp = findCompany(companyId);
-  if (!comp || comp.simboosts < price) {
-    throw new Error(`Not enough SimBoosts to place sponsor ad (requires ${price} SimBoosts)`);
+// Book an ad slot on an issue (§3): paid in SimBoosts, tier-priced, one
+// company per slot. Re-booking your own slot only refreshes the ad and never
+// charges again; another company's slot is a conflict.
+export function buyNewspaperSponsor(newspaperId: number, position: number, companyId: number, text: string = DEFAULT_SPONSOR_TEXT) {
+  const tier = getSponsorTierForSlot(position);
+  const price = SPONSOR_TIER_PRICES[tier];
+  const charLimit = SPONSOR_TIER_CHAR_LIMITS[tier];
+  const adText = String(text ?? '');
+  if (adText.length > charLimit) {
+    throw new DomainError(
+      `Sponsor ad text is too long: ${adText.length} > ${charLimit} characters`, 400, 'TOO_MANY_CHARACTERS',
+      { charLimit, length: adText.length }
+    );
   }
 
-  updateCompanySimBoosts(comp.company_id, -price);
-  db.prepare('DELETE FROM newspaper_sponsors WHERE newspaper_id = ? AND position = ?').run(newspaperId, position);
-  db.prepare(`
-    INSERT INTO newspaper_sponsors (newspaper_id, position, company_id, company_name, text, logo, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `).run(newspaperId, position, comp.company_id, comp.name, text, comp.logo || '', new Date().toISOString());
+  const issue = db.prepare('SELECT * FROM newspaper_issues WHERE id = ?').get(newspaperId) as NewspaperIssueDbRow | undefined;
+  if (!issue) throw new NotFoundError('Newspaper issue not found');
 
-  return { companyName: comp.name, companyId: comp.company_id, text, logo: comp.logo || '' };
+  const comp = findCompany(companyId);
+  if (!comp) throw new UnauthorizedError('Company session required to book a sponsor slot');
+
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    const existing = db.prepare('SELECT * FROM newspaper_sponsors WHERE newspaper_id = ? AND position = ?').get(newspaperId, position) as NewspaperSponsorDbRow | undefined;
+    if (existing) {
+      if (existing.company_id === comp.company_id) {
+        // Idempotent re-book: refresh the ad, never double-charge.
+        db.prepare('UPDATE newspaper_sponsors SET text = ?, logo = ? WHERE id = ?').run(adText, comp.logo || '', existing.id);
+        db.exec('COMMIT');
+        return { position, tier, companyName: comp.name, companyId: comp.company_id, text: adText, logo: comp.logo || '', price: 0, simBoostsRemaining: Number(comp.simboosts), idempotent: true };
+      }
+      throw new DomainError('This advertising spot is already taken', 409, 'SPONSOR_SLOT_TAKEN', { position, newspaperId });
+    }
+    if (Number(comp.simboosts) < price) {
+      throw new DomainError(`Not enough SimBoosts to place sponsor ad (requires ${price} SimBoosts)`, 400, 'INSUFFICIENT_SIMBOOSTS');
+    }
+    const remaining = updateCompanySimBoosts(comp.company_id, -price);
+    db.prepare('INSERT INTO newspaper_sponsors (newspaper_id, position, company_id, company_name, text, logo, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)').run(
+      newspaperId, position, comp.company_id, comp.name, adText, comp.logo || '', new Date().toISOString()
+    );
+    db.exec('COMMIT');
+    return { position, tier, companyName: comp.name, companyId: comp.company_id, text: adText, logo: comp.logo || '', price, simBoostsRemaining: remaining };
+  } catch (err) {
+    db.exec('ROLLBACK');
+    throw err;
+  }
 }
 
 export function updateNewspaperSponsorText(newspaperId: number, position: number, companyId: number, text: string) {
   const comp = findCompany(companyId);
   const actualId = comp ? comp.company_id : companyId;
   const existing = db.prepare('SELECT * FROM newspaper_sponsors WHERE newspaper_id = ? AND position = ?').get(newspaperId, position) as NewspaperSponsorDbRow | undefined;
-  if (!existing) throw new Error('Sponsor slot not found');
-  if (existing.company_id !== actualId && existing.company_id !== companyId) throw new Error('Not authorized to edit this ad');
+  if (!existing) throw new NotFoundError('Sponsor slot not found');
+  if (existing.company_id !== actualId && existing.company_id !== companyId) {
+    throw new DomainError('Not authorized to edit this ad', 403, 'SPONSOR_AD_FORBIDDEN');
+  }
 
   db.prepare('UPDATE newspaper_sponsors SET text = ? WHERE newspaper_id = ? AND position = ?').run(text, newspaperId, position);
   return { companyName: existing.company_name, companyId: existing.company_id, text, logo: existing.logo || '' };

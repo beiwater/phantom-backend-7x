@@ -103,6 +103,114 @@ export function getCompanyMarketOrders(companyId: number) {
   return rows.map(formatMarketOrder);
 }
 
+// --- Issue #100: tick grid, exchange fee, trade ledger & reference prices ---
+
+// Exchange price tick grid (formulas_market.md §2, entry.js U0). Each price
+// band has a fixed tick; a posted order price must be a whole multiple of the
+// tick for the band its price falls into.
+const PRICE_TICK_BANDS: ReadonlyArray<{ minPrice: number; tick: number }> = [
+  { minPrice: 20000, tick: 500 },
+  { minPrice: 10000, tick: 100 },
+  { minPrice: 5000, tick: 25 },
+  { minPrice: 1000, tick: 10 },
+  { minPrice: 500, tick: 5 },
+  { minPrice: 200, tick: 2 },
+  { minPrice: 100, tick: 1 },
+  { minPrice: 50, tick: 0.5 },
+  { minPrice: 20, tick: 0.25 },
+  { minPrice: 5, tick: 0.1 },
+  { minPrice: 2, tick: 0.05 },
+  { minPrice: 1, tick: 0.01 },
+  { minPrice: 0.5, tick: 0.005 },
+  { minPrice: 0, tick: 0.001 }
+];
+
+export function getPriceTickSize(price: number): number {
+  for (const band of PRICE_TICK_BANDS) {
+    if (price >= band.minPrice) return band.tick;
+  }
+  return 0.001;
+}
+
+// Exchange fee: 4% on both realms (formulas_market.md §1/§3), charged as
+// fee = ceil(amount × price × 0.04) against the SELLER's proceeds at fill
+// time — never at posting, never on cancellation. The epsilon snap keeps
+// Math.ceil honest when amount × price × 0.04 is an exact integer up to
+// float noise (e.g. 25 × 0.04 → 1.0000000000000002).
+export const EXCHANGE_FEE_RATE = 0.04;
+
+export function computeExchangeFee(amount: number, price: number): number {
+  return Math.ceil(Math.round(amount * price * EXCHANGE_FEE_RATE * 1e6) / 1e6);
+}
+
+// Issue #100: append one fill to the market_trades ledger. trade_date is the
+// UTC day key used to group daily VWAPs.
+export function recordMarketTrade(entry: {
+  kind: number;
+  quality: number;
+  price: number;
+  amount: number;
+  fee: number;
+  buyerId: number | null;
+  sellerId: number | null;
+  tradedAt: string;
+}): void {
+  db.prepare(`
+    INSERT INTO market_trades (kind, quality, price, amount, fee, buyer_id, seller_id, trade_date, traded_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    entry.kind,
+    entry.quality,
+    entry.price,
+    entry.amount,
+    entry.fee,
+    entry.buyerId,
+    entry.sellerId,
+    entry.tradedAt.slice(0, 10),
+    entry.tradedAt
+  );
+}
+
+export interface MarketReferencePrice {
+  kind: number;
+  quality: number;
+  vwap: number;
+  date: string;
+}
+
+// Issue #100: daily VWAP reference price per resource+quality —
+// vwap = Σ(price × amount) / Σ(amount) over the most recent UTC trading day
+// that has fills for the pair.
+export function getMarketReferencePrices(): { referencePrices: MarketReferencePrice[] } {
+  const rows = db.prepare(`
+    SELECT kind, quality, trade_date,
+           SUM(price * amount) AS notional,
+           SUM(amount) AS volume
+    FROM market_trades
+    GROUP BY kind, quality, trade_date
+  `).all() as Array<{ kind: number; quality: number; trade_date: string; notional: number; volume: number }>;
+
+  const latestByPair = new Map<string, { kind: number; quality: number; trade_date: string; notional: number; volume: number }>();
+  for (const row of rows) {
+    const key = `${row.kind}:${row.quality}`;
+    const existing = latestByPair.get(key);
+    if (!existing || row.trade_date > existing.trade_date) {
+      latestByPair.set(key, row);
+    }
+  }
+
+  const referencePrices: MarketReferencePrice[] = Array.from(latestByPair.values())
+    .map(row => ({
+      kind: row.kind,
+      quality: row.quality,
+      vwap: Math.round((row.notional / row.volume) * 1e6) / 1e6,
+      date: row.trade_date
+    }))
+    .sort((a, b) => (a.kind - b.kind) || (a.quality - b.quality));
+
+  return { referencePrices };
+}
+
 export function postMarketOrder(
   companyId: number,
   params: { resourceId?: number; kind: number; price: number; quantity: number; quality?: number }
@@ -139,8 +247,17 @@ export function postMarketOrder(
 
   const transportPerUnit = resDef.transportation || 0;
   const transportNeeded = Math.ceil(transportPerUnit * quantity);
-  const totalValue = price * quantity;
-  const fee = Math.max(1, Math.round(totalValue * 0.03));
+
+  // Issue #100: exchange prices must sit on the tick grid for their price
+  // range (formulas_market.md §2, entry.js U0). Off-grid prices are rejected.
+  const tick = getPriceTickSize(price);
+  if (Math.abs(price / tick - Math.round(price / tick)) > 1e-6) {
+    throw new DomainError(
+      `Price ${price} is not a multiple of the ${tick} tick size for its price range`,
+      400,
+      'PRICE_TICK_INVALID'
+    );
+  }
 
   // Snapshot the unit cost basis before consuming
   const costWorkers = Number(item.cost_workers) || 0;
@@ -159,20 +276,23 @@ export function postMarketOrder(
       throw new Error(`Insufficient transport: need ${transportNeeded}`);
     }
 
-    const newMoney = updateCompanyMoney(companyId, -fee);
+    // Issue #100: no fee at posting — the 4% exchange fee is deducted from
+    // the seller's proceeds at fill time (formulas_market.md §3). fees stays
+    // 0 until fills occur.
     const now = new Date().toISOString();
     const res = db.prepare(`
       INSERT INTO market_orders (seller_id, kind, quality, quantity, price, fees, posted_at, active, cost_workers, cost_admin, cost_material1, cost_material2, cost_market)
-      VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?)
-    `).run(companyId, kind, quality, quantity, price, fee, now, costWorkers, costAdmin, costMaterial1, costMaterial2, costMarket);
+      VALUES (?, ?, ?, ?, ?, 0, ?, 1, ?, ?, ?, ?, ?)
+    `).run(companyId, kind, quality, quantity, price, now, costWorkers, costAdmin, costMaterial1, costMaterial2, costMarket);
 
     db.exec('COMMIT');
     const orderId = Number(res.lastInsertRowid);
     const orderRow = db.prepare('SELECT * FROM market_orders WHERE id = ?').get(orderId) as unknown as MarketOrderRow;
+    const company = getCompanyById(companyId);
 
     return {
       sellOrder: formatMarketOrder(orderRow),
-      money: newMoney,
+      money: company ? company.money : null,
       resourceTransactions
     };
   } catch (err) {
@@ -278,7 +398,7 @@ export function takeMarketOrder(
     let quantityToBuy = quantityRequested;
     let totalCost = 0;
     let totalBought = 0;
-    const transactions: Array<{ kind: number; quality: number; amount: number; price: number }> = [];
+    const transactions: Array<{ kind: number; quality: number; amount: number; price: number; fee: number; sellerId: number }> = [];
 
     for (const order of orders) {
       if (quantityToBuy <= 0) break;
@@ -312,8 +432,14 @@ export function takeMarketOrder(
           .run(remaining, order.id, takeAmount);
       if (updated.changes !== 1) continue;
 
+      // Issue #100: the 4% exchange fee is deducted from the SELLER's
+      // proceeds at fill time (formulas_market.md §3); the buyer always pays
+      // the full amount × price.
+      let fillFee = 0;
       if (order.seller_id !== 999900) {
-        updateCompanyMoney(order.seller_id, cost);
+        fillFee = computeExchangeFee(takeAmount, Number(order.price));
+        updateCompanyMoney(order.seller_id, cost - fillFee);
+        db.prepare('UPDATE market_orders SET fees = fees + ? WHERE id = ?').run(fillFee, order.id);
       }
 
       totalCost += cost;
@@ -323,7 +449,9 @@ export function takeMarketOrder(
         kind: resourceKind,
         quality: order.quality,
         amount: takeAmount,
-        price: order.price
+        price: Number(order.price),
+        fee: fillFee,
+        sellerId: order.seller_id
       });
     }
 
@@ -342,6 +470,21 @@ export function takeMarketOrder(
     `).run(`Market purchase of ${totalBought} units of resource #${resourceKind}`, `market-${resourceKind}`, buyerCompanyId, -totalCost);
     for (const tx of transactions) {
       addResource(buyerCompanyId, tx.kind, tx.quality, tx.amount, { market: tx.price });
+    }
+    // Issue #100: record every fill in the trade ledger backing the daily
+    // VWAP reference prices.
+    const tradedAt = new Date().toISOString();
+    for (const tx of transactions) {
+      recordMarketTrade({
+        kind: tx.kind,
+        quality: tx.quality,
+        price: tx.price,
+        amount: tx.amount,
+        fee: tx.fee,
+        buyerId: buyerCompanyId,
+        sellerId: tx.sellerId,
+        tradedAt
+      });
     }
     db.exec('COMMIT');
 

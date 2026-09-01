@@ -485,16 +485,6 @@ export function registerBuildingRoutes(registry: RouteRegistry = globalRouteRegi
     handler: deleteBuildingHandler
   });
 
-  // Sales orders compatibility endpoint for building detail page
-  registry.register({
-    method: 'GET',
-    pattern: '/api/v2/companies/buildings/:id/sales-orders/',
-    auth: 'none',
-    handler: async (_req, res) => {
-      sendJson(res, []);
-    }
-  });
-
   // 7. Building Abundance (Issue #93)
   registry.register({
     method: 'GET',

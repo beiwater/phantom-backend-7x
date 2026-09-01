@@ -24,9 +24,13 @@ export function sendDomainError(
     return;
   }
 
+  const statusCode = (error && typeof error === 'object' && 'statusCode' in error && typeof (error as { statusCode?: unknown }).statusCode === 'number')
+    ? (error as { statusCode: number }).statusCode
+    : 400;
+
   const msg = error instanceof Error ? error.message : String(error);
   sendJson(res, {
     error: msg,
-    code: 'BAD_REQUEST'
-  }, 400);
+    code: statusCode === 413 ? 'PAYLOAD_TOO_LARGE' : 'BAD_REQUEST'
+  }, statusCode);
 }

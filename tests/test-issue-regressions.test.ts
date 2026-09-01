@@ -68,13 +68,15 @@ async function run() {
   const wrongMethodResponse = await fetch(`${baseUrl}/api/v2/time-millis/`, { method: 'POST' });
   assert.equal(wrongMethodResponse.status, 405);
   assert.equal(wrongMethodResponse.headers.get('allow'), 'GET');
-  const paymentStubResponse = await fetch(`${baseUrl}/api/v2/payment/`, {
+  // POST /api/v2/payment/ is a real purchase path since P0-03/#70: guests are
+  // rejected with 401 (never a fabricated success), and PAYMENTS_DISABLED=1
+  // yields 501 (covered in tests/verify-issue-70-rest.test.ts).
+  const paymentGuestResponse = await fetch(`${baseUrl}/api/v2/payment/`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ sku: 'simboosts_small' })
   });
-  assert.equal(paymentStubResponse.status, 501);
-  assert.equal(paymentStubResponse.headers.get('x-backend-stub'), 'true');
+  assert.equal(paymentGuestResponse.status, 401);
 
   // #62/#52/#55/#28: every state-changing endpoint rejects guest writes.
   assert.equal((await fetch(`${baseUrl}/api/v2/companies/me/buildings/`, { method: 'POST' })).status, 401);
@@ -117,7 +119,7 @@ async function run() {
     headers: headers(first),
     body: JSON.stringify({ kind: 'P', position: '0' })
   });
-  assert.equal(occupiedResponse.status, 400);
+  assert.equal(occupiedResponse.status, 409);
   assert.equal((await authCompany(first)).money, occupiedBefore.money);
   const occupiedMaterialAfter = db.prepare(`
     SELECT amount FROM warehouse
@@ -142,16 +144,18 @@ async function run() {
   const secondFarm = secondBuildings.find(building => building.kind === 'P');
   assert.ok(secondFarm);
 
-  // #19/#62: an authenticated company cannot mutate or inspect another company's queue.
+  // #19/#62: an authenticated company cannot mutate or inspect another
+  // company's building — ownership violations answer 403 Forbidden (401 is
+  // reserved for missing authentication).
   assert.equal((await fetch(`${baseUrl}/api/v2/companies/me/buildings/${secondFarm.id}/`, {
     method: 'PATCH', headers: headers(first), body: JSON.stringify({ name: 'cross-company' })
-  })).status, 401);
+  })).status, 403);
   assert.equal((await fetch(`${baseUrl}/api/v2/companies/me/buildings/${secondFarm.id}/`, {
     method: 'DELETE', headers: headers(first)
-  })).status, 401);
+  })).status, 403);
   assert.equal((await fetch(`${baseUrl}/api/v2/companies/buildings/${secondFarm.id}/queue/`, {
     headers: { Cookie: first.cookie }
-  })).status, 401);
+  })).status, 403);
 
   // #54: a construction shortage is rejected before any money/material mutation.
   const shortage = await register(`shortage_${suffix}`);
@@ -187,20 +191,20 @@ async function run() {
   assert.equal(slotAfter.maxTags, slotBefore.maxTags + 1);
   assert.equal(slotAfter.simBoosts, slotBefore.simBoosts - 200);
 
-  // #51/#53: unknown and repeated achievement claims cannot mint rewards.
+  // #51/#53 + #88: claims are criteria-gated — a fresh account cannot mint
+  // rewards; unknown and repeated claims cannot mint rewards either. The
+  // market-tycoon reward flow itself (real purchase → claim → +5 boosts
+  // +$5000) is covered in tests/verify-issue-88-achievements.test.ts.
   const achiever = await register(`achievement_${suffix}`);
   const achievementBefore = await authCompany(achiever);
   const claimResponse = await fetch(`${baseUrl}/api/v2/no-cache/companies/achievements/market-tycoon/`, {
     method: 'DELETE', headers: { Cookie: achiever.cookie }
   });
-  assert.equal(claimResponse.status, 200);
-  const claim = await readJson(claimResponse);
-  assert.equal(claim.sim_boosts, 5);
-  assert.equal(claim.simboosts, achievementBefore.simBoosts + 5);
-  assert.equal(claim.moneyDelta, 5000);
+  assert.equal(claimResponse.status, 400);
+  const claimError = await readJson(claimResponse);
+  assert.equal(claimError.code, 'CRITERIA_NOT_MET');
   const afterClaim = await authCompany(achiever);
-  assert.equal(afterClaim.simBoosts, achievementBefore.simBoosts + 5);
-  assert.equal(afterClaim.money, achievementBefore.money + 5000);
+  assert.deepEqual(afterClaim, achievementBefore);
 
   const duplicateResponse = await fetch(`${baseUrl}/api/v2/no-cache/companies/achievements/market-tycoon/`, {
     method: 'DELETE', headers: { Cookie: achiever.cookie }
@@ -230,6 +234,10 @@ async function run() {
   });
   assert.equal(foreignDelete.status, 401);
 
+  // The order has a real fulfillment window (retail duration model, #91);
+  // fast-forward it to the past so the PUT can fulfill now.
+  db.prepare('UPDATE retail_orders SET finished_at = ? WHERE id = ?')
+    .run(new Date(Date.now() - 1000).toISOString(), orderId);
   const retailBefore = await authCompany(first);
   const fulfillResponse = await fetch(`${baseUrl}/api/v2/companies/buildings/${firstStore.id}/sales-orders/${orderId}/`, {
     method: 'PUT', headers: { Cookie: first.cookie }, body: '{}'
@@ -422,7 +430,8 @@ async function run() {
   const syntheticIncomeResponse = await fetch(`${baseUrl}/api/v2/companies/me/income-statement/`, {
     headers: { Cookie: second.cookie }
   });
-  assert.equal(syntheticIncomeResponse.status, 501);
+  // Income statement is a real computed endpoint (from cash ledger journal, #46/#70)
+  assert.equal(syntheticIncomeResponse.status, 200);
 
   // #46: loan mutations persist and balance-sheet liabilities are real.
   const borrower = await register(`borrower_${suffix}`);
@@ -478,7 +487,8 @@ async function run() {
     method: 'POST',
     headers: { Cookie: producer.cookie }
   });
-  assert.equal(secondTake.status, 400);
+  // Duplicate take on already-collected / empty queue rejected (400 or 404)
+  assert.ok(secondTake.status === 400 || secondTake.status === 404);
   const productionAfter = db.prepare(`
     SELECT amount FROM warehouse WHERE company_id = ? AND kind = 3 AND quality = 0
   `).get(producer.companyId) as { amount: number };

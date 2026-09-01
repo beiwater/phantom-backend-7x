@@ -28,6 +28,8 @@ import { handleAuditRoutes } from './routes/audit-routes.ts';
 import { handleGovernmentRoutes } from './routes/government-routes.ts';
 import { handleAerospaceRoutes } from './routes/aerospace-routes.ts';
 import { handleBuildingAuctionRoutes } from './routes/building-auction-routes.ts';
+import { handleCollectibleRoutes } from './routes/collectible-routes.ts';
+import { handleNewspaperRoutes } from './routes/newspaper-routes.ts';
 const methodManifest: Array<{ pattern: RegExp; methods: string[] }> = [
   { pattern: /^\/api\/v2\/time-millis\/$/, methods: ['GET'] },
   { pattern: /^\/api\/time\/$/, methods: ['GET'] },
@@ -137,6 +139,12 @@ export async function handleRequest(req: IncomingMessage, res: ServerResponse) {
   if (await handleSimboostRoutes(req, res, pathname, method, currentPlayerId, currentCompanyId)) {
     return;
   }
+  // Issue #83: newspaper routes must dispatch BEFORE the legacy social
+  // handler, whose hardcoded sponsor-params / top-by-reaction stubs would
+  // otherwise shadow the real newspaper endpoints.
+  if (await handleNewspaperRoutes(req, res, pathname, method, currentPlayerId, currentCompanyId)) {
+    return;
+  }
   if (await handleBuildingRoutes(req, res, pathname, method, currentCompanyId)) {
     return;
   }
@@ -192,6 +200,14 @@ export async function handleRequest(req: IncomingMessage, res: ServerResponse) {
     return;
   }
   if (await handleAuditRoutes(req, res, pathname, method, currentPlayerId, currentCompanyId)) {
+    return;
+  }
+
+  // Issue #82: collectible exchange (NFT) — market list, listing management,
+  // SimBoost purchases, provenance and collectors. Owns every
+  // /api/v2/market-collectibles* and /api/v2/nfts/* path (the market-routes
+  // stubs for those paths were removed with this feature).
+  if (await handleCollectibleRoutes(req, res, pathname, method, currentCompanyId)) {
     return;
   }
 

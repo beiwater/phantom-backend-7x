@@ -6,7 +6,8 @@ import {
   getCompanyMarketOrders,
   postMarketOrder,
   takeMarketOrder,
-  cancelMarketOrder
+  cancelMarketOrder,
+  getMarketReferencePrices
 } from '../game/market.ts';
 
 export async function handleMarketRoutes(
@@ -39,7 +40,7 @@ export async function handleMarketRoutes(
     sendJson(res, {
       minPrice: 0.5,
       maxPrice: 5000,
-      feePercentage: 0.03,
+      feePercentage: 0.04,
       resourceKind: kind
     });
     return true;
@@ -54,42 +55,11 @@ export async function handleMarketRoutes(
     return true;
   }
 
-  // 5. Market collectibles & SimBoosts available: /api/v2/market-collectibles/, /api/v2/market-collectibles-sbs/
-  if (pathname === '/api/v2/market-collectibles-sbs/') {
-    sendJson(res, { simboosts: 250, available: 250, simBoostsAvailableForPurchase: 250 });
-    return true;
-  }
-  if (pathname === '/api/v2/market-collectibles/') {
-    sendJson(res, [
-      {
-        id: 1,
-        priceSimboosts: 50,
-        asset: {
-          id: 1,
-          name: 'Golden Founder Trophy',
-          image: '/static/images/collectibles/trophy_gold.png',
-          currentOwnerId: 999901,
-          description: 'Founder Trophy'
-        }
-      },
-      {
-        id: 2,
-        priceSimboosts: 100,
-        asset: {
-          id: 2,
-          name: 'Silver Builder Cup',
-          image: '/static/images/collectibles/trophy_silver.png',
-          currentOwnerId: 999901,
-          description: 'Builder Cup'
-        }
-      }
-    ]);
-    return true;
-  }
-  if (pathname === '/api/v2/nfts/collectors/') {
-    sendJson(res, []);
-    return true;
-  }
+  // 5. Market collectibles & NFT endpoints (Issue #82) live in
+  //    routes/collectible-routes.ts: /api/v2/market-collectibles/,
+  //    /api/v2/market-collectibles-sbs/, /api/v2/nfts/*. The static stubs
+  //    that used to sit here were replaced by the persisted implementation,
+  //    registered from router.ts.
 
   // 6. Market orderbook for resource
   const marketListMatch = pathname.match(/^\/api\/v3\/market\/(\d+)\/(\d+)\/$/);
@@ -205,6 +175,17 @@ export async function handleMarketRoutes(
         sendJson(res, { error: msg }, 400);
       }
     }
+    return true;
+  }
+
+  // 13. VWAP reference prices: /api/v2/market/reference-prices/:realm/
+  // Issue #100: daily VWAP per resource+quality from the market_trades
+  // ledger. The exchange book is global in this private server, so the
+  // realm segment is accepted for API-shape compatibility but prices are
+  // exchange-wide.
+  const referencePricesMatch = pathname.match(/^\/api\/v2\/market\/reference-prices\/(?:(\d+)\/?)?$/);
+  if (referencePricesMatch) {
+    sendJson(res, getMarketReferencePrices());
     return true;
   }
 
