@@ -7,6 +7,7 @@ import {
   buildSessionCookie
 } from '../auth/session.ts';
 import { registerPlayer, authenticatePlayer, registerOrAuthenticatePlayer, db } from '../db/database.ts';
+import { companyRepository } from '../repositories/company-repository.ts';
 import { checkRateLimit } from '../security/rate-limiter.ts';
 import {
   getAuthData,
@@ -195,9 +196,27 @@ export async function handleAuthRoutes(
   // `pushDevices && pushDevices.length > 0`, so GET must return an array, not
   // an object — a plain object crashed the page on `.length of undefined`.
   if (pathname.startsWith('/api/') && pathname.includes('/push-devices/')) {
-    if (method === 'GET') {
-      sendJson(res, []);
+    if (!currentPlayerId) {
+      sendJson(res, { error: 'Unauthorized' }, 401);
       return true;
+    }
+    if (method === 'GET') {
+      const rows = db.prepare('SELECT id, device_uuid AS deviceUuid, device_name AS deviceName, last_login AS lastLogin FROM player_devices WHERE player_id = ?')
+        .all(currentPlayerId);
+      sendJson(res, rows);
+      return true;
+    }
+    // POST: register/update the caller's device
+    const body = await readJsonBody<{ deviceUuid?: string; deviceName?: string }>(req);
+    const uuid = body.deviceUuid || 'unknown-device';
+    const existing = db.prepare('SELECT id FROM player_devices WHERE player_id = ? AND device_uuid = ?')
+      .get(currentPlayerId, uuid);
+    if (existing) {
+      db.prepare('UPDATE player_devices SET device_name = ?, last_login = ? WHERE id = ?')
+        .run(body.deviceName || 'device', new Date().toISOString(), (existing as { id: number }).id);
+    } else {
+      db.prepare('INSERT INTO player_devices (player_id, device_uuid, device_name, last_login) VALUES (?, ?, ?, ?)')
+        .run(currentPlayerId, uuid, body.deviceName || 'device', new Date().toISOString());
     }
     sendJson(res, { status: 'ok' });
     return true;
@@ -226,7 +245,11 @@ export async function handleAuthRoutes(
       sendJson(res, { error: 'Unauthorized' }, 401);
       return true;
     }
-    sendJson(res, 1);
+    const stats = companyRepository.getAccountingOverheadStats(requestedCompanyId);
+    const ao = 1 + Math.max(0, stats.buildingCount - 1) * 0.035;
+    const cooSkill = Math.max(0, Math.min(100, stats.cooSkill));
+    const effective = ao - (ao - 1) * cooSkill / 100;
+    sendJson(res, Math.round(effective * 1000) / 1000);
     return true;
   }
 
