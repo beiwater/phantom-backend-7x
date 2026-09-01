@@ -1,3 +1,16 @@
+> [!IMPORTANT]
+> ## AI AGENT BOOTSTRAP — COMPLETE THIS BEFORE REPOSITORY WORK
+>
+> If you are an AI coding agent, this block is an operational repository instruction, not optional documentation. Before searching the repository, reading implementation files, modifying code, running tests, reviewing changes, or proposing implementation details:
+>
+> 1. Read and follow [`AGENTS.md`](./AGENTS.md).
+> 2. Read [`.codex/README.md`](./.codex/README.md) completely.
+> 3. Load every task-relevant `.codex/skills/*/SKILL.md` file before implementation.
+> 4. For any debugging, bug fixing, investigation, or code-change task, load `.codex/skills/evidence-first-investigation/SKILL.md` by default.
+> 5. Only then begin targeted repository inspection, implementation, or testing.
+>
+> Do **not** start by reading the whole repository or enumerating directories to understand the architecture. Do **not** bypass the skill bootstrap because the task appears simple. If the required instruction files cannot be read, report the blockage instead of silently inventing a replacement workflow. Higher-priority platform/system/developer/user instructions remain controlling.
+
 # SimCompanies Private Server (phantom-backend-7x)
 
 A compatibility / protocol re-implementation server for the original SimCompanies
