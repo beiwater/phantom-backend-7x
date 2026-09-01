@@ -515,13 +515,31 @@ export async function handleAuthRoutes(
       companyPublicInfo: {
         id: targetCompId,
         company: comp.name,
-        logo: comp.logo,
-        realmId: comp.realm_id,
+        logo: comp.logo || '',
+        realmId: comp.realm_id || 0,
         deleted: false,
-        moderatorSign: false,
+        moderatorSign: Boolean(comp.moderator_sign),
         level: comp.level,
         levelKind: 'FamilyBusiness',
-        note: comp.note
+        note: comp.note || ''
+      },
+      auditInfo: {
+        company: {
+          id: comp.company_id,
+          name: comp.name,
+          money: comp.money,
+          simboosts: comp.simboosts,
+          level: comp.level,
+          rating: comp.rating,
+          created: comp.created_at
+        }
+      },
+      moderatorInfo: {
+        player: {
+          id: comp.player_id,
+          ip: '127.0.0.1',
+          lastSeen: new Date().toISOString()
+        }
       },
       history: [],
       infrastructure: { recreationBonus: 0, workers: 300, administrationOverhead: 1.0, buildings },

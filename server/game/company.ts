@@ -53,7 +53,7 @@ export function getCompanyById(companyId: number): CompanyRow | null {
   return row || null;
 }
 
-export function updateCompanyMoney(companyId: number, delta: number): number {
+export function updateCompanyMoney(companyId: number, delta: number, skipLedger: boolean = false): number {
   if (!Number.isFinite(delta)) {
     throw new Error('Money delta must be finite');
   }
@@ -80,7 +80,9 @@ export function updateCompanyMoney(companyId: number, delta: number): number {
   if (result.changes !== 1) {
     throw new Error('Company not found');
   }
-  recordCashLedger({ companyId, amount: delta, category: 'g', description: 'Company money change', descriptionKey: '' });
+  if (!skipLedger) {
+    recordCashLedger({ companyId, amount: delta, category: 'g', description: 'Company money change', descriptionKey: '' });
+  }
   refreshDailyFinanceSnapshot(companyId);
   return newMoney;
 }
@@ -352,13 +354,13 @@ export function getAuthData(playerId?: number | null, targetCompanyId?: number |
       playerId: player.player_id,
       isModerator: Boolean(player.is_admin),
       auditAccess: Boolean(player.is_admin),
-      preapprovedToCreateCourses: false,
-      newspaperEditor: false,
+      preapprovedToCreateCourses: Boolean(player.is_admin),
+      newspaperEditor: Boolean(player.is_admin),
       isAdmin: Boolean(player.is_admin),
-      canImpersonate: false,
-      aiSuggestions: false,
-      supporterPurchased: false,
-      supporter: false,
+      canImpersonate: Boolean(player.is_admin),
+      aiSuggestions: Boolean(player.is_admin),
+      supporterPurchased: Boolean(player.is_admin),
+      supporter: Boolean(player.is_admin),
       countryCodeIso: "AU",
       email: player.email,
       bouncingEmail: false,
@@ -366,7 +368,7 @@ export function getAuthData(playerId?: number | null, targetCompanyId?: number |
       age18: false,
       communicationRestricted: false,
       emailVerificationRequired: false,
-      featureFlags: JSON.stringify({ simplifyGameStart: true, newBuildings: true, automaticResolveBusy: true }),
+      featureFlags: JSON.stringify({ simplifyGameStart: true, newBuildings: true, automaticResolveBusy: true, tutorialFinished: true, skipTutorial: true }),
       soundEnabled: false,
       buildingAnimationsEnabled: false,
       autoDisableAnimations: true,
@@ -402,19 +404,19 @@ export function getAuthData(playerId?: number | null, targetCompanyId?: number |
       extraBuildingSlots: Number(company.extra_building_slots) || 0,
       displayCaseSlots: Number(company.display_case_slots) || 1,
       logo: company.logo || "",
-      startingPackPurchased: false,
+      startingPackPurchased: true,
       maxTags: Math.max(1, Number(company.max_tags) || 1),
       showOnlineIndicator: company.show_online_indicator === null || company.show_online_indicator === undefined
         ? true
         : Boolean(company.show_online_indicator),
       testCategory: 0,
-      level: company.level ?? 0,
+      level: Math.max(1, Number(company.level) || 1),
       realmId: company.realm_id || 0,
       excludeFromRanks: false,
       challengeStart: null
     },
     levelInfo: computeLevelInfo({
-      level: company.level ?? 0,
+      level: Math.max(1, Number(company.level) || 1),
       experience: company.experience ?? 0,
       rating: company.rating,
       extra_building_slots: company.extra_building_slots
