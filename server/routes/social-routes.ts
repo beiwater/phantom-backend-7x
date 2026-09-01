@@ -637,6 +637,10 @@ export async function handleSocialRoutes(
     return true;
   }
   // 14. Courses & Education: /api/courses/
+  if (pathname === '/api/courses/' || pathname === '/api/courses') {
+    sendJson(res, []);
+    return true;
+  }
   if (pathname.startsWith('/api/courses/')) {
     sendJson(res, { courses: [], invitations: [], students: [] });
     return true;

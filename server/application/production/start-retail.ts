@@ -5,6 +5,8 @@ import { NotFoundError, ForbiddenError, ValidationError } from '../../errors/dom
 import { db } from '../../db/database.ts';
 import { updateCompanyMoney } from '../../game/company.ts';
 import { recordCashLedger, refreshDailyFinanceSnapshot } from '../../game/cash-ledger.ts';
+import { getResourceDef } from '../../game-data/resources.ts';
+import { addCompanyExperience } from '../../game/company.ts';
 import { getWarehouseItemExact, consumeResourceExactWithTransactions } from '../../game/warehouse.ts';
 import {
   RETAIL_PRODUCTS,
@@ -90,23 +92,43 @@ export async function startRetailUseCase(
       throw new ValidationError('Insufficient stock in warehouse to retail');
     }
 
-    // 2. Credit the revenue and write the cash_ledger row in the same transaction
+    // 2. Credit the revenue and write the cash_ledger row in the same transaction (skip generic fallback)
     const revenue = Math.round(input.amount * unitPrice * 100) / 100;
-    const newMoney = updateCompanyMoney(ctx.companyId, revenue);
+    const newMoney = updateCompanyMoney(ctx.companyId, revenue, true);
+    const resDef = getResourceDef(input.kind);
+    const resName = resDef?.name || `Resource #${input.kind}`;
     recordCashLedger({
       companyId: ctx.companyId,
       amount: revenue,
       category: 's',
-      description: `Retail sale of ${input.amount} units of resource #${input.kind}`,
+      description: `Sales of ${resName}`,
       descriptionKey: `retail-${input.kind}`,
-      details: { buildingId: building.id, kind: input.kind, quality, units: input.amount, unitPrice }
+      details: {
+        version: 1,
+        building: building.kind,
+        quality,
+        price: unitPrice,
+        unit_cogs: unitPrice,
+        remaining: 0,
+        building_name: building.name
+      }
     });
     refreshDailyFinanceSnapshot(ctx.companyId);
 
-    // 3. Occupy the building's busy window for the sale duration
+    // 3. Occupy the building's busy window for the sale duration and persist queue
     const durationSeconds = calculateRetailDuration(input.kind, input.amount, building.size || 1);
+    const now = new Date().toISOString();
     const finishesAt = new Date(Date.now() + durationSeconds * 1000).toISOString();
     const updatedBuilding = buildingRepository.updateBusyUntil(building.id, ctx.companyId, finishesAt);
+
+    db.prepare(`
+      INSERT INTO production_queues (building_id, company_id, kind, quality, cost, amount, started_at, finishes_at, resolved)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)
+    `).run(building.id, ctx.companyId, input.kind, quality, unitPrice, input.amount, now, finishesAt);
+
+    // 4. Award leveling XP (1s retail = 1 XP per building size unit)
+    const xpEarned = Math.max(1, Math.round(durationSeconds * (building.size || 1)));
+    addCompanyExperience(ctx.companyId, xpEarned);
 
     return {
       building: updatedBuilding,

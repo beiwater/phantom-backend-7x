@@ -62,12 +62,13 @@ export function registerBuildingRoutes(registry: RouteRegistry = globalRouteRegi
       });
       return;
     }
-    // P0-06: the retail sell widget (startRetail) POSTs { kind, amount, price,
-    // estimatedSecondsToFinish, forceQuality } on a SALES building. Route it to
+    // P0-06: the retail sell widget (startRetail) POSTs on a SALES building. Route it to
     // the retail use case instead of production validation (which rejects any
     // resource not produced by the building kind).
-    const isRetailSell = body.price !== undefined &&
-      body.estimatedSecondsToFinish !== undefined;
+    const existingBld = await buildingRepository.findById(buildingId);
+    const isRetailSell = body.price !== undefined ||
+      body.estimatedSecondsToFinish !== undefined ||
+      existingBld?.category === 'sales';
     if (isRetailSell) {
       const retail = await startRetailUseCase(ctx, {
         buildingId,
@@ -204,20 +205,20 @@ export function registerBuildingRoutes(registry: RouteRegistry = globalRouteRegi
       throw new ValidationError('Building position is required');
     }
 
-    // P1-10 (Reposition step 2): the client places a LIFTED existing building
-    // onto a chosen empty slot with { position, id } where id is a building
-    // id. Only place the building when id is a plain number; the legacy
-    // construction flow passes kind strings (or {id: {id}}) objects here.
+    // P1-10 (Reposition step 2): place a LIFTED existing building only if the building exists,
+    // belongs to the company, and is currently lifted (position 'l').
     if (typeof body.id === 'number' && Number.isInteger(body.id)) {
-      const placed = await placeBuildingUseCase(ctx!, {
-        buildingId: body.id,
-        position: String(body.position)
-      });
-      const placedDTO = toSimCompaniesBuildingDTO(placed);
-      sendJson(res, placedDTO);
-      return;
+      const existingLifted = buildingRepository.findById(body.id);
+      if (existingLifted && existingLifted.companyId === ctx.companyId && existingLifted.position === 'l') {
+        const placed = await placeBuildingUseCase(ctx!, {
+          buildingId: body.id,
+          position: String(body.position)
+        });
+        const placedDTO = toSimCompaniesBuildingDTO(placed);
+        sendJson(res, placedDTO);
+        return;
+      }
     }
-
     const kind = body.kind || (typeof body.id === 'object' && body.id ? body.id.id : body.id) || 'P';
     const result = await constructBuildingUseCase(ctx!, {
       kind: String(kind),

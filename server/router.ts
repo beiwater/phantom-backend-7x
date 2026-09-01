@@ -23,6 +23,7 @@ import { handleAchievementRoutes } from './routes/achievement-routes.ts';
 import { handleSimboostRoutes } from './routes/simboost-routes.ts';
 import { handleRetailRoutes } from './routes/retail-routes.ts';
 import { handlePageRoutes } from './routes/page-routes.ts';
+import { handleAuditRoutes } from './routes/audit-routes.ts';
 // A small compatibility manifest keeps method errors distinct from unknown routes.
 const methodManifest: Array<{ pattern: RegExp; methods: string[] }> = [
   { pattern: /^\/api\/v2\/time-millis\/$/, methods: ['GET'] },
@@ -171,6 +172,9 @@ export async function handleRequest(req: IncomingMessage, res: ServerResponse) {
     return;
   }
   if (await handleAchievementRoutes(req, res, pathname, method, currentCompanyId)) {
+    return;
+  }
+  if (await handleAuditRoutes(req, res, pathname, method, currentCompanyId)) {
     return;
   }
 
