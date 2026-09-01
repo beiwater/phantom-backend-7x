@@ -1,13 +1,20 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { readJsonBody, sendJson, requireCapability } from './utils.ts';
 import {
-  getBondsOwned,
-  getBondsSold,
-  getBondMarketListings,
-  issueBonds,
-  buyBonds,
-  callBonds
-} from '../game/bonds.ts';
+  getBondsOwnedQuery,
+  getBondsSoldQuery,
+  getBondMarketListingsQuery,
+  issueBondsCommand,
+  buyBondsCommand,
+  callBondsCommand
+} from '../application/finance/finance-use-cases.ts';
+import { createGameContext, type GameContext } from '../context/game-context.ts';
+
+// Bond commands require an authenticated company; bound at handler entry.
+let _bondCompanyId: number | null = null;
+function bondCtx(): GameContext {
+  return createGameContext(_bondCompanyId as number, _bondCompanyId as number, 0);
+}
 
 export async function handleBondRoutes(
   req: IncomingMessage,
@@ -16,6 +23,7 @@ export async function handleBondRoutes(
   method: string,
   currentCompanyId: number | null
 ): Promise<boolean> {
+  _bondCompanyId = currentCompanyId;
   // Bonds owned
   const ownedMatch = pathname.match(/^\/api\/v2\/companies\/(\d+|me)\/bonds\/owned\/$/);
   if (ownedMatch) {
@@ -24,7 +32,7 @@ export async function handleBondRoutes(
       sendJson(res, { error: 'Unauthorized' }, 401);
       return true;
     }
-    sendJson(res, getBondsOwned(companyId));
+    sendJson(res, getBondsOwnedQuery(companyId));
     return true;
   }
 
@@ -36,7 +44,7 @@ export async function handleBondRoutes(
       sendJson(res, { error: 'Unauthorized' }, 401);
       return true;
     }
-    sendJson(res, getBondsSold(companyId));
+    sendJson(res, getBondsSoldQuery(companyId));
     return true;
   }
 
@@ -51,7 +59,7 @@ export async function handleBondRoutes(
       if (requireCapability(res, currentCompanyId, 'bonds', 'issue bonds')) return true;
       const body = await readJsonBody<{ amount?: number; interest?: number }>(req);
       try {
-        const result = issueBonds(currentCompanyId, Number(body.amount), Number(body.interest ?? 0.005));
+        const result = issueBondsCommand(bondCtx(), Number(body.amount), Number(body.interest ?? 0.005));
         sendJson(res, result);
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -72,7 +80,7 @@ export async function handleBondRoutes(
   // Bonds market list by rating or all: /api/bonds/rating/:rating/, /api/v2/market/bonds/
   const bondRatingMatch = pathname.match(/^\/api\/bonds\/rating\/([^/]+)\/$/);
   if (pathname === '/api/v2/market/bonds/' || bondRatingMatch) {
-    sendJson(res, getBondMarketListings());
+    sendJson(res, getBondMarketListingsQuery());
     return true;
   }
 
@@ -90,8 +98,8 @@ export async function handleBondRoutes(
       if (requireCapability(res, currentCompanyId, 'bonds', capErr)) return true;
       try {
         const result = method === 'PATCH'
-          ? buyBonds(currentCompanyId, bondId)
-          : callBonds(currentCompanyId, bondId);
+          ? buyBondsCommand(bondCtx(), bondId)
+          : callBondsCommand(bondCtx(), bondId);
         sendJson(res, result);
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -99,7 +107,7 @@ export async function handleBondRoutes(
       }
       return true;
     }
-    const bond = getBondMarketListings().find(item => item.id === bondId);
+    const bond = getBondMarketListingsQuery().find(item => item.id === bondId);
     if (!bond) {
       sendJson(res, { error: 'Bond not found' }, 404);
       return true;
@@ -117,7 +125,7 @@ export async function handleBondRoutes(
     if (requireCapability(res, currentCompanyId, 'bonds', 'issue bonds')) return true;
     const body = await readJsonBody<{ amount?: number; interest?: number }>(req);
     try {
-      const result = await issueBonds(currentCompanyId, Number(body.amount), Number(body.interest ?? 0.005));
+      const result = await issueBondsCommand(bondCtx(), Number(body.amount), Number(body.interest ?? 0.005));
       sendJson(res, result);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -137,7 +145,7 @@ export async function handleBondRoutes(
     if (requireCapability(res, currentCompanyId, 'bonds', 'buy bond')) return true;
     const bondId = Number(buyMatch[1]);
     try {
-      sendJson(res, await buyBonds(currentCompanyId, bondId));
+      sendJson(res, await buyBondsCommand(bondCtx(), bondId));
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       sendJson(res, { error: msg }, 400);
@@ -156,7 +164,7 @@ export async function handleBondRoutes(
     if (requireCapability(res, currentCompanyId, 'bonds', 'call bond')) return true;
     const bondId = Number(callMatch[1]);
     try {
-      sendJson(res, await callBonds(currentCompanyId, bondId));
+      sendJson(res, await callBondsCommand(bondCtx(), bondId));
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       sendJson(res, { error: msg }, 400);

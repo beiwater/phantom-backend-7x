@@ -1,13 +1,20 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { readJsonBody, sendJson, requireCapability } from './utils.ts';
 import {
-  getIncomingContracts,
-  getOutgoingContracts,
-  sendContract,
-  acceptContract,
-  rejectContract,
-  cancelContract
-} from '../game/contracts.ts';
+  getIncomingContractsQuery,
+  getOutgoingContractsQuery,
+  sendContractCommand,
+  acceptContractCommand,
+  rejectContractCommand,
+  cancelContractCommand
+} from '../application/finance/finance-use-cases.ts';
+import { createGameContext, type GameContext } from '../context/game-context.ts';
+
+// Contract commands require an authenticated company; bound at handler entry.
+let _contractCompanyId: number | null = null;
+function contractCtx(): GameContext {
+  return createGameContext(_contractCompanyId as number, _contractCompanyId as number, 0);
+}
 
 export async function handleContractRoutes(
   req: IncomingMessage,
@@ -16,6 +23,7 @@ export async function handleContractRoutes(
   method: string,
   currentCompanyId: number | null
 ): Promise<boolean> {
+  _contractCompanyId = currentCompanyId;
 
   // 1. Incoming contracts (v2 & v3)
   if (
@@ -27,7 +35,7 @@ export async function handleContractRoutes(
       sendJson(res, { error: 'Unauthorized' }, 401);
       return true;
     }
-    sendJson(res, getIncomingContracts(currentCompanyId), 200, { 'x-timestamp': new Date().toISOString() });
+    sendJson(res, getIncomingContractsQuery(currentCompanyId), 200, { 'x-timestamp': new Date().toISOString() });
     return true;
   }
 
@@ -41,7 +49,7 @@ export async function handleContractRoutes(
       sendJson(res, { error: 'Unauthorized' }, 401);
       return true;
     }
-    sendJson(res, getOutgoingContracts(currentCompanyId), 200, { 'x-timestamp': new Date().toISOString() });
+    sendJson(res, getOutgoingContractsQuery(currentCompanyId), 200, { 'x-timestamp': new Date().toISOString() });
     return true;
   }
 
@@ -108,7 +116,7 @@ export async function handleContractRoutes(
     if (requireCapability(res, currentCompanyId, 'contracts', 'accept contract')) return true;
     const contractId = Number(acceptMatch[1]);
     try {
-      const result = acceptContract(currentCompanyId, contractId);
+      const result = acceptContractCommand(contractCtx(), contractId);
       sendJson(res, result);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -129,7 +137,7 @@ export async function handleContractRoutes(
     if (requireCapability(res, currentCompanyId, 'contracts', 'reject contract')) return true;
     const contractId = Number(rejectMatch[1]);
     try {
-      const result = rejectContract(currentCompanyId, contractId);
+      const result = rejectContractCommand(contractCtx(), contractId);
       sendJson(res, result);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -150,7 +158,7 @@ export async function handleContractRoutes(
     if (requireCapability(res, currentCompanyId, 'contracts', 'cancel contract')) return true;
     const contractId = Number(cancelMatch[1]);
     try {
-      const result = cancelContract(currentCompanyId, contractId);
+      const result = cancelContractCommand(contractCtx(), contractId);
       sendJson(res, result);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
