@@ -88,14 +88,13 @@ export async function handleContractRoutes(
     }>(req);
 
     try {
-      const contract = sendContract(
-        currentCompanyId,
-        body.recipient,
-        body.kind,
-        body.quality || 0,
-        body.amount,
-        body.price
-      );
+      const contract = sendContractCommand(contractCtx(), {
+        buyerCompanyId: Number(body.recipient),
+        resourceKind: Number(body.kind),
+        quality: Number(body.quality || 0),
+        amount: Number(body.amount),
+        price: Number(body.price)
+      });
       sendJson(res, contract);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);

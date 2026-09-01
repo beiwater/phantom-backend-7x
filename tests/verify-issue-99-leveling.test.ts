@@ -19,7 +19,7 @@ import {
 import { DomainError } from '../server/errors/domain-error.ts';
 import { getResourceDef } from '../server/game-data/resources.ts';
 import { calculateProductionTime } from '../server/game-data/buildings.ts';
-import { calculateRetailDuration, getAuthoritativeRetailPrice } from '../server/game/retail.ts';
+import { calculateRetailDuration, getAuthoritativeRetailPrice } from '../server/game-data/retail.ts';
 
 const TEST_PORT = Number(process.env.PORT || '3880');
 const BASE_URL = `http://127.0.0.1:${TEST_PORT}`;
