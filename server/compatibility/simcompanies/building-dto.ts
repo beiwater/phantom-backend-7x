@@ -11,7 +11,7 @@ import {
   requiredRobotCount,
   requiredRobotQuality
 } from '../../game/robotics.ts';
-import { getLegacyRestaurantProperties, type LegacyRestaurantProperties } from '../../game/restaurant.ts';
+import { getLegacyRestaurantProperties, getRestaurantBusy, type LegacyRestaurantProperties } from '../../game/restaurant.ts';
 
 export interface SimCompaniesBuildingDTO {
   id: number;
@@ -85,6 +85,9 @@ export function toSimCompaniesBuildingDTO(
         image: resource?.image || ''
       }
     };
+  } else if (building.kind === 'r') {
+    const restaurantBusy = getRestaurantBusy(building.id);
+    if (restaurantBusy) busyObj = restaurantBusy;
   } else if (isConstructingOrUpgrading && building.upkeepActive) {
     // P1-09: active recreation upkeep. The client derives the +1%/size
     // production & sales speed bonus from busy.upkeep being truthy and

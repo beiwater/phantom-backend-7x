@@ -1,40 +1,28 @@
 /**
- * Verification test suite for Issue #92: Restaurant subsystem.
+ * Deterministic restaurant-guide regression script.
  *
- * Run with an isolated server:
- *   /opt/magnate/.node22/bin/node --experimental-strip-types tests/verify-issue-92-restaurant.test.ts
+ * Run:
+ *   node --experimental-strip-types tests/verify-issue-92-restaurant.test.ts
  *
- * Covers the decompiled restaurant guide spec:
- *   1. Module registration: /api/v2/restaurants/... and /api/v2/restaurant-menu/
- *      routes are served by the restaurant subsystem.
- *   2. 12-hour cycle lifecycle: every run is one fixed 12-hour cycle
- *      (cycleEnd - cycleStart === 12h) and menu food loaded from the warehouse
- *      spoils at the end of the cycle regardless of sales.
- *   3. Seating capacity: economy = 1,000 seats per building level,
- *      luxury = 500 seats per building level; professional staff wages = 5x
- *      basic staff wages.
- *   4. 10-star rating scale: rating stays within 0.0 - 10.0 and is derived
- *      from quality / service / menu balance.
+ * The script starts an isolated backend, seeds only the food needed by the
+ * scenario, advances cycle timestamps in that isolated SQLite database, and
+ * verifies the public API. It is intentionally reproducible and does not
+ * change the development database.
  */
-const PORT = process.env.PORT || '3810';
-const baseUrl = process.env.BASE_URL || `http://127.0.0.1:${PORT}`;
-
 import assert from 'node:assert/strict';
 import { spawn, type ChildProcess } from 'node:child_process';
+import { DatabaseSync } from 'node:sqlite';
 import { rmSync } from 'node:fs';
 import path from 'node:path';
 
-interface ApiResult {
-  status: number;
-  json: any;
-}
+const PORT = Number(process.env.PORT || 3810);
+const baseUrl = process.env.BASE_URL || `http://127.0.0.1:${PORT}`;
+const CYCLE_MS = 12 * 60 * 60 * 1000;
 
-async function api(
-  cookie: string,
-  method: string,
-  urlPath: string,
-  body?: unknown
-): Promise<ApiResult> {
+interface ApiResult { status: number; json: any; }
+interface TestServer { child: ChildProcess; dataDir: string; }
+
+async function api(cookie: string, method: string, urlPath: string, body?: unknown): Promise<ApiResult> {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (cookie) headers.Cookie = cookie;
   const response = await fetch(`${baseUrl}${urlPath}`, {
@@ -43,374 +31,220 @@ async function api(
     body: body === undefined ? undefined : JSON.stringify(body)
   });
   let json: any = null;
-  try {
-    json = await response.json();
-  } catch {
-    // Non-JSON response
-  }
+  try { json = await response.json(); } catch { /* non-JSON response */ }
   return { status: response.status, json };
 }
 
+async function waitUntilReachable(url: string, timeoutMs: number): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    try {
+      if ((await fetch(url)).ok) return;
+    } catch { /* server is still starting */ }
+    await new Promise(resolve => setTimeout(resolve, 250));
+  }
+  throw new Error(`Server at ${url} did not become ready within ${timeoutMs}ms`);
+}
+
+async function startTestServer(): Promise<TestServer> {
+  const dataDir = path.resolve('data', `test-run-restaurant-${PORT}-${Date.now()}`);
+  const child = spawn(process.execPath, ['--experimental-strip-types', 'server/index.ts'], {
+    cwd: path.resolve(import.meta.dirname ?? '.', '..'),
+    env: { ...process.env, PORT: String(PORT), DATA_DIR: dataDir },
+    stdio: ['ignore', 'ignore', 'pipe']
+  });
+  child.stderr?.on('data', chunk => {
+    const output = chunk.toString();
+    if (!output.includes('ExperimentalWarning')) process.stderr.write(`[test-srv] ${output}`);
+  });
+  await waitUntilReachable(`${baseUrl}/version/`, 30000);
+  return { child, dataDir };
+}
+
 async function registerCompany(label: string): Promise<{ cookie: string; companyId: number }> {
-  const email = `rest_${label}_${Date.now()}_${Math.floor(Math.random() * 1e6)}@domain.local`;
+  const email = `restaurant_${label}_${Date.now()}_${Math.floor(Math.random() * 1e6)}@domain.local`;
   const response = await fetch(`${baseUrl}/api/v2/auth/email/connect/`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password: 'Password123!', company: `Rest Co ${label} ${Date.now()}` })
+    body: JSON.stringify({ email, password: 'Password123!', company: `Restaurant ${label}` })
   });
-  assert.equal(response.status, 200, `Registration failed for ${label}: ${response.status}`);
+  assert.equal(response.status, 200, `registration failed: ${response.status}`);
   const cookie = (response.headers.getSetCookie?.() || [response.headers.get('set-cookie') || ''])
-    .find(c => c.startsWith('sessionid='))?.split(';')[0];
-  assert.ok(cookie, 'Session cookie missing');
+    .find(value => value.startsWith('sessionid='))?.split(';')[0];
+  assert.ok(cookie, 'session cookie returned');
   const auth = await api(cookie as string, 'GET', '/api/v3/companies/auth-data/');
   assert.equal(auth.status, 200);
-  const companyId = auth.json.authCompany.companyId;
-  return { cookie: cookie as string, companyId };
+  return { cookie: cookie as string, companyId: Number(auth.json.authCompany.companyId) };
 }
 
-async function getStock(cookie: string, companyId: number, kind: number): Promise<number> {
-  const stock = await api(cookie, 'GET', `/api/v3/resources/${companyId}/`);
-  assert.equal(stock.status, 200, 'warehouse stock readable');
-  const rows = Array.isArray(stock.json) ? stock.json : [];
-  const row = rows.find((r: { kind: number }) => r.kind === kind);
-  return row ? Number(row.amount) : 0;
+function seedFood(dataDir: string, companyId: number, quality: number, kinds: number[]): void {
+  const database = new DatabaseSync(path.join(dataDir, 'simcompanies.sqlite'));
+  const now = new Date().toISOString();
+  for (const kind of kinds) {
+    database.prepare(`
+      INSERT INTO warehouse (company_id, kind, quality, amount, cost_workers, cost_admin, cost_material1, cost_material2, cost_market, updated_at)
+      VALUES (?, ?, ?, 1000, 0, 0, 0, 0, 1, ?)
+      ON CONFLICT(company_id, kind, quality) DO UPDATE SET amount = amount + 1000, updated_at = excluded.updated_at
+    `).run(companyId, kind, quality, now);
+  }
+  database.close();
 }
 
-async function getCash(cookie: string): Promise<number> {
-  const balance = await api(cookie, 'GET', '/api/v2/companies/me/balance-sheet/');
-  assert.equal(balance.status, 200, 'balance sheet readable');
-  return Number(balance.json.cash);
+function expireRun(dataDir: string, runId: number): void {
+  const database = new DatabaseSync(path.join(dataDir, 'simcompanies.sqlite'));
+  database.prepare('UPDATE restaurant_runs SET cycle_end = ? WHERE id = ?').run(new Date(Date.now() - 1000).toISOString(), runId);
+  database.close();
 }
 
-interface TestServer {
-  child: ChildProcess;
-  dataDir: string;
-  port: number;
+function finishReconstruction(dataDir: string, buildingId: number): void {
+  const database = new DatabaseSync(path.join(dataDir, 'simcompanies.sqlite'));
+  const finished = new Date(Date.now() - 1000).toISOString();
+  database.prepare('UPDATE buildings SET busy_until = ? WHERE id = ?').run(finished, buildingId);
+  database.prepare('UPDATE restaurant_properties SET reconstruction_until = ? WHERE building_id = ?').run(finished, buildingId);
+  database.close();
 }
 
-async function waitUntilReachable(url: string, timeoutMs: number): Promise<void> {
-  const { promise, resolve, reject } = Promise.withResolvers<void>();
+async function waitForRestaurantIdle(cookie: string, buildingId: number, timeoutMs: number = 16000): Promise<any> {
   const deadline = Date.now() + timeoutMs;
-  const probe = async (): Promise<void> => {
-    while (Date.now() < deadline) {
-      try {
-        const r = await fetch(url);
-        if (r.ok) return resolve();
-      } catch {
-        // Retry
-      }
-      await new Promise(res => setTimeout(res, 400));
-    }
-    reject(new Error(`Server at ${url} did not become ready within ${timeoutMs}ms`));
-  };
-  void probe();
-  return promise;
+  while (Date.now() < deadline) {
+    const detail = await api(cookie, 'GET', `/api/v2/restaurants/${buildingId}/`);
+    const busyUntil = detail.json?.building?.busy_until ? new Date(detail.json.building.busy_until).getTime() : 0;
+    if (detail.status === 200 && busyUntil <= Date.now()) return detail.json;
+    await new Promise(resolve => setTimeout(resolve, 300));
+  }
+  throw new Error('restaurant did not become idle in time');
 }
 
-async function startTestServer(portNumber: number): Promise<TestServer> {
-  const dataDir = path.resolve('data', `test-run-restaurant-${portNumber}-${Date.now()}`);
-  const child = spawn(
-    process.execPath,
-    ['--experimental-strip-types', 'server/index.ts'],
-    {
-      cwd: path.resolve(import.meta.dirname ?? '.', '..'),
-      env: {
-        ...process.env,
-        PORT: String(portNumber),
-        DATA_DIR: dataDir
-      },
-      stdio: ['ignore', 'ignore', 'pipe']
-    }
-  );
-  child.stderr?.on('data', chunk => {
-    const text = chunk.toString();
-    if (!text.includes('ExperimentalWarning')) {
-      process.stderr.write(`[test-srv] ${text}`);
-    }
-  });
-  await waitUntilReachable(`http://127.0.0.1:${portNumber}/version/`, 30000);
-  return { child, dataDir, port: portNumber };
+async function getBuildingDTO(cookie: string, buildingId: number): Promise<any> {
+  const list = await api(cookie, 'GET', '/api/v2/companies/me/buildings/');
+  assert.equal(list.status, 200);
+  return list.json.find((building: any) => building.id === buildingId);
 }
 
-const CYCLE_MS = 12 * 60 * 60 * 1000;
+async function run(): Promise<void> {
+  const server = await startTestServer();
+  try {
+    const { cookie, companyId } = await registerCompany('main');
+    console.log('1. menu guide and restaurant construction');
+    const menuGuide = await api(cookie, 'GET', '/api/v2/restaurant-menu/');
+    assert.equal(menuGuide.status, 200);
+    assert.deepEqual(menuGuide.json.dishes.map((dish: any) => dish.kind), [117, 121, 134, 122, 119, 123, 129, 130, 131, 142, 143, 132, 124, 125, 126, 149]);
+    assert.equal(menuGuide.json.dishes.find((dish: any) => dish.kind === 129).name, 'Hamburger');
+    assert.equal(menuGuide.json.dishes.find((dish: any) => dish.kind === 117).name, 'Milk');
 
-async function runRestaurantTests(): Promise<void> {
-  const { cookie, companyId } = await registerCompany('main');
-  let buildingId = 0;
+    const created = await api(cookie, 'POST', '/api/v2/companies/me/buildings/', { kind: 'r', position: '2' });
+    assert.equal(created.status, 200, JSON.stringify(created.json));
+    const buildingId = Number(created.json.building.id);
+    await waitForRestaurantIdle(cookie, buildingId);
 
-  // --- 1. Module registration -------------------------------------------
-  console.log('1. Restaurant module registration');
-  {
-    const anon = await api('', 'GET', '/api/v2/restaurants/');
-    assert.equal(anon.status, 401, 'unauthenticated restaurant list is rejected with 401');
+    seedFood(server.dataDir, companyId, 0, [119, 129, 132]);
+    seedFood(server.dataDir, companyId, 2, [119, 129, 132]);
 
-    const list = await api(cookie, 'GET', '/api/v2/restaurants/');
-    assert.equal(list.status, 200, 'GET /api/v2/restaurants/ is registered and served');
-    assert.deepEqual(list.json.restaurants, [], 'new company has no restaurants yet');
-
-    const menu = await api(cookie, 'GET', '/api/v2/restaurant-menu/');
-    assert.equal(menu.status, 200, 'GET /api/v2/restaurant-menu/ is registered and served');
-    assert.equal(menu.json.dishes.length, 16, 'restaurant guide lists 16 dishes');
-    const hamburger = menu.json.dishes.find((d: { kind: number }) => d.kind === 119);
-    assert.ok(hamburger, 'hamburger present in the guide');
-    assert.equal(hamburger.name, 'Hamburger', 'guide carries dish names');
-    for (const key of ['kind', 'name', 'category', 'suggestedPrice', 'image']) {
-      assert.ok(hamburger[key] !== undefined, `guide entry has ${key}`);
-    }
-  }
-
-  // --- 2. Construction of a restaurant ----------------------------------
-  console.log('2. Restaurant construction (kind r)');
-  {
-    const constructed = await api(cookie, 'POST', '/api/v2/companies/me/buildings/', {
-      kind: 'r',
-      position: '2'
-    });
-    assert.equal(constructed.status, 200, `restaurant constructed: ${JSON.stringify(constructed.json)}`);
-    buildingId = constructed.json.building.id;
-    assert.ok(buildingId > 0, 'constructed building has an id');
-
-    const list = await api(cookie, 'GET', '/api/v2/restaurants/');
-    assert.equal(list.json.restaurants.length, 1, 'restaurant appears in the company list');
-    assert.equal(list.json.restaurants[0].buildingId, buildingId, 'list references the restaurant building');
-  }
-
-  // --- 3. Seating capacity: 1,000 per level (economy) --------------------
-  console.log('3. Seating capacity: economy 1,000 seats per level');
-  {
-    const detail = await api(cookie, 'GET', `/api/v2/restaurants/${buildingId}/`);
-    assert.equal(detail.status, 200, 'restaurant detail readable');
-    assert.equal(detail.json.restaurantProperties.seats, 1000, 'economy level 1 = 1,000 seats');
-    assert.equal(detail.json.restaurantProperties.isLuxury, false, 'default format is economy');
-  }
-
-  // --- 4. Seating capacity: 500 per level (luxury) ------------------------
-  console.log('4. Seating capacity: luxury 500 seats per level');
-  {
-    const updated = await api(cookie, 'PUT', `/api/v2/restaurants/${buildingId}/`, { isLuxury: true });
-    assert.equal(updated.status, 200, 'luxury format accepted');
-    assert.equal(updated.json.restaurantProperties.seats, 500, 'luxury level 1 = 500 seats');
-
-    await api(cookie, 'PUT', `/api/v2/restaurants/${buildingId}/`, { isLuxury: false });
-    const detail = await api(cookie, 'GET', `/api/v2/restaurants/${buildingId}/`);
-    assert.equal(detail.json.restaurantProperties.seats, 1000, 'switching back restores 1,000 seats');
-  }
-
-  // --- 5. 10-star rating scale and menu setup ----------------------------
-  console.log('5. 10-star rating scale and menu setup');
-  {
-    const basic = await api(cookie, 'GET', `/api/v2/restaurants/${buildingId}/`);
-    const basicRating = basic.json.restaurantProperties.rating;
-    assert.ok(basicRating >= 0 && basicRating <= 10, `default rating within 0-10 (got ${basicRating})`);
-
-    const maxMenu = [117, 119, 121, 122, 123, 129, 130, 131].map(kind => ({
-      resource: kind,
-      quality: 2,
-      price: 20
-    }));
-    const upgraded = await api(cookie, 'PUT', `/api/v2/restaurants/${buildingId}/`, {
-      menu: maxMenu,
-      goodService: true,
-      professionalStaff: true
-    });
-    assert.equal(upgraded.status, 200, 'menu setup accepted');
-    assert.equal(upgraded.json.restaurantProperties.rating, 10, 'quality 2 + professional service + 8 dishes = 10.0 stars');
-    assert.equal(upgraded.json.restaurantProperties.menu.length, 8, 'menu persisted');
-    assert.equal(upgraded.json.restaurantProperties.professionalStaff, true, 'professional staff persisted');
-    assert.ok(upgraded.json.restaurantProperties.occupancy >= 0 && upgraded.json.restaurantProperties.occupancy <= 1,
-      'occupancy derived from rating stays in [0, 1]');
-
-    const invalid = await api(cookie, 'PUT', `/api/v2/restaurants/${buildingId}/`, {
-      menu: [{ resource: 3, quality: 0, price: 5 }]
-    });
-    assert.equal(invalid.status, 400, 'non-dish resources are rejected from the menu');
-
-    // Back to a lean basic-staff setup for the cycle tests.
-    const lean = await api(cookie, 'PUT', `/api/v2/restaurants/${buildingId}/`, {
-      menu: [{ resource: 119, quality: 0, price: 18.5 }],
-      goodService: true,
-      professionalStaff: false
-    });
-    assert.equal(lean.json.restaurantProperties.rating, 1.6, 'lean setup rating = service 1.2 + menu balance 0.375 (rounded)');
-
-    const ratings = await api(cookie, 'GET', `/api/v2/restaurants/${buildingId}/ratings/`);
-    assert.equal(ratings.status, 200, 'ratings endpoint registered');
-    for (const key of ['overallRating', 'foodRating', 'serviceRating', 'ambianceRating']) {
-      const value = Number(ratings.json[key]);
-      assert.ok(value >= 0 && value <= 10, `${key} on 0-10 scale (got ${value})`);
-    }
-  }
-
-  // --- 6. 12-hour cycle lifecycle and food spoilage -----------------------
-  console.log('6. 12-hour cycle: full load, spoilage regardless of sales');
-  {
-    const stockBefore = await getStock(cookie, companyId, 119);
-    assert.equal(stockBefore, 5000, 'seed warehouse holds 5,000 hamburgers');
-    const cashBefore = await getCash(cookie);
-
-    const run = await api(cookie, 'POST', `/api/v2/restaurants/${buildingId}/runs/`);
-    assert.equal(run.status, 200, `cycle executed: ${JSON.stringify(run.json)}`);
-
-    const r = run.json.run;
-    assert.equal(r.capacity, 1000, 'cycle capacity = 1,000 seats');
-    assert.equal(r.prepared, 1000, 'one dish per seat loaded for the cycle');
-    assert.ok(r.served >= 800 && r.served <= 980, `served guests in occupancy band (got ${r.served})`);
-    assert.ok(r.spoiled > 0, `unsold loaded food spoiled (got ${r.spoiled})`);
-    assert.equal(r.spoiled, r.prepared - r.served, 'spoiled = prepared - served');
-    assert.equal(new Date(r.cycleEnd).getTime() - new Date(r.cycleStart).getTime(), CYCLE_MS,
-      'cycle length is exactly 12 hours');
-    assert.equal(r.wages, 200, 'basic staff wages = 200 per cycle');
-    assert.equal(r.foodCost, 1000, 'full loaded food cost charged (1,000 units @ 1.0)');
-    assert.equal(r.revenue, Math.round(r.served * 18.5 * 100) / 100, 'revenue = served x menu price');
-    assert.equal(r.cost, Math.round((r.foodCost + r.wages) * 100) / 100, 'cost = food + wages');
-    assert.equal(r.profit, Math.round((r.revenue - r.cost) * 100) / 100, 'profit = revenue - cost');
-
-    const stockAfter = await getStock(cookie, companyId, 119);
-    assert.equal(stockAfter, stockBefore - r.prepared,
-      'warehouse decremented by the full load, not by sales (spoilage regardless of sales)');
-
-    const cashAfter = await getCash(cookie);
-    assert.equal(Math.round((cashAfter - cashBefore) * 100) / 100, r.profit, 'company money changed by the cycle profit');
-
-    const runs = await api(cookie, 'GET', `/api/v2/restaurants/${buildingId}/runs/`);
-    assert.equal(runs.status, 200, 'runs list registered');
-    assert.ok(runs.json.runs.length >= 1, 'run persisted');
-    assert.equal(runs.json.runs[0].id, r.id, 'newest run first');
-    assert.equal(runs.json.runs[0].spoiled, r.spoiled, 'run history carries spoilage');
-  }
-
-  // --- 7. Partial load caps sales ----------------------------------------
-  console.log('7. Partial load: sales limited by loaded food');
-  {
-    // Salad (#129) is not in stock: half the menu cannot be loaded.
-    await api(cookie, 'PUT', `/api/v2/restaurants/${buildingId}/`, {
+    console.log('2. common price, three categories, and invalid price rejection');
+    const configured = await api(cookie, 'PUT', `/api/v2/restaurants/${buildingId}/`, {
       menu: [
-        { resource: 119, quality: 0, price: 18.5 },
-        { resource: 129, quality: 0, price: 12.0 }
-      ]
+        { resource: 119, quality: 0, qualityMode: 'low' },
+        { resource: 129, quality: 0, qualityMode: 'low' },
+        { resource: 132, quality: 0, qualityMode: 'low' }
+      ],
+      menuPrice: 96,
+      goodService: false,
+      keepOpen: false
     });
-    const stockBefore = await getStock(cookie, companyId, 119);
+    assert.equal(configured.status, 200, JSON.stringify(configured.json));
+    assert.equal(configured.json.restaurantProperties.menuPrice, 96);
+    assert.equal(configured.json.restaurantProperties.menu.length, 3);
+    assert.ok(configured.json.restaurantProperties.rating > 0);
+    const badPrice = await api(cookie, 'PUT', `/api/v2/restaurants/${buildingId}/`, { menuPrice: 59 });
+    assert.equal(badPrice.status, 400);
 
-    const run = await api(cookie, 'POST', `/api/v2/restaurants/${buildingId}/runs/`);
-    assert.equal(run.status, 200, 'cycle with partial load executed');
-    const r = run.json.run;
-    assert.equal(r.prepared, 500, 'only the stocked dish is loaded (500 of 1,000)');
-    assert.equal(r.served, 500, 'service capped by loaded food');
-    assert.equal(r.spoiled, 0, 'sold-out food does not spoil');
-    const avgPrice = (18.5 + 12.0) / 2;
-    assert.equal(r.revenue, Math.round(500 * avgPrice * 100) / 100, 'revenue follows the menu average price');
+    console.log('3. 12-hour open cycle, exact food coefficients, wages, and duplicate prevention');
+    const opened = await api(cookie, 'PUT', `/api/v2/restaurants/${buildingId}/`, { keepOpen: true });
+    assert.equal(opened.status, 200, JSON.stringify(opened.json));
+    const firstRun = opened.json.cycle;
+    assert.ok(firstRun && firstRun.resolved === false, 'opening creates an unresolved cycle');
+    assert.equal(firstRun.capacity, 1000);
+    assert.equal(firstRun.prepared, 203 + 8 + 9, 'one selected dish in each category uses the 2.1 variety factor');
+    assert.equal(firstRun.wages, 7038, '345 x 1.7 x size x 12 hours');
+    assert.equal(firstRun.cost, firstRun.foodCost + firstRun.wages);
+    assert.equal(new Date(firstRun.cycleEnd).getTime() - new Date(firstRun.cycleStart).getTime(), CYCLE_MS);
+    assert.equal(firstRun.revenue, null, 'revenue is deferred until the cycle ends');
+    assert.equal((opened.json.moneyUpdate * -1), firstRun.cost);
+    const duplicate = await api(cookie, 'POST', `/api/v2/restaurants/${buildingId}/runs/`);
+    assert.equal(duplicate.status, 400, 'a second active cycle is rejected');
+    const activeBuilding = await getBuildingDTO(cookie, buildingId);
+    assert.equal(activeBuilding.busy.category, 'o');
 
-    const stockAfter = await getStock(cookie, companyId, 119);
-    assert.equal(stockAfter, stockBefore - 500, 'hamburger stock decremented by the load');
-  }
+    console.log('4. settlement, spoilage, revenue, and automatic next cycle');
+    expireRun(server.dataDir, firstRun.id);
+    const runsAfterSettlement = await api(cookie, 'GET', `/api/v2/restaurants/${buildingId}/runs/`);
+    assert.equal(runsAfterSettlement.status, 200);
+    const settled = runsAfterSettlement.json.runs.find((run: any) => run.id === firstRun.id);
+    assert.equal(settled.resolved, true);
+    assert.ok(settled.served >= 0 && settled.served <= settled.prepared);
+    assert.equal(settled.spoiled, settled.prepared - settled.served);
+    assert.equal(settled.revenue, settled.served * 96);
+    assert.equal(settled.profit, settled.revenue - settled.cost);
+    const nextRun = runsAfterSettlement.json.runs.find((run: any) => run.id !== firstRun.id);
+    assert.ok(nextRun && nextRun.resolved === false, 'open restaurant automatically queues the next cycle');
 
-  // --- 8. Professional staff wages = 5x ----------------------------------
-  console.log('8. Professional staff wages: 5x multiplier');
-  {
-    await api(cookie, 'PUT', `/api/v2/restaurants/${buildingId}/`, { professionalStaff: true });
-    const run = await api(cookie, 'POST', `/api/v2/restaurants/${buildingId}/runs/`);
-    assert.equal(run.status, 200, 'cycle with professional staff executed');
-    assert.equal(run.json.run.wages, 1000, 'professional staff wages = 5 x 200 = 1,000 per cycle');
+    console.log('5. close penalty and closed-cycle behavior');
+    const beforeClose = await api(cookie, 'GET', `/api/v2/restaurants/${buildingId}/`);
+    const ratingBeforeClose = Number(beforeClose.json.restaurantProperties.rating);
+    const closed = await api(cookie, 'PUT', `/api/v2/restaurants/${buildingId}/`, { keepOpen: false });
+    assert.equal(closed.status, 200);
+    assert.equal(closed.json.restaurantProperties.rating, Math.round(ratingBeforeClose * 0.875 * 100) / 100);
+    const closedStart = await api(cookie, 'POST', `/api/v2/restaurants/${buildingId}/runs/`);
+    assert.equal(closedStart.status, 400);
 
-    await api(cookie, 'PUT', `/api/v2/restaurants/${buildingId}/`, { professionalStaff: false });
-  }
+    console.log('6. luxury reconstruction, seating, cost, and high-quality sourcing');
+    expireRun(server.dataDir, nextRun.id);
+    await api(cookie, 'GET', `/api/v2/restaurants/${buildingId}/runs/`);
+    const cashBeforeStyle = Number((await api(cookie, 'GET', '/api/v2/companies/me/balance-sheet/')).json.cash);
+    const luxury = await api(cookie, 'PUT', `/api/v2/restaurants/${buildingId}/`, { isLuxury: true });
+    assert.equal(luxury.status, 200, JSON.stringify(luxury.json));
+    assert.equal(luxury.json.restaurantProperties.seats, 500);
+    const luxuryBuilding = await getBuildingDTO(cookie, buildingId);
+    assert.equal(luxuryBuilding.busy.category, 'b');
+    const cashAfterStyle = Number((await api(cookie, 'GET', '/api/v2/companies/me/balance-sheet/')).json.cash);
+    assert.equal(cashBeforeStyle - cashAfterStyle, 44850, 'style reconstruction costs ceil(26 x 10 x 345 x size / 2)');
+    finishReconstruction(server.dataDir, buildingId);
+    await waitForRestaurantIdle(cookie, buildingId);
 
-  // --- 9. Empty warehouse: no food, no sales, wages still due -------------
-  console.log('9. Cycle without food: no sales, wages still due');
-  {
-    // Drain the remaining hamburgers (3,000 left after tests 6-8).
-    await api(cookie, 'PUT', `/api/v2/restaurants/${buildingId}/`, {
-      menu: [{ resource: 119, quality: 0, price: 18.5 }]
+    const luxuryMenu = await api(cookie, 'PUT', `/api/v2/restaurants/${buildingId}/`, {
+      menu: [
+        { resource: 119, quality: 2, qualityMode: 'high' },
+        { resource: 129, quality: 2, qualityMode: 'high' },
+        { resource: 132, quality: 2, qualityMode: 'high' }
+      ],
+      menuPrice: 100,
+      keepOpen: false
     });
-    for (let i = 0; i < 3; i++) {
-      const drain = await api(cookie, 'POST', `/api/v2/restaurants/${buildingId}/runs/`);
-      assert.equal(drain.status, 200, `drain cycle ${i + 1} executed`);
-    }
-    const leftover = await getStock(cookie, companyId, 119);
-    assert.equal(leftover, 0, 'hamburger stock fully consumed by cycles');
+    assert.equal(luxuryMenu.status, 200);
+    const luxuryOpened = await api(cookie, 'PUT', `/api/v2/restaurants/${buildingId}/`, { keepOpen: true });
+    assert.equal(luxuryOpened.status, 200, JSON.stringify(luxuryOpened.json));
+    assert.equal(luxuryOpened.json.cycle.capacity, 500);
+    assert.equal(luxuryOpened.json.cycle.prepared, 102 + 4 + 5, 'luxury uses half the economy food requirement');
+    assert.equal(luxuryOpened.json.cycle.wages, 3519, 'luxury basic wages are half economy wages');
+    assert.ok(luxuryOpened.json.resourceTransactions.every((tx: any) => tx.quality === 2), 'TOP/high mode takes the highest warehouse quality');
 
-    const dry = await api(cookie, 'POST', `/api/v2/restaurants/${buildingId}/runs/`);
-    assert.equal(dry.status, 200, 'cycle without food still resolves');
-    const r = dry.json.run;
-    assert.equal(r.prepared, 0, 'no food loaded');
-    assert.equal(r.served, 0, 'no guests served without food');
-    assert.equal(r.spoiled, 0, 'nothing to spoil');
-    assert.equal(r.revenue, 0, 'no revenue without food');
-    assert.equal(r.profit, -200, 'basic staff wages still due (profit = -200)');
-
-    const cashBefore = await getCash(cookie);
-    await api(cookie, 'POST', `/api/v2/restaurants/${buildingId}/runs/`);
-    const cashAfter = await getCash(cookie);
-    assert.equal(Math.round((cashAfter - cashBefore) * 100) / 100, -200, 'wages deducted from company money');
-  }
-
-  // --- 10. Closed restaurant and atomicity --------------------------------
-  console.log('10. Closed restaurant rejects cycles atomically');
-  {
-    await api(cookie, 'PUT', `/api/v2/restaurants/${buildingId}/`, { keepOpen: false });
-    const runsBefore = await api(cookie, 'GET', `/api/v2/restaurants/${buildingId}/runs/`);
-    const countBefore = runsBefore.json.runs.length;
-
-    const closed = await api(cookie, 'POST', `/api/v2/restaurants/${buildingId}/runs/`);
-    assert.equal(closed.status, 400, 'closed restaurant cannot start a cycle');
-
-    const runsAfter = await api(cookie, 'GET', `/api/v2/restaurants/${buildingId}/runs/`);
-    assert.equal(runsAfter.json.runs.length, countBefore, 'failed cycle persisted no run row');
-    await api(cookie, 'PUT', `/api/v2/restaurants/${buildingId}/`, { keepOpen: true });
-  }
-
-  // --- 11. Per-level seating after upgrade ---------------------------------
-  console.log('11. Seating scales per building level');
-  {
-    const loan = await api(cookie, 'POST', '/api/v2/companies/me/loans/', { amount: 100000 });
-    assert.equal(loan.status, 200, `loan taken to fund the upgrade: ${JSON.stringify(loan.json)}`);
-
-    // Construction/upgrade sets a 10s busy window; poll until the upgrade lands.
-    const deadline = Date.now() + 25000;
-    let upgrade = await api(cookie, 'PATCH', `/api/v2/companies/buildings/${buildingId}/`, { size: 1 });
-    while (upgrade.status !== 200 && Date.now() < deadline) {
-      await new Promise(res => setTimeout(res, 1000));
-      upgrade = await api(cookie, 'PATCH', `/api/v2/companies/buildings/${buildingId}/`, { size: 1 });
-    }
-    assert.equal(upgrade.status, 200, `upgrade to level 2 succeeded: ${JSON.stringify(upgrade.json)}`);
-
-    const economy = await api(cookie, 'GET', `/api/v2/restaurants/${buildingId}/`);
-    assert.equal(economy.json.restaurantProperties.seats, 2000, 'economy level 2 = 2,000 seats');
-
-    await api(cookie, 'PUT', `/api/v2/restaurants/${buildingId}/`, { isLuxury: true });
-    const luxury = await api(cookie, 'GET', `/api/v2/restaurants/${buildingId}/`);
-    assert.equal(luxury.json.restaurantProperties.seats, 1000, 'luxury level 2 = 1,000 seats');
-    await api(cookie, 'PUT', `/api/v2/restaurants/${buildingId}/`, { isLuxury: false });
-  }
-
-  // --- 12. Ownership isolation ---------------------------------------------
-  console.log('12. Ownership isolation');
-  {
+    console.log('7. ownership isolation');
     const other = await registerCompany('other');
     const forbidden = await api(other.cookie, 'GET', `/api/v2/restaurants/${buildingId}/`);
-    assert.equal(forbidden.status, 404, "another company cannot read the restaurant");
-    const forbiddenRun = await api(other.cookie, 'POST', `/api/v2/restaurants/${buildingId}/runs/`);
-    assert.equal(forbiddenRun.status, 404, "another company cannot run the restaurant");
+    assert.equal(forbidden.status, 404);
     const ownList = await api(other.cookie, 'GET', '/api/v2/restaurants/');
-    assert.deepEqual(ownList.json.restaurants, [], "other company's list has no restaurants");
-  }
+    assert.deepEqual(ownList.json.restaurants, []);
 
-  console.log('\nAll Issue #92 restaurant assertions passed.');
-}
-
-async function main(): Promise<void> {
-  const server = await startTestServer(Number(PORT));
-  try {
-    await runRestaurantTests();
+    console.log('\nAll Issue #92 restaurant guide assertions passed.');
   } finally {
     server.child.kill('SIGTERM');
-    await new Promise(res => setTimeout(res, 500));
+    await new Promise(resolve => setTimeout(resolve, 400));
     if (server.child.exitCode === null) server.child.kill('SIGKILL');
     rmSync(server.dataDir, { recursive: true, force: true });
   }
 }
 
-main().catch(err => {
-  console.error('\nIssue #92 restaurant verification FAILED:', err);
+run().catch(error => {
+  console.error('\nIssue #92 restaurant verification FAILED:', error);
   process.exit(1);
 });

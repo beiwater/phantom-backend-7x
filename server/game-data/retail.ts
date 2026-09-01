@@ -16,7 +16,7 @@ export const RETAIL_PRODUCTS: Record<string, number[]> = {
   // B: Sales office (Aerospace)
   B: [91, 94, 95, 96, 97, 98, 99],
   // r: Restaurant
-  r: [128, 129, 130, 131, 132, 142, 143, 149],
+  r: [117, 121, 134, 122, 119, 123, 129, 130, 131, 142, 143, 132, 124, 125, 126, 149],
   // Seasonal markets:
   t: [146, 147, 148], // Autumn / Halloween market
   u: [67, 144, 150],   // Xmas market

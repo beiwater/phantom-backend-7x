@@ -2,21 +2,29 @@ import { db } from '../db/database.ts';
 import { runInTransaction } from '../db/transaction.ts';
 import { getBuildingById, type BuildingDbRow } from './buildings.ts';
 import { updateCompanyMoney } from './company.ts';
-import { consumeResourceWithTransactions } from './warehouse.ts';
 import { getResourceDef } from './constants.ts';
+import { getCompanyBoostSettings } from './simboost-settings.ts';
 
-// Initialize Restaurant tables
+// The legacy database shipped before the restaurant guide was implemented in
+// full. Keep migrations here so an existing local database can be upgraded in
+// place instead of silently losing restaurant state.
 db.exec(`
   CREATE TABLE IF NOT EXISTS restaurant_properties (
     building_id INTEGER PRIMARY KEY,
     company_id INTEGER,
-    good_service INTEGER DEFAULT 1,
+    good_service INTEGER DEFAULT 0,
     is_luxury INTEGER DEFAULT 0,
     keep_open INTEGER DEFAULT 1,
-    menu_json TEXT,
-    rating REAL DEFAULT 4.2,
-    occupancy REAL DEFAULT 0.85,
-    updated_at TEXT
+    menu_json TEXT DEFAULT '[]',
+    menu_price REAL DEFAULT 60,
+    rating REAL DEFAULT 0,
+    occupancy REAL DEFAULT 0,
+    updated_at TEXT,
+    professional_staff INTEGER DEFAULT 0,
+    last_cycle_at TEXT,
+    reconstruction_started_at TEXT,
+    reconstruction_until TEXT,
+    rating_penalty_applied INTEGER DEFAULT 0
   );
 
   CREATE TABLE IF NOT EXISTS restaurant_runs (
@@ -25,64 +33,100 @@ db.exec(`
     company_id INTEGER,
     datetime TEXT,
     rating REAL,
+    new_rating REAL,
+    rating_before REAL,
+    rating_after REAL,
+    rating_delta REAL,
     occupied INTEGER,
     capacity INTEGER,
+    occupancy REAL,
     revenue REAL,
     cost REAL,
     profit REAL,
-    resolved INTEGER DEFAULT 1
+    menu_price REAL,
+    review TEXT,
+    menu_json TEXT,
+    good_service INTEGER,
+    is_luxury INTEGER,
+    resolved INTEGER DEFAULT 0,
+    cycle_start TEXT,
+    cycle_end TEXT,
+    prepared INTEGER DEFAULT 0,
+    served INTEGER,
+    spoiled INTEGER,
+    food_cost REAL DEFAULT 0,
+    wages REAL DEFAULT 0
   );
 `);
 
-// Issue #92: restaurant schema evolution. Columns added after the initial
-// release are appended with PRAGMA-guarded ALTER TABLE statements so existing
-// databases migrate in place (same pattern as company_boost_settings).
 function ensureRestaurantColumns(): void {
-  const propertyCols = (db.prepare('PRAGMA table_info(restaurant_properties)').all() as Array<{ name: string }>).map(c => c.name);
-  if (!propertyCols.includes('professional_staff')) {
-    db.exec('ALTER TABLE restaurant_properties ADD COLUMN professional_staff INTEGER DEFAULT 0');
-  }
-  if (!propertyCols.includes('last_cycle_at')) {
-    db.exec('ALTER TABLE restaurant_properties ADD COLUMN last_cycle_at TEXT');
+  const propertyCols = new Set(
+    (db.prepare('PRAGMA table_info(restaurant_properties)').all() as Array<{ name: string }>).map(c => c.name)
+  );
+  const propertyMigrations: Array<[string, string]> = [
+    ['menu_price', 'REAL DEFAULT 60'],
+    ['professional_staff', 'INTEGER DEFAULT 0'],
+    ['last_cycle_at', 'TEXT'],
+    ['reconstruction_started_at', 'TEXT'],
+    ['reconstruction_until', 'TEXT'],
+    ['rating_penalty_applied', 'INTEGER DEFAULT 0']
+  ];
+  for (const [name, definition] of propertyMigrations) {
+    if (!propertyCols.has(name)) db.exec(`ALTER TABLE restaurant_properties ADD COLUMN ${name} ${definition}`);
   }
 
-  const runCols = (db.prepare('PRAGMA table_info(restaurant_runs)').all() as Array<{ name: string }>).map(c => c.name);
-  if (!runCols.includes('cycle_start')) db.exec('ALTER TABLE restaurant_runs ADD COLUMN cycle_start TEXT');
-  if (!runCols.includes('cycle_end')) db.exec('ALTER TABLE restaurant_runs ADD COLUMN cycle_end TEXT');
-  if (!runCols.includes('prepared')) db.exec('ALTER TABLE restaurant_runs ADD COLUMN prepared INTEGER DEFAULT 0');
-  if (!runCols.includes('served')) db.exec('ALTER TABLE restaurant_runs ADD COLUMN served INTEGER DEFAULT 0');
-  if (!runCols.includes('spoiled')) db.exec('ALTER TABLE restaurant_runs ADD COLUMN spoiled INTEGER DEFAULT 0');
-  if (!runCols.includes('food_cost')) db.exec('ALTER TABLE restaurant_runs ADD COLUMN food_cost REAL DEFAULT 0');
-  if (!runCols.includes('wages')) db.exec('ALTER TABLE restaurant_runs ADD COLUMN wages REAL DEFAULT 0');
+  const runCols = new Set(
+    (db.prepare('PRAGMA table_info(restaurant_runs)').all() as Array<{ name: string }>).map(c => c.name)
+  );
+  const runMigrations: Array<[string, string]> = [
+    ['new_rating', 'REAL'],
+    ['rating_before', 'REAL'],
+    ['rating_after', 'REAL'],
+    ['rating_delta', 'REAL'],
+    ['occupancy', 'REAL'],
+    ['menu_price', 'REAL'],
+    ['review', 'TEXT'],
+    ['menu_json', 'TEXT'],
+    ['good_service', 'INTEGER'],
+    ['is_luxury', 'INTEGER'],
+    ['cycle_start', 'TEXT'],
+    ['cycle_end', 'TEXT'],
+    ['prepared', 'INTEGER DEFAULT 0'],
+    ['served', 'INTEGER'],
+    ['spoiled', 'INTEGER'],
+    ['food_cost', 'REAL DEFAULT 0'],
+    ['wages', 'REAL DEFAULT 0']
+  ];
+  for (const [name, definition] of runMigrations) {
+    if (!runCols.has(name)) db.exec(`ALTER TABLE restaurant_runs ADD COLUMN ${name} ${definition}`);
+  }
 }
 ensureRestaurantColumns();
 
-// ---------------------------------------------------------------------------
-// Issue #92 domain constants
-// ---------------------------------------------------------------------------
-
-/** A restaurant operates in fixed 12-hour cycles; every cycle resolves as a run. */
-export const RESTAURANT_CYCLE_MS = 12 * 60 * 60 * 1000;
-
-/** Economy format seats per building level. */
+export const RESTAURANT_CYCLE_SECONDS = 43200;
+export const RESTAURANT_CYCLE_MS = RESTAURANT_CYCLE_SECONDS * 1000;
+export const RESTAURANT_MENU_PRICE_MIN = 60;
+export const RESTAURANT_MENU_PRICE_MAX = 350;
 export const ECONOMY_SEATS_PER_LEVEL = 1000;
-
-/** Luxury format seats per building level (smaller, more exclusive dining room). */
 export const LUXURY_SEATS_PER_LEVEL = 500;
-
-/** Professional staff wages are 5x the basic staff wages per cycle. */
+export const RESTAURANT_RECONSTRUCTION_SECONDS = 10800;
+export const RESTAURANT_COST_UNITS = 26;
+export const AVERAGE_SALARY = 345;
+export const RESTAURANT_SALARY_MODIFIER = 1.7;
 export const PROFESSIONAL_STAFF_WAGE_MULTIPLIER = 5;
-
-/** Basic staff wages for one 12-hour cycle. */
+// Retained for callers that used the old boolean-only helper. New cycle wages
+// use the official 345 x 1.7 x building-size formula below.
 export const RESTAURANT_BASE_WAGES_PER_CYCLE = 200;
-
-/** Restaurant ratings use a 0.0 - 10.0 star scale. */
 export const RESTAURANT_RATING_MAX = 10;
+
+export type RestaurantQualityMode = 'low' | 'high' | 'exact';
 
 export interface RestaurantMenuItem {
   resource: number;
   quality: number;
-  price: number;
+  qualityMode?: RestaurantQualityMode;
+  /** Compatibility only. Restaurant pricing is one common menu price. */
+  price?: number;
 }
 
 export interface RestaurantProperties {
@@ -92,10 +136,12 @@ export interface RestaurantProperties {
   professionalStaff: boolean;
   keepOpen: boolean;
   menu: RestaurantMenuItem[];
+  menuPrice: number;
   rating: number;
   occupancy: number;
   seats: number;
   lastCycleAt: string | null;
+  reconstructionUntil: string | null;
 }
 
 export interface RestaurantRun {
@@ -103,119 +149,71 @@ export interface RestaurantRun {
   buildingId: number;
   datetime: string;
   rating: number;
-  occupied: number;
+  newRating: number | null;
+  occupied: number | null;
   capacity: number;
-  revenue: number;
+  occupancy: number | null;
+  revenue: number | null;
   cost: number;
-  profit: number;
+  profit: number | null;
+  menuPrice: number;
+  review: string;
   resolved: boolean;
   cycleStart: string;
   cycleEnd: string;
   prepared: number;
-  served: number;
-  spoiled: number;
+  served: number | null;
+  spoiled: number | null;
   foodCost: number;
   wages: number;
 }
 
-export const RESTAURANT_DISHES = [
-  117, // Samosa
-  119, // Hamburger
-  121, // Lasagna
-  122, // Pizza
-  123, // Pasta
-  124, // Cocktail
-  125, // Wine
-  126, // Beer
-  129, // Salad
-  130, // Steak with potatoes
-  131, // Sushi
-  132, // Coffee
-  134, // Ice Cream
-  142, // Orange Juice
-  143, // Apple Pie
-  149  // Cheesecake
-];
-
-const RESTAURANT_DISH_NAMES: Record<number, string> = {
-  117: 'Samosa',
-  119: 'Hamburger',
-  121: 'Lasagna',
-  122: 'Pizza',
-  123: 'Pasta',
-  124: 'Cocktail',
-  125: 'Wine',
-  126: 'Beer',
-  129: 'Salad',
-  130: 'Steak with potatoes',
-  131: 'Sushi',
-  132: 'Coffee',
-  134: 'Ice Cream',
-  142: 'Orange Juice',
-  143: 'Apple Pie',
-  149: 'Cheesecake'
+// These values are the food coefficients and variety modifiers used by the
+// bundled Sim Companies restaurant client. Each dish belongs to exactly one
+// group, and its requirement is rounded up per dish.
+export const RESTAURANT_FOOD_CONSUMPTION: Record<number, number> = {
+  117: 288,
+  121: 24.89,
+  134: 92.6,
+  122: 38.196,
+  119: 96.312,
+  123: 16.667,
+  129: 3.608,
+  130: 4.073,
+  131: 3.505,
+  142: 9.402,
+  143: 10.093,
+  149: 9.2,
+  132: 4.04,
+  124: 144,
+  125: 128.955,
+  126: 113.984
 };
 
-function round2(value: number): number {
-  return Math.round(value * 100) / 100;
-}
+export const RESTAURANT_VARIETY_FACTORS = [2.1, 1, 0.9, 0.8, 0.8, 0.8];
+export const RESTAURANT_SALAD_BAR = [117, 121, 134, 122, 119, 123];
+export const RESTAURANT_MAINS = [129, 130, 131, 142, 143, 149];
+export const RESTAURANT_DRINKS = [132, 124, 125, 126];
+export const RESTAURANT_DISHES = [117, 121, 134, 122, 119, 123, 129, 130, 131, 142, 143, 132, 124, 125, 126, 149];
 
-
-// ---------------------------------------------------------------------------
-// Issue #92: seating capacity, wages and the 10-star rating scale
-// ---------------------------------------------------------------------------
-
-/** Economy format = 1,000 seats per building level; luxury format = 500. */
-export function getRestaurantSeats(size: number, isLuxury: boolean): number {
-  const level = Math.max(1, Math.floor(Number(size) || 1));
-  return level * (isLuxury ? LUXURY_SEATS_PER_LEVEL : ECONOMY_SEATS_PER_LEVEL);
-}
-
-/** Professional staff wages cost 5x the basic staff wages for a cycle. */
-export function computeRestaurantWages(professionalStaff: boolean): number {
-  return RESTAURANT_BASE_WAGES_PER_CYCLE * (professionalStaff ? PROFESSIONAL_STAFF_WAGE_MULTIPLIER : 1);
-}
-
-/**
- * 10-star rating (0.0 - 10.0) built from three balanced components:
- *  - food quality:   average menu item quality, up to 4.0 stars
- *  - service:        good service + professional staff, up to 3.0 stars
- *  - menu balance:   menu diversity (dish count), up to 3.0 stars
- */
-export function computeRestaurantRating(input: {
-  goodService: boolean;
-  professionalStaff: boolean;
-  menu: RestaurantMenuItem[];
-}): number {
-  const menu = Array.isArray(input.menu) ? input.menu : [];
-  const avgQuality = menu.length > 0
-    ? menu.reduce((acc, item) => acc + (Number(item.quality) || 0), 0) / menu.length
-    : 0;
-  const qualityScore = Math.min(4, Math.max(0, avgQuality) * 2);
-  const serviceScore = (input.goodService ? 1.2 : 0) + (input.professionalStaff ? 1.8 : 0);
-  const menuBalanceScore = Math.min(3, menu.length * 0.375);
-  return Math.round(Math.min(RESTAURANT_RATING_MAX, Math.max(0, qualityScore + serviceScore + menuBalanceScore)) * 10) / 10;
-}
-
-/** Expected guest occupancy is derived from the 10-star rating. */
-export function computeRestaurantOccupancy(rating: number): number {
-  const clamped = Math.min(RESTAURANT_RATING_MAX, Math.max(0, rating));
-  return round2(0.5 + (clamped / RESTAURANT_RATING_MAX) * 0.45);
-}
-
-const DEFAULT_MENU: RestaurantMenuItem[] = [
-  { resource: 119, quality: 0, price: 18.5 }, // Hamburger
-  { resource: 129, quality: 0, price: 12.0 }, // Salad
-  { resource: 132, quality: 0, price: 6.5 },  // Coffee
-  { resource: 142, quality: 0, price: 8.0 }   // Orange Juice
-];
-
-// The bundled game client still consumes the original restaurant payload
-// shape. Keep the new domain model as the source of truth, but expose a
-// compatibility projection for the legacy building-detail screen.
-const LEGACY_SALAD_BAR = [117, 121, 134, 122, 119, 123];
-const LEGACY_MAINS = [129, 130, 131, 142, 143, 149];
-const LEGACY_DRINKS = [132, 124, 125, 126];
+const RESTAURANT_DISH_NAMES: Record<number, string> = {
+  117: 'Milk',
+  119: 'Coffee',
+  121: 'Bread',
+  122: 'Cheese',
+  123: 'Apple pie',
+  124: 'Orange juice',
+  125: 'Apple cider',
+  126: 'Ginger beer',
+  129: 'Hamburger',
+  130: 'Lasagna',
+  131: 'Meatballs',
+  132: 'Cocktails',
+  134: 'Butter',
+  142: 'Salad',
+  143: 'Samosas',
+  149: 'Pumpkin soup'
+};
 
 export interface LegacyRestaurantMenuItem {
   kind: number;
@@ -239,40 +237,352 @@ export interface LegacyRestaurantProperties {
   lastCycleAt: string | null;
 }
 
-function toLegacyMenuItem(item: RestaurantMenuItem): LegacyRestaurantMenuItem {
+function round2(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
+
+function normalizedQualityMode(item: RestaurantMenuItem): RestaurantQualityMode {
+  const mode = String(item.qualityMode || 'low').toLowerCase();
+  if (mode === 'high' || mode === 'top') return 'high';
+  if (mode === 'exact') return 'exact';
+  return 'low';
+}
+
+function categoryForDish(kind: number): 'saladBar' | 'mains' | 'drinks' | null {
+  if (RESTAURANT_SALAD_BAR.includes(kind)) return 'saladBar';
+  if (RESTAURANT_MAINS.includes(kind)) return 'mains';
+  if (RESTAURANT_DRINKS.includes(kind)) return 'drinks';
+  return null;
+}
+
+export function validateRestaurantMenu(menu: RestaurantMenuItem[]): void {
+  if (!Array.isArray(menu)) throw new Error('Menu must be an array of menu items');
+  if (menu.length > RESTAURANT_DISHES.length) {
+    throw new Error(`Menu cannot contain more than ${RESTAURANT_DISHES.length} dishes`);
+  }
+  const seen = new Set<number>();
+  for (const item of menu) {
+    if (!Number.isInteger(item.resource) || !RESTAURANT_DISHES.includes(item.resource)) {
+      throw new Error(`Menu item resource #${String(item.resource)} is not a restaurant dish`);
+    }
+    if (seen.has(item.resource)) throw new Error(`Menu contains duplicate dish #${item.resource}`);
+    seen.add(item.resource);
+    if (!Number.isInteger(item.quality) || item.quality < 0 || item.quality > 12) {
+      throw new Error(`Menu item #${item.resource} has an invalid quality`);
+    }
+    const mode = normalizedQualityMode(item);
+    if (mode === 'exact' && !Number.isInteger(item.quality)) {
+      throw new Error(`Menu item #${item.resource} needs an exact quality`);
+    }
+  }
+}
+
+export function validateRestaurantMenuForCycle(menu: RestaurantMenuItem[]): void {
+  validateRestaurantMenu(menu);
+  for (const category of ['saladBar', 'mains', 'drinks'] as const) {
+    if (!menu.some(item => categoryForDish(item.resource) === category)) {
+      throw new Error(`Restaurant menu needs at least one ${category} dish`);
+    }
+  }
+}
+
+export function validateRestaurantMenuPrice(value: unknown): number {
+  const price = Number(value);
+  if (!Number.isFinite(price) || price < RESTAURANT_MENU_PRICE_MIN || price > RESTAURANT_MENU_PRICE_MAX) {
+    throw new Error(`menuPrice must be between ${RESTAURANT_MENU_PRICE_MIN} and ${RESTAURANT_MENU_PRICE_MAX}`);
+  }
+  return round2(price);
+}
+
+export function getRestaurantSeats(size: number, isLuxury: boolean): number {
+  const level = Math.max(1, Math.floor(Number(size) || 1));
+  return level * (isLuxury ? LUXURY_SEATS_PER_LEVEL : ECONOMY_SEATS_PER_LEVEL);
+}
+
+/** Compatibility overload for the old public helper. */
+export function computeRestaurantWages(professionalStaff: boolean): number;
+export function computeRestaurantWages(input: {
+  size: number;
+  isLuxury: boolean;
+  goodService?: boolean;
+  professionalStaff?: boolean;
+  administrationOverhead?: number;
+}): number;
+export function computeRestaurantWages(
+  input: boolean | { size: number; isLuxury: boolean; goodService?: boolean; professionalStaff?: boolean; administrationOverhead?: number }
+): number {
+  if (typeof input === 'boolean') {
+    return RESTAURANT_BASE_WAGES_PER_CYCLE * (input ? PROFESSIONAL_STAFF_WAGE_MULTIPLIER : 1);
+  }
+  const size = Math.max(1, Math.floor(Number(input.size) || 1));
+  const styleMultiplier = input.isLuxury ? 0.5 : 1;
+  const overhead = Number.isFinite(input.administrationOverhead) ? Math.max(1, Number(input.administrationOverhead)) : 1;
+  const staffMultiplier = input.goodService || input.professionalStaff ? PROFESSIONAL_STAFF_WAGE_MULTIPLIER : 1;
+  return Math.ceil(AVERAGE_SALARY * RESTAURANT_SALARY_MODIFIER * styleMultiplier * size * overhead * 12 * staffMultiplier);
+}
+
+function getCooManagement(companyId: number): number {
+  const row = db.prepare(`
+    SELECT COALESCE(MAX(skill_management), 0) AS skill
+    FROM executives
+    WHERE company_id = ? AND LOWER(position) IN ('coo', 'coo apprentice') AND status = 'employed'
+  `).get(companyId) as { skill: number };
+  return clamp(Number(row?.skill) || 0, 0, 100);
+}
+
+function getCmoCommunication(companyId: number): number {
+  const row = db.prepare(`
+    SELECT COALESCE(MAX(skill_communication), 0) AS skill
+    FROM executives
+    WHERE company_id = ? AND LOWER(position) IN ('cmo', 'cmo apprentice') AND status = 'employed'
+  `).get(companyId) as { skill: number };
+  return clamp(Number(row?.skill) || 0, 0, 100);
+}
+
+function getAdministrationOverhead(companyId: number): number {
+  // The local auth/economy implementation currently reports a neutral
+  // administration overhead. Preserve the official COO reduction shape so a
+  // future non-neutral overhead can be enabled without changing restaurant
+  // formulas.
+  const administrationOverhead = 1;
+  const cooSkill = getCooManagement(companyId);
+  return Math.max(1, administrationOverhead - (administrationOverhead - 1) * cooSkill / 100);
+}
+
+export function getRestaurantFoodRequirement(
+  resource: number,
+  size: number,
+  selectedInCategory: number,
+  isLuxury: boolean
+): number {
+  const coefficient = RESTAURANT_FOOD_CONSUMPTION[resource];
+  if (!coefficient) throw new Error(`Resource #${resource} is not a restaurant dish`);
+  const varietyIndex = clamp(Math.floor(selectedInCategory) - 1, 0, RESTAURANT_VARIETY_FACTORS.length - 1);
+  const variety = RESTAURANT_VARIETY_FACTORS[varietyIndex];
+  const seatsPerLevel = isLuxury ? LUXURY_SEATS_PER_LEVEL : ECONOMY_SEATS_PER_LEVEL;
+  return Math.ceil(Math.max(1, Math.floor(Number(size) || 1)) * coefficient * variety * seatsPerLevel / ECONOMY_SEATS_PER_LEVEL);
+}
+
+export function getRestaurantFoodRequirements(menu: RestaurantMenuItem[], size: number, isLuxury: boolean): Array<{ item: RestaurantMenuItem; amount: number }> {
+  const counts = new Map<string, number>();
+  for (const item of menu) {
+    const category = categoryForDish(item.resource);
+    if (category) counts.set(category, (counts.get(category) || 0) + 1);
+  }
+  return menu.map(item => {
+    const category = categoryForDish(item.resource);
+    return {
+      item,
+      amount: getRestaurantFoodRequirement(item.resource, size, category ? counts.get(category) || 1 : 1, isLuxury)
+    };
+  });
+}
+
+export function computeRestaurantRating(input: {
+  goodService: boolean;
+  professionalStaff?: boolean;
+  isLuxury?: boolean;
+  menu: RestaurantMenuItem[];
+  menuPrice?: number;
+  cmoCommunicationPoints?: number;
+  salesModifier?: number;
+}): number {
+  const menu = Array.isArray(input.menu) ? input.menu : [];
+  const categoryCount = new Set(menu.map(item => categoryForDish(item.resource)).filter(Boolean)).size;
+  if (menu.length === 0 || categoryCount < 3) return 0;
+  const averageQuality = menu.reduce((sum, item) => sum + clamp(Number(item.quality) || 0, 0, 12), 0) / menu.length;
+  const varietyScore = clamp(menu.length / RESTAURANT_DISHES.length, 0, 1) * 1.5;
+  const qualityScore = clamp(averageQuality / 12, 0, 1) * 3;
+  const serviceScore = input.goodService ? 2.5 : 1.25;
+  const luxuryScore = input.isLuxury ? 0.5 : 0;
+  const price = Number(input.menuPrice) || RESTAURANT_MENU_PRICE_MIN;
+  const priceScore = price <= 96 ? 0.5 : clamp(0.5 - (price - 96) / 508, 0, 0.5);
+  const communication = clamp(Number(input.cmoCommunicationPoints) || 0, 0, 100) * 0.01;
+  const sales = Number(input.salesModifier) || 0;
+  return round2(clamp(qualityScore + varietyScore + serviceScore + luxuryScore + priceScore + communication + sales, 0, RESTAURANT_RATING_MAX));
+}
+
+/** Numeric overload retains the old deterministic helper; object form models price and competition. */
+export function computeRestaurantOccupancy(rating: number): number;
+export function computeRestaurantOccupancy(input: {
+  rating: number;
+  menuPrice: number;
+  marketGuests?: number;
+  activeRestaurantSeats?: number;
+  capacity?: number;
+}): number;
+export function computeRestaurantOccupancy(input: number | {
+  rating: number;
+  menuPrice: number;
+  marketGuests?: number;
+  activeRestaurantSeats?: number;
+  capacity?: number;
+}): number {
+  if (typeof input === 'number') return round2(0.5 + clamp(input, 0, RESTAURANT_RATING_MAX) / RESTAURANT_RATING_MAX * 0.45);
+  const rating = clamp(Number(input.rating) || 0, 0, RESTAURANT_RATING_MAX);
+  const price = Number(input.menuPrice) || RESTAURANT_MENU_PRICE_MIN;
+  if (price < RESTAURANT_MENU_PRICE_MIN || price > RESTAURANT_MENU_PRICE_MAX) return 0;
+  const pricePenalty = Math.max(0, price - 96) / 500;
+  const competition = input.activeRestaurantSeats && input.marketGuests
+    ? clamp(input.activeRestaurantSeats / Math.max(1, input.marketGuests), 0, 0.55)
+    : 0;
+  return round2(clamp(0.08 + rating / RESTAURANT_RATING_MAX * 0.82 - pricePenalty - competition * 0.25, 0, 1));
+}
+
+function getRestaurantMarket(companyId: number, currentBuildingId: number): { marketGuests: number; activeRestaurantSeats: number } {
+  const workers = db.prepare(`
+    SELECT COALESCE(SUM(CASE WHEN kind != 'r' THEN size * 100 ELSE 0 END), 0) AS workers
+    FROM buildings
+    WHERE company_id != ?
+  `).get(companyId) as { workers: number };
+  const restaurants = db.prepare(`
+    SELECT id, size FROM buildings WHERE kind = 'r' AND id != ?
+  `).all(currentBuildingId) as Array<{ id: number; size: number }>;
+  const activeRestaurantSeats = restaurants.reduce((sum, b) => {
+    const properties = getRestaurantProperties(b.id);
+    return sum + (properties.keepOpen && properties.menu.length > 0 ? properties.seats : 0);
+  }, 0);
   return {
-    kind: item.resource,
-    // The legacy UI uses serving to indicate that a dish is enabled. The new
-    // API stores enabled dishes directly in menu, so enabled items map to the
-    // default bottom shelf until the user changes them in the UI.
-    serving: 'BOTTOM',
-    quality: item.quality,
-    price: item.price
+    marketGuests: Math.max(1000, Number(workers?.workers) || 0),
+    activeRestaurantSeats
   };
 }
 
-function projectLegacyGroup(menu: RestaurantMenuItem[], kinds: number[]): LegacyRestaurantMenuItem[] {
+function getDefaultProperties(buildingId: number, size: number): RestaurantProperties {
+  return {
+    buildingId,
+    goodService: false,
+    isLuxury: false,
+    professionalStaff: false,
+    keepOpen: true,
+    menu: [],
+    menuPrice: RESTAURANT_MENU_PRICE_MIN,
+    rating: 0,
+    occupancy: 0,
+    seats: getRestaurantSeats(size, false),
+    lastCycleAt: null,
+    reconstructionUntil: null
+  };
+}
+
+export function getRestaurantProperties(buildingId: number, companyId?: number | null): RestaurantProperties {
+  const row = db.prepare(`
+    SELECT * FROM restaurant_properties
+    WHERE building_id = ? AND (? IS NULL OR company_id = ?)
+  `).get(buildingId, companyId ?? null, companyId ?? null) as {
+    building_id: number;
+    company_id: number;
+    good_service: number;
+    is_luxury: number;
+    professional_staff: number;
+    keep_open: number;
+    menu_json: string;
+    menu_price: number;
+    rating: number;
+    occupancy: number;
+    last_cycle_at: string | null;
+    reconstruction_until: string | null;
+  } | undefined;
+  const building = getBuildingById(buildingId);
+  const size = building?.size || 1;
+  if (!row) return getDefaultProperties(buildingId, size);
+  let menu: RestaurantMenuItem[] = [];
+  try {
+    menu = JSON.parse(row.menu_json || '[]');
+  } catch {
+    menu = [];
+  }
+  const menuPrice = Number(row.menu_price) >= RESTAURANT_MENU_PRICE_MIN
+    ? validateRestaurantMenuPrice(row.menu_price)
+    : RESTAURANT_MENU_PRICE_MIN;
+  const goodService = Boolean(row.good_service);
+  return {
+    buildingId,
+    goodService,
+    isLuxury: Boolean(row.is_luxury),
+    professionalStaff: Boolean(row.professional_staff) || goodService,
+    keepOpen: Boolean(row.keep_open),
+    menu,
+    menuPrice,
+    rating: clamp(Number(row.rating) || 0, 0, RESTAURANT_RATING_MAX),
+    occupancy: clamp(Number(row.occupancy) || 0, 0, 1),
+    seats: getRestaurantSeats(size, Boolean(row.is_luxury)),
+    lastCycleAt: row.last_cycle_at || null,
+    reconstructionUntil: row.reconstruction_until || null
+  };
+}
+
+function getActiveRestaurantRunRow(buildingId: number, companyId?: number | null): RestaurantRunDbRow | undefined {
+  return db.prepare(`
+    SELECT * FROM restaurant_runs
+    WHERE building_id = ? AND resolved = 0 AND (? IS NULL OR company_id = ?)
+    ORDER BY id DESC LIMIT 1
+  `).get(buildingId, companyId ?? null, companyId ?? null) as RestaurantRunDbRow | undefined;
+}
+
+export function getRestaurantBusy(buildingId: number): Record<string, unknown> | null {
+  const property = db.prepare(`
+    SELECT reconstruction_started_at, reconstruction_until FROM restaurant_properties WHERE building_id = ?
+  `).get(buildingId) as { reconstruction_started_at: string | null; reconstruction_until: string | null } | undefined;
+  const now = Date.now();
+  if (property?.reconstruction_until && new Date(property.reconstruction_until).getTime() > now) {
+    const started = property.reconstruction_started_at || new Date(now).toISOString();
+    const duration = Math.max(1, Math.round((new Date(property.reconstruction_until).getTime() - new Date(started).getTime()) / 1000));
+    return {
+      id: buildingId,
+      started,
+      duration,
+      accelerationFactor: 1,
+      category: 'b',
+      expanding: true,
+      reconstruction: true,
+      canFetch: false
+    };
+  }
+  const run = getActiveRestaurantRunRow(buildingId);
+  if (run && run.cycle_end && new Date(run.cycle_end).getTime() > now) {
+    return {
+      id: run.id,
+      started: run.cycle_start || run.datetime,
+      duration: RESTAURANT_CYCLE_SECONDS,
+      accelerationFactor: 1,
+      category: 'o',
+      manualResolve: false,
+      restaurant_open: true
+    };
+  }
+  return null;
+}
+
+function toLegacyMenuItem(item: RestaurantMenuItem, menuPrice: number): LegacyRestaurantMenuItem {
+  return {
+    kind: item.resource,
+    serving: normalizedQualityMode(item) === 'high' ? 'TOP' : 'BOTTOM',
+    quality: item.quality,
+    price: menuPrice
+  };
+}
+
+function projectLegacyGroup(menu: RestaurantMenuItem[], kinds: number[], menuPrice: number): LegacyRestaurantMenuItem[] {
   return kinds
     .map(kind => menu.find(item => item.resource === kind))
     .filter((item): item is RestaurantMenuItem => item !== undefined)
-    .map(toLegacyMenuItem);
+    .map(item => toLegacyMenuItem(item, menuPrice));
 }
 
-export function getLegacyRestaurantProperties(
-  buildingId: number,
-  companyId?: number | null
-): LegacyRestaurantProperties {
+export function getLegacyRestaurantProperties(buildingId: number, companyId?: number | null): LegacyRestaurantProperties {
   const props = getRestaurantProperties(buildingId, companyId);
-  const menuPrice = props.menu.length > 0
-    ? round2(props.menu.reduce((sum, item) => sum + item.price, 0) / props.menu.length)
-    : 10;
   return {
     isLuxury: props.isLuxury,
     goodService: props.goodService,
-    saladBar: projectLegacyGroup(props.menu, LEGACY_SALAD_BAR),
-    mains: projectLegacyGroup(props.menu, LEGACY_MAINS),
-    drinks: projectLegacyGroup(props.menu, LEGACY_DRINKS),
-    menuPrice,
+    saladBar: projectLegacyGroup(props.menu, RESTAURANT_SALAD_BAR, props.menuPrice),
+    mains: projectLegacyGroup(props.menu, RESTAURANT_MAINS, props.menuPrice),
+    drinks: projectLegacyGroup(props.menu, RESTAURANT_DRINKS, props.menuPrice),
+    menuPrice: props.menuPrice,
     keepOpen: props.keepOpen,
     rating: props.rating,
     occupancy: props.occupancy,
@@ -282,24 +592,21 @@ export function getLegacyRestaurantProperties(
   };
 }
 
-export function getLegacyRestaurantRun(
-  run: RestaurantRun,
-  properties: LegacyRestaurantProperties
-): Record<string, unknown> {
+export function getLegacyRestaurantRun(run: RestaurantRun, properties: LegacyRestaurantProperties): Record<string, unknown> {
   return {
     id: run.id,
     datetime: run.datetime,
     rating: run.rating,
-    newRating: run.rating,
+    newRating: run.newRating,
     occupied: run.occupied,
     capacity: run.capacity,
-    occupancy: run.capacity > 0 ? round2(run.occupied / run.capacity) : 0,
+    occupancy: run.occupancy,
     revenue: run.revenue,
     wages: run.wages,
     cogs: run.foodCost,
     profit: run.profit,
-    menuPrice: properties.menuPrice,
-    review: '',
+    menuPrice: run.menuPrice || properties.menuPrice,
+    review: run.review,
     resolved: run.resolved,
     cycleStart: run.cycleStart,
     cycleEnd: run.cycleEnd,
@@ -310,137 +617,27 @@ export function getLegacyRestaurantRun(
   };
 }
 
-export function getRestaurantProperties(buildingId: number, companyId?: number | null): RestaurantProperties {
-  const row = db.prepare('SELECT * FROM restaurant_properties WHERE building_id = ?').get(buildingId) as {
-    building_id: number;
-    company_id: number;
-    good_service: number;
-    is_luxury: number;
-    professional_staff: number;
-    keep_open: number;
-    menu_json: string;
-    rating: number;
-    occupancy: number;
-    last_cycle_at: string | null;
-  } | undefined;
-
-  const building = getBuildingById(buildingId);
-  const size = building?.size || 1;
-  const isLuxury = Boolean(row ? row.is_luxury : 0);
-  const professionalStaff = Boolean(row ? row.professional_staff : 0);
-  const seats = getRestaurantSeats(size, isLuxury);
-
-  if (row) {
-    let menu: RestaurantMenuItem[] = [];
-    try {
-      menu = JSON.parse(row.menu_json || '[]');
-    } catch {
-      menu = [];
-    }
-    return {
-      buildingId,
-      goodService: Boolean(row.good_service),
-      isLuxury,
-      professionalStaff,
-      keepOpen: Boolean(row.keep_open),
-      menu,
-      rating: row.rating,
-      occupancy: row.occupancy,
-      seats,
-      lastCycleAt: row.last_cycle_at || null
-    };
-  }
-
-  // Default restaurant: good basic service, default menu, basic staff.
-  const rating = computeRestaurantRating({
-    goodService: true,
-    professionalStaff: false,
-    menu: DEFAULT_MENU
-  });
-
-  return {
-    buildingId,
-    goodService: true,
-    isLuxury: false,
-    professionalStaff: false,
-    keepOpen: true,
-    menu: DEFAULT_MENU,
-    rating,
-    occupancy: computeRestaurantOccupancy(rating),
-    seats,
-    lastCycleAt: null
-  };
-}
-
-export function updateRestaurantProperties(
-  buildingId: number,
-  companyId: number,
-  updates: Partial<{
-    goodService: boolean;
-    isLuxury: boolean;
-    professionalStaff: boolean;
-    keepOpen: boolean;
-    menu: RestaurantMenuItem[];
-  }>
-): { building: BuildingDbRow | null; restaurantProperties: RestaurantProperties } {
-  const current = getRestaurantProperties(buildingId, companyId);
-  const goodService = updates.goodService !== undefined ? updates.goodService : current.goodService;
-  const isLuxury = updates.isLuxury !== undefined ? updates.isLuxury : current.isLuxury;
-  const professionalStaff = updates.professionalStaff !== undefined ? updates.professionalStaff : current.professionalStaff;
-  const keepOpen = updates.keepOpen !== undefined ? updates.keepOpen : current.keepOpen;
-  const menu = updates.menu !== undefined ? updates.menu : current.menu;
-
-  // Rating on the 0.0 - 10.0 scale from quality / service / menu balance.
-  const rating = computeRestaurantRating({ goodService, professionalStaff, menu });
-  const occupancy = computeRestaurantOccupancy(rating);
-
-  const now = new Date().toISOString();
-  db.prepare(`
-    INSERT INTO restaurant_properties (building_id, company_id, good_service, is_luxury, professional_staff, keep_open, menu_json, rating, occupancy, last_cycle_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    ON CONFLICT(building_id) DO UPDATE SET
-      good_service = excluded.good_service,
-      is_luxury = excluded.is_luxury,
-      professional_staff = excluded.professional_staff,
-      keep_open = excluded.keep_open,
-      menu_json = excluded.menu_json,
-      rating = excluded.rating,
-      occupancy = excluded.occupancy,
-      last_cycle_at = excluded.last_cycle_at,
-      updated_at = excluded.updated_at
-  `).run(
-    buildingId,
-    companyId,
-    goodService ? 1 : 0,
-    isLuxury ? 1 : 0,
-    professionalStaff ? 1 : 0,
-    keepOpen ? 1 : 0,
-    JSON.stringify(menu),
-    rating,
-    occupancy,
-    current.lastCycleAt,
-    now
-  );
-
-  const building = getBuildingById(buildingId);
-  const updatedProps = getRestaurantProperties(buildingId, companyId);
-
-  return {
-    building,
-    restaurantProperties: updatedProps
-  };
-}
-
-function mapRunRow(r: {
+interface RestaurantRunDbRow {
   id: number;
   building_id: number;
+  company_id: number;
   datetime: string;
   rating: number;
-  occupied: number;
+  new_rating: number | null;
+  rating_before: number | null;
+  rating_after: number | null;
+  rating_delta: number | null;
+  occupied: number | null;
   capacity: number;
-  revenue: number;
+  occupancy: number | null;
+  revenue: number | null;
   cost: number;
-  profit: number;
+  profit: number | null;
+  menu_price: number | null;
+  review: string | null;
+  menu_json: string | null;
+  good_service: number | null;
+  is_luxury: number | null;
   resolved: number;
   cycle_start: string | null;
   cycle_end: string | null;
@@ -449,261 +646,393 @@ function mapRunRow(r: {
   spoiled: number | null;
   food_cost: number | null;
   wages: number | null;
-}): RestaurantRun {
+}
+
+function mapRunRow(row: RestaurantRunDbRow): RestaurantRun {
+  const cycleStart = row.cycle_start || row.datetime;
+  const cycleEnd = row.cycle_end || new Date(new Date(cycleStart).getTime() + RESTAURANT_CYCLE_MS).toISOString();
   return {
-    id: r.id,
-    buildingId: r.building_id,
-    datetime: r.datetime,
-    rating: r.rating,
-    occupied: r.occupied,
-    capacity: r.capacity,
-    revenue: r.revenue,
-    cost: r.cost,
-    profit: r.profit,
-    resolved: Boolean(r.resolved),
-    cycleStart: r.cycle_start || r.datetime,
-    cycleEnd: r.cycle_end || new Date(new Date(r.datetime).getTime() + RESTAURANT_CYCLE_MS).toISOString(),
-    prepared: r.prepared ?? 0,
-    served: r.served ?? r.occupied,
-    spoiled: r.spoiled ?? 0,
-    foodCost: r.food_cost ?? 0,
-    wages: r.wages ?? 0
+    id: row.id,
+    buildingId: row.building_id,
+    datetime: row.datetime,
+    rating: Number(row.rating) || 0,
+    newRating: row.new_rating === null || row.new_rating === undefined ? null : Number(row.new_rating),
+    occupied: row.occupied === null || row.occupied === undefined ? null : Number(row.occupied),
+    capacity: Number(row.capacity) || 0,
+    occupancy: row.occupancy === null || row.occupancy === undefined ? null : Number(row.occupancy),
+    revenue: row.revenue === null || row.revenue === undefined ? null : Number(row.revenue),
+    cost: Number(row.cost) || 0,
+    profit: row.profit === null || row.profit === undefined ? null : Number(row.profit),
+    menuPrice: Number(row.menu_price) || RESTAURANT_MENU_PRICE_MIN,
+    review: row.review || '',
+    resolved: Boolean(row.resolved),
+    cycleStart,
+    cycleEnd,
+    prepared: Number(row.prepared) || 0,
+    served: row.served === null || row.served === undefined ? null : Number(row.served),
+    spoiled: row.spoiled === null || row.spoiled === undefined ? null : Number(row.spoiled),
+    foodCost: Number(row.food_cost) || 0,
+    wages: Number(row.wages) || 0
   };
 }
 
-export function getRestaurantRuns(buildingId: number, companyId?: number | null): RestaurantRun[] {
-  let rows = db.prepare(`
-    SELECT * FROM restaurant_runs
-    WHERE building_id = ?
-    ORDER BY id DESC
-    LIMIT 30
-  `).all(buildingId) as Array<{
-    id: number;
-    building_id: number;
-    datetime: string;
-    rating: number;
-    occupied: number;
-    capacity: number;
-    revenue: number;
-    cost: number;
-    profit: number;
-    resolved: number;
-    cycle_start: string | null;
-    cycle_end: string | null;
-    prepared: number | null;
-    served: number | null;
-    spoiled: number | null;
-    food_cost: number | null;
-    wages: number | null;
-  }>;
+function getAvailableAmount(companyId: number, kind: number, mode: RestaurantQualityMode, quality: number): number {
+  const where = mode === 'exact' ? 'AND quality = ?' : '';
+  const params = mode === 'exact' ? [companyId, kind, quality] : [companyId, kind];
+  const row = db.prepare(`SELECT COALESCE(SUM(amount), 0) AS total FROM warehouse WHERE company_id = ? AND kind = ? AND amount > 0 ${where}`).get(...params) as { total: number | bigint };
+  return Number(row?.total) || 0;
+}
 
-  // Seed sample historic runs if empty so the restaurant page shows history.
-  if (rows.length === 0) {
-    const props = getRestaurantProperties(buildingId, companyId);
-    const capacity = props.seats;
-    const wages = computeRestaurantWages(props.professionalStaff);
-    const now = Date.now();
-
-    for (let i = 5; i >= 1; i--) {
-      const cycleEnd = new Date(now - i * RESTAURANT_CYCLE_MS).toISOString();
-      const cycleStart = new Date(now - (i + 1) * RESTAURANT_CYCLE_MS).toISOString();
-      const occupied = Math.floor(capacity * (props.occupancy - 0.05 + Math.random() * 0.1));
-      const avgCheck = props.isLuxury ? 48 : 22;
-      const revenue = round2(occupied * avgCheck);
-      const prepared = capacity;
-      const served = Math.min(occupied, prepared);
-      const spoiled = Math.max(0, prepared - served);
-      const foodCost = round2(revenue * 0.38);
-      const cost = round2(foodCost + wages);
-      const profit = round2(revenue - cost);
-
-      db.prepare(`
-        INSERT INTO restaurant_runs (building_id, company_id, datetime, rating, occupied, capacity, revenue, cost, profit, resolved, cycle_start, cycle_end, prepared, served, spoiled, food_cost, wages)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?)
-      `).run(buildingId, companyId || 1, cycleEnd, props.rating, occupied, capacity, revenue, cost, profit, cycleStart, cycleEnd, prepared, served, spoiled, foodCost, wages);
-    }
-
-    rows = db.prepare(`
-      SELECT * FROM restaurant_runs
-      WHERE building_id = ?
-      ORDER BY id DESC
-      LIMIT 30
-    `).all(buildingId) as typeof rows;
+function consumeRestaurantResource(
+  companyId: number,
+  item: RestaurantMenuItem,
+  amount: number
+): { transactions: Array<{ kind: number; quality: number; amount: number; cost: number }>; totalCost: number } | null {
+  const mode = normalizedQualityMode(item);
+  const where = mode === 'exact' ? 'AND quality = ?' : '';
+  const order = mode === 'high' ? 'quality DESC, id ASC' : 'quality ASC, id ASC';
+  const params = mode === 'exact' ? [companyId, item.resource, item.quality] : [companyId, item.resource];
+  const rows = db.prepare(`SELECT id, quality, amount, cost_workers, cost_admin, cost_material1, cost_material2, cost_market FROM warehouse WHERE company_id = ? AND kind = ? AND amount > 0 ${where} ORDER BY ${order}`).all(...params) as Array<Record<string, number>>;
+  const available = rows.reduce((sum, row) => sum + Number(row.amount || 0), 0);
+  if (available + 1e-9 < amount) return null;
+  let remaining = amount;
+  let totalCost = 0;
+  const transactions: Array<{ kind: number; quality: number; amount: number; cost: number }> = [];
+  for (const row of rows) {
+    if (remaining <= 0) break;
+    const consumed = Math.min(remaining, Number(row.amount) || 0);
+    const unitCost = Number(row.cost_workers || 0) + Number(row.cost_admin || 0) + Number(row.cost_material1 || 0) + Number(row.cost_material2 || 0) + Number(row.cost_market || 0);
+    db.prepare('UPDATE warehouse SET amount = amount - ?, updated_at = ? WHERE id = ? AND amount >= ?').run(consumed, new Date().toISOString(), row.id, consumed);
+    transactions.push({ kind: item.resource, quality: Number(row.quality) || 0, amount: -consumed, cost: unitCost });
+    totalCost += consumed * unitCost;
+    remaining -= consumed;
   }
-
-  return rows.map(mapRunRow);
+  return { transactions, totalCost: round2(totalCost) };
 }
 
-/** Total units of a resource across every quality tier in the warehouse. */
-function getAvailableAmount(companyId: number, kind: number): number {
-  const row = db.prepare(
-    'SELECT COALESCE(SUM(amount), 0) AS total FROM warehouse WHERE company_id = ? AND kind = ? AND amount > 0'
-  ).get(companyId, kind) as { total: number | bigint };
-  return Number(row.total) || 0;
+function computeCurrentRating(companyId: number, input: {
+  goodService: boolean;
+  isLuxury: boolean;
+  menu: RestaurantMenuItem[];
+  menuPrice: number;
+}): number {
+  const boost = getCompanyBoostSettings(companyId);
+  return computeRestaurantRating({
+    ...input,
+    professionalStaff: input.goodService,
+    cmoCommunicationPoints: getCmoCommunication(companyId),
+    salesModifier: boost.salesModifier > 0 ? 0.02 : 0
+  });
 }
 
-/**
- * Resolve one fixed 12-hour restaurant operating cycle (Issue #92).
- *
- * Lifecycle:
- *  1. The cycle opens at `cycleStart` and closes exactly 12 hours later at
- *     `cycleEnd` (RESTAURANT_CYCLE_MS), independent of sales.
- *  2. The restaurant loads one dish per seat for the cycle from the warehouse,
- *     split evenly across the menu. Partial loads are allowed; sales cannot
- *     exceed the loaded food.
- *  3. At the end of the cycle every loaded-but-unsold dish spoils and its cost
- *     is borne regardless of sales (`spoiled = prepared - served`).
- *
- * The whole cycle resolution (warehouse consumption, money update, run insert,
- * cycle bookkeeping) is one atomic transaction.
- */
-export function executeRestaurantRun(
-  buildingId: number,
-  companyId: number
-): Promise<{
+function canStartRestaurantCycle(buildingId: number, companyId: number): boolean {
+  const building = getBuildingById(buildingId);
+  if (!building || building.kind !== 'r' || building.company_id !== companyId) return false;
+  if (building.busy_until && new Date(building.busy_until).getTime() > Date.now()) return false;
+  const properties = getRestaurantProperties(buildingId, companyId);
+  if (!properties.keepOpen) return false;
+  if (getActiveRestaurantRunRow(buildingId, companyId)) return false;
+  try {
+    validateRestaurantMenuForCycle(properties.menu);
+  } catch {
+    return false;
+  }
+  return true;
+}
+
+interface StartCycleResult {
   building: BuildingDbRow | null;
   run: RestaurantRun;
   resourceTransactions: Array<{ kind: number; quality: number; amount: number }>;
   moneyUpdate: number;
+}
+
+function startRestaurantCycleInTransaction(buildingId: number, companyId: number, startAt: Date = new Date()): StartCycleResult {
+  const building = getBuildingById(buildingId);
+  if (!building || building.kind !== 'r' || building.company_id !== companyId) throw new Error('Restaurant not found');
+  if (building.busy_until && new Date(building.busy_until).getTime() > Date.now()) throw new Error('Restaurant is busy');
+  const properties = getRestaurantProperties(buildingId, companyId);
+  if (!properties.keepOpen) throw new Error('Restaurant is closed and cannot start a new cycle');
+  if (getActiveRestaurantRunRow(buildingId, companyId)) throw new Error('Restaurant already has an active cycle');
+  validateRestaurantMenuForCycle(properties.menu);
+
+  const requirements = getRestaurantFoodRequirements(properties.menu, building.size, properties.isLuxury);
+  for (const requirement of requirements) {
+    const mode = normalizedQualityMode(requirement.item);
+    if (getAvailableAmount(companyId, requirement.item.resource, mode, requirement.item.quality) < requirement.amount) {
+      throw new Error(`Insufficient restaurant food: need ${requirement.amount} of resource #${requirement.item.resource}`);
+    }
+  }
+
+  const resourceTransactions: Array<{ kind: number; quality: number; amount: number }> = [];
+  let foodCost = 0;
+  let prepared = 0;
+  for (const requirement of requirements) {
+    const result = consumeRestaurantResource(companyId, requirement.item, requirement.amount);
+    if (!result) throw new Error(`Restaurant food changed while loading resource #${requirement.item.resource}`);
+    foodCost += result.totalCost;
+    prepared += requirement.amount;
+    const grouped = new Map<number, number>();
+    for (const transaction of result.transactions) grouped.set(transaction.quality, (grouped.get(transaction.quality) || 0) + Math.abs(transaction.amount));
+    for (const [quality, amount] of grouped) resourceTransactions.push({ kind: requirement.item.resource, quality, amount: -amount });
+  }
+  foodCost = round2(foodCost);
+  const wages = computeRestaurantWages({
+    size: building.size,
+    isLuxury: properties.isLuxury,
+    goodService: properties.goodService,
+    administrationOverhead: getAdministrationOverhead(companyId)
+  });
+  const cost = round2(foodCost + wages);
+  updateCompanyMoney(companyId, -cost);
+
+  const cycleStart = startAt.toISOString();
+  const cycleEnd = new Date(startAt.getTime() + RESTAURANT_CYCLE_MS).toISOString();
+  const insert = db.prepare(`
+    INSERT INTO restaurant_runs (
+      building_id, company_id, datetime, rating, new_rating, rating_before, rating_after, rating_delta,
+      occupied, capacity, occupancy, revenue, cost, profit, menu_price, review, menu_json,
+      good_service, is_luxury, resolved, cycle_start, cycle_end, prepared, served, spoiled, food_cost, wages
+    ) VALUES (?, ?, ?, ?, NULL, ?, NULL, NULL, NULL, ?, NULL, NULL, ?, NULL, ?, '', ?, ?, ?, 0, ?, ?, ?, NULL, NULL, ?, ?)
+  `).run(
+    buildingId,
+    companyId,
+    cycleStart,
+    properties.rating,
+    properties.rating,
+    properties.seats,
+    cost,
+    properties.menuPrice,
+    JSON.stringify(properties.menu),
+    properties.goodService ? 1 : 0,
+    properties.isLuxury ? 1 : 0,
+    cycleStart,
+    cycleEnd,
+    prepared,
+    foodCost,
+    wages
+  );
+  db.prepare('UPDATE restaurant_properties SET last_cycle_at = ?, updated_at = ? WHERE building_id = ?').run(cycleStart, new Date().toISOString(), buildingId);
+  const run = mapRunRow(db.prepare('SELECT * FROM restaurant_runs WHERE id = ?').get(Number(insert.lastInsertRowid)) as RestaurantRunDbRow);
+  return { building: getBuildingById(buildingId), run, resourceTransactions, moneyUpdate: -cost };
+}
+
+function settleRestaurantRunInTransaction(runId: number, now: Date): { run: RestaurantRun; nextCycle: RestaurantRun | null; moneyUpdate: number } {
+  const row = db.prepare('SELECT * FROM restaurant_runs WHERE id = ?').get(runId) as RestaurantRunDbRow | undefined;
+  if (!row) throw new Error('Restaurant run not found');
+  if (row.resolved) return { run: mapRunRow(row), nextCycle: null, moneyUpdate: 0 };
+  const end = new Date(row.cycle_end || row.datetime).getTime();
+  if (end > now.getTime()) throw new Error('Restaurant cycle has not ended');
+  let menu: RestaurantMenuItem[] = [];
+  try {
+    menu = JSON.parse(row.menu_json || '[]');
+  } catch {
+    menu = [];
+  }
+  const building = getBuildingById(row.building_id);
+  const properties = getRestaurantProperties(row.building_id, row.company_id);
+  const market = getRestaurantMarket(row.company_id, row.building_id);
+  const demandOccupancy = computeRestaurantOccupancy({
+    rating: row.rating,
+    menuPrice: Number(row.menu_price) || properties.menuPrice,
+    marketGuests: market.marketGuests,
+    activeRestaurantSeats: market.activeRestaurantSeats
+  });
+  const capacity = Number(row.capacity) || properties.seats;
+  const prepared = Number(row.prepared) || 0;
+  const served = Math.min(prepared, Math.floor(capacity * demandOccupancy));
+  const spoiled = prepared - served;
+  const menuPrice = Number(row.menu_price) || properties.menuPrice;
+  const revenue = round2(served * menuPrice);
+  const cost = Number(row.cost) || 0;
+  const profit = round2(revenue - cost);
+  const newRating = computeCurrentRating(row.company_id, {
+    goodService: row.good_service === null ? properties.goodService : Boolean(row.good_service),
+    isLuxury: row.is_luxury === null ? properties.isLuxury : Boolean(row.is_luxury),
+    menu,
+    menuPrice
+  });
+  const ratingDelta = round2(newRating - Number(row.rating || 0));
+  db.prepare(`
+    UPDATE restaurant_runs
+    SET rating_before = ?, rating_after = ?, rating_delta = ?, new_rating = ?, occupied = ?, occupancy = ?,
+        revenue = ?, profit = ?, served = ?, spoiled = ?, resolved = 1, review = ?
+    WHERE id = ? AND resolved = 0
+  `).run(row.rating, newRating, ratingDelta, newRating, served, demandOccupancy, revenue, profit, served, spoiled, `Restaurant served ${served} guests`, runId);
+  if (revenue !== 0) updateCompanyMoney(row.company_id, revenue);
+  db.prepare('UPDATE restaurant_properties SET rating = ?, occupancy = ?, updated_at = ? WHERE building_id = ?')
+    .run(newRating, demandOccupancy, new Date().toISOString(), row.building_id);
+  const resolved = mapRunRow(db.prepare('SELECT * FROM restaurant_runs WHERE id = ?').get(runId) as RestaurantRunDbRow);
+  let nextCycle: RestaurantRun | null = null;
+  if (properties.keepOpen && canStartRestaurantCycle(row.building_id, row.company_id)) {
+    try {
+      nextCycle = startRestaurantCycleInTransaction(row.building_id, row.company_id, new Date(end));
+    } catch {
+      // A cycle can settle successfully even if the warehouse cannot fund the
+      // following cycle. The restaurant remains open for a later retry.
+    }
+  }
+  return { run: resolved, nextCycle, moneyUpdate: revenue };
+}
+
+export async function resolveRestaurantRun(runId: number, now: Date = new Date()): Promise<{ run: RestaurantRun; nextCycle: RestaurantRun | null; moneyUpdate: number }> {
+  return runInTransaction(() => settleRestaurantRunInTransaction(runId, now), { immediate: true });
+}
+
+export async function resolveDueRestaurantRuns(buildingId?: number, companyId?: number | null, now: Date = new Date()): Promise<void> {
+  await runInTransaction(() => {
+    const rows = db.prepare(`
+      SELECT id FROM restaurant_runs
+      WHERE resolved = 0 AND cycle_end <= ?
+        AND (? IS NULL OR building_id = ?)
+        AND (? IS NULL OR company_id = ?)
+      ORDER BY id ASC
+    `).all(now.toISOString(), buildingId ?? null, buildingId ?? null, companyId ?? null, companyId ?? null) as Array<{ id: number }>;
+    for (const row of rows) settleRestaurantRunInTransaction(row.id, now);
+  }, { immediate: true });
+}
+
+export async function getRestaurantRuns(buildingId: number, companyId?: number | null): Promise<RestaurantRun[]> {
+  await resolveDueRestaurantRuns(buildingId, companyId);
+  const rows = db.prepare('SELECT * FROM restaurant_runs WHERE building_id = ? AND (? IS NULL OR company_id = ?) ORDER BY id DESC LIMIT 30')
+    .all(buildingId, companyId ?? null, companyId ?? null) as RestaurantRunDbRow[];
+  return rows.map(mapRunRow);
+}
+
+export async function executeRestaurantRun(buildingId: number, companyId: number): Promise<StartCycleResult> {
+  await resolveDueRestaurantRuns(buildingId, companyId);
+  return runInTransaction(() => startRestaurantCycleInTransaction(buildingId, companyId), { immediate: true });
+}
+
+export async function updateRestaurantProperties(
+  buildingId: number,
+  companyId: number,
+  updates: Partial<{
+    goodService: boolean;
+    isLuxury: boolean;
+    professionalStaff: boolean;
+    keepOpen: boolean;
+    menu: RestaurantMenuItem[];
+    menuPrice: number;
+  }>
+): Promise<{
+  building: BuildingDbRow | null;
+  restaurantProperties: RestaurantProperties;
+  moneyUpdate: number;
+  cycle: RestaurantRun | null;
+  resourceTransactions: Array<{ kind: number; quality: number; amount: number }>;
 }> {
   return runInTransaction(() => {
-    const props = getRestaurantProperties(buildingId, companyId);
-    if (!props.keepOpen) {
-      throw new Error('Restaurant is closed and cannot start a new cycle');
-    }
-    const capacity = props.seats;
-    const occupied = Math.floor(capacity * (0.8 + Math.random() * 0.18));
+    const building = getBuildingById(buildingId);
+    if (!building || building.kind !== 'r' || building.company_id !== companyId) throw new Error('Restaurant not found');
+    const current = getRestaurantProperties(buildingId, companyId);
+    const goodService = updates.goodService !== undefined
+      ? Boolean(updates.goodService)
+      : updates.professionalStaff !== undefined ? Boolean(updates.professionalStaff) : current.goodService;
+    const isLuxury = updates.isLuxury !== undefined ? Boolean(updates.isLuxury) : current.isLuxury;
+    const keepOpen = updates.keepOpen !== undefined ? Boolean(updates.keepOpen) : current.keepOpen;
+    const menu = updates.menu !== undefined ? updates.menu : current.menu;
+    const menuPrice = updates.menuPrice !== undefined ? validateRestaurantMenuPrice(updates.menuPrice) : current.menuPrice;
+    validateRestaurantMenu(menu);
 
-    const cycleStart = new Date();
-    const cycleEnd = new Date(cycleStart.getTime() + RESTAURANT_CYCLE_MS);
-
-    // Food load: one dish per seat per 12h cycle, split evenly across the menu.
-    const preparedPerDish = props.menu.length > 0 ? Math.ceil(capacity / props.menu.length) : 0;
-    const resourceTransactions: Array<{ kind: number; quality: number; amount: number }> = [];
-    let prepared = 0;
-    let foodCost = 0;
-
-    for (const item of props.menu) {
-      if (preparedPerDish <= 0) break;
-      const desired = Math.min(preparedPerDish, capacity - prepared);
-      if (desired <= 0) break;
-      const available = getAvailableAmount(companyId, item.resource);
-      const load = Math.min(desired, available);
-      if (load <= 0) continue;
-
-      const transactions = consumeResourceWithTransactions(companyId, item.resource, item.quality, load);
-      if (!transactions) continue; // raced with another consumer; leave this dish unloaded
-
-      prepared += load;
-      for (const tx of transactions) {
-        const units = Math.abs(tx.amount);
-        foodCost += (Number(tx.cost) || 0) * units;
-      }
-      resourceTransactions.push({ kind: item.resource, quality: item.quality, amount: -load });
-    }
-    foodCost = round2(foodCost);
-
-    // Guests can only be served the food that was actually loaded; the rest of
-    // the loaded food spoils at the end of the 12h cycle regardless of sales.
-    const served = Math.min(occupied, prepared);
-    const spoiled = prepared - served;
-
-    let avgDishPrice = 20;
-    if (props.menu.length > 0) {
-      avgDishPrice = props.menu.reduce((acc, item) => acc + (item.price || 20), 0) / props.menu.length;
-    }
-    if (props.isLuxury) avgDishPrice *= 1.5;
-
-    const revenue = round2(served * avgDishPrice);
-    const wages = computeRestaurantWages(props.professionalStaff);
-    const cost = round2(foodCost + wages);
-    const profit = round2(revenue - cost);
-
-    // Money update is skipped when profit is exactly zero (no-ledger noise).
+    const styleChanged = isLuxury !== current.isLuxury;
+    const busy = getRestaurantBusy(buildingId);
+    if (styleChanged && busy) throw new Error('Restaurant cannot change style while it is busy or operating');
     let moneyUpdate = 0;
-    if (profit !== 0) {
-      updateCompanyMoney(companyId, profit);
-      moneyUpdate = profit;
+    let reconstructionStartedAt = current.reconstructionUntil && new Date(current.reconstructionUntil).getTime() > Date.now()
+      ? new Date(Date.now()).toISOString()
+      : null;
+    let reconstructionUntil = current.reconstructionUntil && new Date(current.reconstructionUntil).getTime() > Date.now()
+      ? current.reconstructionUntil
+      : null;
+    if (styleChanged) {
+      const reconstructionCost = Math.ceil(RESTAURANT_COST_UNITS * 10 * AVERAGE_SALARY * building.size / 2);
+      updateCompanyMoney(companyId, -reconstructionCost);
+      moneyUpdate -= reconstructionCost;
+      reconstructionStartedAt = new Date().toISOString();
+      reconstructionUntil = new Date(Date.now() + building.size * RESTAURANT_RECONSTRUCTION_SECONDS * 1000).toISOString();
+      db.prepare('UPDATE buildings SET busy_until = ? WHERE id = ? AND company_id = ?').run(reconstructionUntil, buildingId, companyId);
     }
-
-    const cycleStartIso = cycleStart.toISOString();
-    const cycleEndIso = cycleEnd.toISOString();
-    const insertRes = db.prepare(`
-      INSERT INTO restaurant_runs (building_id, company_id, datetime, rating, occupied, capacity, revenue, cost, profit, resolved, cycle_start, cycle_end, prepared, served, spoiled, food_cost, wages)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?)
+    let rating = computeCurrentRating(companyId, { goodService, isLuxury, menu, menuPrice });
+    if (!keepOpen && current.keepOpen && !styleChanged && current.rating > 0) rating = round2(current.rating * 0.875);
+    const now = new Date().toISOString();
+    db.prepare(`
+      INSERT INTO restaurant_properties (
+        building_id, company_id, good_service, is_luxury, keep_open, menu_json, menu_price, rating, occupancy,
+        updated_at, professional_staff, last_cycle_at, reconstruction_started_at, reconstruction_until, rating_penalty_applied
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(building_id) DO UPDATE SET
+        company_id = excluded.company_id,
+        good_service = excluded.good_service,
+        is_luxury = excluded.is_luxury,
+        keep_open = excluded.keep_open,
+        menu_json = excluded.menu_json,
+        menu_price = excluded.menu_price,
+        rating = excluded.rating,
+        occupancy = excluded.occupancy,
+        updated_at = excluded.updated_at,
+        professional_staff = excluded.professional_staff,
+        last_cycle_at = excluded.last_cycle_at,
+        reconstruction_started_at = excluded.reconstruction_started_at,
+        reconstruction_until = excluded.reconstruction_until,
+        rating_penalty_applied = excluded.rating_penalty_applied
     `).run(
       buildingId,
       companyId,
-      cycleStartIso,
-      props.rating,
-      occupied,
-      capacity,
-      revenue,
-      cost,
-      profit,
-      cycleStartIso,
-      cycleEndIso,
-      prepared,
-      served,
-      spoiled,
-      foodCost,
-      wages
+      goodService ? 1 : 0,
+      isLuxury ? 1 : 0,
+      keepOpen ? 1 : 0,
+      JSON.stringify(menu),
+      menuPrice,
+      rating,
+      0,
+      now,
+      goodService ? 1 : 0,
+      current.lastCycleAt,
+      reconstructionStartedAt,
+      reconstructionUntil,
+      !keepOpen && current.keepOpen ? 1 : 0
     );
-
-    db.prepare('UPDATE restaurant_properties SET last_cycle_at = ? WHERE building_id = ?')
-      .run(cycleStartIso, buildingId);
-
-    const run: RestaurantRun = {
-      id: Number(insertRes.lastInsertRowid),
-      buildingId,
-      datetime: cycleStartIso,
-      rating: props.rating,
-      occupied,
-      capacity,
-      revenue,
-      cost,
-      profit,
-      resolved: true,
-      cycleStart: cycleStartIso,
-      cycleEnd: cycleEndIso,
-      prepared,
-      served,
-      spoiled,
-      foodCost,
-      wages
-    };
-
-    const building = getBuildingById(buildingId);
-
+    let cycle: RestaurantRun | null = null;
+    let resourceTransactions: Array<{ kind: number; quality: number; amount: number }> = [];
+    // The official PATCH endpoint starts a cycle only when keepOpen=true is
+    // explicitly sent. Saving a menu or changing price alone is side-effect free.
+    if (updates.keepOpen === true && !styleChanged) {
+      try {
+        const started = startRestaurantCycleInTransaction(buildingId, companyId);
+        cycle = started.run;
+        resourceTransactions = started.resourceTransactions;
+        moneyUpdate += started.moneyUpdate;
+      } catch (error) {
+        // An explicit keepOpen=true is an instruction to begin the next
+        // cycle; surface stock/validation errors instead of claiming success.
+        throw error;
+      }
+    }
     return {
-      building,
-      run,
-      resourceTransactions,
-      moneyUpdate
+      building: getBuildingById(buildingId),
+      restaurantProperties: getRestaurantProperties(buildingId, companyId),
+      moneyUpdate,
+      cycle,
+      resourceTransactions
     };
   }, { immediate: true });
 }
 
-export function getRestaurantMenuGuide(): Array<{
-  kind: number;
-  name: string;
-  category: string;
-  suggestedPrice: number;
-  image: string;
-}> {
+export function getRestaurantMenuGuide(): Array<{ kind: number; name: string; category: string; suggestedPrice: number; image: string }> {
   return RESTAURANT_DISHES.map(kind => {
     const def = getResourceDef(kind);
+    const category = categoryForDish(kind) === 'saladBar' ? 'Salad bar' : categoryForDish(kind) === 'mains' ? 'Mains' : 'Drinks';
     return {
       kind,
       name: RESTAURANT_DISH_NAMES[kind] || def?.name || `Dish #${kind}`,
-      category: kind >= 124 && kind <= 126 ? 'Drinks' : (kind >= 142 ? 'Desserts & Juices' : 'Main Courses'),
-      suggestedPrice: round2((def?.cost || 10) * 1.6),
+      category,
+      suggestedPrice: RESTAURANT_MENU_PRICE_MIN,
       image: def?.image || 'images/resources/hamburger.png'
     };
   });
 }
 
-/** Rating breakdown on the 0.0 - 10.0 star scale. */
 export function getRestaurantRatings(buildingId?: number): {
   overallRating: number;
   foodRating: number;
@@ -712,12 +1041,15 @@ export function getRestaurantRatings(buildingId?: number): {
   totalReviews: number;
 } {
   const props = buildingId ? getRestaurantProperties(buildingId) : null;
-  const rating = props ? props.rating : computeRestaurantRating({ goodService: true, professionalStaff: false, menu: DEFAULT_MENU });
+  const rating = props?.rating || 0;
+  const totalReviews = buildingId
+    ? Number((db.prepare('SELECT COUNT(*) AS count FROM restaurant_runs WHERE building_id = ? AND resolved = 1').get(buildingId) as { count: number })?.count || 0)
+    : 0;
   return {
     overallRating: rating,
-    foodRating: Math.min(RESTAURANT_RATING_MAX, Math.round((rating + 0.4) * 10) / 10),
-    serviceRating: props?.goodService ? (props.professionalStaff ? 9.2 : 7.8) : 4.6,
-    ambianceRating: props?.isLuxury ? 9.0 : 7.2,
-    totalReviews: 128
+    foodRating: round2(rating),
+    serviceRating: props ? (props.goodService ? 10 : 5) : 0,
+    ambianceRating: props ? (props.isLuxury ? 10 : 7) : 0,
+    totalReviews
   };
 }

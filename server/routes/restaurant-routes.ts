@@ -10,8 +10,8 @@ import {
   getLegacyRestaurantProperties,
   getLegacyRestaurantRun,
   RESTAURANT_DISHES,
-  type RestaurantMenuItem,
-  type LegacyRestaurantProperties
+  validateRestaurantMenuPrice,
+  type RestaurantMenuItem
 } from '../game/restaurant.ts';
 import { getCompanyBuildings, getBuildingById } from '../game/buildings.ts';
 import { buildingRepository } from '../repositories/building-repository.ts';
@@ -75,15 +75,16 @@ export async function handleRestaurantRoutes(
       if (method === 'PATCH' || method === 'PUT' || method === 'POST') {
         try {
           const body = await readJsonBody<Record<string, unknown>>(req);
-          const updates = legacyUpdatesToDomain(body, properties);
-          const result = updateRestaurantProperties(buildingId, currentCompanyId, updates);
+          const updates = legacyUpdatesToDomain(body);
+          const result = await updateRestaurantProperties(buildingId, currentCompanyId, updates);
           const updatedProperties = getLegacyRestaurantProperties(buildingId, currentCompanyId);
           const updatedBuilding = buildingRepository.findById(buildingId);
           sendJson(res, {
             building: updatedBuilding
               ? { ...toSimCompaniesBuildingDTO(updatedBuilding), restaurantProperties: updatedProperties }
               : null,
-            moneyUpdate: 0
+            moneyUpdate: result.moneyUpdate,
+            cycle: result.cycle
           });
         } catch (err: unknown) {
           const msg = err instanceof Error ? err.message : String(err);
@@ -96,7 +97,7 @@ export async function handleRestaurantRoutes(
     }
 
     if (method === 'GET') {
-      const runs = getRestaurantRuns(buildingId, currentCompanyId)
+      const runs = (await getRestaurantRuns(buildingId, currentCompanyId))
         .map(run => getLegacyRestaurantRun(run, properties));
       sendJson(res, runs);
       return true;
@@ -169,7 +170,7 @@ export async function handleRestaurantRoutes(
 
   if (runsMatch) {
     if (method === 'GET') {
-      sendJson(res, { runs: getRestaurantRuns(buildingId, currentCompanyId) });
+      sendJson(res, { runs: await getRestaurantRuns(buildingId, currentCompanyId) });
       return true;
     }
     if (method === 'POST') {
@@ -212,13 +213,15 @@ export async function handleRestaurantRoutes(
           professionalStaff: boolean;
           keepOpen: boolean;
           menu: RestaurantMenuItem[];
+          menuPrice: number;
         }> = {};
         if (body.goodService !== undefined) updates.goodService = Boolean(body.goodService);
         if (body.isLuxury !== undefined) updates.isLuxury = Boolean(body.isLuxury);
         if (body.professionalStaff !== undefined) updates.professionalStaff = Boolean(body.professionalStaff);
         if (body.keepOpen !== undefined) updates.keepOpen = Boolean(body.keepOpen);
         if (body.menu !== undefined) updates.menu = parseMenu(body.menu);
-        const result = updateRestaurantProperties(buildingId, currentCompanyId, updates);
+        if (body.menuPrice !== undefined) updates.menuPrice = validateRestaurantMenuPrice(body.menuPrice);
+        const result = await updateRestaurantProperties(buildingId, currentCompanyId, updates);
         sendJson(res, result);
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -233,7 +236,7 @@ export async function handleRestaurantRoutes(
   return false;
 }
 
-/** Validate a menu payload: known dishes, numeric quality/price, no duplicates. */
+/** Validate a menu payload: known dishes, quality mode, and no duplicates. */
 function parseMenu(raw: unknown): RestaurantMenuItem[] {
   if (!Array.isArray(raw)) {
     throw new Error('Menu must be an array of menu items');
@@ -244,7 +247,7 @@ function parseMenu(raw: unknown): RestaurantMenuItem[] {
   const seen = new Set<number>();
   return raw.map(entry => {
     const item = entry as Record<string, unknown>;
-    const resource = Number(item.resource);
+    const resource = Number(item.resource ?? item.kind);
     if (!Number.isInteger(resource) || !RESTAURANT_DISHES.includes(resource)) {
       throw new Error(`Menu item resource #${String(item.resource)} is not a restaurant dish`);
     }
@@ -252,29 +255,38 @@ function parseMenu(raw: unknown): RestaurantMenuItem[] {
       throw new Error(`Menu contains duplicate dish #${resource}`);
     }
     seen.add(resource);
-    const quality = Number(item.quality) || 0;
-    if (!Number.isInteger(quality) || quality < 0) {
+    const quality = Number(item.quality ?? 0);
+    if (!Number.isInteger(quality) || quality < 0 || quality > 12) {
       throw new Error(`Menu item #${resource} has an invalid quality`);
     }
-    const price = Number(item.price);
-    if (!Number.isFinite(price) || price <= 0) {
-      throw new Error(`Menu item #${resource} has an invalid price`);
+    const rawMode = item.qualityMode ?? item.serving;
+    const mode = rawMode === undefined
+      ? 'low'
+      : String(rawMode).toLowerCase() === 'top' || String(rawMode).toLowerCase() === 'high'
+        ? 'high'
+        : String(rawMode).toLowerCase() === 'exact'
+          ? 'exact'
+          : String(rawMode).toLowerCase() === 'bottom' || String(rawMode).toLowerCase() === 'low'
+            ? 'low'
+            : null;
+    if (!mode) {
+      throw new Error(`Menu item #${resource} has an invalid quality mode`);
     }
-    return { resource, quality, price: Math.round(price * 100) / 100 };
+    return { resource, quality, qualityMode: mode };
   });
 }
 
 const LEGACY_MENU_GROUPS = ['saladBar', 'mains', 'drinks'] as const;
 
 function legacyUpdatesToDomain(
-  body: Record<string, unknown>,
-  current: LegacyRestaurantProperties
+  body: Record<string, unknown>
 ): Partial<{
   goodService: boolean;
   isLuxury: boolean;
   professionalStaff: boolean;
   keepOpen: boolean;
   menu: RestaurantMenuItem[];
+  menuPrice: number;
 }> {
   const updates: Partial<{
     goodService: boolean;
@@ -282,11 +294,13 @@ function legacyUpdatesToDomain(
     professionalStaff: boolean;
     keepOpen: boolean;
     menu: RestaurantMenuItem[];
+    menuPrice: number;
   }> = {};
   if (body.goodService !== undefined) updates.goodService = Boolean(body.goodService);
   if (body.isLuxury !== undefined) updates.isLuxury = Boolean(body.isLuxury);
   if (body.professionalStaff !== undefined) updates.professionalStaff = Boolean(body.professionalStaff);
   if (body.keepOpen !== undefined) updates.keepOpen = Boolean(body.keepOpen);
+  if (body.menuPrice !== undefined) updates.menuPrice = validateRestaurantMenuPrice(body.menuPrice);
 
   const hasLegacyMenu = LEGACY_MENU_GROUPS.some(key => Object.prototype.hasOwnProperty.call(body, key));
   const rawMenu = body.menu;
@@ -301,31 +315,20 @@ function legacyUpdatesToDomain(
       }
       if (Array.isArray(value)) entries.push(...value);
     }
-    updates.menu = parseLegacyMenu(entries, body.menuPrice, current);
-  } else if (body.menuPrice !== undefined) {
-    const menuPrice = positiveNumber(body.menuPrice);
-    if (menuPrice === null) throw new Error('menuPrice must be a positive number');
-    updates.menu = current.saladBar.concat(current.mains, current.drinks).map(item => ({
-      resource: item.kind,
-      quality: item.quality,
-      price: menuPrice
-    }));
+    updates.menu = parseLegacyMenu(entries);
   }
   return updates;
 }
 
 function parseLegacyMenu(
-  entries: unknown[],
-  rawMenuPrice: unknown,
-  current: LegacyRestaurantProperties
+  entries: unknown[]
 ): RestaurantMenuItem[] {
-  const fallbackPrice = positiveNumber(rawMenuPrice) ?? current.menuPrice;
   const seen = new Set<number>();
   const menu: RestaurantMenuItem[] = [];
   for (const entry of entries) {
     if (!entry || typeof entry !== 'object') throw new Error('Menu item must be an object');
     const item = entry as Record<string, unknown>;
-    const serving = item.serving === undefined ? 'BOTTOM' : String(item.serving);
+    const serving = item.serving === undefined ? 'BOTTOM' : String(item.serving).toUpperCase();
     if (serving === 'NONE') continue;
     const resource = Number(item.resource ?? item.kind);
     if (!Number.isInteger(resource) || !RESTAURANT_DISHES.includes(resource)) {
@@ -333,18 +336,11 @@ function parseLegacyMenu(
     }
     if (seen.has(resource)) throw new Error(`Menu contains duplicate dish #${resource}`);
     seen.add(resource);
-    const quality = Number(item.quality) || 0;
-    if (!Number.isInteger(quality) || quality < 0) {
+    const quality = Number(item.quality ?? 0);
+    if (!Number.isInteger(quality) || quality < 0 || quality > 12) {
       throw new Error(`Menu item #${resource} has an invalid quality`);
     }
-    const price = positiveNumber(item.price) ?? fallbackPrice;
-    if (price === null) throw new Error(`Menu item #${resource} has an invalid price`);
-    menu.push({ resource, quality, price: Math.round(price * 100) / 100 });
+    menu.push({ resource, quality, qualityMode: serving === 'TOP' ? 'high' : serving === 'EXACT' ? 'exact' : 'low' });
   }
   return menu;
-}
-
-function positiveNumber(value: unknown): number | null {
-  const number = Number(value);
-  return Number.isFinite(number) && number > 0 ? number : null;
 }
