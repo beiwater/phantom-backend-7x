@@ -226,7 +226,7 @@ export async function handleAuditRoutes(
       logo: "images/buildings/other/hq_tier01.png",
       created_at: new Date(now.getTime() - 86400000 * 30).toISOString()
     };
-
+    const player = db.prepare('SELECT * FROM players WHERE player_id = ?').get(comp.player_id) as Record<string, unknown> | undefined;
     const rawBuildings = buildingRepository.findByCompany(targetCompanyId);
     const buildingsDTO = rawBuildings.map(toSimCompaniesBuildingDTO);
     sendJson(res, {
