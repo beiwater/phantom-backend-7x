@@ -465,9 +465,10 @@ async function runNewspaperVerification(): Promise<void> {
     // v3 per-issue sponsors endpoint (spec §3) with pricing + logos.
     const v3Sponsors = await api('GET', `/api/v3/newspaper/${bookableIssueId}/sponsor/`);
     assert.equal(v3Sponsors.status, 200, 'v3 sponsor list must return 200');
-    const v3Body = v3Sponsors.body as { sponsors: Record<string, { companyName: string; logo: string }>; pricing: { goldenPrice: number }; filledSlots: number; allSlotsTaken: boolean };
-    assert.equal(v3Body.sponsors['0'].companyName, author.companyName, 'v3 sponsors include the golden slot');
-    assert.equal(typeof v3Body.sponsors['0'].logo, 'string', 'v3 sponsors carry logos');
+    const v3Body = v3Sponsors.body as { sponsors: Array<{ companyName: string; logo: string } | null>; pricing: { goldenPrice: number }; filledSlots: number; allSlotsTaken: boolean };
+    assert.ok(Array.isArray(v3Body.sponsors), 'v3 sponsors use the positional array consumed by the frontend');
+    assert.equal(v3Body.sponsors[0]?.companyName, author.companyName, 'v3 sponsors include the golden slot');
+    assert.equal(typeof v3Body.sponsors[0]?.logo, 'string', 'v3 sponsors carry logos');
     assert.equal(v3Body.pricing.goldenPrice, 20, 'v3 sponsors carry pricing');
     assert.equal(v3Body.filledSlots, 3, 'golden + silver + bronze booked so far');
     console.log('  ✔ ranking DESC, boosted article #1, cap 15, numeric variant, issue payload + v3 sponsors');
