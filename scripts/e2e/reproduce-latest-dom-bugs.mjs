@@ -68,6 +68,26 @@ async function reproduceWarehouseStats(page) {
     'warehouse summary renders but the buy-order section never leaves loading');
 }
 
+async function reproduceSimboostsLoading(page) {
+  await page.goto(`${baseUrl}/zh-cn/headquarters/simboosts/`);
+  await page.waitForTimeout(2500);
+  const text = await bodyText(page);
+  record('simboosts-designs-loading', text.includes('加载可解锁的总部设计'),
+    'SimBoosts page never finishes loading unlockable headquarters designs');
+}
+
+async function reproduceNewspaperArchive(page) {
+  await page.goto(`${baseUrl}/zh-cn/newspaper/0/`);
+  await page.waitForTimeout(1800);
+  const issueLinks = await page.locator('a').evaluateAll(links => links
+    .map(link => link.getAttribute('href') ?? '')
+    .filter(href => /^\/zh-cn\/newspaper\/0\/\d+\/$/.test(href)));
+  const uniqueIssueLinks = [...new Set(issueLinks)];
+  const minimumIssues = Number(process.env.E2E_EXPECT_NEWSPAPER_MIN_ISSUES ?? 9);
+  record('newspaper-archive-incomplete', uniqueIssueLinks.length < minimumIssues,
+    `localArchiveIssueCount=${uniqueIssueLinks.length}; expectedAtLeast=${minimumIssues}`);
+}
+
 async function reproduceExecutiveTimeWarp(page) {
   await page.goto(`${baseUrl}/zh-cn/headquarters/executives/`);
   await page.waitForTimeout(1200);
@@ -112,6 +132,8 @@ try {
     await reproduceGovernmentOrders(page);
     await reproduceCollectibles(page);
     await reproduceWarehouseStats(page);
+    await reproduceSimboostsLoading(page);
+    await reproduceNewspaperArchive(page);
     await reproduceExecutiveTimeWarp(page);
     await reproduceLaunchpad(page);
   }
