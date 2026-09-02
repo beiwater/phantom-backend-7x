@@ -3,6 +3,22 @@ import { db } from '../db/database.ts';
 // Repository for the wave-2 social surfaces. Application modules under
 // application/social/ orchestrate through these methods only.
 
+/**
+ * #158: the original frontend maps the simboost spend action to a message
+ * via a single-character code table (bundle Bhe): a-z / 0-9 / A-F. Any
+ * other string makes formatMessage(undefined) and crashes the whole
+ * SimBoosts page. Official codes (SimboostsSpendActions.*):
+ *   c = Construction Speedup (api_v1_rush covers construction AND
+ *       production queue rushes), k = Recreation Building Upkeep,
+ *   q = HQ Building Unlock, D = Personal Assistant Unlock.
+ */
+const SIMBOOST_ACTION_CODES: Record<string, string> = {
+  RUSH_CONSTRUCTION: 'c',
+  RUSH_PRODUCTION: 'c',
+  RECREATION_UPKEEP: 'k',
+  HQ_UNLOCK: 'q',
+  PA_UNLOCK: 'D'
+};
 export interface PollRow { [key: string]: unknown }
 
 export class SocialRepository {
@@ -49,16 +65,38 @@ export class SocialRepository {
     const row = this.database.prepare('SELECT value FROM company_settings WHERE company_id = ? AND key = ?').get(companyId, key) as { value: string | null } | undefined;
     return row?.value ?? null;
   }
+  /**
+   * #158: the original frontend maps the simboost spend action to a message
+   * via a single-character code table (bundle Bhe): a-z / 0-9 / A-F. Any
+   * other string makes formatMessage(undefined) and crashes the whole
+   * SimBoosts page. Official codes (SimboostsSpendActions.*):
+   *   c = Construction Speedup (api_v1_rush covers construction AND
+   *       production queue rushes), k = Recreation Building Upkeep,
+   *   q = HQ Building Unlock, D = Personal Assistant Unlock.
+   */
+  static readonly SIMBOOST_ACTION_CODES: Record<string, string> = {
+    RUSH_CONSTRUCTION: 'c',
+    RUSH_PRODUCTION: 'c',
+    RECREATION_UPKEEP: 'k',
+    HQ_UNLOCK: 'q',
+    PA_UNLOCK: 'D'
+  };
+
+  private normalizeSimboostAction(action: string): string {
+    return SIMBOOST_ACTION_CODES[action] ?? action;
+  }
 
   recordSimboostSpend(companyId: number, action: string, spend: number): void {
     if (spend <= 0) return;
     this.database.prepare('INSERT INTO simboost_use_history (company_id, action, spend_simboosts, datetime) VALUES (?, ?, ?, ?)')
-      .run(companyId, action, -spend, new Date().toISOString());
+      .run(companyId, this.normalizeSimboostAction(action), -spend, new Date().toISOString());
   }
 
   listSimboostUse(companyId: number): Array<{ id: number; spendSimBoosts: number; action: string; datetime: string }> {
-    return this.database.prepare('SELECT id, spend_simboosts AS spendSimBoosts, action, datetime FROM simboost_use_history WHERE company_id = ? ORDER BY datetime DESC LIMIT 100')
+    const rows = this.database.prepare('SELECT id, spend_simboosts AS spendSimBoosts, action, datetime FROM simboost_use_history WHERE company_id = ? ORDER BY datetime DESC LIMIT 100')
       .all(companyId) as Array<{ id: number; spendSimBoosts: number; action: string; datetime: string }>;
+    // Legacy rows written before the official code mapping.
+    return rows.map(r => ({ ...r, action: this.normalizeSimboostAction(r.action) }));
   }
 
   // --- Building followers (logistics links) --------------------------------
