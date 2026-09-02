@@ -168,6 +168,7 @@ export async function handleBuildingAuctionRoutes(
   // 5. Auction house collection: bare path and numeric-id paths.
   if (pathname === '/api/v2/building-auctions/' || pathname === '/api/v2/building-auctions') {
     if (method === 'GET') {
+      await settleDueAuctions(Date.now());
       sendJson(res, { buildingAuctions: getActiveAuctions() });
       return true;
     }
@@ -194,20 +195,21 @@ export async function handleBuildingAuctionRoutes(
   if (auctionMatch) {
     const id = Number(auctionMatch[1]);
     if (method === 'GET') {
-      // Numeric ids double as realm listings (the original client fetches
-      // /building-auctions/<realm>/ with the canonical realm ids 0 and 1) and
-      // as auction detail. Realm ids win for 0 and 1 — auction ids are
-      // AUTOINCREMENT (>= 1), so id 1 would otherwise shadow the challenge
-      // realm listing. Every auction id >= 2 resolves to its detail object.
+      await settleDueAuctions(Date.now());
+      const auction = getAuctionById(id);
+      const list = getActiveAuctions(id);
       if (id === 0 || id === 1) {
-        sendJson(res, { buildingAuctions: getActiveAuctions(id) });
+        if (auction) {
+          sendJson(res, { ...auction, buildingAuctions: list });
+        } else {
+          sendJson(res, { buildingAuctions: list });
+        }
         return true;
       }
-      const auction = getAuctionById(id);
       if (auction) {
         sendJson(res, auction);
       } else {
-        sendJson(res, { buildingAuctions: getActiveAuctions(id) });
+        sendJson(res, { buildingAuctions: list });
       }
       return true;
     }
