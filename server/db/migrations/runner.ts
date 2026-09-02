@@ -935,6 +935,32 @@ export const MIGRATIONS: MigrationDefinition[] = [
           ON building_followers (follower_building_id);
       `);
     }
+  },
+  {
+    version: 18,
+    name: '018_building_runtime_columns',
+    up: (db: DatabaseSync) => {
+      // connection.ts creates the first fresh database before this runner is
+      // loaded. Its historical buildings table is narrower than the runtime
+      // contract, so CREATE TABLE IF NOT EXISTS in migration 1 cannot supply
+      // these columns on a clean bootstrap.
+      const columns = new Set(
+        (db.prepare('PRAGMA table_info(buildings)').all() as Array<{ name: string }>)
+          .map(column => column.name)
+      );
+      const addColumn = (name: string, definition: string) => {
+        if (!columns.has(name)) {
+          db.exec(`ALTER TABLE buildings ADD COLUMN ${definition}`);
+        }
+      };
+
+      addColumn('abundance', 'abundance REAL DEFAULT 100');
+      addColumn('original_abundance', 'original_abundance REAL DEFAULT 100');
+      addColumn('upkeep_active', 'upkeep_active INTEGER NOT NULL DEFAULT 0');
+      addColumn('robots_installed', 'robots_installed INTEGER NOT NULL DEFAULT 0');
+      addColumn('robots_quality', 'robots_quality INTEGER NOT NULL DEFAULT 0');
+      addColumn('locked_product', 'locked_product INTEGER');
+    }
   }
 ];
 
