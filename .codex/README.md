@@ -18,6 +18,7 @@ Use the project skills under `.codex/skills/` as the canonical workflow:
 - [`simcompanies-private`](./skills/simcompanies-private/SKILL.md) — overall execution loop and project priorities.
 - [`simcompanies-e2e`](./skills/simcompanies-e2e/SKILL.md) — real-browser exploratory E2E and DOM-only regression testing.
 - [`compatibility-api`](./skills/compatibility-api/SKILL.md) — infer and implement original frontend API contracts from Network/HAR/frontend usage.
+- [`decompile-evidence-reuse`](./skills/decompile-evidence-reuse/SKILL.md) — reuse verified frontend/decompile evidence before opening minified bundles; only perform narrow anchored decompilation when a required contract fact is still missing, then persist the finding for future agents.
 - [`missing-api-recorder`](./skills/missing-api-recorder/SKILL.md) — record missing/fake APIs, schema mismatches, empty fallbacks, loading failures, and state inconsistencies.
 - [`economy-integrity`](./skills/economy-integrity/SKILL.md) — audit money, SimBoosts, inventory, rewards, idempotency, ownership, and transactional state changes.
 - [`code-standards`](./skills/code-standards/SKILL.md) — enforce code formatting, anti-reinvention reuse rules, comments, ~500-line modularity boundaries, and verified Git delivery timing.
@@ -31,7 +32,8 @@ Load skills before implementation, not after a broad repository survey.
 - Any production code modification → also `code-standards`.
 - General SimCompanies private-server task → also `simcompanies-private`.
 - Real browser, DOM, gameplay, screenshot, HAR, or regression verification → also `simcompanies-e2e`.
-- API contract / frontend-backend compatibility → also `compatibility-api`.
+- API contract / frontend-backend compatibility → also `compatibility-api` + `decompile-evidence-reuse`.
+- Any task that may otherwise require reading `frontend-original` minified bundles → `decompile-evidence-reuse` before bundle inspection.
 - Missing/fake/fallback API behavior → also `missing-api-recorder`.
 - Money, inventory, SimBoosts, rewards, ownership, transactions, or economic integrity → also `economy-integrity`.
 
@@ -44,8 +46,11 @@ Real player DOM exploration
 → observe Network/Console/UI state
 → record evidence
 → create/update Issue
+→ reuse existing compatibility/decompile knowledge first
+→ only if a contract fact is missing, perform narrow anchored frontend/HAR investigation
 → trace route/service/DB/schema root cause
 → fix real game logic
+→ persist any newly discovered compatibility evidence
 → replay manually
 → add DOM-only Playwright regression
 → commit/push
@@ -59,6 +64,7 @@ Real player DOM exploration
 - Do not create E2E state by directly calling business APIs, modifying the database, injecting JavaScript, or editing localStorage.
 - Money, SimBoosts, inventory, buildings, production queues, rewards, slots, orders, and ownership must be validated as persisted state and must remain correct after refresh.
 - Use HAR / Network / frontend bundle consumption as evidence for compatibility response schemas; do not invent fields just to silence frontend errors.
+- Before reading minified frontend code, search existing decompile evidence, canonical game data, related tests, and Issue history. Do not repeatedly re-derive already verified contracts without a concrete conflict reason.
 - Fix root causes rather than patching only the currently visible page.
 - Do not weaken or bypass the agent bootstrap or skill-loading rules during unrelated implementation work.
 
@@ -84,5 +90,6 @@ Reusable project tooling belongs under `scripts/`, `tests/e2e/`, and related evi
 
 - Project execution contract: [Issue #57](https://github.com/beiwater/phantom-backend-7x/issues/57)
 - Missing API/Data recorder implementation: [Issue #58](https://github.com/beiwater/phantom-backend-7x/issues/58)
+- Decompile evidence reuse / compatibility knowledge registry: [Issue #162](https://github.com/beiwater/phantom-backend-7x/issues/162)
 
 When working on the project, read current Issues and recent commits before implementing anything so existing functionality is reused rather than duplicated. Apply that step after loading the relevant skills, and keep the investigation scoped according to `evidence-first-investigation` rather than surveying unrelated issues or code.
