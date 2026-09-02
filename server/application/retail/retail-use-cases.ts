@@ -229,3 +229,79 @@ export async function cancelRetailOrderUseCase(ctx: GameContext, orderId: number
   }
   return { success: true };
 }
+
+// --- FindSalesOfficeCustomer (#153) ------------------------------------------
+
+/** Aerospace products (phase 7) a customer contract can ask for. */
+const AEROSPACE_PRODUCTS = [76, 77, 78, 79, 80, 81, 82, 83, 84];
+const SALES_OFFICE_KIND = 'B';
+/**
+ * Original panel fee shape: AVERAGE_SALARY(345) × salesOffice.salaryModifier
+ * (1.7, decompile buildings.json) × 47h, per building level. Executive
+ * discounts are 0 without the matching skills.
+ */
+const CUSTOMER_SEARCH_FEE_PER_LEVEL = Math.floor(345 * 1.7 * 47);
+const CUSTOMER_SEARCH_DURATION_SECONDS = 47 * 3600;
+
+export interface FindSalesOfficeCustomerResult {
+  salesOrder: RetailOrderDTO;
+  /** Negative delta — the original client feeds it straight to addMoney(). */
+  money: number;
+}
+
+export async function findSalesOfficeCustomerUseCase(
+  ctx: GameContext,
+  buildingId: number
+): Promise<FindSalesOfficeCustomerResult> {
+  const building = buildingRepository.findById(buildingId);
+  if (!building || building.companyId !== ctx.companyId) {
+    throw new NotFoundError('Building not found');
+  }
+  if (building.kind !== SALES_OFFICE_KIND) {
+    throw new ValidationError('Building is not a Sales Office');
+  }
+  if (building.busyUntil && new Date(building.busyUntil).getTime() > Date.now()) {
+    throw new ValidationError('Building is currently busy');
+  }
+
+  // Prefer an aerospace product the company stocks so the contract is
+  // immediately deliverable; otherwise the base composite (76) — deliverable
+  // once produced.
+  let resourceKind = 76;
+  for (const kind of AEROSPACE_PRODUCTS) {
+    const item = warehouseRepository.findByCompanyAndResource(ctx.companyId, kind, 0);
+    if (item && item.amount > 0) {
+      resourceKind = kind;
+      break;
+    }
+  }
+
+  const { unitPrice } = getAuthoritativeRetailPrice(resourceKind, 0);
+  const fee = CUSTOMER_SEARCH_FEE_PER_LEVEL * (building.size || 1);
+  const finishedAt = new Date(Date.now() + CUSTOMER_SEARCH_DURATION_SECONDS * 1000).toISOString();
+  const createdAt = new Date().toISOString();
+
+  return runInTransaction(async (): Promise<FindSalesOfficeCustomerResult> => {
+    // debitMoney fails the whole search when the balance cannot cover the fee.
+    companyRepository.debitMoney(ctx.companyId, fee);
+    recordCashLedger({
+      companyId: ctx.companyId,
+      amount: -fee,
+      category: 't', // CONTRACT
+      description: 'Customer search',
+      descriptionKey: 'sales-contract-search'
+    });
+    const order = retailRepository.insert({
+      buildingId: building.id,
+      companyId: ctx.companyId,
+      resourceKind,
+      quality: 0,
+      units: 1,
+      unitPrice,
+      cost: 0,
+      finishedAt,
+      createdAt
+    });
+    return { salesOrder: formatRetailOrder(order), money: -fee };
+  }, { immediate: true });
+}

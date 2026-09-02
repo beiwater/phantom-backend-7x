@@ -7,13 +7,12 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { readJsonBody, sendJson } from './utils.ts';
 import { createGameContext } from '../context/game-context.ts';
-import { buildingRepository } from '../repositories/building-repository.ts';
-import { retailRepository, type RetailOrderEntity } from '../repositories/retail-repository.ts';
 import {
   formatRetailOrder,
   startRetailOrderUseCase,
   collectRetailOrderUseCase,
-  cancelRetailOrderUseCase
+  cancelRetailOrderUseCase,
+  findSalesOfficeCustomerUseCase
 } from '../application/retail/retail-use-cases.ts';
 
 export async function handleRetailRoutes(
@@ -77,6 +76,17 @@ export async function handleRetailRoutes(
       try {
         const ctx = createGameContext(currentCompanyId, currentCompanyId, 0);
         const targetBuildingId = buildingId ?? body.building;
+        // #153: a Sales Office has no retail products — POSTing here is the
+        // original "look for customer" flow: charge the search fee and open
+        // an unfinished aerospace contract.
+        if (targetBuildingId !== undefined) {
+          const b = buildingRepository.findById(Number(targetBuildingId));
+          if (b && b.kind === 'B') {
+            const found = await findSalesOfficeCustomerUseCase(ctx, b.id);
+            sendJson(res, { ...found.salesOrder, salesOrder: found.salesOrder, money: found.money });
+            return true;
+          }
+        }
         const result = await startRetailOrderUseCase(ctx, {
           buildingId: targetBuildingId !== undefined ? Number(targetBuildingId) : undefined,
           resource: body.resource,
