@@ -119,10 +119,14 @@ test('real player core loop keeps UI and persisted state coherent', async ({ pag
   await clickNavigation(page, '地图');
   await page.waitForTimeout(800);
   await openVisibleFarm(page);
+  // The original client keeps the building detail in its route store after
+  // navigating away and back. A normal browser refresh obtains the finished
+  // queue state and exposes the real collect action.
+  await page.reload();
+  await expect(page).toHaveURL(/\/zh-cn\/b\/3\//);
   const collectButton = page.getByRole('button', { name: /收取|领取|获取/ });
-  if (await collectButton.first().isVisible().catch(() => false)) {
-    await collectButton.first().click();
-  }
+  await expect(collectButton.first()).toBeVisible();
+  await collectButton.first().click();
   await expect(page.locator('body')).toContainText('当前库存：10,001');
   await expect(page.locator('body')).not.toContainText('NaN');
   await page.screenshot({ path: testInfo.outputPath('04-production-collected.png') });
