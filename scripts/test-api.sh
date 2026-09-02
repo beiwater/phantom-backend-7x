@@ -3,8 +3,12 @@
 set -uo pipefail
 cd "$(dirname "$0")/.."
 
-PORT="${PORT:-3100}"
+# Keep the shared runner aligned with the server and legacy contract suites.
+PORT="${PORT:-3000}"
 BASE="${BASE_URL:-http://127.0.0.1:$PORT}"
+# Keep contract tests independent of whatever SQLite file a developer last
+# used while playing locally.
+TEST_DATA_DIR="${DATA_DIR:-$(mktemp -d)}"
 if [ -z "${NODE_BIN:-}" ]; then
   if [ -x "/opt/magnate/.node22/bin/node" ]; then
     NODE_BIN="/opt/magnate/.node22/bin/node --experimental-strip-types"
@@ -18,7 +22,7 @@ STANDALONE_RE="verify-issue-70-rest|verify-issue-7[8-9]|verify-issue-8[0-9]|veri
 
 pkill -9 -f "server/index.ts" 2>/dev/null || true
 sleep 1
-PORT="$PORT" SPEED_MULTIPLIER="${SPEED_MULTIPLIER:-200}" $NODE_BIN server/index.ts >/dev/null 2>&1 &
+PORT="$PORT" DATA_DIR="$TEST_DATA_DIR" SPEED_MULTIPLIER="${SPEED_MULTIPLIER:-200}" $NODE_BIN server/index.ts >/dev/null 2>&1 &
 SERVER_PID=$!
 sleep 2
 
