@@ -262,20 +262,19 @@ export class RestaurantRepository {
     return Number(row?.skill) || 0;
   }
 
-  /** Market guests (worker seats citywide) + competitor restaurant list. */
+  /** Market guests (global worker seats across all companies) + competitor restaurant list (Issue #108). */
   getRestaurantMarket(companyId: number, currentBuildingId: number): RestaurantMarketEntity {
     const workers = this.database
       .prepare(
         `SELECT COALESCE(SUM(CASE WHEN kind != 'r' THEN size * 100 ELSE 0 END), 0) AS workers
-         FROM buildings
-         WHERE company_id != ?`
+         FROM buildings`
       )
-      .get(companyId) as { workers: number };
+      .get() as { workers: number };
     const restaurants = this.database
-      .prepare('SELECT id, size FROM buildings WHERE kind = \'r\' AND id != ?')
+      .prepare("SELECT id, size FROM buildings WHERE kind = 'r' AND id != ?")
       .all(currentBuildingId) as Array<{ id: number; size: number }>;
     return {
-      marketGuests: Math.max(1000, Number(workers?.workers) || 0),
+      marketGuests: Math.max(5000, Number(workers?.workers) || 0),
       activeRestaurants: restaurants.map(b => ({ id: Number(b.id), size: Number(b.size) }))
     };
   }
