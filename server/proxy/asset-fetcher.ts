@@ -22,6 +22,16 @@ const MIME_TYPES: Record<string, string> = {
   '.ogg': 'audio/ogg'
 };
 
+const FRONTEND_SYNTAX_REPAIRS: Record<string, readonly [string, string]> = {
+  // Commit bbe9bed added a finite-number guard to this compiled React
+  // component but dropped the closing call parenthesis. Keep the vendor
+  // bundle immutable on disk while serving the corrected byte stream.
+  'bundle/assets/index-cgzgptQ8.js': [
+    ']})};var NSi=',
+    ']})})};var NSi='
+  ]
+};
+
 export async function serveOrFetchAsset(urlPath: string, res: ServerResponse): Promise<boolean> {
   // Normalize path removing /static/ prefix if present.
   let cleanRelPath = urlPath.replace(/^\/static\//, '').replace(/^\//, '');
@@ -41,6 +51,20 @@ export async function serveOrFetchAsset(urlPath: string, res: ServerResponse): P
 
   // 1. Check local file
   if (fs.existsSync(localFilePath) && fs.statSync(localFilePath).isFile()) {
+    const syntaxRepair = FRONTEND_SYNTAX_REPAIRS[cleanRelPath];
+    if (syntaxRepair) {
+      const source = fs.readFileSync(localFilePath, 'utf-8');
+      const repaired = source.replace(...syntaxRepair);
+      if (repaired === source) {
+        throw new Error(`Frontend syntax repair did not match ${cleanRelPath}`);
+      }
+      res.writeHead(200, {
+        'Content-Type': mime,
+        'Cache-Control': 'public, max-age=86400'
+      });
+      res.end(repaired);
+      return true;
+    }
     res.writeHead(200, {
       'Content-Type': mime,
       'Cache-Control': 'public, max-age=86400'

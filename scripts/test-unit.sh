@@ -23,7 +23,6 @@ fi
 
 # Suites that must run standalone (they spawn their own isolated server).
 STANDALONE_RE="verify-issue-70-rest|verify-issue-7[8-9]|verify-issue-8[0-9]|verify-issue-9[0-9]|verify-issue-84-90|bfs-crawler|white-screen|dom-verify"
-
 # Start shared server for API suites
 pkill -9 -f "server/index.ts" 2>/dev/null || true
 sleep 1
@@ -31,17 +30,54 @@ PORT="$PORT" DATA_DIR="$TEST_DATA_DIR" SPEED_MULTIPLIER="${SPEED_MULTIPLIER:-200
 SERVER_PID=$!
 sleep 2
 
+BACKEND_TESTS=(
+  tests/test-architecture-gates.test.ts
+  tests/test-issue-65-simboosts.test.ts
+  tests/test-realm-rules.test.ts
+  tests/test-route-registry.test.ts
+  tests/test-transaction-rollback.test.ts
+  tests/verify-accounting-metrics.test.ts
+  tests/verify-attack-fix-chat.test.ts
+  tests/verify-backup-restore.test.ts
+  tests/verify-chat-persistence.test.ts
+  tests/verify-db-migrations.test.ts
+  tests/verify-executive-offer-nan.test.ts
+  tests/verify-executive-slots.test.ts
+  tests/verify-issue-144-executives.test.ts
+  tests/verify-issue-17-rest.test.ts
+  tests/verify-issue-27-password-security.test.ts
+  tests/verify-issue-29-server-hardening.test.ts
+  tests/verify-issue-3-database-indexes.test.ts
+  tests/verify-issue-36-read-idempotency.test.ts
+  tests/verify-issue-39-research.test.ts
+  tests/verify-issue-42-bonds.test.ts
+  tests/verify-issue-46-financial-reports.test.ts
+  tests/verify-issue-80-aerospace.test.ts
+  tests/verify-issue-83-newspaper.test.ts
+  tests/verify-issue-84-90-security.test.ts
+  tests/verify-issue-86-research.test.ts
+  tests/verify-issue-89-finance.test.ts
+  tests/verify-issues-110-121.test.ts
+  tests/verify-market-pricing-modes.test.ts
+  tests/verify-p1-03-research-guide.test.ts
+  tests/verify-production-process.test.ts
+  tests/verify-security-hardening.test.ts
+  tests/verify-warehouse-statistics.test.ts
+)
+
 FAILED=()
 TOTAL=0
-for t in tests/*.test.ts; do
-  case "$(basename "$t")" in
-    *e2e*|*crawler*|*white-screen*|*dom-verify*|*spending-money*|*slot2*) continue ;;
-  esac
+for t in "${BACKEND_TESTS[@]}"; do
+  if [ ! -f "$t" ]; then
+    echo "FAIL: missing $t"
+    FAILED+=("$t")
+    continue
+  fi
   TOTAL=$((TOTAL + 1))
   if echo "$t" | grep -qE "$STANDALONE_RE"; then
-    env -u PORT -u BASE_URL $NODE_BIN "$t" >/dev/null 2>&1
+    DATA_DIR="$TEST_DATA_DIR" env -u PORT -u BASE_URL $NODE_BIN "$t" >/dev/null 2>&1
   else
-    PORT="$PORT" BASE_URL="$BASE" $NODE_BIN "$t" >/dev/null 2>&1
+    DATA_DIR="$TEST_DATA_DIR" PORT="$PORT" BASE_URL="$BASE" $NODE_BIN "$t" >/dev/null 2>&1
   fi
   if [ $? -ne 0 ]; then
     FAILED+=("$t")

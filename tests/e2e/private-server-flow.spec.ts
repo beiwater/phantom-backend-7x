@@ -52,6 +52,20 @@ async function signIn(page: Page, email: string): Promise<void> {
   await expect(page.getByText('$100,000', { exact: true })).toBeVisible();
 }
 
+async function completeCompanyCreation(page: Page, companyName: string): Promise<void> {
+  await expect(page).toHaveURL(/\/zh-cn\/(?:create|landscape)\//);
+
+  if (!/\/zh-cn\/create\//.test(page.url())) {
+    return;
+  }
+
+  const nameInput = page.getByRole('textbox').first();
+  await expect(nameInput).toBeVisible();
+  await nameInput.fill(companyName);
+  await page.getByRole('button', { name: '开始游戏', exact: true }).click();
+  await expect(page).toHaveURL(/\/zh-cn\/landscape\//);
+}
+
 async function clickNavigation(page: Page, name: string): Promise<void> {
   await page.getByRole('link', { name, exact: true }).last().click();
 }
@@ -82,6 +96,7 @@ test('real player core loop keeps UI and persisted state coherent', async ({ pag
   await page.locator('input[type="email"]').fill(email);
   await page.locator('input[type="password"]').fill(password);
   await page.getByRole('button', { name: '注册', exact: true }).click();
+  await completeCompanyCreation(page, `CI ${Date.now()}`);
   await expect(page).toHaveURL(/\/zh-cn\/landscape\//);
   await expect(page.getByText('$100,000', { exact: true })).toBeVisible();
   await expect(page.getByText('250', { exact: true })).toBeVisible();
@@ -104,10 +119,11 @@ test('real player core loop keeps UI and persisted state coherent', async ({ pag
   await clickNavigation(page, '地图');
   await page.waitForTimeout(800);
   await openVisibleFarm(page);
-  const collectButton = page.getByRole('button', { name: /收取|领取|获取/ });
-  if (await collectButton.first().isVisible().catch(() => false)) {
-    await collectButton.first().click();
-  }
+  // The original client keeps the building detail in its route store after
+  // navigating away and back. A normal browser refresh obtains the finished
+  // queue state and performs its normal completion request.
+  await page.reload();
+  await expect(page).toHaveURL(/\/zh-cn\/b\/3\//);
   await expect(page.locator('body')).toContainText('当前库存：10,001');
   await expect(page.locator('body')).not.toContainText('NaN');
   await page.screenshot({ path: testInfo.outputPath('04-production-collected.png') });
@@ -145,6 +161,7 @@ test('player can explore encyclopedia, newspaper, and financial overview without
   await page.locator('input[type="email"]').fill(email);
   await page.locator('input[type="password"]').fill(password);
   await page.getByRole('button', { name: '注册', exact: true }).click();
+  await completeCompanyCreation(page, `CI ${Date.now()}`);
   await expect(page).toHaveURL(/\/zh-cn\/landscape\//);
   await expect(page.getByText('$100,000', { exact: true })).toBeVisible();
 
@@ -160,7 +177,7 @@ test('player can explore encyclopedia, newspaper, and financial overview without
 
   // 2. Explore Newspaper
   await page.goto('/zh-cn/newspaper/0/');
-  await expect(page.getByText('私人服务器经济模型平稳运行', { exact: true }).first()).toBeVisible();
+  await expect(page.getByText('市场全品类现货贸易与宏观经济展望', { exact: true }).first()).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath('09-newspaper.png') });
 
   // 3. Explore Headquarters & Finances

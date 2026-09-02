@@ -524,7 +524,9 @@ export const MIGRATIONS: MigrationDefinition[] = [
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           realm_id INTEGER NOT NULL DEFAULT 0,
           issue_id INTEGER NOT NULL,
-          published INTEGER NOT NULL DEFAULT 0,
+          -- NULL represents a draft issue; the original client distinguishes
+          -- it from a published timestamp.
+          published TEXT,
           publish_date TEXT,
           articles_json TEXT DEFAULT '[]',
           created_at TEXT NOT NULL,
@@ -533,15 +535,16 @@ export const MIGRATIONS: MigrationDefinition[] = [
 
         CREATE TABLE IF NOT EXISTS newspaper_sponsors (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
-          newspaper_id INTEGER NOT NULL,
-          slot_number INTEGER NOT NULL,
-          tier TEXT NOT NULL,
+          newspaper_id INTEGER,
+          position INTEGER,
           company_id INTEGER,
+          company_name TEXT,
           text TEXT,
-          booked_at TEXT,
-          simboosts_paid INTEGER DEFAULT 0,
-          UNIQUE (newspaper_id, slot_number)
+          logo TEXT,
+          created_at TEXT
         );
+        CREATE UNIQUE INDEX IF NOT EXISTS uq_newspaper_sponsors_issue_position
+          ON newspaper_sponsors (newspaper_id, position);
 
         CREATE TABLE IF NOT EXISTS newspaper_article_reactions (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -756,6 +759,207 @@ export const MIGRATIONS: MigrationDefinition[] = [
         );
       }
       db.exec('DROP TABLE game_notifications_legacy');
+    }
+  },
+  {
+    version: 13,
+    name: '013_newspaper_draft_contract',
+    up: (db: DatabaseSync) => {
+      const columns = db.prepare('PRAGMA table_info(newspaper_issues)').all() as Array<{
+        name: string;
+        type: string;
+        notnull: number;
+      }>;
+      const published = columns.find(column => column.name === 'published');
+      if (published?.type.toUpperCase() === 'TEXT' && published.notnull === 0) {
+        return;
+      }
+
+      // Issue #163 CI exposed a mismatch with game/newspaper.ts: a NULL
+      // published value means an existing draft, not a missing required value.
+      const legacyIssues = db.prepare(
+        'SELECT id, realm_id, issue_id, published, publish_date, articles_json, created_at FROM newspaper_issues'
+      ).all() as Array<{
+        id: number;
+        realm_id: number;
+        issue_id: number;
+        published: string | number | null;
+        publish_date: string | null;
+        articles_json: string | null;
+        created_at: string;
+      }>;
+      db.exec(`
+        ALTER TABLE newspaper_issues RENAME TO newspaper_issues_legacy;
+        CREATE TABLE newspaper_issues (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          realm_id INTEGER NOT NULL DEFAULT 0,
+          issue_id INTEGER NOT NULL,
+          published TEXT,
+          publish_date TEXT,
+          articles_json TEXT DEFAULT '[]',
+          created_at TEXT NOT NULL,
+          UNIQUE (realm_id, issue_id)
+        );
+      `);
+      const insertIssue = db.prepare(
+        `INSERT INTO newspaper_issues
+          (id, realm_id, issue_id, published, publish_date, articles_json, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`
+      );
+      for (const issue of legacyIssues) {
+        insertIssue.run(
+          issue.id,
+          issue.realm_id,
+          issue.issue_id,
+          issue.published === 0 || issue.published === '0' ? null : issue.published,
+          issue.publish_date,
+          issue.articles_json,
+          issue.created_at
+        );
+      }
+      db.exec('DROP TABLE newspaper_issues_legacy');
+    }
+  },
+  {
+    version: 14,
+    name: '014_newspaper_sponsor_contract',
+    up: (db: DatabaseSync) => {
+      const columns = db.prepare('PRAGMA table_info(newspaper_sponsors)').all() as Array<{ name: string }>;
+      if (columns.some(column => column.name === 'position')) {
+        return;
+      }
+
+      // The frontend-compatible newspaper module uses position/company_name/
+      // logo, while migration 8 created a separate booking-oriented shape.
+      const legacySponsors = db.prepare(
+        'SELECT id, newspaper_id, slot_number, company_id, text, booked_at FROM newspaper_sponsors ORDER BY id'
+      ).all() as Array<{
+        id: number;
+        newspaper_id: number;
+        slot_number: number;
+        company_id: number | null;
+        text: string | null;
+        booked_at: string | null;
+      }>;
+      db.exec(`
+        ALTER TABLE newspaper_sponsors RENAME TO newspaper_sponsors_legacy;
+        CREATE TABLE newspaper_sponsors (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          newspaper_id INTEGER,
+          position INTEGER,
+          company_id INTEGER,
+          company_name TEXT,
+          text TEXT,
+          logo TEXT,
+          created_at TEXT
+        );
+        CREATE UNIQUE INDEX uq_newspaper_sponsors_issue_position
+          ON newspaper_sponsors (newspaper_id, position);
+      `);
+      const insertSponsor = db.prepare(
+        `INSERT OR IGNORE INTO newspaper_sponsors
+          (id, newspaper_id, position, company_id, company_name, text, logo, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+      );
+      for (const sponsor of legacySponsors) {
+        insertSponsor.run(
+          sponsor.id,
+          sponsor.newspaper_id,
+          sponsor.slot_number,
+          sponsor.company_id,
+          null,
+          sponsor.text,
+          null,
+          sponsor.booked_at
+        );
+      }
+      db.exec('DROP TABLE newspaper_sponsors_legacy');
+    }
+  },
+  {
+    version: 15,
+    name: '015_simboost_use_history',
+    up: (db: DatabaseSync) => {
+      // SocialRepository records every successful SimBoost spend here.  This
+      // table was created only by a legacy runtime path, so fresh migrated
+      // databases failed as soon as a construction rush succeeded.
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS simboost_use_history (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          company_id INTEGER NOT NULL,
+          action TEXT NOT NULL,
+          spend_simboosts INTEGER NOT NULL,
+          datetime TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_simboost_use_history_company_datetime
+          ON simboost_use_history (company_id, datetime DESC);
+      `);
+    }
+  },
+  {
+    version: 16,
+    name: '016_scheduler_state_contract',
+    up: (db: DatabaseSync) => {
+      const columns = new Set(
+        (db.prepare('PRAGMA table_info(scheduler_state)').all() as Array<{ name: string }>)
+          .map(column => column.name)
+      );
+      if (!columns.has('last_status')) {
+        db.exec("ALTER TABLE scheduler_state ADD COLUMN last_status TEXT NOT NULL DEFAULT 'ok'");
+      }
+      if (!columns.has('last_error')) {
+        db.exec('ALTER TABLE scheduler_state ADD COLUMN last_error TEXT');
+      }
+      if (!columns.has('runs')) {
+        db.exec('ALTER TABLE scheduler_state ADD COLUMN runs INTEGER NOT NULL DEFAULT 0');
+      }
+    }
+  },
+  {
+    version: 17,
+    name: '017_building_followers_contract',
+    up: (db: DatabaseSync) => {
+      // Building detail responses always include their logistics followers.
+      // The repository was added after the core schema, but its backing
+      // relation was never migrated for clean databases.
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS building_followers (
+          building_id INTEGER NOT NULL,
+          follower_building_id INTEGER NOT NULL,
+          created_at TEXT NOT NULL,
+          PRIMARY KEY (building_id, follower_building_id),
+          FOREIGN KEY (building_id) REFERENCES buildings(id),
+          FOREIGN KEY (follower_building_id) REFERENCES buildings(id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_building_followers_follower
+          ON building_followers (follower_building_id);
+      `);
+    }
+  },
+  {
+    version: 18,
+    name: '018_building_runtime_columns',
+    up: (db: DatabaseSync) => {
+      // connection.ts creates the first fresh database before this runner is
+      // loaded. Its historical buildings table is narrower than the runtime
+      // contract, so CREATE TABLE IF NOT EXISTS in migration 1 cannot supply
+      // these columns on a clean bootstrap.
+      const columns = new Set(
+        (db.prepare('PRAGMA table_info(buildings)').all() as Array<{ name: string }>)
+          .map(column => column.name)
+      );
+      const addColumn = (name: string, definition: string) => {
+        if (!columns.has(name)) {
+          db.exec(`ALTER TABLE buildings ADD COLUMN ${definition}`);
+        }
+      };
+
+      addColumn('abundance', 'abundance REAL DEFAULT 100');
+      addColumn('original_abundance', 'original_abundance REAL DEFAULT 100');
+      addColumn('upkeep_active', 'upkeep_active INTEGER NOT NULL DEFAULT 0');
+      addColumn('robots_installed', 'robots_installed INTEGER NOT NULL DEFAULT 0');
+      addColumn('robots_quality', 'robots_quality INTEGER NOT NULL DEFAULT 0');
+      addColumn('locked_product', 'locked_product INTEGER');
     }
   }
 ];

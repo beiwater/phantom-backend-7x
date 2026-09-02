@@ -10,6 +10,7 @@ import {
   getNewspaperIssue,
   getCurrentBookableIssue,
   getSponsorParams,
+  getSponsorListForNewspaper,
   getSponsorsForNewspaper,
   buyNewspaperSponsor,
   getTopArticlesByReaction,
@@ -44,7 +45,7 @@ export async function handleNewspaperRoutes(
     // 2. Per-issue sponsors incl. tier pricing (§3: GET /api/v3/newspaper/{id}/sponsor/).
     const v3SponsorMatch = pathname.match(/^\/api\/v3\/newspaper\/(\d+)\/sponsor\/$/);
     if (v3SponsorMatch && method === 'GET') {
-      sendJson(res, getSponsorsForNewspaper(Number(v3SponsorMatch[1])));
+      sendJson(res, getSponsorListForNewspaper(Number(v3SponsorMatch[1])));
       return true;
     }
 
