@@ -5,8 +5,14 @@
 set -uo pipefail
 cd "$(dirname "$0")/.."
 
-PORT="${PORT:-3100}"
+# The server and legacy contract suites default to port 3000. Keeping this
+# aligned avoids false failures from suites that intentionally use that public
+# default rather than BASE_URL.
+PORT="${PORT:-3000}"
 BASE="${BASE_URL:-http://127.0.0.1:$PORT}"
+# Use a fresh database unless a caller deliberately provides one. Old local
+# schemas must not make a regression run fail before the server can start.
+TEST_DATA_DIR="${DATA_DIR:-$(mktemp -d)}"
 if [ -z "${NODE_BIN:-}" ]; then
   if [ -x "/opt/magnate/.node22/bin/node" ]; then
     NODE_BIN="/opt/magnate/.node22/bin/node --experimental-strip-types"
@@ -21,7 +27,7 @@ STANDALONE_RE="verify-issue-70-rest|verify-issue-7[8-9]|verify-issue-8[0-9]|veri
 # Start shared server for API suites
 pkill -9 -f "server/index.ts" 2>/dev/null || true
 sleep 1
-PORT="$PORT" SPEED_MULTIPLIER="${SPEED_MULTIPLIER:-200}" $NODE_BIN server/index.ts >/dev/null 2>&1 &
+PORT="$PORT" DATA_DIR="$TEST_DATA_DIR" SPEED_MULTIPLIER="${SPEED_MULTIPLIER:-200}" $NODE_BIN server/index.ts >/dev/null 2>&1 &
 SERVER_PID=$!
 sleep 2
 
