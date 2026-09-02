@@ -53,7 +53,7 @@ export function getCompanyByPlayerId(playerId: number): CompanyRow | null {
 }
 
 export function getCompanyById(companyId: number): CompanyRow | null {
-  const row = db.prepare('SELECT * FROM companies WHERE company_id = ?').get(companyId) as CompanyRow | undefined;
+  const row = db.prepare('SELECT * FROM companies WHERE company_id = ? OR id = ?').get(companyId, companyId) as CompanyRow | undefined;
   return row || null;
 }
 
@@ -80,8 +80,8 @@ export function updateCompanyMoney(companyId: number, delta: number, skipLedger:
     throw new Error('Insufficient funds');
   }
 
-  const result = db.prepare('UPDATE companies SET money = ? WHERE company_id = ?').run(newMoney, companyId);
-  if (result.changes !== 1) {
+  const result = db.prepare('UPDATE companies SET money = ? WHERE company_id = ? OR id = ?').run(newMoney, companyId, companyId);
+  if (result.changes < 1) {
     throw new Error('Company not found');
   }
   if (!skipLedger) {
@@ -114,8 +114,8 @@ export function updateCompanySimBoosts(companyId: number, delta: number): number
     throw new Error('Insufficient SimBoosts');
   }
 
-  const result = db.prepare('UPDATE companies SET simboosts = ? WHERE company_id = ?').run(newSB, companyId);
-  if (result.changes !== 1) {
+  const result = db.prepare('UPDATE companies SET simboosts = ? WHERE company_id = ? OR id = ?').run(newSB, companyId, companyId);
+  if (result.changes < 1) {
     throw new Error('Company not found');
   }
   return newSB;

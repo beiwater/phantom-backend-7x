@@ -212,7 +212,7 @@ export function formatOffer(offer: ExecutiveOfferRow, exec: ExecutiveRow | null)
     executiveAllTrainings: 0,
     executiveRecentTrainings: 0,
     accelerated: Boolean(offer.accelerated),
-    extended: validIsoOrNull(offer.extended_at) || (offer.status === 's' ? validIsoOrNull(offer.created_at) || new Date().toISOString() : null),
+    extended: validIsoOrNull(offer.extended_at) || validIsoOrNull(offer.created_at) || new Date().toISOString(),
     created: validIsoOrNull(offer.created_at) || new Date().toISOString(),
     researchPoacher: offer.research_poacher ? JSON.parse(offer.research_poacher) : null
   };
@@ -227,7 +227,8 @@ export function formatHostileOffer(offer: ExecutiveOfferRow, exec: ExecutiveRow 
     expectedSalary: Number(offer.expected_salary),
     salary: offer.salary !== null ? Number(offer.salary) : Number(offer.expected_salary),
     status: offer.status,
-    extended: offer.extended_at || offer.created_at,
+    extended: validIsoOrNull(offer.extended_at) || validIsoOrNull(offer.created_at) || new Date().toISOString(),
+    created: validIsoOrNull(offer.created_at) || new Date().toISOString(),
     companyId: offer.target_company_id,
     poacherCompanyId: offer.poacher_company_id,
     researchEmployer: offer.research_employer ? JSON.parse(offer.research_employer) : null

@@ -62,33 +62,54 @@ export async function handleWarehouseRoutes(
     return true;
   }
 
-  // 5. Resource transactions: /api/v2/resources-transactions/:companyId/:kind/
-  const resTxMatch = pathname.match(/^\/api\/v2\/resources-transactions\/(\d+|me)\/(\d+)\/$/);
+  // 5. Resource transactions: /api/v2/resources-transactions/:kind/:fromId/ or /api/v2/resources-transactions/:companyId/:kind/
+  const resTxMatch = pathname.match(/^\/api\/v2\/resources-transactions\/(\d+|me)\/(\d+)\/?$/);
   if (resTxMatch) {
-    const compId = resTxMatch[1] === 'me' ? currentCompanyId : Number(resTxMatch[1]);
-    if (!currentCompanyId || compId !== currentCompanyId) {
+    if (!currentCompanyId) {
       sendJson(res, { error: 'Unauthorized' }, 401);
       return true;
     }
-    sendJson(res, warehouseRepository.listResourceTransactions(compId, Number(resTxMatch[2])));
+    const param1 = resTxMatch[1] === 'me' ? currentCompanyId : Number(resTxMatch[1]);
+    const param2 = Number(resTxMatch[2]);
+
+    // If param1 equals currentCompanyId, param2 is kind. Otherwise param1 is kind and param2 is fromId/offset.
+    const kind = param1 === currentCompanyId ? param2 : param1;
+    const transactions = warehouseRepository.listResourceTransactions(currentCompanyId, kind);
+    sendJson(res, transactions);
     return true;
   }
 
-  // 6. Resource transactions summary: /api/v2/resources-transactions-summary/:companyId/:kind/
-  const resTxSummaryMatch = pathname.match(/^\/api\/v2\/resources-transactions-summary\/(\d+|me)\/(\d+)\/$/);
+  // 6. Resource transactions summary: /api/v2/resources-transactions-summary/:companyId/:kind/ or /:kind/:days/
+  const resTxSummaryMatch = pathname.match(/^\/api\/v2\/resources-transactions-summary\/(\d+|me)\/(\d+)\/?$/);
   if (resTxSummaryMatch) {
-    const compId = resTxSummaryMatch[1] === 'me' ? currentCompanyId : Number(resTxSummaryMatch[1]);
-    if (!currentCompanyId || compId !== currentCompanyId) {
+    if (!currentCompanyId) {
       sendJson(res, { error: 'Unauthorized' }, 401);
       return true;
     }
-    const summary = warehouseRepository.getResourceTransactionSummary(compId, Number(resTxSummaryMatch[2]));
-    sendJson(res, {
-      totalBought: summary.totalBought,
-      totalSold: summary.totalSold,
-      totalProduced: 0,
-      avgPrice: summary.totalBought > 0 ? summary.avgBuyPrice : summary.avgSellPrice
-    });
+    const param1 = resTxSummaryMatch[1] === 'me' ? currentCompanyId : Number(resTxSummaryMatch[1]);
+    const param2 = Number(resTxSummaryMatch[2]);
+    const kind = param1 === currentCompanyId ? param2 : param1;
+
+    const summary = warehouseRepository.getResourceTransactionSummary(currentCompanyId, kind);
+    const rows: Array<{ category: string; amount: number; avgPrice: number; price: number }> = [];
+    if (summary.totalBought > 0) {
+      rows.push({
+        category: 'bought',
+        amount: summary.totalBought,
+        avgPrice: summary.avgBuyPrice,
+        price: summary.avgBuyPrice
+      });
+    }
+    if (summary.totalSold > 0) {
+      rows.push({
+        category: 'sold',
+        amount: summary.totalSold,
+        avgPrice: summary.avgSellPrice,
+        price: summary.avgSellPrice
+      });
+    }
+
+    sendJson(res, rows);
     return true;
   }
 

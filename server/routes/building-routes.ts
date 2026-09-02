@@ -8,7 +8,8 @@ import {
 import { startRetailUseCase } from '../application/production/start-retail.ts';
 import { cancelProductionUseCase } from '../application/production/cancel-production.ts';
 import { collectProductionUseCase } from '../application/production/collect-production.ts';
-import { getProductionQueueUseCase } from '../application/production/get-production-queue.ts';
+import { collectRetailOrderUseCase } from '../application/retail/retail-use-cases.ts';
+import { retailRepository } from '../repositories/retail-repository.ts';
 import { getProductionHistoryUseCase } from '../application/production/get-production-history.ts';
 import { constructBuildingUseCase } from '../application/buildings/construct-building.ts';
 import { upgradeBuildingUseCase } from '../application/buildings/upgrade-building.ts';
@@ -674,13 +675,32 @@ export function registerBuildingRoutes(registry: RouteRegistry = globalRouteRegi
     }
   });
 
-  // 10. Take finished production order
+  // 10. Take finished order — production output OR completed retail sale
+  // (Issue #142: the client posts {cash} to /api/v2/order/take/:buildingId/
+  // to pick up finished sales revenue; previously only production was
+  // handled, so the collect click on a selling store errored.)
   registry.register({
     method: 'POST',
     pattern: '/api/v2/order/take/:id/',
     auth: 'company',
     handler: async (_req, res, ctx, params) => {
       const requestedId = Number(params.id);
+
+      // Retail fallback: a finished sales order on this building collects revenue
+      const retailOrders = retailRepository.findByCompanyAndBuilding(ctx!.companyId, requestedId);
+      const finishedRetail = retailOrders.find(o => !o.finishedAt || new Date(o.finishedAt).getTime() <= Date.now());
+      if (finishedRetail) {
+        const retail = await collectRetailOrderUseCase(ctx!, finishedRetail.id);
+        sendJson(res, {
+          moneyUpdate: retail.moneyBalance,
+          collectedItem: null,
+          building: buildingRepository.findById(requestedId),
+          levelInfo: null,
+          levelUp: false
+        });
+        return;
+      }
+
       const result = await collectProductionUseCase(ctx!, { buildingOrQueueId: requestedId });
       sendJson(res, toSimCompaniesCollectProductionDTO(result));
     }

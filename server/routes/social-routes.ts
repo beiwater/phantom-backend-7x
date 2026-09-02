@@ -266,7 +266,25 @@ export async function handleSocialRoutes(
   // 6. Chatroom from id: /api/v2/chatroom/:room/from-id/:id/
   const chatFromIdMatch = pathname.match(/^\/api\/v2\/chatroom\/([^/]+)\/from-id\/(\d+)\/$/);
   if (chatFromIdMatch) {
-    sendJson(res, []);
+    const room = decodeURIComponent(chatFromIdMatch[1]);
+    const fromId = Number(chatFromIdMatch[2]) || 0;
+    const messages = db.prepare(`
+      SELECT * FROM chat_messages WHERE (room = ? OR room = 'N' OR room = '1') AND id > ? ORDER BY id ASC LIMIT 50
+    `).all(room, fromId) as Array<{ id: number; room: string; sender_id: number; sender_company: string; text: string; sent_at: string }>;
+    const realmByCompanyId = new Map<number, number>(
+      (db.prepare('SELECT company_id, realm_id FROM companies').all() as Array<{ company_id: number; realm_id: number }>)
+        .map(row => [row.company_id, row.realm_id])
+    );
+
+    sendJson(res, messages.map(m => ({
+      id: m.id,
+      chatroom: m.room,
+      sender: { id: m.sender_id, company: m.sender_company, logo: '', certificates: 0, supporter: false, realmId: realmByCompanyId.get(m.sender_id) ?? 0 },
+      body: m.text,
+      text: m.text,
+      datetime: m.sent_at,
+      pinned: false
+    })));
     return true;
   }
 
@@ -288,6 +306,7 @@ export async function handleSocialRoutes(
       // C-3: frontend resolves the realm badge via Kt[sender.realmId]; a
       // missing realmId crashes the messages page with a TypeError.
       sender: { id: m.sender_id, company: m.sender_company, logo: '', certificates: 0, supporter: false, realmId: realmByCompanyId.get(m.sender_id) ?? 0 },
+      body: m.text,
       text: m.text,
       datetime: m.sent_at,
       pinned: false
@@ -339,6 +358,7 @@ export async function handleSocialRoutes(
       id: Number(result.lastInsertRowid),
       chatroom: room,
       sender: { id: comp.company_id, company: comp.name, logo: '', supporter: false, realmId: comp.realm_id ?? 0 },
+      body: text,
       text,
       datetime: now
     });

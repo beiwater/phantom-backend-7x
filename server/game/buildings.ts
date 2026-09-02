@@ -66,6 +66,63 @@ function getProductionBusy(buildingId: number) {
   };
 }
 
+interface RetailOrderBusyRow {
+  id: number;
+  resource_kind: number;
+  quality: number;
+  units: number;
+  unit_price: number;
+  finished_at: string | null;
+  created_at: string;
+}
+
+/**
+ * Issue #142: an in-flight retail sale occupies the building's busy_until
+ * window just like construction/production, but the original frontend reads
+ * busy.category === 's' (Ai.SELLING) plus busy.sales_order to render the
+ * "selling" state. Without this mapper the backend fell through to the
+ * EXPANDING ("b") object and the UI mislabeled a selling store as
+ * "upgrading", locking normal building actions.
+ */
+function getRetailBusy(buildingId: number) {
+  const row = db.prepare(`
+    SELECT id, resource_kind, quality, units, unit_price, finished_at, created_at
+    FROM retail_orders
+    WHERE building_id = ?
+    ORDER BY id DESC
+    LIMIT 1
+  `).get(buildingId) as RetailOrderBusyRow | undefined;
+
+  if (!row) return null;
+
+  const finishedAtMs = row.finished_at ? new Date(row.finished_at).getTime() : 0;
+  const canFetch = finishedAtMs > 0 && finishedAtMs <= Date.now();
+  const resource = getResourceDef(Number(row.resource_kind));
+  const revenue = Math.round(Number(row.units) * Number(row.unit_price) * 100) / 100;
+  const startedMs = new Date(row.created_at).getTime();
+  const durationSeconds = finishedAtMs > 0
+    ? Math.max(1, Math.round((finishedAtMs - startedMs) / 1000))
+    : 0;
+
+  return {
+    id: Number(row.id),
+    started: row.created_at,
+    duration: durationSeconds,
+    category: 's',
+    canFetch,
+    sales_order: {
+      id: Number(row.id),
+      image: resource?.image || '',
+      name: resource?.name || `Resource #${row.resource_kind}`,
+      amount: Number(row.units),
+      price: Number(row.unit_price),
+      quality: Number(row.quality) || 0,
+      remainingProfit: revenue,
+      profitAvailableNow: canFetch ? revenue : 0
+    }
+  };
+}
+
 const BUILDING_NAMES: Record<string, string> = {
   P: 'Farm',
   G: 'Grocery store',
@@ -104,7 +161,13 @@ export function formatBuilding(b: BuildingRow) {
   const busyUntilMs = b.busy_until ? new Date(b.busy_until).getTime() : 0;
   const isConstructingOrUpgrading = busyUntilMs > Date.now();
 
+  // Issue #142: prefer the production queue, then an active retail sale
+  // (SELLING state), and only fall back to the EXPANDING object when the
+  // busy window is genuinely a construction/upgrade.
   let busyObj: Record<string, unknown> | null = getProductionBusy(b.id);
+  if (!busyObj && isConstructingOrUpgrading) {
+    busyObj = getRetailBusy(b.id);
+  }
   if (!busyObj && isConstructingOrUpgrading) {
     const duration = 10;
     const startedMs = busyUntilMs - duration * 1000;
