@@ -1,14 +1,15 @@
 import type { GameContext } from '../../context/game-context.ts';
 import { runInTransaction } from '../../db/transaction.ts';
 import { buildingRepository, type BuildingEntity } from '../../repositories/building-repository.ts';
-import { productionRepository, type ProductionQueueEntity } from '../../repositories/production-repository.ts';
 import { warehouseRepository, type WarehouseEntity } from '../../repositories/warehouse-repository.ts';
+import { productionRepository, type ProductionQueueEntity } from '../../repositories/production-repository.ts';
 import { companyRepository } from '../../repositories/company-repository.ts';
 import { eventBus } from '../../events/event-bus.ts';
 import { NotFoundError, ValidationError, ConflictError } from '../../errors/domain-error.ts';
 import { addCompanyExperience } from '../../game/company.ts';
 import { computeLevelInfo, type LevelInfoDTO } from '../../domain/leveling/level-rules.ts';
 import { applyAbundanceCycleDecay } from '../../game/buildings.ts';
+import { rocketKindForLaunchAmount, resolveRocketLaunch, type RocketLaunchOutcome } from '../../game/aerospace.ts';
 
 export interface CollectProductionInput {
   buildingOrQueueId: number;
@@ -16,7 +17,10 @@ export interface CollectProductionInput {
 
 export interface CollectProductionResult {
   collectedItem: ProductionQueueEntity;
-  warehouseItem: WarehouseEntity;
+  /** Launches resolve to no warehouse output (Issue #170). */
+  warehouseItem: WarehouseEntity | null;
+  /** Present when the collected order was a launch-pad launch (Issue #170). */
+  launch?: RocketLaunchOutcome;
   building: BuildingEntity;
   currentMoney: number;
   levelInfo: LevelInfoDTO;
@@ -69,14 +73,33 @@ export async function collectProductionUseCase(
       throw new ValidationError('Production has not finished yet');
     }
 
+
     // 2. Atomically mark as resolved (idempotency barrier)
     const marked = productionRepository.markResolved(targetItem.id, ctx.companyId);
     if (!marked) {
       throw new ConflictError('Production order has already been collected');
     }
 
-    // 3. Add produced resource to warehouse
-    const warehouseItem = warehouseRepository.addResource(
+    // Issue #170: a kind-100 order on a launch pad is a rocket launch. Its
+    // collect resolves the launch — crash roll, rocket_launches log, patents —
+    // and produces no warehouse resource.
+    const launchPad = buildingRepository.findById(targetItem.buildingId);
+    let launchOutcome: RocketLaunchOutcome | null = null;
+    if (launchPad && launchPad.kind === 'l' && targetItem.kind === 100) {
+      const rocketKind = rocketKindForLaunchAmount(Number(targetItem.amount));
+      if (rocketKind === null) {
+        throw new ValidationError(`Invalid launch order amount: ${targetItem.amount}`);
+      }
+      launchOutcome = resolveRocketLaunch(
+        ctx.companyId,
+        targetItem.buildingId,
+        rocketKind,
+        Number(targetItem.quality) || 0
+      );
+    }
+
+    // 3. Add produced resource to warehouse (launches produce none)
+    const warehouseItem = launchOutcome ? null : warehouseRepository.addResource(
       ctx.companyId,
       targetItem.kind,
       targetItem.quality,
@@ -114,6 +137,18 @@ export async function collectProductionUseCase(
     });
 
     // 7. Publish domain event on transaction commit
+    if (launchOutcome) {
+      eventBus.publishCommitted(txCtx, 'RocketLaunched', {
+        companyId: ctx.companyId,
+        buildingId: targetItem.buildingId,
+        queueId: targetItem.id,
+        rocketKind: rocketKindForLaunchAmount(Number(targetItem.amount)),
+        quality: targetItem.quality,
+        success: launchOutcome.success,
+        patentsEarned: launchOutcome.patentsEarned,
+        launchedAt: new Date().toISOString()
+      });
+    }
     eventBus.publishCommitted(txCtx, 'ProductionCollected', {
       companyId: ctx.companyId,
       buildingId: targetItem.buildingId,
@@ -133,7 +168,8 @@ export async function collectProductionUseCase(
       currentMoney,
       levelInfo,
       levelUp: levelAfter > levelBefore,
-      experienceGained
+      experienceGained,
+      launch: launchOutcome ?? undefined
     };
   }, { immediate: true });
 }

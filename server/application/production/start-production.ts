@@ -11,6 +11,7 @@ import { assertQueueDuration } from '../../domain/leveling/level-rules.ts';
 import { calculateProductionTime } from '../../game-data/buildings.ts';
 import { isAbundanceExtractorKind, getBuildingAbundance, scaleExtractorOutput } from '../../game/buildings.ts';
 import { assertAllowedProduct } from '../../game/robotics.ts';
+import { queueRocketLaunch, rocketKindForLaunchAmount } from '../../game/aerospace.ts';
 
 export interface StartProductionInput {
   buildingId: number;
@@ -23,6 +24,8 @@ export interface StartProductionResult {
   queueItem: ProductionQueueEntity;
   building: BuildingEntity;
   resourceTransactions: ResourceTransactionEntity[];
+  /** Compatibility message override (e.g. launch confirmation, Issue #170). */
+  message?: string;
 }
 
 export async function startProductionUseCase(
@@ -37,6 +40,40 @@ export async function startProductionUseCase(
     }
     if (building.companyId !== ctx.companyId) {
       throw new ForbiddenError('You do not own this building');
+    }
+
+    // Issue #170: the original client models a launch-pad launch as a
+    // production order of Aerospace Research (kind 100) — 400 units picks a
+    // sub-orbital rocket, 2800 a BFR. Route it to the launch flow instead of
+    // the generic production pipeline, whose tier queue-duration limit would
+    // wrongly reject it (launches legitimately run up to 128h at level 1).
+    if (building.kind === 'l' && input.kind === 100) {
+      const rocketKind = rocketKindForLaunchAmount(input.amount);
+      if (rocketKind === null) {
+        throw new ValidationError(`Invalid launch order amount: ${input.amount}. Expected 400 (Sub-Orbital Rocket) or 2800 (BFR)`);
+      }
+      // Construction/upgrade busy still applies; an active launch queue does
+      // not — the original allows chaining launches up to LAUNCH_QUEUE_MAX.
+      if (building.busyUntil && new Date(building.busyUntil).getTime() > Date.now()
+        && productionRepository.findActiveByBuilding(building.id, ctx.companyId).length === 0) {
+        throw new ConflictError('Building is still under construction or upgrade');
+      }
+      const launch = await queueRocketLaunch(ctx.companyId, building.id, rocketKind, input.quality ?? 0);
+      const refreshed = buildingRepository.findById(building.id);
+      if (!refreshed) {
+        throw new NotFoundError(`Building ${building.id} not found`);
+      }
+      return {
+        queueItem: launch.queueItem,
+        building: refreshed,
+        resourceTransactions: launch.transactions.map(tx => ({
+          kind: tx.kind,
+          quality: tx.quality,
+          amount: -tx.amount,
+          cost: 0
+        })),
+        message: 'Launch queued successfully',
+      } satisfies StartProductionResult;
     }
 
     // Issue #96: a robotized building is locked to its specialized product;

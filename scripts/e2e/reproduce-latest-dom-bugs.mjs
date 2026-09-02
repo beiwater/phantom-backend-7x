@@ -137,8 +137,8 @@ async function reproduceLaunchpad(page) {
     await launchButton.click();
     await page.waitForTimeout(800);
     const afterClick = await bodyText(page);
-    record('level1-launchpad-rejected', /queue duration limit|队列时长|超过.*队列/i.test(afterClick),
-      'level-1 launchpad exposes the launch action but rejects it after the DOM click');
+    record('level1-launchpad-accepted', !/queue duration limit|队列时长|超过.*队列/i.test(afterClick),
+      'level-1 launchpad launch action must be accepted (Issue #170 fixed: launches are not production orders)');
   }
 }
 

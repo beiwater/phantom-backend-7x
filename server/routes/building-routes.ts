@@ -5,6 +5,7 @@ import {
   startProductionUseCase,
   type StartProductionInput
 } from '../application/production/start-production.ts';
+import { getProductionQueueUseCase } from '../application/production/get-production-queue.ts';
 import { startRetailUseCase } from '../application/production/start-retail.ts';
 import { cancelProductionUseCase } from '../application/production/cancel-production.ts';
 import { collectProductionUseCase } from '../application/production/collect-production.ts';

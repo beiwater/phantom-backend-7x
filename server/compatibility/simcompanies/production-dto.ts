@@ -27,7 +27,7 @@ export function toSimCompaniesStartProductionDTO(
   result: StartProductionResult
 ): SimCompaniesStartProductionDTO {
   return {
-    message: 'Production started successfully',
+    message: result.message ?? 'Production started successfully',
     money: 0,
     building: toSimCompaniesBuildingDTO(result.building),
     resourceTransactions: result.resourceTransactions.map(tx => ({
@@ -88,11 +88,37 @@ export interface SimCompaniesCollectProductionDTO {
     delta: number;
     amount: number;
   }>;
+  /** Launch outcome message (Issue #170). */
+  message?: string;
 }
 
 export function toSimCompaniesCollectProductionDTO(
   result: CollectProductionResult
 ): SimCompaniesCollectProductionDTO {
+  // Issue #170: a collected launch produces no resource — the response
+  // carries the launch outcome message instead of a resource delta.
+  if (result.launch) {
+    return {
+      success: true,
+      money: result.currentMoney,
+      moneyUpdate: {
+        money: result.currentMoney,
+        id: Date.now()
+      },
+      achievements: [],
+      levelInfo: result.levelInfo,
+      newBusy: null,
+      resource: {
+        kind: result.collectedItem.kind,
+        quality: 0,
+        amount: 0
+      },
+      message: result.launch.message,
+      experienceGained: result.experienceGained,
+      levelUp: result.levelUp,
+      resourceTransactions: []
+    };
+  }
   return {
     success: true,
     money: result.currentMoney,

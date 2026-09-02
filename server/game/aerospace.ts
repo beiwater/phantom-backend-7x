@@ -8,6 +8,7 @@ import {
 } from './warehouse.ts';
 import { runInTransaction } from '../db/transaction.ts';
 import { getCompanyBoostSettings } from './simboost-settings.ts';
+import { productionRepository, type ProductionQueueEntity } from '../repositories/production-repository.ts';
 
 // Initialize Aerospace & Rocket Launch tables
 db.exec(`
@@ -22,21 +23,6 @@ db.exec(`
     launched_at TEXT NOT NULL
   );
 
-  CREATE TABLE IF NOT EXISTS launch_queue (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    company_id INTEGER NOT NULL,
-    building_id INTEGER NOT NULL,
-    realm_id INTEGER DEFAULT 0,
-    rocket_kind INTEGER NOT NULL,
-    quality INTEGER DEFAULT 0,
-    status TEXT DEFAULT 'QUEUED',
-    duration_seconds REAL NOT NULL,
-    started_at TEXT NOT NULL,
-    finishes_at TEXT NOT NULL,
-    created_at TEXT NOT NULL
-  );
-
-  CREATE INDEX IF NOT EXISTS idx_launch_queue_comp_bld ON launch_queue(company_id, building_id, status);
   CREATE INDEX IF NOT EXISTS idx_rocket_launches_comp_realm ON rocket_launches(realm_id, company_id);
 
   CREATE TABLE IF NOT EXISTS aerospace_sales_orders (
@@ -53,6 +39,56 @@ db.exec(`
 `);
 
 export const LAUNCH_QUEUE_MAX = 30;
+
+/**
+ * A launch order is stored as a production_queues row (kind 100 — Aerospace
+ * Research). The ordered amount encodes the rocket kind, mirroring the
+ * original client which submits the launch as a research production order:
+ * 400 units = Sub-Orbital Rocket, 2800 units = BFR.
+ */
+export function rocketKindForLaunchAmount(amount: number): number | null {
+  for (const config of Object.values(ROCKET_CONFIGS)) {
+    if (config.researchCost === amount) return config.kind;
+  }
+  return null;
+}
+
+export interface RocketLaunchOutcome {
+  success: boolean;
+  message: string;
+  patentsEarned: number;
+}
+
+/**
+ * Resolve a finished launch order: roll the crash check, log the launch and
+ * award patents. Failure probability halves per quality point (0.5 / 2^Q).
+ * Must run inside the caller's transaction.
+ */
+export function resolveRocketLaunch(
+  companyId: number,
+  buildingId: number,
+  rocketKind: number,
+  quality: number,
+  realmId: number = 0
+): RocketLaunchOutcome {
+  const failureProb = 0.5 / Math.pow(2, quality);
+  const isCrash = Math.random() < failureProb;
+  const success = !isCrash;
+
+  db.prepare(`
+    INSERT INTO rocket_launches (company_id, realm_id, building_id, rocket_kind, quality, success, launched_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run(companyId, realmId, buildingId, rocketKind, quality, success ? 1 : 0, new Date().toISOString());
+
+  const patents = success ? (rocketKind === 94 ? 28 : 4) : 0;
+  return {
+    success,
+    message: success
+      ? 'Rocket launched successfully!'
+      : 'Rapid Unscheduled Disassembly (Rocket explosion on launchpad)',
+    patentsEarned: patents
+  };
+}
 
 export interface RocketConfig {
   kind: number;
@@ -120,20 +156,6 @@ interface DbBuildingRow {
   busy_until?: string | null;
 }
 
-interface DbLaunchQueueRow {
-  id: number;
-  company_id: number;
-  building_id: number;
-  realm_id: number;
-  rocket_kind: number;
-  quality: number;
-  status: string;
-  duration_seconds: number;
-  started_at: string;
-  finishes_at: string;
-  created_at: string;
-}
-
 interface DbAerospaceSalesOrderRow {
   id: number;
   company_id: number;
@@ -190,7 +212,7 @@ export async function queueRocketLaunch(
   buildingId: number,
   rocketKind: number,
   quality: number = 0
-): Promise<QueuedLaunchItem> {
+): Promise<QueuedLaunchItem & { queueItem: ProductionQueueEntity; transactions: Array<{ kind: number; quality: number; amount: number }> }> {
   // 1. Fetch building and validate
   const building = db.prepare('SELECT * FROM buildings WHERE id = ?').get(buildingId) as DbBuildingRow | undefined;
   if (!building) {
@@ -198,12 +220,6 @@ export async function queueRocketLaunch(
   }
   if (building.company_id !== companyId) {
     throw new Error('Building does not belong to your company');
-  }
-  // #156: only a real Launchpad (kind 'l') may queue rockets. Launchpad's
-  // category is 'research', so matching by category admitted every lab /
-  // research factory into the launch flow.
-  if (building.kind !== 'l') {
-    throw new Error('Building is not a Launch Pad');
   }
 
   // 2. Validate rocket configuration
@@ -218,11 +234,11 @@ export async function queueRocketLaunch(
     throw new Error(`Requires launch pad level ${config.minLevel} or higher (current level: ${buildingLevel})`);
   }
 
-  // 4. Validate queue capacity (maximum 30 queued launches)
+  // 4. Validate queue capacity (unresolved launch orders on this pad)
   const queueCountRow = db.prepare(`
-    SELECT COUNT(*) as count FROM launch_queue
-    WHERE building_id = ? AND status = 'QUEUED'
-  `).get(buildingId) as { count: number };
+    SELECT COUNT(*) AS count FROM production_queues
+    WHERE building_id = ? AND company_id = ? AND kind = 100 AND resolved = 0
+  `).get(buildingId, companyId) as { count: number };
   if (queueCountRow.count >= LAUNCH_QUEUE_MAX) {
     throw new Error(`Launch queue is full (maximum ${LAUNCH_QUEUE_MAX} queued launches)`);
   }
@@ -240,29 +256,25 @@ export async function queueRocketLaunch(
     throw new Error(`Insufficient Aerospace Research (resource #100). Required: ${config.researchCost}, available: ${available}`);
   }
 
-  // 6. Compute launch duration and scheduling
+  // 6. Compute launch duration and queue chaining. Launch orders live in
+  // production_queues (kind 100) so the generic queue/busy/collect pipeline
+  // sees them — the original client models a launch as an Aerospace Research
+  // production order on the pad (Issue #170). Launches are exempt from the
+  // tier queue-duration limit: the original launch duration (128h at L1)
+  // exceeds every tier limit by design.
   const boostSettings = getCompanyBoostSettings(companyId);
   const prodMod = boostSettings?.productionModifier || 0;
   const durationSeconds = calculateLaunchDurationSeconds(buildingLevel, prodMod);
 
-  const lastQueued = db.prepare(`
-    SELECT finishes_at FROM launch_queue
-    WHERE building_id = ? AND status = 'QUEUED'
-    ORDER BY id DESC LIMIT 1
-  `).get(buildingId) as { finishes_at: string } | undefined;
-
   const nowMs = Date.now();
   let startMs = nowMs;
-  if (lastQueued && lastQueued.finishes_at) {
-    const prevFinishMs = new Date(lastQueued.finishes_at).getTime();
-    if (prevFinishMs > nowMs) {
-      startMs = prevFinishMs;
-    }
+  const lastActive = productionRepository.findLatestActiveByBuilding(buildingId, companyId);
+  if (lastActive && new Date(lastActive.finishesAt).getTime() > nowMs) {
+    startMs = new Date(lastActive.finishesAt).getTime();
   }
   const finishMs = startMs + durationSeconds * 1000;
   const startedAt = new Date(startMs).toISOString();
   const finishesAt = new Date(finishMs).toISOString();
-  const createdAt = new Date(nowMs).toISOString();
 
   // 7. Atomic transaction
   return runInTransaction(() => {
@@ -278,13 +290,18 @@ export async function queueRocketLaunch(
       throw new Error(`Failed to consume ${config.researchCost} Aerospace Research (resource #100)`);
     }
 
-    // Insert launch queue record
-    const insertRes = db.prepare(`
-      INSERT INTO launch_queue (company_id, building_id, realm_id, rocket_kind, quality, status, duration_seconds, started_at, finishes_at, created_at)
-      VALUES (?, ?, ?, ?, ?, 'QUEUED', ?, ?, ?, ?)
-    `).run(companyId, buildingId, building.realm_id || 0, rocketKind, safeQuality, durationSeconds, startedAt, finishesAt, createdAt);
-
-    const launchId = Number(insertRes.lastInsertRowid);
+    // Insert launch order — amount encodes the rocket kind (rocketKindForLaunchAmount)
+    const queueItem = productionRepository.create({
+      buildingId,
+      companyId,
+      kind: 100,
+      quality: safeQuality,
+      cost: 0,
+      amount: config.researchCost,
+      durationSeconds,
+      startedAt,
+      finishesAt
+    });
 
     // Update building busy_until if needed
     if (!building.busy_until || new Date(building.busy_until).getTime() < finishMs) {
@@ -292,7 +309,7 @@ export async function queueRocketLaunch(
     }
 
     return {
-      id: launchId,
+      id: queueItem.id,
       buildingId,
       companyId,
       rocketKind,
@@ -302,7 +319,12 @@ export async function queueRocketLaunch(
       finishes: finishesAt,
       finishes_at: finishesAt,
       duration: durationSeconds,
-      createdAt
+      createdAt: startedAt,
+      queueItem,
+      transactions: [
+        ...consumedRocket.map(tx => ({ kind: Number(tx.kind), quality: Number(tx.quality), amount: Math.abs(Number(tx.amount)) })),
+        ...consumedResearch.map(tx => ({ kind: Number(tx.kind), quality: Number(tx.quality), amount: Math.abs(Number(tx.amount)) }))
+      ]
     };
   }, { immediate: true });
 }
@@ -336,61 +358,72 @@ export async function cancelQueuedLaunch(
     throw new Error('Building does not belong to your company');
   }
 
-  // 2. Find target queued launch
-  let targetLaunch: DbLaunchQueueRow | undefined;
+  // 2. Find the target launch order (an unresolved kind-100 production_queues
+  // row on this pad). Finished-but-uncollected launches are not cancellable —
+  // they must be collected (order/take) so the outcome is logged exactly once.
+  let targetLaunch: { id: number; rocketKind: number; quality: number; researchCost: number } | undefined;
+  const loadRow = (row: ProductionQueueEntity) => {
+    // A finished launch resolves via collect (order/take), never via cancel —
+    // refunding after the dice roll would be a double-claim exploit.
+    if (new Date(row.finishesAt).getTime() <= Date.now()) return;
+    const rocketKind = rocketKindForLaunchAmount(Number(row.amount));
+    if (rocketKind === null) return;
+    const config = ROCKET_CONFIGS[rocketKind];
+    targetLaunch = {
+      id: row.id,
+      rocketKind,
+      quality: Number(row.quality) || 0,
+      researchCost: config?.researchCost ?? Number(row.amount)
+    };
+  };
   if (launchId !== undefined && launchId !== null) {
-    targetLaunch = db.prepare(`
-      SELECT * FROM launch_queue
-      WHERE id = ? AND building_id = ? AND company_id = ? AND status = 'QUEUED'
-    `).get(launchId, buildingId, companyId) as DbLaunchQueueRow | undefined;
+    const row = productionRepository.findById(launchId);
+    if (row && row.buildingId === buildingId && row.companyId === companyId && !row.resolved) {
+      loadRow(row);
+    }
   } else {
-    targetLaunch = db.prepare(`
-      SELECT * FROM launch_queue
-      WHERE building_id = ? AND company_id = ? AND status = 'QUEUED'
-      ORDER BY id DESC LIMIT 1
-    `).get(buildingId, companyId) as DbLaunchQueueRow | undefined;
+    const rows = productionRepository.findActiveByBuilding(buildingId, companyId)
+      .filter(row => row.kind === 100)
+      .sort((a, b) => b.id - a.id);
+    for (const row of rows) {
+      loadRow(row);
+      if (targetLaunch) break;
+    }
   }
   if (!targetLaunch) {
     throw new Error('Queued launch not found or already started/cancelled');
   }
-
-  const config = ROCKET_CONFIGS[targetLaunch.rocket_kind];
-  const researchCost = config?.researchCost || (targetLaunch.rocket_kind === 94 ? 2800 : 400);
-
   return runInTransaction(() => {
-    // Mark as cancelled
-    db.prepare(`UPDATE launch_queue SET status = 'CANCELLED' WHERE id = ?`).run(targetLaunch.id);
+    // Remove the launch order (production_queues row) and refund resources
+    const deleted = productionRepository.delete(targetLaunch.id, companyId);
+    if (!deleted) {
+      throw new Error('Failed to cancel launch order');
+    }
 
     // Refund rocket to warehouse
-    addResource(companyId, targetLaunch.rocket_kind, targetLaunch.quality, 1);
+    addResource(companyId, targetLaunch.rocketKind, targetLaunch.quality, 1);
 
     // Refund research units to warehouse
-    addResource(companyId, 100, 0, researchCost);
+    addResource(companyId, 100, 0, targetLaunch.researchCost);
 
-    // Re-sequence subsequent queued launches if any
-    const remaining = db.prepare(`
-      SELECT * FROM launch_queue
-      WHERE building_id = ? AND status = 'QUEUED'
-      ORDER BY id ASC
-    `).all(buildingId) as unknown as DbLaunchQueueRow[];
-
+    // Re-chain remaining launch/production orders on this pad
+    const remaining = productionRepository.findActiveByBuilding(buildingId, companyId);
     const nowMs = Date.now();
     let currentStartMs = nowMs;
     for (const item of remaining) {
-      const durationMs = Number(item.duration_seconds) * 1000;
+      const durationMs = Number(item.durationSeconds) * 1000;
       const newStartAt = new Date(currentStartMs).toISOString();
       const newFinishAt = new Date(currentStartMs + durationMs).toISOString();
-      db.prepare(`
-        UPDATE launch_queue
-        SET started_at = ?, finishes_at = ?
-        WHERE id = ?
-      `).run(newStartAt, newFinishAt, item.id);
+      db.prepare('UPDATE production_queues SET started_at = ?, finishes_at = ? WHERE id = ?')
+        .run(newStartAt, newFinishAt, item.id);
       currentStartMs += durationMs;
     }
 
     // Update building busy_until
     if (remaining.length > 0) {
-      const lastFinish = new Date(currentStartMs).toISOString();
+      const lastFinish = new Date(
+        Math.max(...remaining.map(item => new Date(item.finishesAt).getTime()))
+      ).toISOString();
       db.prepare('UPDATE buildings SET busy_until = ? WHERE id = ?').run(lastFinish, buildingId);
     } else {
       db.prepare('UPDATE buildings SET busy_until = NULL WHERE id = ?').run(buildingId);
@@ -402,10 +435,10 @@ export async function cancelQueuedLaunch(
       id: targetLaunch.id,
       status: 'CANCELLED',
       refunded: {
-        rocketKind: targetLaunch.rocket_kind,
+        rocketKind: targetLaunch.rocketKind,
         quality: targetLaunch.quality,
         amount: 1,
-        researchPoints: researchCost
+        researchPoints: targetLaunch.researchCost
       }
     };
   }, { immediate: true });
@@ -415,7 +448,9 @@ export async function cancelQueuedLaunch(
  * Get company's active launch queue.
  */
 export function getCompanyLaunchQueue(companyId: number, buildingId?: number): QueuedLaunchItem[] {
-  let query = `SELECT * FROM launch_queue WHERE company_id = ? AND status = 'QUEUED'`;
+  let query = `
+    SELECT * FROM production_queues
+    WHERE company_id = ? AND kind = 100 AND resolved = 0`;
   const params: unknown[] = [companyId];
   if (buildingId) {
     query += ` AND building_id = ?`;
@@ -423,20 +458,31 @@ export function getCompanyLaunchQueue(companyId: number, buildingId?: number): Q
   }
   query += ` ORDER BY id ASC`;
 
-  const rows = db.prepare(query).all(...params) as unknown as DbLaunchQueueRow[];
-  return rows.map(r => ({
-    id: r.id,
-    buildingId: r.building_id,
-    companyId: r.company_id,
-    rocketKind: r.rocket_kind,
-    quality: Number(r.quality) || 0,
-    status: r.status,
-    started: r.started_at,
-    finishes: r.finishes_at,
-    finishes_at: r.finishes_at,
-    duration: Number(r.duration_seconds),
-    createdAt: r.created_at
-  }));
+  const rows = db.prepare(query).all(...params) as unknown as Array<{
+    id: number;
+    building_id: number;
+    amount: number;
+    quality: number;
+    duration_seconds: number;
+    started_at: string;
+    finishes_at: string;
+  }>;
+  return rows.map(r => {
+    const rocketKind = rocketKindForLaunchAmount(Number(r.amount)) ?? 91;
+    return {
+      id: r.id,
+      buildingId: r.building_id,
+      companyId,
+      rocketKind,
+      quality: Number(r.quality) || 0,
+      status: 'QUEUED',
+      started: r.started_at,
+      finishes: r.finishes_at,
+      finishes_at: r.finishes_at,
+      duration: Number(r.duration_seconds),
+      createdAt: r.started_at
+    };
+  });
 }
 
 // Pre-seeded baseline stats for launches and crashes
