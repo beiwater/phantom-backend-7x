@@ -184,33 +184,33 @@ async function runIssue65Verification() {
   const execSlot = await unlockExecutiveSlot(companyId);
   assert.equal(execSlot.success, true);
   assert.equal(execSlot.extraExecutiveSlots, 1);
-  assert.equal(execSlot.simBoosts, 335, '100 SimBoosts deducted (435 -> 335)');
+  assert.equal(execSlot.simBoosts, 385, 'First executive slot deducts 50 SimBoosts (435 -> 385)');
 
   const compExec = getCompanyById(companyId);
   assert.equal(compExec?.extra_executive_slots, 1);
-  assert.equal(compExec?.simboosts, 335);
+  assert.equal(compExec?.simboosts, 385);
 
   // Test 7: Atomic unlockTagSlot
   console.log('-> Test 7: Atomic unlockTagSlot');
   const tagSlot = await unlockTagSlot(companyId);
   assert.equal(tagSlot.success, true);
   assert.equal(tagSlot.maxTags, 2);
-  assert.equal(tagSlot.simBoosts, 135, '200 SimBoosts deducted (335 -> 135)');
+  assert.equal(tagSlot.simBoosts, 185, '200 SimBoosts deducted (385 -> 185)');
 
   const compTag = getCompanyById(companyId);
   assert.equal(compTag?.max_tags, 2);
-  assert.equal(compTag?.simboosts, 135);
+  assert.equal(compTag?.simboosts, 185);
 
   // Test 8: Atomic unlockDisplayCaseSlot
   console.log('-> Test 8: Atomic unlockDisplayCaseSlot');
   const dcSlot = await unlockDisplayCaseSlot(companyId);
   assert.equal(dcSlot.success, true);
   assert.equal(dcSlot.displayCaseSlots, 2);
-  assert.equal(dcSlot.simBoosts, 85, '50 SimBoosts deducted (135 -> 85)');
+  assert.equal(dcSlot.simBoosts, 135, '50 SimBoosts deducted (185 -> 135)');
 
   const compDc = getCompanyById(companyId);
   assert.equal(compDc?.display_case_slots, 2);
-  assert.equal(compDc?.simboosts, 85);
+  assert.equal(compDc?.simboosts, 135);
 
   // Test 9: HTTP Route Level - Idle Construction Rush Returns 400 Bad Request
   console.log('-> Test 9: HTTP Route Level POST /construction-rush/ for idle building');
@@ -232,7 +232,7 @@ async function runIssue65Verification() {
   assert.match(responseBody.error as string, /not under construction/i);
 
   const finalComp = getCompanyById(companyId);
-  assert.equal(finalComp?.simboosts, 85, 'Final SimBoosts must remain 85 with 0 deduction on 400 response');
+  assert.equal(finalComp?.simboosts, 135, 'Final SimBoosts must remain 135 with 0 deduction on 400 response');
 
   console.log('✅ All Issue #65 regression tests passed successfully!');
 }
