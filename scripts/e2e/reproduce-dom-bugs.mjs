@@ -1,7 +1,7 @@
 import { chromium } from '@playwright/test';
 import { findBrowserExecutable } from './find-browser.ts';
 
-// Browser/DOM-only reproducer for logged-in gameplay findings #134-#145.
+// Browser/DOM-only reproducer for logged-in gameplay findings #134-#151.
 // It deliberately uses page navigation and DOM locators; it does not use
 // fetch, page.request, direct API calls, or DOM mutations.
 const baseUrl = process.env.E2E_BASE_URL ?? 'http://127.0.0.1:3000';
