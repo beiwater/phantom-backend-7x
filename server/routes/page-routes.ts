@@ -1,5 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { sendJson } from './utils.ts';
+import { db } from '../db/database.ts';
 
 /**
  * P1-03: Static page / guide article content route.
@@ -138,12 +139,24 @@ export async function handlePageRoutes(
   _req: IncomingMessage,
   res: ServerResponse,
   pathname: string,
-  method: string
+  method: string,
+  currentPlayerId?: number | null
 ): Promise<boolean> {
   if (method !== 'GET') return false;
 
-  // Admin Control Panel route
+  // Admin Control Panel route — requires an authenticated admin session
+  // (Issue #121: the panel previously rendered for anonymous visitors).
   if (pathname === '/admin-xSwwtH67Cr' || pathname === '/admin-xSwwtH67Cr/') {
+    let isAdmin = false;
+    if (currentPlayerId) {
+      const player = db.prepare('SELECT is_admin FROM players WHERE player_id = ?').get(currentPlayerId) as { is_admin?: number } | undefined;
+      isAdmin = Boolean(player && player.is_admin === 1);
+    }
+    if (!isAdmin) {
+      res.writeHead(403, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end('<!DOCTYPE html><html><body><h1>403 Forbidden</h1><p>Administrator authentication required.</p></body></html>');
+      return true;
+    }
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
     res.end(`<!DOCTYPE html>
 <html lang="en">

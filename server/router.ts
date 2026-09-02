@@ -193,7 +193,7 @@ export async function handleRequest(req: IncomingMessage, res: ServerResponse) {
   if (await handleBuildingAuctionRoutes(req, res, pathname, method, currentCompanyId)) {
     return;
   }
-  if (await handlePageRoutes(req, res, pathname, method)) {
+  if (await handlePageRoutes(req, res, pathname, method, currentPlayerId)) {
     return;
   }
   if (await handleAchievementRoutes(req, res, pathname, method, currentCompanyId)) {

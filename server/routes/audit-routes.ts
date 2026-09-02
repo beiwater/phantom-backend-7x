@@ -291,25 +291,46 @@ export async function handleAuditRoutes(
     return true;
   }
 
-  // 6. Audit requests (v1): /api/v1/audit-requests/
+  // 6. Audit requests (v1): real rows = audits entries of action
+  // 'AUDIT_REQUEST' (created by the fraud-detection job when it flags a
+  // company); falls back to an empty authoritative list.
   if (pathname === '/api/v1/audit-requests/' && method === 'GET') {
-    sendJson(res, [
-      {
-        id: 401,
-        targetCompanyId: 7706929,
-        targetCompanyName: "Shadow Automation Ltd.",
-        requester: "Automated Fraud Detection",
-        reason: "Unusual continuous transaction pattern detected",
-        status: "pending",
-        created: new Date(now.getTime() - 3600 * 1000 * 3).toISOString()
-      }
-    ]);
+    const rows = auditRepository.list(200).filter(a => a.action === 'AUDIT_REQUEST');
+    sendJson(res, rows.map(a => {
+      const target = a.targetCompanyId ? getCompanyById(a.targetCompanyId) : null;
+      return {
+        id: a.id,
+        targetCompanyId: a.targetCompanyId,
+        targetCompanyName: target?.name ?? `Company ${a.targetCompanyId}`,
+        requester: 'Automated Fraud Detection',
+        reason: a.reason,
+        status: 'pending',
+        created: a.createdAt
+      };
+    }));
     return true;
   }
 
-  // 7. Purchase detective (v2 admin)
+  // 7. Purchase detective (v2 admin): real large market purchases
+  // (inactive orders with above-median value) from authoritative data.
   if (pathname === '/api/v2/admin/purchase-detective/' && method === 'GET') {
-    sendJson(res, { purchases: [] });
+    const rows = db.prepare(`
+      SELECT id, seller_id, kind, quality, quantity, price, posted_at
+      FROM market_orders WHERE active = 0 AND quantity * price >= 100000
+      ORDER BY posted_at DESC LIMIT 100
+    `).all() as Array<Record<string, unknown>>;
+    sendJson(res, {
+      purchases: rows.map(r => ({
+        id: Number(r.id),
+        sellerCompanyId: Number(r.seller_id),
+        kind: Number(r.kind),
+        quality: Number(r.quality),
+        amount: Number(r.quantity),
+        price: Number(r.price),
+        total: Number(r.quantity) * Number(r.price),
+        created: String(r.posted_at)
+      }))
+    });
     return true;
   }
 
@@ -504,10 +525,26 @@ export async function handleAuditRoutes(
     }
   }
 
-  // 10. IP Audit: /api/v2/audit-ip/:playerId/:ipHash/
+  // 10. IP Audit: real session activity for the player + audit trail rows.
   const ipAuditMatch = pathname.match(/^\/api\/v2\/audit-ip\/(\d+)\/([^/]+)\/?$/);
   if (ipAuditMatch && method === 'GET') {
-    sendJson(res, { events: [] });
+    const playerId = Number(ipAuditMatch[1]);
+    const sessions = db.prepare(`
+      SELECT created_at, expires_at FROM sessions WHERE player_id = ? ORDER BY created_at DESC LIMIT 50
+    `).all(playerId) as Array<{ created_at: string; expires_at: string | null }>;
+    const companies = db.prepare('SELECT company_id, name FROM companies WHERE player_id = ?').all(playerId) as Array<{ company_id: number; name: string }>;
+    const events = companies.flatMap(c => auditRepository.listForCompany(c.company_id).map(a => ({
+      type: 'audit',
+      companyId: c.company_id,
+      action: a.action,
+      reason: a.reason,
+      datetime: a.createdAt
+    })));
+    for (const s2 of sessions) {
+      events.push({ type: 'session', companyId: null, action: 'session_created', reason: null, datetime: s2.created_at });
+    }
+    events.sort((a, b) => a.datetime < b.datetime ? 1 : -1);
+    sendJson(res, { events: events.slice(0, 100) });
     return true;
   }
 
