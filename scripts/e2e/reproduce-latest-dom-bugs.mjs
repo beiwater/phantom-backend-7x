@@ -88,6 +88,28 @@ async function reproduceNewspaperArchive(page) {
     `localArchiveIssueCount=${uniqueIssueLinks.length}; expectedAtLeast=${minimumIssues}`);
 }
 
+async function reproduceNewspaperAdPurchase(page) {
+  await page.goto(`${baseUrl}/zh-cn/newspaper/0/`);
+  await page.waitForTimeout(1200);
+  const buy = page.getByRole('button', { name: '购买 20', exact: false }).first();
+  if (!(await buy.isVisible({ timeout: 3000 }).catch(() => false))) {
+    record('newspaper-ad-purchase', false, 'precondition missing: Golden Sponsor purchase button is unavailable');
+    return;
+  }
+  await buy.click();
+  const confirm = page.getByRole('button', { name: '买广告', exact: true });
+  if (!(await confirm.isVisible({ timeout: 3000 }).catch(() => false))) {
+    record('newspaper-ad-purchase', false, 'precondition missing: purchase confirmation dialog did not open');
+    return;
+  }
+  await confirm.click();
+  await page.waitForTimeout(900);
+  const after = await bodyText(page);
+  const purchaseButtonStillVisible = await page.getByRole('button', { name: '购买 20', exact: false }).count() > 0;
+  record('newspaper-ad-purchase', purchaseButtonStillVisible && !/已购买|购买成功|广告已发布/i.test(after),
+    'confirmation closes but the ad slot remains purchasable and no success state is shown');
+}
+
 async function reproduceExecutiveTimeWarp(page) {
   await page.goto(`${baseUrl}/zh-cn/headquarters/executives/`);
   await page.waitForTimeout(1200);
@@ -134,6 +156,7 @@ try {
     await reproduceWarehouseStats(page);
     await reproduceSimboostsLoading(page);
     await reproduceNewspaperArchive(page);
+    if (process.env.E2E_TEST_AD_PURCHASE === '1') await reproduceNewspaperAdPurchase(page);
     await reproduceExecutiveTimeWarp(page);
     await reproduceLaunchpad(page);
   }
