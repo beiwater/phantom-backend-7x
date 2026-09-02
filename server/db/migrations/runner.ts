@@ -385,6 +385,9 @@ export const MIGRATIONS: MigrationDefinition[] = [
           salary REAL DEFAULT 250,
           status TEXT DEFAULT 'employed',
           training_finish_at TEXT,
+          work_history_accelerated INTEGER DEFAULT 0,
+          plans_to_retire INTEGER DEFAULT 0,
+          strike_until TEXT,
           created_at TEXT NOT NULL,
           FOREIGN KEY (company_id) REFERENCES companies(company_id)
         );

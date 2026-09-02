@@ -18,6 +18,9 @@ import {
   assignExecutive,
   updateExecutive,
   trainExecutive,
+  scheduleExecutiveTraining,
+  rushExecutiveTraining,
+  cancelExecutiveTraining,
   createPoachingOffer,
   getPoachingOffers,
   getPoachingOfferById,
@@ -32,6 +35,7 @@ import {
   rejectHostileOffer,
   researchPoacherByEmployer,
   type CreatePoachingOfferInput,
+  type UpdateExecutiveInput,
   type CounterHostileOfferInput
 } from '../../game/executives.ts';
 import { ForbiddenError } from '../../errors/domain-error.ts';
@@ -82,12 +86,24 @@ export function assignExecutiveCommand(ctx: GameContext, executiveId: number, po
   return assignExecutive(ctx.companyId, executiveId, position);
 }
 
-export function updateExecutiveCommand(ctx: GameContext, executiveId: number, updates: Record<string, unknown>) {
+export function updateExecutiveCommand(ctx: GameContext, executiveId: number, updates: UpdateExecutiveInput) {
   return updateExecutive(ctx.companyId, executiveId, updates);
 }
 
 export function trainExecutiveCommand(ctx: GameContext, executiveId: number) {
   return trainExecutive(ctx.companyId, executiveId);
+}
+
+export function scheduleExecutiveTrainingCommand(ctx: GameContext, executiveId: number) {
+  return scheduleExecutiveTraining(ctx.companyId, executiveId);
+}
+
+export function rushExecutiveTrainingCommand(ctx: GameContext, executiveId: number, trainingId: number) {
+  return rushExecutiveTraining(ctx.companyId, executiveId, trainingId);
+}
+
+export function cancelExecutiveTrainingCommand(ctx: GameContext, executiveId: number, trainingId: number) {
+  return cancelExecutiveTraining(ctx.companyId, executiveId, trainingId);
 }
 
 export function createPoachingOfferCommand(ctx: GameContext, input: CreatePoachingOfferInput) {

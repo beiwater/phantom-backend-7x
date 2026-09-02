@@ -164,6 +164,9 @@ export function initializeDatabaseSchema(database: DatabaseSync = db): void {
       salary REAL DEFAULT 250,
       status TEXT DEFAULT 'employed',
       training_finish_at TEXT,
+      work_history_accelerated INTEGER DEFAULT 0,
+      plans_to_retire INTEGER DEFAULT 0,
+      strike_until TEXT,
       created_at TEXT
     );
 

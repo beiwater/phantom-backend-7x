@@ -10,6 +10,9 @@ import {
   assignExecutiveCommand,
   updateExecutiveCommand,
   trainExecutiveCommand,
+  scheduleExecutiveTrainingCommand,
+  rushExecutiveTrainingCommand,
+  cancelExecutiveTrainingCommand,
   createPoachingOfferCommand,
   getPoachingOffersQuery,
   getPoachingOfferByIdQuery,
@@ -348,6 +351,45 @@ export async function handleExecutiveRoutes(
     return true;
   }
 
+  // Executive trainings lifecycle (/api/v4/executives/:id/trainings/...).
+  // Issue #165: the original client POSTs a scheduled training (money cost),
+  // PATCHes it to rush with SimBoosts, and DELETEs it to cancel.
+  const trainingsBaseMatch = pathname.match(/^\/api\/v4\/executives\/(\d+)\/trainings\/?$/);
+  if (trainingsBaseMatch && method === 'POST') {
+    if (!currentCompanyId) {
+      sendJson(res, { error: 'Unauthorized' }, 401);
+      return true;
+    }
+    if (requireCapability(res, currentCompanyId, 'executives', 'train executive')) return true;
+    try {
+      const result = await scheduleExecutiveTrainingCommand(gameCtx(), Number(trainingsBaseMatch[1]));
+      sendJson(res, result);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      sendJson(res, { error: msg }, 400);
+    }
+    return true;
+  }
+
+  const trainingItemMatch = pathname.match(/^\/api\/v4\/executives\/(\d+)\/trainings\/(\d+)\/?$/);
+  if (trainingItemMatch && (method === 'PATCH' || method === 'DELETE')) {
+    if (!currentCompanyId) {
+      sendJson(res, { error: 'Unauthorized' }, 401);
+      return true;
+    }
+    if (requireCapability(res, currentCompanyId, 'executives', 'train executive')) return true;
+    try {
+      const result = method === 'PATCH'
+        ? await rushExecutiveTrainingCommand(gameCtx(), Number(trainingItemMatch[1]), Number(trainingItemMatch[2]))
+        : await cancelExecutiveTrainingCommand(gameCtx(), Number(trainingItemMatch[1]), Number(trainingItemMatch[2]));
+      sendJson(res, result);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      sendJson(res, { error: msg }, 400);
+    }
+    return true;
+  }
+
   // Executive item details, updates, dismissal (/api/v4/executives/:id/)
   const execItemMatch = pathname.match(/^\/api\/v4\/executives\/(\d+)\/?$/);
   if (execItemMatch) {
@@ -370,7 +412,7 @@ export async function handleExecutiveRoutes(
 
     if (method === 'PATCH') {
       if (requireCapability(res, currentCompanyId, 'executives', 'update executive')) return true;
-      const body = await readJsonBody<{ salary?: number; position?: string; strikeUntil?: string | null; plansToRetire?: boolean }>(req);
+      const body = await readJsonBody<{ salary?: number; position?: string; strikeUntil?: string | null; plansToRetire?: boolean; rushSettle?: boolean }>(req);
       try {
         const exec = await updateExecutiveCommand(gameCtx(), execId, body);
         sendJson(res, { executive: exec });

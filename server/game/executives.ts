@@ -3,6 +3,7 @@ import type { DatabaseSync } from 'node:sqlite';
 import { updateCompanyMoney, updateCompanySimBoosts, getCompanyById } from './company.ts';
 import { recordCashLedger } from './cash-ledger.ts';
 import { runInTransaction } from '../db/transaction.ts';
+import { virtualClock } from '../core/virtual-clock.ts';
 
 export const EXECUTIVE_TRAINING_COST = 30000;
 
@@ -43,6 +44,76 @@ export const AGENCY_FEE_MULTIPLIERS: Record<number, number> = {
   [AgencyTier.GOOD_AGENCY]: 2.0,     // 2.0x expected salary
   [AgencyTier.TOP_TALENT_AGENCY]: 5.0 // 5.0x expected salary
 };
+
+// Issue #167/#165: the settling-in window, strike deadline and retirement
+// intent are part of the executive lifecycle contract. Older databases
+// predate these columns; ALTER defensively (no-op if present or if the
+// table does not exist yet — a fresh migrations run creates the full shape).
+{
+  const executivesTable = db.prepare(
+    "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'executives'"
+  ).get();
+  if (executivesTable) {
+    const cols = db.prepare('PRAGMA table_info(executives)').all() as Array<{ name: string }>;
+    const adds: Record<string, string> = {
+      work_history_accelerated: 'INTEGER DEFAULT 0',
+      plans_to_retire: 'INTEGER DEFAULT 0',
+      strike_until: 'TEXT'
+    };
+    for (const [column, ddl] of Object.entries(adds)) {
+      if (!cols.some(c => c.name === column)) {
+        db.exec(`ALTER TABLE executives ADD COLUMN ${column} ${ddl}`);
+      }
+    }
+  }
+}
+
+// Executive trainings (Issue #165): the original client schedules a training
+// (POST), can rush it with SimBoosts (PATCH) or cancel it (DELETE), and the
+// executive's skills improve when the 27h window completes.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS executive_trainings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    executive_id INTEGER NOT NULL,
+    company_id INTEGER NOT NULL,
+    datetime TEXT NOT NULL,
+    accelerated INTEGER DEFAULT 0,
+    skills_applied INTEGER DEFAULT 0,
+    created_at TEXT NOT NULL
+  );
+`);
+
+export const EXECUTIVE_TRAINING_WINDOW_S = 97200; // 27h (client constant Y$)
+
+/** The executive's in-flight training, if any (started less than 27h ago). */
+export function getActiveTraining(executiveId: number) {
+  return db.prepare(`
+    SELECT * FROM executive_trainings
+    WHERE executive_id = ? AND skills_applied = 0
+    ORDER BY id DESC LIMIT 1
+  `).get(executiveId) as { id: number; executive_id: number; company_id: number; datetime: string; accelerated: number; skills_applied: number; created_at: string } | undefined;
+}
+
+/** Apply skill gains for every training whose 27h window has elapsed. */
+export function resolveCompletedTrainings(companyId: number) {
+  const cutoff = new Date(Date.now() - EXECUTIVE_TRAINING_WINDOW_S * 1000).toISOString();
+  const due = db.prepare(`
+    SELECT id, executive_id FROM executive_trainings
+    WHERE company_id = ? AND skills_applied = 0
+      AND datetime <= ?
+  `).all(companyId, cutoff) as Array<{ id: number; executive_id: number }>;
+  for (const row of due) {
+    const applied = db.prepare(`
+      UPDATE executives
+      SET skill_management = skill_management + 1, skill_accounting = skill_accounting + 1,
+          skill_science = skill_science + 1, skill_communication = skill_communication + 1
+      WHERE id = ?
+    `).run(row.executive_id);
+    if (applied.changes === 1) {
+      db.prepare('UPDATE executive_trainings SET skills_applied = 1 WHERE id = ?').run(row.id);
+    }
+  }
+}
 
 export function parseAgencyTier(agency: number | string | undefined): number {
   if (typeof agency === 'string') {
@@ -168,6 +239,11 @@ export function formatExecutive(e: ExecutiveRow) {
   const comm = Number(e.skill_communication) || 0;
   const avatar = e.avatar || 'images/avatars/male_01.png';
   const gen = generateDeterministicGenome(e.id || e.name, avatar, e.name);
+  const workStart = new Date(
+    new Date(validIsoOrNull(e.created_at) || Date.now() - 86400000).getTime() - virtualClock.getOffsetMs()
+  ).toISOString();
+  const training = getActiveTraining(e.id);
+  const daysActive = Math.max(0, Math.floor((Date.now() - new Date(workStart).getTime()) / 86400000));
   return {
     id: e.id,
     name: e.name,
@@ -186,9 +262,33 @@ export function formatExecutive(e: ExecutiveRow) {
       communication: comm
     },
     currentWorkHistory: {
+      employerId: e.company_id,
       position: normPos,
-      start: e.created_at || new Date(Date.now() - 86400000).toISOString()
+      daysActive,
+      // Issue #167: the client derives the 3h settling-in window from this
+      // start timestamp on the BROWSER clock, so the start must be expressed
+      // in server (virtual) time — otherwise a time warp can never close the
+      // window and executives stay stuck "settling in" forever.
+      start: workStart,
+      accelerated: Boolean(e.work_history_accelerated)
     },
+    workHistory: [{
+      employerId: e.company_id,
+      position: normPos,
+      start: workStart,
+      daysActive
+    }],
+    isCandidate: (e.status || '') === 'candidate',
+    // Issue #165: candidates render "Expected salary: ${salary}/day" — an
+    // undefined value surfaced as $NaN in the hiring modal.
+    expectedSalary: Number(e.salary) || 0,
+    strikeUntil: validIsoOrNull(e.strike_until),
+    plansToRetire: Boolean(e.plans_to_retire),
+    currentTraining: training ? {
+      id: training.id,
+      datetime: training.datetime,
+      accelerated: Boolean(training.accelerated)
+    } : undefined,
     salary: Number(e.salary) || 250,
     status: e.status || 'employed',
     trainingFinishAt: e.training_finish_at,
@@ -266,6 +366,7 @@ export function seedDefaultExecutives(companyId: number, database: DatabaseSync 
 }
 
 export function getCompanyExecutives(companyId: number) {
+  resolveCompletedTrainings(companyId);
   const rows = db.prepare(`
     SELECT * FROM executives
     WHERE company_id = ? AND status != 'candidate'
@@ -276,6 +377,7 @@ export function getCompanyExecutives(companyId: number) {
 }
 
 export function getExecutiveCandidates(companyId: number) {
+  resolveCompletedTrainings(companyId);
   const rows = db.prepare(`
     SELECT * FROM executives
     WHERE company_id = ? AND status = 'candidate'
@@ -353,10 +455,18 @@ export function assignExecutive(companyId: number, executiveId: number, position
   }, { immediate: true });
 }
 
+export interface UpdateExecutiveInput {
+  salary?: number;
+  position?: string;
+  strikeUntil?: string | null;
+  plansToRetire?: boolean;
+  rushSettle?: boolean;
+}
+
 export function updateExecutive(
   companyId: number,
   executiveId: number,
-  updates: { salary?: number; position?: string; strikeUntil?: string | null; plansToRetire?: boolean }
+  updates: UpdateExecutiveInput
 ) {
   return runInTransaction(async () => {
     const exec = db.prepare("SELECT * FROM executives WHERE id = ? AND company_id = ? AND status = 'employed'").get(executiveId, companyId) as unknown as ExecutiveRow | undefined;
@@ -371,8 +481,121 @@ export function updateExecutive(
     if (updates.position !== undefined) {
       db.prepare("UPDATE executives SET position = ? WHERE id = ? AND company_id = ? AND status = 'employed'").run(updates.position, executiveId, companyId);
     }
+
+    // Issue #165: rush settling in. The client prices the rush as
+    // ceil((start + 3h - now) / 6min) SimBoosts; settle instantly by
+    // marking the work history accelerated so the client-side window
+    // (which excludes accelerated executives) closes.
+    if (updates.rushSettle === true) {
+      const startMs = new Date(validIsoOrNull(exec.created_at) || Date.now()).getTime();
+      const settleEndMs = startMs + 3 * 3600000;
+      const alreadySettled = Boolean(exec.work_history_accelerated) || settleEndMs <= Date.now();
+      if (!alreadySettled) {
+        const cost = Math.max(1, Math.ceil((settleEndMs - Date.now()) / 360000));
+        const comp = getCompanyById(companyId);
+        if (!comp || Number(comp.simboosts) < cost) {
+          throw new Error(`Not enough SimBoosts to rush settling in (requires ${cost})`);
+        }
+        updateCompanySimBoosts(companyId, -cost);
+        db.prepare('UPDATE executives SET work_history_accelerated = 1 WHERE id = ?').run(executiveId);
+      }
+    }
+
+    if (updates.strikeUntil !== undefined) {
+      const iso = updates.strikeUntil === null ? null : validIsoOrNull(updates.strikeUntil);
+      db.prepare('UPDATE executives SET strike_until = ? WHERE id = ?').run(iso, executiveId);
+    }
+    if (updates.plansToRetire !== undefined) {
+      db.prepare('UPDATE executives SET plans_to_retire = ? WHERE id = ?').run(updates.plansToRetire ? 1 : 0, executiveId);
+    }
+
     const row = db.prepare('SELECT * FROM executives WHERE id = ?').get(executiveId) as unknown as ExecutiveRow;
     return formatExecutive(row);
+  }, { immediate: true });
+}
+
+// Issue #165: the original client schedules a training for $10,000 (client
+// constant gPt) that completes 27h later, with a SimBoosts rush priced at
+// ceil(remaining / 6min) — the same pricing formula used for settling in.
+export const EXECUTIVE_TRAINING_MONEY_COST = 10000;
+
+function serializeTraining(row: { id: number; datetime: string; accelerated: number }) {
+  return { id: row.id, datetime: row.datetime, accelerated: Boolean(row.accelerated) };
+}
+
+export function scheduleExecutiveTraining(companyId: number, executiveId: number) {
+  return runInTransaction(async () => {
+    const exec = db.prepare("SELECT * FROM executives WHERE id = ? AND company_id = ? AND status = 'employed'").get(executiveId, companyId) as unknown as ExecutiveRow | undefined;
+    if (!exec) throw new Error('Employed executive not found');
+    if (getActiveTraining(executiveId)) throw new Error('Executive already has a training in progress');
+    const count = db.prepare('SELECT COUNT(*) AS n FROM executive_trainings WHERE executive_id = ?').get(executiveId) as { n: number };
+    if (count.n >= 20) throw new Error('Executive training limit reached (20)');
+
+    const comp = getCompanyById(companyId);
+    if (!comp || comp.money < EXECUTIVE_TRAINING_MONEY_COST) {
+      throw new Error(`Not enough money for executive training ($${EXECUTIVE_TRAINING_MONEY_COST})`);
+    }
+
+    const now = new Date();
+    recordCashLedger({
+      companyId,
+      amount: -EXECUTIVE_TRAINING_MONEY_COST,
+      category: 'h',
+      description: 'Executive training',
+      descriptionKey: '1-training',
+      details: { executiveId, name: exec.name }
+    });
+    updateCompanyMoney(companyId, -EXECUTIVE_TRAINING_MONEY_COST, true);
+
+    const inserted = db.prepare(`
+      INSERT INTO executive_trainings (executive_id, company_id, datetime, accelerated, skills_applied, created_at)
+      VALUES (?, ?, ?, 0, 0, ?)
+    `).run(executiveId, companyId, now.toISOString(), now.toISOString());
+    const row = db.prepare('SELECT * FROM executive_trainings WHERE id = ?').get(inserted.lastInsertRowid) as { id: number; datetime: string; accelerated: number };
+    return { training: serializeTraining(row), moneyDelta: -EXECUTIVE_TRAINING_MONEY_COST };
+  }, { immediate: true });
+}
+
+export function rushExecutiveTraining(companyId: number, executiveId: number, trainingId: number) {
+  return runInTransaction(async () => {
+    const training = db.prepare('SELECT * FROM executive_trainings WHERE id = ? AND executive_id = ? AND company_id = ? AND skills_applied = 0')
+      .get(trainingId, executiveId, companyId) as { id: number; datetime: string; accelerated: number } | undefined;
+    if (!training) throw new Error('Training not found or already finished');
+
+    const finishMs = new Date(training.datetime).getTime() + EXECUTIVE_TRAINING_WINDOW_S * 1000;
+    const cost = Math.max(1, Math.ceil((finishMs - Date.now()) / 360000));
+    const comp = getCompanyById(companyId);
+    if (!comp || Number(comp.simboosts) < cost) {
+      throw new Error(`Not enough SimBoosts to rush training (requires ${cost})`);
+    }
+    updateCompanySimBoosts(companyId, -cost);
+
+    const applied = db.prepare(`
+      UPDATE executives
+      SET skill_management = skill_management + 1, skill_accounting = skill_accounting + 1,
+          skill_science = skill_science + 1, skill_communication = skill_communication + 1
+      WHERE id = ?
+    `).run(executiveId);
+    if (applied.changes !== 1) throw new Error('Executive training failed');
+    db.prepare('UPDATE executive_trainings SET accelerated = 1, skills_applied = 1 WHERE id = ?').run(trainingId);
+
+    const updated = db.prepare('SELECT * FROM executives WHERE id = ?').get(executiveId) as unknown as ExecutiveRow;
+    return {
+      training: serializeTraining({ ...training, accelerated: 1 }),
+      simboostsDelta: -cost,
+      executive: formatExecutive(updated)
+    };
+  }, { immediate: true });
+}
+
+export function cancelExecutiveTraining(companyId: number, executiveId: number, trainingId: number) {
+  return runInTransaction(async () => {
+    const training = db.prepare('SELECT * FROM executive_trainings WHERE id = ? AND executive_id = ? AND company_id = ? AND skills_applied = 0')
+      .get(trainingId, executiveId, companyId) as { id: number; datetime: string; accelerated: number } | undefined;
+    if (!training) throw new Error('Training not found or already finished');
+    db.prepare('DELETE FROM executive_trainings WHERE id = ?').run(trainingId);
+    updateCompanyMoney(companyId, EXECUTIVE_TRAINING_MONEY_COST, true);
+    return { training: null, moneyDelta: EXECUTIVE_TRAINING_MONEY_COST };
   }, { immediate: true });
 }
 
