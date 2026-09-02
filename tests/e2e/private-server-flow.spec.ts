@@ -52,6 +52,18 @@ async function signIn(page: Page, email: string): Promise<void> {
   await expect(page.getByText('$100,000', { exact: true })).toBeVisible();
 }
 
+async function completeCompanyCreation(page: Page, companyName: string): Promise<void> {
+  if (!/\/zh-cn\/create\//.test(page.url())) {
+    return;
+  }
+
+  const nameInput = page.getByRole('textbox').first();
+  await expect(nameInput).toBeVisible();
+  await nameInput.fill(companyName);
+  await page.getByRole('button', { name: '开始游戏', exact: true }).click();
+  await expect(page).toHaveURL(/\/zh-cn\/landscape\//);
+}
+
 async function clickNavigation(page: Page, name: string): Promise<void> {
   await page.getByRole('link', { name, exact: true }).last().click();
 }
@@ -82,6 +94,7 @@ test('real player core loop keeps UI and persisted state coherent', async ({ pag
   await page.locator('input[type="email"]').fill(email);
   await page.locator('input[type="password"]').fill(password);
   await page.getByRole('button', { name: '注册', exact: true }).click();
+  await completeCompanyCreation(page, `CI ${Date.now()}`);
   await expect(page).toHaveURL(/\/zh-cn\/landscape\//);
   await expect(page.getByText('$100,000', { exact: true })).toBeVisible();
   await expect(page.getByText('250', { exact: true })).toBeVisible();
@@ -145,6 +158,7 @@ test('player can explore encyclopedia, newspaper, and financial overview without
   await page.locator('input[type="email"]').fill(email);
   await page.locator('input[type="password"]').fill(password);
   await page.getByRole('button', { name: '注册', exact: true }).click();
+  await completeCompanyCreation(page, `CI ${Date.now()}`);
   await expect(page).toHaveURL(/\/zh-cn\/landscape\//);
   await expect(page.getByText('$100,000', { exact: true })).toBeVisible();
 
