@@ -891,6 +891,25 @@ export const MIGRATIONS: MigrationDefinition[] = [
           ON simboost_use_history (company_id, datetime DESC);
       `);
     }
+  },
+  {
+    version: 16,
+    name: '016_scheduler_state_contract',
+    up: (db: DatabaseSync) => {
+      const columns = new Set(
+        (db.prepare('PRAGMA table_info(scheduler_state)').all() as Array<{ name: string }>)
+          .map(column => column.name)
+      );
+      if (!columns.has('last_status')) {
+        db.exec("ALTER TABLE scheduler_state ADD COLUMN last_status TEXT NOT NULL DEFAULT 'ok'");
+      }
+      if (!columns.has('last_error')) {
+        db.exec('ALTER TABLE scheduler_state ADD COLUMN last_error TEXT');
+      }
+      if (!columns.has('runs')) {
+        db.exec('ALTER TABLE scheduler_state ADD COLUMN runs INTEGER NOT NULL DEFAULT 0');
+      }
+    }
   }
 ];
 
