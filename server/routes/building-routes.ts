@@ -517,11 +517,16 @@ export function registerBuildingRoutes(registry: RouteRegistry = globalRouteRegi
     pattern: '/api/v2/companies/buildings/:id/abundance/',
     auth: 'none',
     handler: async (_req, res, _ctx, params) => {
-      const abundance = getBuildingAbundance(Number(params.id));
+      const buildingId = Number(params.id);
+      const abundance = getBuildingAbundance(buildingId);
       if (!abundance) {
         throw new NotFoundError(`Building ${params.id} not found`);
       }
-      sendJson(res, abundance);
+      // #160: the frontend abundance reducer indexes the result by
+      // payload.buildingId and clears the loading flag the same way;
+      // without the id the response lands in abundance[undefined] and
+      // the page stays in "loading abundance" forever.
+      sendJson(res, { ...abundance, buildingId });
     }
   });
 
@@ -540,7 +545,7 @@ export function registerBuildingRoutes(registry: RouteRegistry = globalRouteRegi
       if (building.companyId !== ctx.companyId) {
         throw new ForbiddenError('You do not own this building');
       }
-      sendJson(res, prospectBuildingAbundance(buildingId));
+      sendJson(res, { ...prospectBuildingAbundance(buildingId), buildingId });
     }
   });
 
