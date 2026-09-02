@@ -212,6 +212,140 @@ export class MarketTradeRepository {
     this.database = database;
   }
 
+  // --- Buy orders (bid side) ---------------------------------------------
+
+  insertBuyOrder(companyId: number, kind: number, quality: number, quantity: number, price: number, postedAt: string): number {
+    const res = this.database.prepare(`
+      INSERT INTO market_orders (seller_id, kind, quality, quantity, price, fees, posted_at, active, is_npc, is_buy)
+      VALUES (?, ?, ?, ?, ?, 0, ?, 1, 0, 1)
+    `).run(companyId, kind, quality, quantity, price, postedAt);
+    return Number(res.lastInsertRowid);
+  }
+
+  findActiveBuyOrder(orderId: number): { id: number; buyerId: number; kind: number; quality: number; quantity: number; price: number } | undefined {
+    const row = this.database
+      .prepare('SELECT * FROM market_orders WHERE id = ? AND active = 1 AND is_buy = 1')
+      .get(orderId) as {
+        id: number;
+        seller_id: number;
+        kind: number;
+        quality: number;
+        quantity: number;
+        price: number;
+      } | undefined;
+    return row
+      ? {
+          id: Number(row.id),
+          buyerId: Number(row.seller_id),
+          kind: Number(row.kind),
+          quality: Number(row.quality),
+          quantity: Number(row.quantity),
+          price: Number(row.price)
+        }
+      : undefined;
+  }
+
+  closeOrReduceBuyOrder(orderId: number, newQuantity: number): void {
+    if (newQuantity > 0) {
+      this.database.prepare('UPDATE market_orders SET quantity = ? WHERE id = ?').run(newQuantity, orderId);
+    } else {
+      this.database.prepare('UPDATE market_orders SET active = 0, quantity = 0 WHERE id = ?').run(orderId);
+    }
+  }
+
+  cancelBuyOrderRow(orderId: number): void {
+    this.database.prepare('UPDATE market_orders SET active = 0 WHERE id = ?').run(orderId);
+  }
+
+  /** Standing bids for resource/quality, highest price first, excluding one company. */
+  listOpenBids(kind: number, quality: number, minPrice: number, excludeCompanyId: number): Array<{
+    id: number;
+    buyerId: number;
+    quantity: number;
+    price: number;
+  }> {
+    const rows = this.database.prepare(`
+      SELECT id, seller_id AS buyer_id, quantity, price
+      FROM market_orders
+      WHERE active = 1 AND is_buy = 1 AND kind = ? AND quality = ? AND price >= ?
+        AND seller_id != ?
+      ORDER BY price DESC, id ASC
+    `).all(kind, quality, minPrice, excludeCompanyId) as Array<{
+      id: number;
+      buyer_id: number;
+      quantity: number;
+      price: number;
+    }>;
+    return rows.map(r => ({
+      id: Number(r.id),
+      buyerId: Number(r.buyer_id),
+      quantity: Number(r.quantity),
+      price: Number(r.price)
+    }));
+  }
+
+  listOwnBuyOrders(companyId: number): Array<{
+    id: number;
+    kind: number;
+    quality: number;
+    quantity: number;
+    price: number;
+    postedAt: string;
+  }> {
+    const rows = this.database.prepare(`
+      SELECT id, kind, quality, quantity, price, posted_at FROM market_orders
+      WHERE seller_id = ? AND active = 1 AND is_buy = 1
+      ORDER BY id DESC
+    `).all(companyId) as Array<{
+      id: number;
+      kind: number;
+      quality: number;
+      quantity: number;
+      price: number;
+      posted_at: string;
+    }>;
+    return rows.map(r => ({
+      id: Number(r.id),
+      kind: Number(r.kind),
+      quality: Number(r.quality),
+      quantity: Number(r.quantity),
+      price: Number(r.price),
+      postedAt: r.posted_at
+    }));
+  }
+
+  listBidBook(kind: number, quality: number, excludeCompanyId: number | null): Array<{
+    id: number;
+    kind: number;
+    quality: number;
+    quantity: number;
+    price: number;
+    postedAt: string;
+  }> {
+    const rows = this.database.prepare(`
+      SELECT id, kind, quality, quantity, price, posted_at FROM market_orders
+      WHERE active = 1 AND is_buy = 1 AND kind = ? AND quality = ?
+        AND (? IS NULL OR seller_id != ?)
+      ORDER BY price DESC, id ASC
+      LIMIT 200
+    `).all(kind, quality, excludeCompanyId ?? null, excludeCompanyId ?? null) as Array<{
+      id: number;
+      kind: number;
+      quality: number;
+      quantity: number;
+      price: number;
+      posted_at: string;
+    }>;
+    return rows.map(r => ({
+      id: Number(r.id),
+      kind: Number(r.kind),
+      quality: Number(r.quality),
+      quantity: Number(r.quantity),
+      price: Number(r.price),
+      postedAt: r.posted_at
+    }));
+  }
+
   recordFill(entry: {
     kind: number;
     quality: number;

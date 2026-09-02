@@ -7,7 +7,8 @@ import {
   getResourceDef
 } from '../game/constants.ts';
 import { getCompanyById } from '../game/company.ts';
-import { db } from '../db/database.ts';
+import { companyRepository } from '../repositories/company-repository.ts';
+import { warehouseRepository } from '../repositories/warehouse-repository.ts';
 import { getWeather } from '../game-data/weather.ts';
 import { getCertificates } from '../game/achievements.ts';
 import { getGovernmentOrders, getGovernmentTier, getGovernmentBids } from '../game/government.ts';
@@ -140,18 +141,11 @@ export async function handleEncyclopediaRoutes(
       qualityMap[k] = 0;
     }
     if (currentCompanyId) {
-      const rows = db
-        .prepare(
-          `SELECT kind, MAX(quality) AS max_quality, SUM(amount) AS total
-           FROM warehouse WHERE company_id = ? AND amount > 0
-           GROUP BY kind`
-        )
-        .all(currentCompanyId) as Array<{ kind: number; max_quality: number; total: number }>;
-      for (const r of rows) {
-        const key = String(r.kind);
+      const qualityByKind = warehouseRepository.getQualityMap(currentCompanyId);
+      for (const [kind, q] of qualityByKind) {
+        const key = String(kind);
         if (key in qualityMap) {
-          // Highest owned quality the company holds of this resource
-          qualityMap[key] = Number(r.max_quality) || 0;
+          qualityMap[key] = q;
         }
       }
     }
@@ -243,22 +237,13 @@ export async function handleEncyclopediaRoutes(
   // 11. Stats / Top Leaderboards — real companies ranked by the requested stat
   const statsMatch = pathname.match(/^\/api\/v4\/[^/]+\/\d+\/stats\/top\/([^/]+)\/$/);
   if (statsMatch) {
-    const statKind = statsMatch[1];
-    // money is the persisted per-company metric; other stat kinds fall back to
-    // company money ranking until dedicated counters exist (issue #109).
-    const orderColumn = statKind === 'money' || statKind === 'richest' ? 'money' : 'money';
-    const rows = db
-      .prepare(
-        `SELECT company_id, name, logo, realm_id, money FROM companies
-         WHERE deleted = 0 ORDER BY ${orderColumn} DESC LIMIT 100`
-      )
-      .all() as Array<{ company_id: number; name: string; logo: string; realm_id: number; money: number }>;
-
+    void statsMatch[1];
+    const rows = companyRepository.listTopCompaniesByMoney(100);
     const list = rows.map((r, idx) => ({
-      id: r.company_id,
-      company: { id: r.company_id, company: r.name, logo: r.logo || '', realmId: r.realm_id, deleted: false },
+      id: r.companyId,
+      company: { id: r.companyId, company: r.name, logo: r.logo, realmId: r.realmId, deleted: false },
       contest: { id: 1, name: 'Top Companies' },
-      value: Number(r.money) || 0,
+      value: r.money,
       rank: idx
     }));
     sendJson(res, list);

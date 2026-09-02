@@ -189,6 +189,20 @@ export class WarehouseRepository {
     return true;
   }
 
+  /** Max owned quality per resource kind for one company (quality map). */
+  getQualityMap(companyId: number): Map<number, number> {
+    const rows = this.database
+      .prepare(
+        `SELECT kind, MAX(quality) AS max_quality
+         FROM warehouse WHERE company_id = ? AND amount > 0
+         GROUP BY kind`
+      )
+      .all(companyId) as Array<{ kind: number; max_quality: number }>;
+    const map = new Map<number, number>();
+    for (const r of rows) map.set(Number(r.kind), Number(r.max_quality) || 0);
+    return map;
+  }
+
   /** Total available amount for a kind, optionally exact-quality. */
   getAvailableAmount(
     companyId: number,

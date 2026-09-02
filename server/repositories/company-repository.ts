@@ -195,6 +195,29 @@ export class CompanyRepository {
     return result.simboosts;
   }
 
+  /** Top companies by money (leaderboard), excluding deleted. */
+  listTopCompaniesByMoney(limit = 100): Array<{
+    companyId: number;
+    name: string;
+    logo: string;
+    realmId: number;
+    money: number;
+  }> {
+    const rows = this.database
+      .prepare(
+        `SELECT company_id, name, logo, realm_id, money FROM companies
+         WHERE deleted = 0 ORDER BY money DESC LIMIT ?`
+      )
+      .all(limit) as Array<{ company_id: number; name: string; logo: string; realm_id: number; money: number }>;
+    return rows.map(r => ({
+      companyId: Number(r.company_id),
+      name: r.name,
+      logo: r.logo || '',
+      realmId: Number(r.realm_id),
+      money: Number(r.money) || 0
+    }));
+  }
+
   /** Accounting-overhead stats for one company (building count/size, COO skill). */
   getAccountingOverheadStats(companyId: number): {
     buildingCount: number;

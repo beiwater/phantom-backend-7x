@@ -1,35 +1,27 @@
 /**
- * Market buy orders (Issue #109 build-out).
+ * Market buy orders (bid side) use cases (Issue #109 build-out).
+ * All SQL lives in market-repository (architecture gate: application layer
+ * is raw-SQL free).
  *
- * A buy order (bid) posts money-escrowed demand: the poster's cash is
- * debited at placement and refunded on cancel; any player whose sell order
- * matches the bid can "sell to bid". Implementation reuses market_orders
- * with a side column ('buy' | 'sell'); sell rows keep side='sell'.
- *
- * Semantics kept deliberately simple and matching the official UX:
- * - place: escrow quantity*price (no fee); fails if insufficient money
+ * Semantics:
+ * - place: money escrowed at placement (single transaction, ledger row);
+ *   fails if insufficient money
  * - cancel: refund remaining escrow
- * - take (sell-to-bid): sweeps highest-price bids first (price-time), only
- *   bids of OTHER companies (self-trade prevention identical to asks),
- *   credits the seller minus the same 4% exchange fee, and fulfils bids
- *   fully or partially.
+ * - sell-to-bid: sweeps highest-price bids first (price-time), self-trade
+ *   prevention identical to asks, 4% exchange fee, goods delivered to the
+ *   bidder, market_trades rows + per-fill post-commit events.
  */
 import type { GameContext } from '../../context/game-context.ts';
 import { runInTransaction, type TransactionContext } from '../../db/transaction.ts';
 import { eventBus } from '../../events/event-bus.ts';
 import { ValidationError, ConflictError, NotFoundError, SelfTradeProhibitedError } from '../../errors/domain-error.ts';
-import { marketRepository } from '../../repositories/market-repository.ts';
+import { marketTradeRepository } from '../../repositories/market-repository.ts';
 import { companyRepository } from '../../repositories/company-repository.ts';
 import { warehouseRepository } from '../../repositories/warehouse-repository.ts';
 import { getResourceDef } from '../../game-data/resources.ts';
-import { db } from '../../db/connection.ts';
 import { recordCashLedger } from '../../game/cash-ledger.ts';
 
 const EXCHANGE_FEE_RATE = 0.04;
-
-function isSelfTrade(buyerCompanyId: number, buyerPlayerId: number | undefined, sellerCompanyId: number, sellerPlayerId: number | undefined): boolean {
-  return buyerCompanyId === sellerCompanyId || (buyerPlayerId !== undefined && buyerPlayerId !== null && buyerPlayerId === sellerPlayerId);
-}
 
 export interface PlaceBuyOrderInput {
   kind: number;
@@ -77,11 +69,7 @@ export async function placeBuyOrder(ctx: GameContext, input: PlaceBuyOrderInput)
     });
 
     const now = new Date().toISOString();
-    const res = db.prepare(`
-      INSERT INTO market_orders (seller_id, kind, quality, quantity, price, fees, posted_at, active, is_npc, is_buy)
-      VALUES (?, ?, ?, ?, ?, 0, ?, 1, 0, 1)
-    `).run(ctx.companyId, kind, quality, quantity, price, now);
-    const orderId = Number(res.lastInsertRowid);
+    const orderId = marketTradeRepository.insertBuyOrder(ctx.companyId, kind, quality, quantity, price, now);
 
     tx.addAfterCommitHook(() => {
       eventBus.emit('MarketOrderPlaced', {
@@ -109,13 +97,12 @@ export async function placeBuyOrder(ctx: GameContext, input: PlaceBuyOrderInput)
 
 export async function cancelBuyOrder(ctx: GameContext, orderId: number): Promise<{ money: number; moneyDelta: number }> {
   return runInTransaction((tx: TransactionContext): { money: number; moneyDelta: number } => {
-    const order = db.prepare('SELECT * FROM market_orders WHERE id = ? AND active = 1 AND is_buy = 1')
-      .get(orderId) as { id: number; seller_id: number; kind: number; quality: number; quantity: number; price: number } | undefined;
-    if (!order || Number(order.seller_id) !== ctx.companyId) {
+    const order = marketTradeRepository.findActiveBuyOrder(orderId);
+    if (!order || order.buyerId !== ctx.companyId) {
       throw new NotFoundError('Buy order not found');
     }
-    const refund = Math.round(Number(order.price) * Number(order.quantity) * 100) / 100;
-    db.prepare('UPDATE market_orders SET active = 0 WHERE id = ?').run(orderId);
+    const refund = Math.round(order.price * order.quantity * 100) / 100;
+    marketTradeRepository.cancelBuyOrderRow(orderId);
     companyRepository.creditMoney(ctx.companyId, refund);
     recordCashLedger({
       companyId: ctx.companyId,
@@ -128,9 +115,9 @@ export async function cancelBuyOrder(ctx: GameContext, orderId: number): Promise
       eventBus.emit('MarketOrderCancelled', {
         companyId: ctx.companyId,
         orderId,
-        kind: Number(order.kind),
-        quality: Number(order.quality),
-        quantity: Number(order.quantity)
+        kind: order.kind,
+        quality: order.quality,
+        quantity: order.quantity
       });
     });
     const company = companyRepository.findById(ctx.companyId);
@@ -173,20 +160,7 @@ export async function sellToBids(ctx: GameContext, input: SellToBidInput): Promi
       throw new ConflictError(`Insufficient inventory: have ${item ? item.amount : 0}, need ${quantity}`);
     }
 
-    // Standing buy orders for this resource/quality, highest price first.
-    // seller_id on a buy row is the BUYER (poster). Exclude own bids.
-    const bids = db.prepare(`
-      SELECT id, seller_id AS buyer_id, quantity, price
-      FROM market_orders
-      WHERE active = 1 AND is_buy = 1 AND kind = ? AND quality = ? AND price >= ?
-        AND seller_id != ?
-      ORDER BY price DESC, id ASC
-    `).all(kind, quality, minPrice, ctx.companyId) as Array<{
-      id: number;
-      buyer_id: number;
-      quantity: number;
-      price: number;
-    }>;
+    const bids = marketTradeRepository.listOpenBids(kind, quality, minPrice, ctx.companyId);
 
     let remaining = quantity;
     let gross = 0;
@@ -196,27 +170,22 @@ export async function sellToBids(ctx: GameContext, input: SellToBidInput): Promi
 
     for (const bid of bids) {
       if (remaining <= 0) break;
-      const buyerComp = companyRepository.findById(Number(bid.buyer_id));
-      if (isSelfTrade(ctx.companyId, seller.playerId, Number(bid.buyer_id), buyerComp?.playerId)) {
+      const buyerComp = companyRepository.findById(bid.buyerId);
+      if (buyerComp && buyerComp.playerId !== null && buyerComp.playerId === seller.playerId) {
         throw new SelfTradeProhibitedError();
       }
-      const takeAmount = Math.min(Number(bid.quantity), remaining);
-      const proceeds = takeAmount * Number(bid.price);
+
+      const takeAmount = Math.min(bid.quantity, remaining);
+      const proceeds = takeAmount * bid.price;
       const fee = Math.round(proceeds * EXCHANGE_FEE_RATE * 100) / 100;
 
-      // Reduce or close the bid.
-      const left = Number(bid.quantity) - takeAmount;
-      if (left > 0) {
-        db.prepare('UPDATE market_orders SET quantity = ? WHERE id = ?').run(left, bid.id);
-      } else {
-        db.prepare('UPDATE market_orders SET active = 0, quantity = 0 WHERE id = ?').run(bid.id);
-      }
+      marketTradeRepository.closeOrReduceBuyOrder(bid.id, bid.quantity - takeAmount);
 
-      // Deliver goods to the bidder (default warehouse bucket, cost basis 0).
-      warehouseRepository.addResource(Number(bid.buyer_id), kind, quality, takeAmount, { market: Number(bid.price) });
+      // Deliver goods to the bidder (default warehouse bucket).
+      warehouseRepository.addResource(bid.buyerId, kind, quality, takeAmount, { market: bid.price });
 
-      // Escrow was already taken at placement; pay the bidder's escrow to the seller.
-      companyRepository.creditMoney(ctx.companyId, proceeds - fee);
+      // Escrow was taken at placement; pay it to the seller minus the fee.
+      companyRepository.creditMoney(ctx.companyId, Math.round((proceeds - fee) * 100) / 100);
       recordCashLedger({
         companyId: ctx.companyId,
         amount: Math.round((proceeds - fee) * 100) / 100,
@@ -226,24 +195,29 @@ export async function sellToBids(ctx: GameContext, input: SellToBidInput): Promi
       });
 
       const tradedAt = new Date().toISOString();
-      db.prepare(`
-        INSERT INTO market_trades (kind, quality, price, amount, fee, buyer_id, seller_id, trade_date, traded_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(kind, quality, Number(bid.price), takeAmount, fee, Number(bid.buyer_id), ctx.companyId,
-        tradedAt.slice(0, 10), tradedAt);
+      marketTradeRepository.recordFill({
+        kind,
+        quality,
+        price: bid.price,
+        amount: takeAmount,
+        fee,
+        buyerId: bid.buyerId,
+        sellerId: ctx.companyId,
+        tradedAt
+      });
 
       tx.addAfterCommitHook(() => {
         eventBus.emit('MarketTradeCompleted', {
-          buyerCompanyId: Number(bid.buyer_id),
+          buyerCompanyId: bid.buyerId,
           sellerCompanyId: ctx.companyId,
           kind,
           amount: takeAmount,
-          price: Number(bid.price),
+          price: bid.price,
           fee
         });
       });
 
-      filledBids.push({ orderId: bid.id, amount: takeAmount, price: Number(bid.price) });
+      filledBids.push({ orderId: bid.id, amount: takeAmount, price: bid.price });
       gross += proceeds;
       totalFee += fee;
       amountSold += takeAmount;
@@ -269,45 +243,26 @@ export async function sellToBids(ctx: GameContext, input: SellToBidInput): Promi
 
 /** Own standing buy orders. */
 export function listOwnBuyOrders(companyId: number): PlacedBuyOrderDTO[] {
-  const rows = db.prepare(`
-    SELECT id, kind, quality, quantity, price, posted_at FROM market_orders
-    WHERE seller_id = ? AND active = 1 AND is_buy = 1
-    ORDER BY id DESC
-  `).all(companyId) as Array<{ id: number; kind: number; quality: number; quantity: number; price: number; posted_at: string }>;
-  return rows.map(r => ({
-    id: Number(r.id),
-    kind: Number(r.kind),
-    quantity: Number(r.quantity),
-    quality: Number(r.quality),
-    price: Number(r.price),
-    posted: r.posted_at,
+  return marketTradeRepository.listOwnBuyOrders(companyId).map(r => ({
+    id: r.id,
+    kind: r.kind,
+    quantity: r.quantity,
+    quality: r.quality,
+    price: r.price,
+    posted: r.postedAt,
     money: 0
   }));
 }
 
 /** Active bid book for a resource (other companies' buy orders). */
 export function listBidBook(kind: number, quality: number, excludeCompanyId?: number | null): PlacedBuyOrderDTO[] {
-  const rows = db.prepare(`
-    SELECT id, kind, quality, quantity, price, posted_at FROM market_orders
-    WHERE active = 1 AND is_buy = 1 AND kind = ? AND quality = ?
-      AND (? IS NULL OR seller_id != ?)
-    ORDER BY price DESC, id ASC
-    LIMIT 200
-  `).all(kind, quality, excludeCompanyId ?? null, excludeCompanyId ?? null) as Array<{
-    id: number;
-    kind: number;
-    quality: number;
-    quantity: number;
-    price: number;
-    posted_at: string;
-  }>;
-  return rows.map(r => ({
-    id: Number(r.id),
-    kind: Number(r.kind),
-    quantity: Number(r.quantity),
-    quality: Number(r.quality),
-    price: Number(r.price),
-    posted: r.posted_at,
+  return marketTradeRepository.listBidBook(kind, quality, excludeCompanyId ?? null).map(r => ({
+    id: r.id,
+    kind: r.kind,
+    quantity: r.quantity,
+    quality: r.quality,
+    price: r.price,
+    posted: r.postedAt,
     money: 0
   }));
 }
