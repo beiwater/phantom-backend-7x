@@ -18,6 +18,8 @@ import { recordCashLedger } from '../../game/cash-ledger.ts';
 import { ensureSeededProjects } from '../../game/government.ts';
 import { getAllResourceDefs } from '../../game-data/resources.ts';
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
 function round2(value: number): number {
   return Math.round(value * 100) / 100;
 }

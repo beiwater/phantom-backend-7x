@@ -376,6 +376,21 @@ async function runTests(dataDir: string): Promise<void> {
   assert.equal(bondInterestA, 10000, 'Bond interest fixture sanity');
 
   // --- 3. Simulated clock: tomorrow 00:05 UTC (bond interest + overhead) -----
+  // Determinism warm-up: drain all catch-up tasks due up to today 04:05 so
+  // the simulated sequence below starts from a clean scheduler state
+  // regardless of the wall-clock hour the suite runs at (e.g. an 01:00 UTC
+  // boot has not yet reached today's 04:00 salary occurrence). Runs BEFORE
+  // the money baselines below are set, so any catch-up debits are wiped.
+  await tick(
+    admin.cookie,
+    new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate(), 4, 5)).toISOString(),
+    ['bond_interest_and_admin_overhead', 'executive_salaries']
+  );
+
+  setMoney(companyA.companyId, 1000000);
+  setMoney(companyB.companyId, 1000000);
+  setMoney(companyC.companyId, 0);
+
   console.log('  Simulating tomorrow 00:05 UTC (bond interest + accounting overhead)...');
   const tick1 = await tick(admin.cookie, new Date(tomorrow.getTime() + 5 * 60000).toISOString());
   const bondOutcome = outcomeOf(tick1, 'bond_interest_and_admin_overhead');
