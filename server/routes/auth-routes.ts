@@ -332,8 +332,11 @@ export async function handleAuthRoutes(
     return true;
   }
 
-  // Tags
-  if (method === 'GET' && pathname.startsWith('/api/') && pathname.includes('/tags/')) {
+  // Tags (profile tags; must not swallow /warehouse/tags/ handled later)
+  if (
+    method === 'GET' && pathname.startsWith('/api/') && pathname.includes('/tags/') &&
+    !pathname.includes('/warehouse/')
+  ) {
     sendJson(res, { tags: [] });
     return true;
   }

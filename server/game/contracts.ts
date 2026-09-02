@@ -59,6 +59,42 @@ export function getIncomingContracts(companyId: number) {
   };
 }
 
+export function getWarehouseContractsSummary(companyId: number): Array<{
+  kind: number;
+  quality: number;
+  incomingCount: number;
+  outgoingCount: number;
+  incomingAmount: number;
+  outgoingAmount: number;
+}> {
+  const rows = db.prepare(`
+    SELECT kind, quality,
+      SUM(CASE WHEN recipient_company_id = ? THEN 1 ELSE 0 END) AS incoming_count,
+      SUM(CASE WHEN sender_company_id = ? THEN 1 ELSE 0 END) AS outgoing_count,
+      SUM(CASE WHEN recipient_company_id = ? THEN amount ELSE 0 END) AS incoming_amount,
+      SUM(CASE WHEN sender_company_id = ? THEN amount ELSE 0 END) AS outgoing_amount
+    FROM contracts
+    WHERE status = 'pending' AND (recipient_company_id = ? OR sender_company_id = ?)
+    GROUP BY kind, quality
+    ORDER BY kind ASC
+  `).all(companyId, companyId, companyId, companyId, companyId, companyId) as Array<{
+    kind: number;
+    quality: number;
+    incoming_count: number;
+    outgoing_count: number;
+    incoming_amount: number;
+    outgoing_amount: number;
+  }>;
+  return rows.map(r => ({
+    kind: Number(r.kind),
+    quality: Number(r.quality),
+    incomingCount: Number(r.incoming_count),
+    outgoingCount: Number(r.outgoing_count),
+    incomingAmount: Number(r.incoming_amount),
+    outgoingAmount: Number(r.outgoing_amount)
+  }));
+}
+
 export function getContractHistory(companyId: number, direction: 'incoming' | 'outgoing') {
   const column = direction === 'incoming' ? 'recipient_company_id' : 'sender_company_id';
   const rows = db.prepare(`

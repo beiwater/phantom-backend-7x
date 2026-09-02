@@ -1,7 +1,8 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { sendJson } from './utils.ts';
+import { sendJson, readJsonBody } from './utils.ts';
 import { getWarehouseResources } from '../game/warehouse.ts';
 import { warehouseRepository } from '../repositories/warehouse-repository.ts';
+import { getWarehouseContractsSummaryQuery } from '../application/finance/finance-use-cases.ts';
 
 export async function handleWarehouseRoutes(
   _req: IncomingMessage,
@@ -23,8 +24,23 @@ export async function handleWarehouseRoutes(
   }
 
   // 2. Warehouse tags: /api/v2/companies/:id/warehouse/tags/ or /api/v2/warehouse/tags/
+  //    GET lists; PUT { kind, tag } upserts.
   if (pathname.startsWith('/api/') && (pathname.includes('/warehouse/tags/') || pathname.includes('/warehouse-tags/'))) {
-    sendJson(res, []);
+    if (!currentCompanyId) {
+      sendJson(res, { error: 'Unauthorized' }, 401);
+      return true;
+    }
+    if (_method === 'PUT' || _method === 'POST') {
+      const body = await readJsonBody<{ kind?: number; tag?: string }>(_req);
+      if (!Number.isSafeInteger(Number(body.kind)) || typeof body.tag !== 'string') {
+        sendJson(res, { error: 'kind and tag are required' }, 400);
+        return true;
+      }
+      warehouseRepository.setTag(currentCompanyId, Number(body.kind), body.tag.slice(0, 64));
+      sendJson(res, { success: true });
+      return true;
+    }
+    sendJson(res, warehouseRepository.listTags(currentCompanyId));
     return true;
   }
 
@@ -37,7 +53,12 @@ export async function handleWarehouseRoutes(
   // 4. Warehouse contracts summary: /api/v2/warehouse-contracts-summary/:companyId/:type/
   const summaryMatch = pathname.match(/^\/api\/v2\/warehouse-contracts-summary\/(\d+|me)\/([^/]+)\/$/);
   if (summaryMatch) {
-    sendJson(res, { summary: [] }, 200, { 'x-timestamp': new Date().toISOString() });
+    const compId = summaryMatch[1] === 'me' ? currentCompanyId : Number(summaryMatch[1]);
+    if (!currentCompanyId || compId !== currentCompanyId) {
+      sendJson(res, { error: 'Unauthorized' }, 401);
+      return true;
+    }
+    sendJson(res, { summary: getWarehouseContractsSummaryQuery(compId) }, 200, { 'x-timestamp': new Date().toISOString() });
     return true;
   }
 

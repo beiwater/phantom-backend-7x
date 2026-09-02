@@ -189,6 +189,28 @@ export class WarehouseRepository {
     return true;
   }
 
+  /** Warehouse resource tags (user labels) persisted in company_settings KV. */
+  listTags(companyId: number): Array<{ kind: number; tag: string }> {
+    const rows = this.database
+      .prepare(
+        "SELECT key, value FROM company_settings WHERE company_id = ? AND key LIKE 'warehouse_tag_%'"
+      )
+      .all(companyId) as Array<{ key: string; value: string }>;
+    return rows.map(r => ({
+      kind: Number(r.key.replace('warehouse_tag_', '')),
+      tag: r.value
+    }));
+  }
+
+  setTag(companyId: number, kind: number, tag: string): void {
+    this.database
+      .prepare(
+        `INSERT INTO company_settings (company_id, key, value) VALUES (?, ?, ?)
+         ON CONFLICT(company_id, key) DO UPDATE SET value = excluded.value`
+      )
+      .run(companyId, `warehouse_tag_${kind}`, tag);
+  }
+
   /** Max owned quality per resource kind for one company (quality map). */
   getQualityMap(companyId: number): Map<number, number> {
     const rows = this.database

@@ -4,6 +4,7 @@ import {
   getIncomingContractsQuery,
   getOutgoingContractsQuery,
   getContractHistoryQuery,
+  getWarehouseContractsSummaryQuery,
   sendContractCommand,
   acceptContractCommand,
   rejectContractCommand,
@@ -73,7 +74,11 @@ export async function handleContractRoutes(
   // 4. Warehouse contracts summary: /api/v2/warehouse-contracts-summary/:realm/:kindOrDirection/
   const contractsSummaryMatch = pathname.match(/^\/api\/v2\/warehouse-contracts-summary\/(\d+|me)\/([^/]+)\/$/);
   if (contractsSummaryMatch) {
-    sendJson(res, { summary: [] }, 200, { 'x-timestamp': new Date().toISOString() });
+    if (!currentCompanyId) {
+      sendJson(res, { error: 'Unauthorized' }, 401);
+      return true;
+    }
+    sendJson(res, { summary: getWarehouseContractsSummaryQuery(currentCompanyId) }, 200, { 'x-timestamp': new Date().toISOString() });
     return true;
   }
 
