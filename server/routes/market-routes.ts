@@ -10,6 +10,7 @@ import { readJsonBody, sendJson } from './utils.ts';
 import { createGameContext } from '../context/game-context.ts';
 import { sendDomainError } from '../compatibility/simcompanies/response-helpers.ts';
 import { formatMarketOrder } from '../compatibility/simcompanies/market-dto.ts';
+import { placeBuyOrder, cancelBuyOrder, sellToBids, listOwnBuyOrders, listBidBook } from '../application/market/buy-orders.ts';
 import { placeMarketOrder } from '../application/market/place-order.ts';
 import { takeMarketOrder } from '../application/market/take-order.ts';
 import { cancelMarketOrder } from '../application/market/cancel-order.ts';
@@ -128,7 +129,71 @@ export async function handleMarketRoutes(
       sendJson(res, { error: 'Unauthorized' }, 401);
       return true;
     }
-    sendJson(res, []);
+    sendJson(res, listOwnBuyOrders(requestedCompanyId));
+    return true;
+  }
+
+  // 9b. Place buy order (bid) — POST /api/v2/market-order/buy/
+  if (pathname === '/api/v2/market-order/buy/' || pathname === '/api/v2/market-order/buy') {
+    if (method === 'POST') {
+      if (!currentCompanyId) {
+        sendJson(res, { error: 'Unauthorized' }, 401);
+        return true;
+      }
+      const body = await readJsonBody<{ kind: number; price: number; quantity: number; quality?: number }>(req);
+      try {
+        const ctx = createGameContext(currentCompanyId, currentCompanyId, 0);
+        const result = await placeBuyOrder(ctx, body);
+        sendJson(res, result);
+      } catch (err: unknown) {
+        sendDomainError(res, err);
+      }
+      return true;
+    }
+  }
+
+  // 9c. Cancel buy order — DELETE /api/v2/market-order/buy/:id/
+  const buyCancelMatch = pathname.match(/^\/api\/v2\/market-order\/buy\/(\d+)\/?$/);
+  if (buyCancelMatch && method === 'DELETE') {
+    if (!currentCompanyId) {
+      sendJson(res, { error: 'Unauthorized' }, 401);
+      return true;
+    }
+    try {
+      const ctx = createGameContext(currentCompanyId, currentCompanyId, 0);
+      const result = await cancelBuyOrder(ctx, Number(buyCancelMatch[1]));
+      sendJson(res, result);
+    } catch (err: unknown) {
+      sendDomainError(res, err);
+    }
+    return true;
+  }
+
+  // 9d. Sell to bid — POST /api/v2/market-order/sell-to-bid/
+  if (pathname === '/api/v2/market-order/sell-to-bid/' || pathname === '/api/v2/market-order/sell-to-bid') {
+    if (method === 'POST') {
+      if (!currentCompanyId) {
+        sendJson(res, { error: 'Unauthorized' }, 401);
+        return true;
+      }
+      const body = await readJsonBody<{ resource: number; quantity: number; quality?: number; minPrice?: number }>(req);
+      try {
+        const ctx = createGameContext(currentCompanyId, currentCompanyId, 0);
+        const result = await sellToBids(ctx, body);
+        sendJson(res, result);
+      } catch (err: unknown) {
+        sendDomainError(res, err);
+      }
+      return true;
+    }
+  }
+
+  // 9e. Bid book — GET /api/v3/market/bids/:realm/:kind/:quality/
+  const bidBookMatch = pathname.match(/^\/api\/v3\/market\/bids\/(\d+)\/(\d+)\/(\d+)\/$/);
+  if (bidBookMatch && method === 'GET') {
+    const resourceId = Number(bidBookMatch[2]);
+    const quality = Number(bidBookMatch[3]);
+    sendJson(res, listBidBook(resourceId, quality, currentCompanyId));
     return true;
   }
 

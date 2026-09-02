@@ -1,5 +1,8 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { sendJson, readJsonBody } from './utils.ts';
+import { fpaReportsRepository } from '../repositories/fpa-reports-repository.ts';
+
+const REPORT_CATEGORIES = ['Production', 'Retail', 'Financial', 'Warehouse', 'Market'];
 import { db } from '../db/database.ts';
 import { getCompanyById } from '../game/company.ts';
 import { takeLoan, repayLoan, getActiveLoans } from '../game/loans.ts';
@@ -89,14 +92,41 @@ export async function handleFinanceRoutes(
     return currentCompanyId;
   };
 
-  // 1. Custom Reports (FPA): /api/v2/fpa/custom-reports/
+  // 1. Custom Reports (FPA): /api/v2/fpa/custom-reports/ (GET list, POST create)
   if (pathname === '/api/v2/fpa/custom-reports/') {
-    if (!authorizeRequestedCompany()) return true;
+    const companyId = authorizeRequestedCompany();
+    if (companyId === null) return true;
+    if (method === 'POST') {
+      const body = await readJsonBody<{ name?: string; category?: string; config?: Record<string, unknown> }>(req);
+      const name = (body.name || '').trim();
+      if (!name) {
+        sendJson(res, { error: 'Report name is required' }, 400);
+        return true;
+      }
+      const category = REPORT_CATEGORIES.includes(body.category || '') ? body.category! : 'Financial';
+      const report = fpaReportsRepository.create(companyId, name, category, body.config || {});
+      sendJson(res, { report, canCreate: true });
+      return true;
+    }
     sendJson(res, {
-      reports: [],
-      categories: ['Production', 'Retail', 'Financial', 'Warehouse', 'Market'],
+      reports: fpaReportsRepository.list(companyId),
+      categories: REPORT_CATEGORIES,
       canCreate: true
     });
+    return true;
+  }
+
+  // 1b. Custom Report delete: /api/v2/fpa/custom-reports/:id/
+  const fpaDeleteMatch = pathname.match(/^\/api\/v2\/fpa\/custom-reports\/(\d+)\/$/);
+  if (fpaDeleteMatch && method === 'DELETE') {
+    const companyId = authorizeRequestedCompany();
+    if (companyId === null) return true;
+    const deleted = fpaReportsRepository.delete(Number(fpaDeleteMatch[1]), companyId);
+    if (!deleted) {
+      sendJson(res, { error: 'Report not found' }, 404);
+      return true;
+    }
+    sendJson(res, { success: true });
     return true;
   }
 

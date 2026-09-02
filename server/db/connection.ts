@@ -123,7 +123,8 @@ export function initializeDatabaseSchema(database: DatabaseSync = db): void {
       cost_admin REAL DEFAULT 0,
       cost_material1 REAL DEFAULT 0,
       cost_material2 REAL DEFAULT 0,
-      cost_market REAL DEFAULT 0
+      cost_market REAL DEFAULT 0,
+      is_buy INTEGER DEFAULT 0
     );
 
     CREATE TABLE IF NOT EXISTS contracts (
@@ -315,6 +316,13 @@ export function initializeDatabaseSchema(database: DatabaseSync = db): void {
     CREATE INDEX IF NOT EXISTS idx_bonds_status_buyer_seller
       ON bonds(status, buyer_company_id, seller_company_id);
   `);
+
+  // Defensive migrations for tables created before later columns existed.
+  const marketOrderCols = (database.prepare('PRAGMA table_info(market_orders)').all() as Array<{ name: string }>).map(c => c.name);
+  if (!marketOrderCols.includes('is_buy')) {
+    database.exec('ALTER TABLE market_orders ADD COLUMN is_buy INTEGER DEFAULT 0');
+  }
+
   // Enable foreign key enforcement at connection level
   database.exec('PRAGMA foreign_keys = ON');
 }

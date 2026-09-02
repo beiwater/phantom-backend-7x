@@ -7,6 +7,7 @@ import {
   getResourceDef
 } from '../game/constants.ts';
 import { getCompanyById } from '../game/company.ts';
+import { db } from '../db/database.ts';
 import { getWeather } from '../game-data/weather.ts';
 import { getCertificates } from '../game/achievements.ts';
 import { getGovernmentOrders, getGovernmentTier, getGovernmentBids } from '../game/government.ts';
@@ -133,10 +134,26 @@ export async function handleEncyclopediaRoutes(
     return true;
   }
 
-  // 5. Existing resource quality
+  // 5. Existing resource quality — real per-company warehouse quality map
   if (pathname.startsWith('/api/') && pathname.includes('/encyclopedia/existing-resource-quality/')) {
     for (const k of Object.keys(CONSTANTS_RESOURCES)) {
       qualityMap[k] = 0;
+    }
+    if (currentCompanyId) {
+      const rows = db
+        .prepare(
+          `SELECT kind, MAX(quality) AS max_quality, SUM(amount) AS total
+           FROM warehouse WHERE company_id = ? AND amount > 0
+           GROUP BY kind`
+        )
+        .all(currentCompanyId) as Array<{ kind: number; max_quality: number; total: number }>;
+      for (const r of rows) {
+        const key = String(r.kind);
+        if (key in qualityMap) {
+          // Highest owned quality the company holds of this resource
+          qualityMap[key] = Number(r.max_quality) || 0;
+        }
+      }
     }
     sendJson(res, qualityMap);
     return true;
@@ -223,47 +240,31 @@ export async function handleEncyclopediaRoutes(
     });
     return true;
   }
-  // 11. Stats / Top Leaderboards
+  // 11. Stats / Top Leaderboards — real companies ranked by the requested stat
   const statsMatch = pathname.match(/^\/api\/v4\/[^/]+\/\d+\/stats\/top\/([^/]+)\/$/);
   if (statsMatch) {
-    const comp = currentCompanyId ? getCompanyById(currentCompanyId) : null;
-    const list = [
-      {
-        id: 1,
-        company: { id: 999901, company: 'Solaris Energy Ltd', logo: '', realmId: 0, deleted: false },
-        contest: { id: 1, name: 'Harvest Competition' },
-        value: 850000,
-        rank: 0
-      },
-      {
-        id: 2,
-        company: { id: 999902, company: 'AeroTech Systems', logo: '', realmId: 0, deleted: false },
-        contest: { id: 1, name: 'Harvest Competition' },
-        value: 520000,
-        rank: 1
-      },
-      {
-        id: 3,
-        company: { id: 999903, company: 'Titan Industries', logo: '', realmId: 0, deleted: false },
-        contest: { id: 1, name: 'Harvest Competition' },
-        value: 310000,
-        rank: 2
-      }
-    ];
+    const statKind = statsMatch[1];
+    // money is the persisted per-company metric; other stat kinds fall back to
+    // company money ranking until dedicated counters exist (issue #109).
+    const orderColumn = statKind === 'money' || statKind === 'richest' ? 'money' : 'money';
+    const rows = db
+      .prepare(
+        `SELECT company_id, name, logo, realm_id, money FROM companies
+         WHERE deleted = 0 ORDER BY ${orderColumn} DESC LIMIT 100`
+      )
+      .all() as Array<{ company_id: number; name: string; logo: string; realm_id: number; money: number }>;
 
-    if (comp) {
-      list.unshift({
-        id: comp.company_id,
-        company: { id: comp.company_id, company: comp.name, logo: comp.logo || '', realmId: comp.realm_id, deleted: false },
-        contest: { id: 1, name: 'Harvest Competition' },
-        value: comp.money,
-        rank: 0
-      });
-    }
-
+    const list = rows.map((r, idx) => ({
+      id: r.company_id,
+      company: { id: r.company_id, company: r.name, logo: r.logo || '', realmId: r.realm_id, deleted: false },
+      contest: { id: 1, name: 'Top Companies' },
+      value: Number(r.money) || 0,
+      rank: idx
+    }));
     sendJson(res, list);
     return true;
   }
 
   return false;
 }
+
