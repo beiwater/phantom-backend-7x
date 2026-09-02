@@ -129,7 +129,18 @@ export async function handleMarketRoutes(
       sendJson(res, { error: 'Unauthorized' }, 401);
       return true;
     }
-    sendJson(res, listOwnBuyOrders(requestedCompanyId));
+    // Issue #171: the original client reads `data.buyOrders` off this
+    // response and renders items as {kind, minQuality, amount, price};
+    // a bare array left warehouse stats in a perpetual loading state.
+    sendJson(res, {
+      buyOrders: listOwnBuyOrders(requestedCompanyId).map(order => ({
+        id: order.id,
+        kind: order.kind,
+        minQuality: order.quality,
+        amount: order.quantity,
+        price: order.price
+      }))
+    });
     return true;
   }
 

@@ -1021,14 +1021,51 @@ export const MIGRATIONS: MigrationDefinition[] = [
         );
       `);
 
-      // #172: government.ts seeds/orders read government_orders.realm_id;
-      // databases created by the pre-realm migration lack the column.
+      // #172: the migration-era government_orders shape (resource_kind /
+      // bidding columns) predates the module's real contract and was never
+      // writable (ensureSeededProjects inserts project_key etc. and always
+      // failed against it). Replace it with the real shape; pre-realm
+      // real-shape databases only get the columns they lack.
       const govColumns = new Set(
         (db.prepare('PRAGMA table_info(government_orders)').all() as Array<{ name: string }>)
           .map(column => column.name)
       );
-      if (govColumns.size > 0 && !govColumns.has('realm_id')) {
-        db.exec('ALTER TABLE government_orders ADD COLUMN realm_id INTEGER NOT NULL DEFAULT 0');
+      if (govColumns.size > 0 && govColumns.has('resource_kind')) {
+        db.exec(`
+          DROP TABLE government_orders;
+          CREATE TABLE government_orders (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            realm_id INTEGER NOT NULL DEFAULT 0,
+            project_key TEXT,
+            agency TEXT,
+            estimated_base_value REAL,
+            days_to_fulfill INTEGER,
+            resource_multiplier_awarded REAL,
+            required_resources_json TEXT,
+            unit_compensation_price REAL DEFAULT 0,
+            start_date TEXT,
+            deadline TEXT,
+            created_at TEXT
+          );
+        `);
+      } else {
+        const govAdds: Record<string, string> = {
+          realm_id: 'INTEGER NOT NULL DEFAULT 0',
+          project_key: 'TEXT',
+          agency: 'TEXT',
+          estimated_base_value: 'REAL',
+          days_to_fulfill: 'INTEGER',
+          resource_multiplier_awarded: 'REAL',
+          required_resources_json: 'TEXT',
+          unit_compensation_price: 'REAL DEFAULT 0',
+          start_date: 'TEXT',
+          deadline: 'TEXT'
+        };
+        for (const [column, ddl] of Object.entries(govAdds)) {
+          if (govColumns.size > 0 && !govColumns.has(column)) {
+            db.exec(`ALTER TABLE government_orders ADD COLUMN ${column} ${ddl}`);
+          }
+        }
       }
     }
   }
