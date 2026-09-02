@@ -563,6 +563,19 @@ export function getSponsorParams() {
   };
 }
 
+
+/**
+ * Issue #175: the original client addresses sponsor slots with the issue
+ * object's `id`, which may be either the newspaper_issues row id or the
+ * per-realm issue_id depending on the page that mounted the component.
+ * Resolve either to the row id the booking API expects.
+ */
+export function resolveNewspaperIssueId(idOrIssueId: number): number | null {
+  const byId = db.prepare('SELECT id FROM newspaper_issues WHERE id = ?').get(idOrIssueId) as { id: number } | undefined;
+  if (byId) return Number(byId.id);
+  const byIssueId = db.prepare('SELECT id FROM newspaper_issues WHERE issue_id = ? ORDER BY id DESC').get(idOrIssueId) as { id: number } | undefined;
+  return byIssueId ? Number(byIssueId.id) : null;
+}
 export function getSponsorsForNewspaper(newspaperId: number) {
   const rows = db.prepare('SELECT * FROM newspaper_sponsors WHERE newspaper_id = ?').all(newspaperId) as NewspaperSponsorDbRow[];
   const sponsors: Record<number, unknown> = {};

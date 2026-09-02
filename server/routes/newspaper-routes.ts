@@ -13,6 +13,8 @@ import {
   getSponsorListForNewspaper,
   getSponsorsForNewspaper,
   buyNewspaperSponsor,
+  resolveNewspaperIssueId,
+  updateNewspaperSponsorText,
   getTopArticlesByReaction,
   TOP_ARTICLES_LIMIT
 } from '../game/newspaper.ts';
@@ -83,6 +85,39 @@ export async function handleNewspaperRoutes(
         realmId
       });
       return true;
+    }
+    // 4b. Issue #175: the original client addresses sponsor slots by ISSUE id
+    // (api_v2_sponsor_get = /api/v2/newspaper/{issueId}/sponsor/{slot}/), not
+    // by realm. POST books the slot (deducts SimBoosts), PATCH updates the ad
+    // text, GET returns the slot's current sponsor.
+    const sponsorSlotMatch = pathname.match(/^\/api\/v2\/newspaper\/(\d+)\/sponsor\/(\d+)\/$/);
+    if (sponsorSlotMatch) {
+      if (!currentCompanyId) {
+        sendJson(res, { error: 'Authentication required', code: 'UNAUTHORIZED' }, 401);
+        return true;
+      }
+      const slot = Number(sponsorSlotMatch[2]);
+      const issueRowId = resolveNewspaperIssueId(Number(sponsorSlotMatch[1]));
+      if (issueRowId === null) {
+        sendJson(res, { error: 'Newspaper issue not found', code: 'NOT_FOUND' }, 404);
+        return true;
+      }
+      if (method === 'POST') {
+        const body = await readJsonBody<{ text?: string }>(req).catch(() => ({}) as { text?: string });
+        const booked = buyNewspaperSponsor(issueRowId, slot, currentCompanyId, typeof body?.text === 'string' ? body.text : undefined);
+        sendJson(res, booked);
+        return true;
+      }
+      if (method === 'PATCH') {
+        const body = await readJsonBody<{ text?: string }>(req);
+        const updated = updateNewspaperSponsorText(issueRowId, slot, currentCompanyId, String(body?.text ?? ''));
+        sendJson(res, updated);
+        return true;
+      }
+      if (method === 'GET') {
+        sendJson(res, { newspaperId: issueRowId, ...getSponsorsForNewspaper(issueRowId) });
+        return true;
+      }
     }
 
     // 5. v2 reactions endpoint: POST books a reaction (REWARD tips 5 SimBoosts),
