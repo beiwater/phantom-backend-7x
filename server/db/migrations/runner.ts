@@ -206,11 +206,9 @@ export const MIGRATIONS: MigrationDefinition[] = [
         CREATE TABLE IF NOT EXISTS game_notifications (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           company_id INTEGER NOT NULL,
-          kind INTEGER NOT NULL,
-          title TEXT,
-          body TEXT NOT NULL,
-          link TEXT,
-          is_read INTEGER DEFAULT 0,
+          type TEXT NOT NULL,
+          payload_json TEXT DEFAULT '{}',
+          read INTEGER DEFAULT 0,
           created_at TEXT NOT NULL
         );
 
@@ -223,19 +221,24 @@ export const MIGRATIONS: MigrationDefinition[] = [
         );
 
         CREATE TABLE IF NOT EXISTS company_notes (
-          owner_company_id INTEGER NOT NULL,
-          target_company_id INTEGER NOT NULL,
-          note TEXT NOT NULL DEFAULT '',
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          company_id INTEGER NOT NULL,
+          about_company_id INTEGER NOT NULL,
+          note TEXT DEFAULT '',
+          priority INTEGER DEFAULT 0,
+          created_at TEXT,
           updated_at TEXT NOT NULL,
-          PRIMARY KEY (owner_company_id, target_company_id)
+          UNIQUE (company_id, about_company_id)
         );
 
         CREATE TABLE IF NOT EXISTS company_tags (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
           company_id INTEGER NOT NULL,
-          tag_text TEXT NOT NULL,
-          slot INTEGER NOT NULL,
+          resource_kind INTEGER NOT NULL,
+          kind TEXT NOT NULL,
+          buy_sell TEXT NOT NULL,
           created_at TEXT NOT NULL,
-          PRIMARY KEY (company_id, slot)
+          expires_at TEXT NOT NULL
         );
 
         CREATE TABLE IF NOT EXISTS achievements (
@@ -669,6 +672,90 @@ export const MIGRATIONS: MigrationDefinition[] = [
           attempted_at TEXT NOT NULL
         );
       `);
+    }
+  },
+  {
+    version: 12,
+    name: '012_social_schema_contracts',
+    up: (db: DatabaseSync) => {
+      const tagColumns = db.prepare('PRAGMA table_info(company_tags)').all() as Array<{ name: string }>;
+      if (!tagColumns.some(column => column.name === 'resource_kind')) {
+        // The old migration used text/slot tags even though the route contract
+        // stores a resource and buy/sell mode. Preserve values that can be
+        // represented before replacing that incompatible table.
+        const legacyTags = db.prepare(
+          'SELECT company_id, tag_text, created_at FROM company_tags'
+        ).all() as Array<{ company_id: number; tag_text: string; created_at: string }>;
+        db.exec(`
+          ALTER TABLE company_tags RENAME TO company_tags_legacy;
+          CREATE TABLE company_tags (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            company_id INTEGER NOT NULL,
+            resource_kind INTEGER NOT NULL,
+            kind TEXT NOT NULL,
+            buy_sell TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            expires_at TEXT NOT NULL
+          );
+        `);
+        const insertTag = db.prepare(
+          `INSERT INTO company_tags
+            (company_id, resource_kind, kind, buy_sell, created_at, expires_at)
+           VALUES (?, ?, ?, ?, ?, ?)`
+        );
+        const defaultExpiry = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+        for (const row of legacyTags) {
+          const match = /^(\d+)\s*([bs])$/i.exec(row.tag_text);
+          if (!match) continue;
+          const resourceKind = Number.parseInt(match[1], 10);
+          insertTag.run(row.company_id, resourceKind, String(resourceKind), match[2].toLowerCase(), row.created_at, defaultExpiry);
+        }
+        db.exec('DROP TABLE company_tags_legacy');
+      }
+
+      const notificationColumns = db.prepare('PRAGMA table_info(game_notifications)').all() as Array<{ name: string }>;
+      if (notificationColumns.some(column => column.name === 'read')) {
+        return;
+      }
+
+      const legacyNotifications = db.prepare(
+        'SELECT company_id, kind, title, body, link, is_read, created_at FROM game_notifications'
+      ).all() as Array<{
+        company_id: number;
+        kind: number;
+        title: string | null;
+        body: string;
+        link: string | null;
+        is_read: number;
+        created_at: string;
+      }>;
+      db.exec(`
+        ALTER TABLE game_notifications RENAME TO game_notifications_legacy;
+        CREATE TABLE game_notifications (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          company_id INTEGER NOT NULL,
+          type TEXT NOT NULL,
+          payload_json TEXT DEFAULT '{}',
+          read INTEGER DEFAULT 0,
+          created_at TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_game_notifications_company
+          ON game_notifications(company_id, read, created_at);
+      `);
+      const insertNotification = db.prepare(
+        `INSERT INTO game_notifications (company_id, type, payload_json, read, created_at)
+         VALUES (?, ?, ?, ?, ?)`
+      );
+      for (const row of legacyNotifications) {
+        insertNotification.run(
+          row.company_id,
+          `legacy-${row.kind}`,
+          JSON.stringify({ title: row.title, body: row.body, link: row.link }),
+          row.is_read,
+          row.created_at
+        );
+      }
+      db.exec('DROP TABLE game_notifications_legacy');
     }
   }
 ];
