@@ -3,6 +3,7 @@ import { db } from '../db/database.ts';
 import { sendJson, readJsonBody } from './utils.ts';
 import { auditRepository, banCompany } from '../repositories/audit-repository.ts';
 import { getCompanyById } from '../game/company.ts';
+import { CONFIG } from '../config.ts';
 import { buildingRepository } from '../repositories/building-repository.ts';
 import { toSimCompaniesBuildingDTO } from '../compatibility/simcompanies/building-dto.ts';
 
@@ -398,35 +399,84 @@ export async function handleAuditRoutes(
   // 9b. /api/v2/audit/:id/audits/
   const auditAuditsMatch = pathname.match(/^\/api\/v2\/audit\/(\d+)\/audits\/?$/);
   if (auditAuditsMatch && method === 'GET') {
-    sendJson(res, []);
+    const rows = auditRepository.listForCompany(Number(auditAuditsMatch[1]));
+    sendJson(res, rows.map(a => ({
+      id: a.id,
+      action: a.action,
+      reason: a.reason,
+      actorCompanyId: a.actorCompanyId,
+      datetime: a.createdAt
+    })));
     return true;
   }
 
   // 9c. /api/v2/audit/:id/auth/
   const auditAuthMatch = pathname.match(/^\/api\/v2\/audit\/(\d+)\/auth\/?$/);
   if (auditAuthMatch && method === 'GET') {
-    sendJson(res, []);
+    const comp = getCompanyById(Number(auditAuthMatch[1]));
+    if (!comp?.player_id) {
+      sendJson(res, []);
+      return true;
+    }
+    const sessions = db.prepare(`
+      SELECT created_at, expires_at FROM sessions WHERE player_id = ? ORDER BY created_at DESC LIMIT 50
+    `).all(comp.player_id) as Array<{ created_at: string; expires_at: string | null }>;
+    sendJson(res, sessions.map(s => ({
+      created: s.created_at,
+      expiresAt: s.expires_at ?? null
+    })));
     return true;
   }
 
-  // 9d. /api/v2/audit/:id/payments/
+  // 9d. /api/v2/audit/:id/payments/ — private server disables real payments;
+  // report the authoritative configuration instead of pretending.
   const auditPaymentsMatch = pathname.match(/^\/api\/v2\/audit\/(\d+)\/payments\/?$/);
   if (auditPaymentsMatch && method === 'GET') {
-    sendJson(res, []);
+    sendJson(res, [{ paymentsDisabled: CONFIG.PAYMENTS_DISABLED, note: 'Private server: real payments disabled' }]);
     return true;
   }
 
-  // 9e. /api/v2/audit/:id/contracts/
+  // 9e. /api/v2/audit/:id/contracts/ — real contract rows involving company.
   const auditContractsMatch = pathname.match(/^\/api\/v2\/audit\/(\d+)\/contracts\/?$/);
   if (auditContractsMatch && method === 'GET') {
-    sendJson(res, []);
+    const targetId = Number(auditContractsMatch[1]);
+    const rows = db.prepare(`
+      SELECT id, sender_company_id, recipient_company_id, status, kind, quality, amount, price, created_at
+      FROM contracts WHERE sender_company_id = ? OR recipient_company_id = ?
+      ORDER BY id DESC LIMIT 100
+    `).all(targetId, targetId) as Array<Record<string, unknown>>;
+    sendJson(res, rows.map(r => ({
+      id: Number(r.id),
+      senderCompanyId: Number(r.sender_company_id),
+      recipientCompanyId: Number(r.recipient_company_id),
+      status: String(r.status),
+      resourceKind: Number(r.kind),
+      resourceQuality: Number(r.quality),
+      amount: Number(r.amount),
+      price: Number(r.price),
+      created: String(r.created_at)
+    })));
     return true;
   }
 
-  // 9f. /api/v2/audit/:id/market-trades/
+  // 9f. /api/v2/audit/:id/market-trades/ — real inactive (filled/cancelled) orders.
   const auditTradesMatch = pathname.match(/^\/api\/v2\/audit\/(\d+)\/market-trades\/?$/);
   if (auditTradesMatch && method === 'GET') {
-    sendJson(res, []);
+    const targetId = Number(auditTradesMatch[1]);
+    const rows = db.prepare(`
+      SELECT id, seller_id, kind, quality, quantity, price, posted_at
+      FROM market_orders WHERE seller_id = ? AND active = 0
+      ORDER BY id DESC LIMIT 100
+    `).all(targetId) as Array<Record<string, unknown>>;
+    sendJson(res, rows.map(r => ({
+      id: Number(r.id),
+      sellerCompanyId: Number(r.seller_id),
+      kind: Number(r.kind),
+      quality: Number(r.quality),
+      amount: Number(r.quantity),
+      price: Number(r.price),
+      created: String(r.posted_at)
+    })));
     return true;
   }
 

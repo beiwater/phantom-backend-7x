@@ -6,6 +6,7 @@ import { warehouseRepository } from '../../repositories/warehouse-repository.ts'
 import { companyRepository } from '../../repositories/company-repository.ts';
 import { eventBus } from '../../events/event-bus.ts';
 import { NotFoundError, ForbiddenError, ValidationError } from '../../errors/domain-error.ts';
+import { recordSimboostSpend } from '../social/simboost-history.ts';
 
 export interface RushProductionInput {
   buildingId: number;
@@ -49,6 +50,7 @@ export async function rushProductionUseCase(
 
     // 3. Debit SimBoosts
     const simboostsRemaining = companyRepository.debitSimboosts(ctx.companyId, cost);
+    recordSimboostSpend(ctx.companyId, 'RUSH_PRODUCTION', cost);
 
     // 4. Finish immediately and DELIVER the output now (legacy semantics:
     // resolved=1, output added to warehouse, building freed — Issue #68:

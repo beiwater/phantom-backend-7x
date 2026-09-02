@@ -4,6 +4,7 @@ import { buildingRepository, type BuildingEntity } from '../../repositories/buil
 import { companyRepository } from '../../repositories/company-repository.ts';
 import { eventBus } from '../../events/event-bus.ts';
 import { NotFoundError, ValidationError, ConflictError } from '../../errors/domain-error.ts';
+import { recordSimboostSpend } from '../social/simboost-history.ts';
 
 /**
  * P1-09: start (or renew) the upkeep of a recreation building (park/lake/
@@ -72,6 +73,7 @@ export async function startRecreationUpkeepUseCase(
     // Atomic debit: fails with InsufficientFundsError (400) before any state
     // changes when the balance is too low.
     const simboostsRemaining = companyRepository.debitSimboosts(ctx.companyId, cost);
+    recordSimboostSpend(ctx.companyId, 'RECREATION_UPKEEP', cost);
 
     const busyUntil = new Date(Date.now() + RECREATION_UPKEEP_DURATION_SECONDS * 1000).toISOString();
     const updated = buildingRepository.updateUpkeep(buildingId, ctx.companyId, busyUntil, true);

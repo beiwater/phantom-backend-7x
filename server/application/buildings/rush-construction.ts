@@ -10,6 +10,7 @@ import { buildingRepository, type BuildingEntity } from '../../repositories/buil
 import { companyRepository } from '../../repositories/company-repository.ts';
 import { eventBus } from '../../events/event-bus.ts';
 import { NotFoundError, ForbiddenError, ValidationError } from '../../errors/domain-error.ts';
+import { recordSimboostSpend } from '../social/simboost-history.ts';
 
 export interface RushConstructionInput {
   buildingId: number;
@@ -42,6 +43,7 @@ export async function rushBuildingConstructionUseCase(
     }
 
     const simboostsRemaining = companyRepository.debitSimboosts(ctx.companyId, cost);
+    recordSimboostSpend(ctx.companyId, 'RUSH_CONSTRUCTION', cost);
     const updatedBuilding = buildingRepository.updateBusyUntil(building.id, ctx.companyId, null);
 
     eventBus.publishCommitted(txCtx, 'ProductionRushed', {
