@@ -30,6 +30,8 @@ import { handleAerospaceRoutes } from './routes/aerospace-routes.ts';
 import { handleBuildingAuctionRoutes } from './routes/building-auction-routes.ts';
 import { handleCollectibleRoutes } from './routes/collectible-routes.ts';
 import { handleNewspaperRoutes } from './routes/newspaper-routes.ts';
+import { virtualClock } from './core/virtual-clock.ts';
+import { handleDebugRoutes } from './routes/debug-routes.ts';
 const methodManifest: Array<{ pattern: RegExp; methods: string[] }> = [
   { pattern: /^\/api\/v2\/time-millis\/$/, methods: ['GET'] },
   { pattern: /^\/api\/time\/$/, methods: ['GET'] },
@@ -117,7 +119,7 @@ export async function handleRequest(req: IncomingMessage, res: ServerResponse) {
     return;
   }
   if ((pathname === '/api/v2/time-millis/' || pathname === '/api/time/') && method === 'GET') {
-    sendJson(res, Date.now());
+    sendJson(res, virtualClock.nowMs());
     return;
   }
 
@@ -132,6 +134,10 @@ export async function handleRequest(req: IncomingMessage, res: ServerResponse) {
     return;
   }
 
+  // Debug & Test Fixture Routes (Time Warp, Scenarios, Fast-Forward)
+  if (await handleDebugRoutes(req, res, pathname, method, currentPlayerId, currentCompanyId)) {
+    return;
+  }
   // 4. Dispatch to Legacy Route Handlers
   if (await handleAuthRoutes(req, res, pathname, method, sessionToken, currentPlayerId, currentCompanyId)) {
     return;

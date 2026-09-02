@@ -1,0 +1,184 @@
+#!/usr/bin/env node
+/**
+ * Developer & Testing State Management CLI Tool.
+ *
+ * Usage:
+ *   # 1. Time Warp
+ *   node --experimental-strip-types scripts/dev-tool.ts warp --hours 10
+ *   node --experimental-strip-types scripts/dev-tool.ts warp --days 3
+ *   node --experimental-strip-types scripts/dev-tool.ts warp --reset
+ *   node --experimental-strip-types scripts/dev-tool.ts warp --iso 2026-09-10T12:00:00Z
+ *
+ *   # 2. Preset Fixtures
+ *   node --experimental-strip-types scripts/dev-tool.ts fixture --preset level-60-max
+ *   node --experimental-strip-types scripts/dev-tool.ts fixture --preset restaurant-tycoon
+ *   node --experimental-strip-types scripts/dev-tool.ts fixture --preset aerospace-corp
+ *   node --experimental-strip-types scripts/dev-tool.ts fixture --preset fresh-account
+ *
+ *   # 3. Custom Scenarios
+ *   node --experimental-strip-types scripts/dev-tool.ts fixture \
+ *     --money 50000000 --level 40 --simboosts 10000 \
+ *     --building "r:10" --building "P:5" \
+ *     --warehouse "117:3:5000" --warehouse "1:2:20000"
+ *
+ *   # 4. Status Check
+ *   node --experimental-strip-types scripts/dev-tool.ts status
+ */
+import { virtualClock } from '../server/core/virtual-clock.ts';
+import { FixtureService, type ScenarioBuildingInput, type ScenarioWarehouseInput, type ScenarioExecutiveInput } from '../server/services/fixture-service.ts';
+
+function parseArgs(args: string[]): Record<string, any> {
+  const result: Record<string, any> = { _: [] };
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    if (arg.startsWith('--')) {
+      const key = arg.slice(2);
+      const next = args[i + 1];
+      if (next && !next.startsWith('--')) {
+        if (result[key]) {
+          if (Array.isArray(result[key])) {
+            result[key].push(next);
+          } else {
+            result[key] = [result[key], next];
+          }
+        } else {
+          result[key] = next;
+        }
+        i++;
+      } else {
+        result[key] = true;
+      }
+    } else {
+      result._.push(arg);
+    }
+  }
+  return result;
+}
+
+async function main() {
+  const argv = parseArgs(process.argv.slice(2));
+  const command = argv._[0] || 'status';
+
+  if (command === 'status') {
+    console.log('=== SimCompanies Virtual Server Status ===');
+    console.log(`Real Wall Clock : ${new Date().toISOString()}`);
+    console.log(`Virtual Clock   : ${virtualClock.nowIso()}`);
+    console.log(`Time Offset     : ${virtualClock.getOffsetHours()} hours (${virtualClock.getOffsetMs()} ms)`);
+    console.log(`Presets Avail   : ${Object.keys(FixtureService.PRESETS).join(', ')}`);
+    return;
+  }
+
+  if (command === 'warp') {
+    console.log('=== Executing Time Warp ===');
+    let res;
+    if (argv.reset) {
+      res = virtualClock.reset();
+      console.log(`Clock reset to real time: ${res.newIso}`);
+    } else if (argv.iso) {
+      res = virtualClock.setTime(argv.iso);
+      console.log(`Clock set to: ${res.newIso} (offset: ${res.offsetHours}h)`);
+    } else {
+      const hours = Number(argv.hours || 0);
+      const days = Number(argv.days || 0);
+      const minutes = Number(argv.minutes || 0);
+      const seconds = Number(argv.seconds || 0);
+      res = virtualClock.advance({ hours, days, minutes, seconds });
+      console.log(`Advanced clock by: +${days}d +${hours}h +${minutes}m +${seconds}s`);
+      console.log(`Previous: ${res.previousIso}`);
+      console.log(`New Time: ${res.newIso} (total offset: ${res.offsetHours}h)`);
+    }
+
+    console.log('Resolving overdue game cycles...');
+    const cycles = await virtualClock.resolveAllOverdue();
+    console.log(`- Constructions/Upgrades completed : ${cycles.completedConstructions}`);
+    console.log(`- Production batches completed     : ${cycles.completedProductions}`);
+    console.log(`- Retail orders completed          : ${cycles.completedRetailOrders}`);
+    console.log(`- Restaurant cycles resolved       : ${cycles.resolvedRestaurants}`);
+    console.log(`- Building auctions settled        : ${cycles.settledAuctions}`);
+    console.log('✅ Time warp and cycle resolution complete!');
+    return;
+  }
+
+  if (command === 'fixture') {
+    console.log('=== Applying State Fixture ===');
+    let result;
+
+    if (argv.preset) {
+      console.log(`Loading preset: "${argv.preset}"...`);
+      const overrides: Record<string, any> = {};
+      if (argv.money) overrides.money = Number(argv.money);
+      if (argv.simboosts) overrides.simboosts = Number(argv.simboosts);
+      if (argv.level) overrides.level = Number(argv.level);
+      if (argv.email) overrides.email = String(argv.email);
+      result = await FixtureService.applyPreset(String(argv.preset), overrides);
+    } else {
+      const buildings: ScenarioBuildingInput[] = [];
+      const buildingArgs = Array.isArray(argv.building) ? argv.building : (argv.building ? [argv.building] : []);
+      for (const b of buildingArgs) {
+        // format: "kind:size" or "kind:size:abundance" e.g. "r:5" or "G:10:98.5"
+        const parts = String(b).split(':');
+        buildings.push({
+          kind: parts[0],
+          size: Number(parts[1]) || 1,
+          abundance: parts[2] ? Number(parts[2]) : 100,
+          isLuxury: parts[0] === 'r' && (Number(parts[1]) >= 5)
+        });
+      }
+
+      const warehouse: ScenarioWarehouseInput[] = [];
+      const whArgs = Array.isArray(argv.warehouse) ? argv.warehouse : (argv.warehouse ? [argv.warehouse] : []);
+      for (const w of whArgs) {
+        // format: "kind:quality:amount" e.g. "117:3:5000"
+        const parts = String(w).split(':');
+        warehouse.push({
+          kind: Number(parts[0]),
+          quality: Number(parts[1]) || 0,
+          amount: Number(parts[2]) || 1000
+        });
+      }
+
+      const executives: ScenarioExecutiveInput[] = [];
+      const execArgs = Array.isArray(argv.executive) ? argv.executive : (argv.executive ? [argv.executive] : []);
+      for (const e of execArgs) {
+        // format: "name:position:skill" e.g. "Gordon:coo:20"
+        const parts = String(e).split(':');
+        executives.push({
+          name: parts[0],
+          position: parts[1] || 'coo',
+          skills: { management: Number(parts[2]) || 15 }
+        });
+      }
+
+      result = await FixtureService.applyScenario({
+        email: argv.email,
+        companyName: argv.company,
+        money: argv.money ? Number(argv.money) : undefined,
+        simboosts: argv.simboosts ? Number(argv.simboosts) : undefined,
+        level: argv.level ? Number(argv.level) : undefined,
+        rating: argv.rating,
+        buildings: buildings.length > 0 ? buildings : undefined,
+        warehouse: warehouse.length > 0 ? warehouse : undefined,
+        executives: executives.length > 0 ? executives : undefined
+      });
+    }
+
+    console.log('✅ Fixture Applied Successfully:');
+    console.log(`- Player ID     : ${result.playerId} (${result.email})`);
+    console.log(`- Company ID    : ${result.companyId} (${result.companyName})`);
+    console.log(`- Level / Money : Lv.${result.level} | $${result.money.toLocaleString()} | ${result.simboosts} SB`);
+    console.log(`- Buildings     : ${result.buildingsCount} created`);
+    console.log(`- Warehouse     : ${result.warehouseRows} resource types`);
+    console.log(`- Executives    : ${result.executivesCount} hired`);
+    console.log(`- Session Token : ${result.sessionToken}`);
+    console.log(`\nDirect login header: Authorization: Bearer ${result.sessionToken}`);
+    console.log(`Or set cookie: sim_session=${result.sessionToken}`);
+    return;
+  }
+
+  console.log(`Unknown command: "${command}". Available commands: status, warp, fixture`);
+}
+
+main().catch(err => {
+  console.error('Error executing dev-tool:', err);
+  process.exit(1);
+});
