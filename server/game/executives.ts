@@ -306,7 +306,19 @@ export function hireExecutive(companyId: number, candidateId: number, position: 
       throw new Error(`Executive slot limit reached (${countRow.count}/${maxSlots}). Unlock more slots with SimBoosts.`);
     }
 
-    const updated = db.prepare("UPDATE executives SET status = 'employed', position = ? WHERE id = ? AND company_id = ? AND status = 'candidate'").run(position, candidateId, companyId);
+    // #154: the academy raises the starting skills of in-house candidates
+    // (same 5-levels-per-point cadence as training; max +2).
+    const startingBonus = academySkillBonus(getAcademyLevels(companyId).active);
+    const updated = startingBonus > 0
+      ? db.prepare(`UPDATE executives SET status = 'employed', position = ?,
+          skill_management = skill_management + ?,
+          skill_accounting = skill_accounting + ?,
+          skill_science = skill_science + ?,
+          skill_communication = skill_communication + ?
+          WHERE id = ? AND company_id = ? AND status = 'candidate'`)
+        .run(position, startingBonus, startingBonus, startingBonus, startingBonus, candidateId, companyId)
+      : db.prepare("UPDATE executives SET status = 'employed', position = ? WHERE id = ? AND company_id = ? AND status = 'candidate'")
+        .run(position, candidateId, companyId);
     if (updated.changes !== 1) throw new Error('Failed to hire candidate');
     const row = db.prepare('SELECT * FROM executives WHERE id = ?').get(candidateId) as unknown as ExecutiveRow;
     return formatExecutive(row);
@@ -364,8 +376,49 @@ export function updateExecutive(
   }, { immediate: true });
 }
 
+/**
+ * Academy contribution (#154), mirroring the original client's aggregator
+ * (bundle `ld`, kind Ft.ACADEMY = 'y'):
+ *   active = Σ size of academies not busy and not on a landmark position
+ *   slots  = Σ size (size-1 while the academy itself is expanding)
+ * The original game documents no numeric formula (the client literally
+ * renders "the specific impact is not documented"), so the canonical rules
+ * here are: every 5 active academy levels (same cadence as the apprentice
+ * slot unlock, bundle Gu=5) grant +1 training skill point (max +2) and a
+ * matching starting-skill bonus when hiring a candidate.
+ */
+export function getAcademyLevels(companyId: number): { active: number; slots: number } {
+  const academies = db.prepare(
+    "SELECT id, size, position, busy_until FROM buildings WHERE company_id = ? AND kind = 'y'"
+  ).all(companyId) as Array<{ id: number; size: number; position: string; busy_until: string | null }>;
+  let active = 0;
+  let slots = 0;
+  const now = Date.now();
+  for (const a of academies) {
+    const size = Number(a.size) || 1;
+    const busy = a.busy_until ? new Date(a.busy_until).getTime() > now : false;
+    const onLandmark = String(a.position || '').startsWith('l');
+    if (!busy && !onLandmark) active += size;
+    if (busy) {
+      const hasProduction = db.prepare(
+        'SELECT 1 FROM production_queues WHERE building_id = ? AND resolved = 0 LIMIT 1'
+      ).get(a.id);
+      slots += hasProduction ? size : Math.max(0, size - 1);
+    } else {
+      slots += size;
+    }
+  }
+  return { active, slots };
+}
+
+function academySkillBonus(activeLevels: number): number {
+  return Math.min(2, Math.floor(activeLevels / 5));
+}
+
 export function trainExecutive(companyId: number, executiveId: number) {
   const trainingCost = EXECUTIVE_TRAINING_COST;
+  const academy = getAcademyLevels(companyId);
+  const skillGain = 1 + academySkillBonus(academy.active);
 
   return runInTransaction(async () => {
     const exec = db.prepare("SELECT * FROM executives WHERE id = ? AND company_id = ? AND status = 'employed'").get(executiveId, companyId) as unknown as ExecutiveRow | undefined;
@@ -390,18 +443,20 @@ export function trainExecutive(companyId: number, executiveId: number) {
 
     const updated = db.prepare(`
       UPDATE executives
-      SET skill_management = skill_management + 1,
-          skill_accounting = skill_accounting + 1,
-          skill_science = skill_science + 1,
-          skill_communication = skill_communication + 1
+      SET skill_management = skill_management + ?,
+          skill_accounting = skill_accounting + ?,
+          skill_science = skill_science + ?,
+          skill_communication = skill_communication + ?
       WHERE id = ? AND company_id = ? AND status = 'employed'
-    `).run(executiveId, companyId);
+    `).run(skillGain, skillGain, skillGain, skillGain, executiveId, companyId);
     if (updated.changes !== 1) throw new Error('Executive training failed');
 
     const row = db.prepare('SELECT * FROM executives WHERE id = ?').get(executiveId) as unknown as ExecutiveRow;
     return {
       executive: formatExecutive(row),
-      cost: trainingCost
+      cost: trainingCost,
+      skillGain,
+      academyActive: academy.active
     };
   }, { immediate: true });
 }
