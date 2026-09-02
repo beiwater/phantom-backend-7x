@@ -7,6 +7,8 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { readJsonBody, sendJson } from './utils.ts';
 import { createGameContext } from '../context/game-context.ts';
+import { buildingRepository } from '../repositories/building-repository.ts';
+import { retailRepository } from '../repositories/retail-repository.ts';
 import {
   formatRetailOrder,
   startRetailOrderUseCase,
