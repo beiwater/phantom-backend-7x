@@ -90,17 +90,23 @@ export function normalizePositionCode(pos: string | null | undefined): string {
   return lower;
 }
 
+function defaultGenomeFor(avatar?: string | null): string {
+  const isFemale = Boolean(avatar && avatar.includes('female'));
+  return isFemale ? 'female-01-0-0-0-0-0' : 'male-01-0-0-0-0-0';
+}
+
 export function formatExecutive(e: ExecutiveRow) {
   const normPos = normalizePositionCode(e.position);
   const mgmt = Number(e.skill_management) || 0;
   const acct = Number(e.skill_accounting) || 0;
   const sci = Number(e.skill_science) || 0;
   const comm = Number(e.skill_communication) || 0;
+  const avatar = e.avatar || 'images/avatars/male_01.png';
   return {
     id: e.id,
     name: e.name,
-    avatar: e.avatar || 'images/avatars/male_01.png',
-    genome: '010101010101',
+    avatar,
+    genome: defaultGenomeFor(avatar),
     age: 35,
     position: normPos,
     skills: {

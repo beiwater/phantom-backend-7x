@@ -39,8 +39,10 @@ import {
   getActiveUnlocks,
   getSimilarAuctionsByBuilding,
   getSimilarAuctionsByAuction,
-  resolveCompanyIdParam
+  resolveCompanyIdParam,
+  settleDueAuctions
 } from '../game/building-auctions.ts';
+import { virtualClock } from '../core/virtual-clock.ts';
 
 function unauthorized(res: ServerResponse): void {
   sendJson(res, { error: 'Unauthorized' }, 401);
@@ -168,7 +170,7 @@ export async function handleBuildingAuctionRoutes(
   // 5. Auction house collection: bare path and numeric-id paths.
   if (pathname === '/api/v2/building-auctions/' || pathname === '/api/v2/building-auctions') {
     if (method === 'GET') {
-      await settleDueAuctions(Date.now());
+      await settleDueAuctions(virtualClock.nowMs());
       sendJson(res, { buildingAuctions: getActiveAuctions() });
       return true;
     }
@@ -195,7 +197,7 @@ export async function handleBuildingAuctionRoutes(
   if (auctionMatch) {
     const id = Number(auctionMatch[1]);
     if (method === 'GET') {
-      await settleDueAuctions(Date.now());
+      await settleDueAuctions(virtualClock.nowMs());
       const auction = getAuctionById(id);
       const list = getActiveAuctions(id);
       if (id === 0 || id === 1) {
