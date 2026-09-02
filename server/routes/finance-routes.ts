@@ -137,10 +137,20 @@ export async function handleFinanceRoutes(
     if (companyId === null) return true;
     const bldRow = db.prepare('SELECT COUNT(*) AS count FROM buildings WHERE company_id = ?').get(companyId) as { count?: number } | undefined;
     const bldCount = Number(bldRow?.count) || 0;
+    // #152: recreation bonus mirrors the client selector zP — sum of sizes
+    // of recreation buildings with an active paid upkeep (busy_until in the
+    // future and upkeep_active set), excluding landmark positions ('l...').
+    const recRow = db.prepare(`
+      SELECT COALESCE(SUM(size), 0) AS bonus FROM buildings
+      WHERE company_id = ? AND category = 'recreation' AND upkeep_active = 1
+        AND busy_until IS NOT NULL AND busy_until > ?
+        AND position NOT LIKE 'l%'
+    `).get(companyId, new Date().toISOString()) as { bonus?: number } | undefined;
+    const recreationBonus = Number(recRow?.bonus) || 0;
     const overhead = Math.max(0, (bldCount - 1) * 0.035);
     sendJson(res, {
       administrationOverhead: overhead,
-      recreationBonus: 0,
+      recreationBonus,
       workers: bldCount * 100,
       adminCostDaily: Math.round(overhead * 1000)
     });
