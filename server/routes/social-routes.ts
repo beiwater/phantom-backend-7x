@@ -1,6 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { readJsonBody, sendJson } from './utils.ts';
 import { gameNotificationsRepository } from '../repositories/game-notifications-repository.ts';
+import { referralsRepository } from '../repositories/referrals-repository.ts';
 import { db } from '../db/database.ts';
 import { getCompanyById } from '../game/company.ts';
 import { checkRateLimit } from '../security/rate-limiter.ts';
@@ -575,7 +576,16 @@ export async function handleSocialRoutes(
 
   // 10d. Referrals & Royalties
   if (pathname.startsWith('/api/') && pathname.includes('/referrals/')) {
-    sendJson(res, []);
+    if (!currentCompanyId) {
+      sendJson(res, { error: 'Unauthorized' }, 401);
+      return true;
+    }
+    sendJson(res, referralsRepository.findReferredBy(currentCompanyId).map(r => ({
+      company: { id: r.referredCompanyId },
+      code: r.code,
+      created: r.createdAt,
+      rewardsPaid: r.rewardsPaid
+    })));
     return true;
   }
   if (pathname.startsWith('/api/') && pathname.includes('/royalties/')) {

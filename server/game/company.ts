@@ -192,8 +192,37 @@ export function addCompanyExperience(companyId: number, xpGain: number) {
     xpNeeded = getXpRequiredForLevel(level);
   }
 
+  const before = Number(comp.level || 0);
   db.prepare('UPDATE companies SET level = ?, experience = ? WHERE company_id = ?').run(level, experience, companyId);
+  if (level > before) {
+    void payoutReferralLevelRewards(companyId, before, level);
+  }
   return { level, experience };
+}
+
+/**
+ * Referral tier rewards (data/referral.json): the referrer earns SimBoosts
+ * when a referred company reaches level 5/10/15. Imported lazily to avoid a
+ * module cycle; failures never break the level-up path.
+ */
+function payoutReferralLevelRewards(companyId: number, oldLevel: number, newLevel: number): void {
+  Promise.all([
+    import('../repositories/referrals-repository.ts'),
+    import('../repositories/company-repository.ts')
+  ]).then(([{ referralsRepository, REFERRAL_LEVEL_TIERS }, { companyRepository }]) => {
+    const referrerCompanyId = referralsRepository.findReferrerOf(companyId);
+    if (!referrerCompanyId) return;
+    const company = getCompanyById(referrerCompanyId);
+    if (!company) return;
+    for (const tier of REFERRAL_LEVEL_TIERS) {
+      if (newLevel >= tier.level && oldLevel < tier.level) {
+        const rewarded = referralsRepository.markTierPaidAndReward(referrerCompanyId, tier.level, tier.reward);
+        if (rewarded) {
+          companyRepository.creditSimboosts(referrerCompanyId, tier.reward);
+        }
+      }
+    }
+  }).catch(err => console.error('[referral] tier reward failed:', err));
 }
 
 export function resetCompany(companyId: number) {

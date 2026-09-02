@@ -8,6 +8,7 @@ import {
 } from '../auth/session.ts';
 import { registerPlayer, authenticatePlayer, registerOrAuthenticatePlayer, db } from '../db/database.ts';
 import { companyRepository } from '../repositories/company-repository.ts';
+import { referralsRepository, REFERRAL_JOIN_BONUS } from '../repositories/referrals-repository.ts';
 import { checkRateLimit } from '../security/rate-limiter.ts';
 import {
   getAuthData,
@@ -156,11 +157,12 @@ export async function handleAuthRoutes(
       return true;
     }
 
-    const body = await readJsonBody<{ email: string; password: string; company?: string; name?: string }>(req);
+    const body = await readJsonBody<{ email: string; password: string; company?: string; name?: string; referralCode?: string }>(req);
     try {
       // P1-04: ignore device-derived `name`; only an explicit non-empty
       // `company` from the signup form is honored as a business name.
       const auth = registerOrAuthenticatePlayer(body.email, body.password, body.company);
+      applyReferralOnSignup(auth, body.referralCode);
       const token = createSession(auth.playerId, auth.companyId);
       res.writeHead(200, {
         'Content-Type': 'application/json',
@@ -301,10 +303,31 @@ export async function handleAuthRoutes(
 
   // Referrals
   if (pathname.startsWith('/api/') && pathname.includes('/referral/')) {
+    if (!currentCompanyId) {
+      sendJson(res, { error: 'Unauthorized' }, 401);
+      return true;
+    }
+    // Stable per-company referral code (generated once, stored in company_settings)
+    let row = db.prepare(
+      "SELECT value FROM company_settings WHERE company_id = ? AND key = 'referral_code'"
+    ).get(currentCompanyId) as { value: string } | undefined;
+    if (!row || !row.value) {
+      const code = `ref-${currentCompanyId}-${Math.random().toString(36).slice(2, 8)}`;
+      db.prepare(
+        "INSERT INTO company_settings (company_id, key, value) VALUES (?, 'referral_code', ?) ON CONFLICT(company_id, key) DO UPDATE SET value = excluded.value"
+      ).run(currentCompanyId, code);
+      row = { value: code };
+    }
+    const referred = referralsRepository.findReferredBy(currentCompanyId);
+    let rewardsClaimed = 0;
+    for (const r of referred) {
+      rewardsClaimed += Object.keys(r.rewardsPaid).length;
+    }
     sendJson(res, {
-      referrals: [],
-      referralLink: 'http://127.0.0.1:3000/zh-cn/signup/?ref=private_server',
-      rewardsClaimed: 0
+      referralCode: row.value,
+      referralLink: `/zh-cn/signup/?ref=${row.value}`,
+      referrals: referred,
+      rewardsClaimed
     });
     return true;
   }
@@ -584,4 +607,33 @@ export async function handleAuthRoutes(
   }
 
   return false;
+}
+
+/**
+ * Referral signup hook (Issue #109 build-out): bind the new company to the
+ * referrer's code and grant the one-time $2,000 join bonus
+ * (data/referral.json refereeRewards). Failures are logged, never fatal —
+ * a broken referral must not block signup.
+ */
+function applyReferralOnSignup(
+  auth: { playerId: number; companyId: number; created: boolean },
+  referralCode?: string
+): void {
+  if (!auth.created || !referralCode || referralCode.trim() === '') return;
+  try {
+    const code = referralCode.trim();
+    const owner = db.prepare(
+      "SELECT company_id FROM company_settings WHERE key = 'referral_code' AND value = ?"
+    ).get(code) as { company_id: number } | undefined;
+    if (!owner) return;
+    const referrerCompanyId = Number(owner.company_id);
+    if (referrerCompanyId === auth.companyId) return;
+    const bound = referralsRepository.bindReferred(referrerCompanyId, auth.companyId, code);
+    if (bound && !referralsRepository.hasClaimedJoinBonus(auth.companyId)) {
+      companyRepository.creditMoney(auth.companyId, REFERRAL_JOIN_BONUS);
+      referralsRepository.markJoinBonusClaimed(auth.companyId);
+    }
+  } catch (err) {
+    console.error('[referral] signup bind failed:', err);
+  }
 }
