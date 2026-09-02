@@ -578,6 +578,22 @@ export function getSponsorsForNewspaper(newspaperId: number) {
   };
 }
 
+/**
+ * The original client consumes the v3 sponsor endpoint as a positional array
+ * (`sponsors.forEach((sponsor, position) => ...)`), while the v2 booking API
+ * exposes a sparse position-keyed map. Keep both wire contracts explicit.
+ */
+export function getSponsorListForNewspaper(newspaperId: number) {
+  const response = getSponsorsForNewspaper(newspaperId);
+  return {
+    ...response,
+    sponsors: Array.from(
+      { length: SPONSOR_SLOT_COUNT },
+      (_, position) => response.sponsors[position] ?? null
+    )
+  };
+}
+
 // Book an ad slot on an issue (§3): paid in SimBoosts, tier-priced, one
 // company per slot. Re-booking your own slot only refreshes the ad and never
 // charges again; another company's slot is a conflict.
