@@ -524,7 +524,9 @@ export const MIGRATIONS: MigrationDefinition[] = [
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           realm_id INTEGER NOT NULL DEFAULT 0,
           issue_id INTEGER NOT NULL,
-          published INTEGER NOT NULL DEFAULT 0,
+          -- NULL represents a draft issue; the original client distinguishes
+          -- it from a published timestamp.
+          published TEXT,
           publish_date TEXT,
           articles_json TEXT DEFAULT '[]',
           created_at TEXT NOT NULL,
@@ -533,14 +535,13 @@ export const MIGRATIONS: MigrationDefinition[] = [
 
         CREATE TABLE IF NOT EXISTS newspaper_sponsors (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
-          newspaper_id INTEGER NOT NULL,
-          slot_number INTEGER NOT NULL,
-          tier TEXT NOT NULL,
+          newspaper_id INTEGER,
+          position INTEGER,
           company_id INTEGER,
+          company_name TEXT,
           text TEXT,
-          booked_at TEXT,
-          simboosts_paid INTEGER DEFAULT 0,
-          UNIQUE (newspaper_id, slot_number)
+          logo TEXT,
+          created_at TEXT
         );
 
         CREATE TABLE IF NOT EXISTS newspaper_article_reactions (
@@ -756,6 +757,139 @@ export const MIGRATIONS: MigrationDefinition[] = [
         );
       }
       db.exec('DROP TABLE game_notifications_legacy');
+    }
+  },
+  {
+    version: 13,
+    name: '013_newspaper_draft_contract',
+    up: (db: DatabaseSync) => {
+      const columns = db.prepare('PRAGMA table_info(newspaper_issues)').all() as Array<{
+        name: string;
+        type: string;
+        notnull: number;
+      }>;
+      const published = columns.find(column => column.name === 'published');
+      if (published?.type.toUpperCase() === 'TEXT' && published.notnull === 0) {
+        return;
+      }
+
+      // Issue #163 CI exposed a mismatch with game/newspaper.ts: a NULL
+      // published value means an existing draft, not a missing required value.
+      const legacyIssues = db.prepare(
+        'SELECT id, realm_id, issue_id, published, publish_date, articles_json, created_at FROM newspaper_issues'
+      ).all() as Array<{
+        id: number;
+        realm_id: number;
+        issue_id: number;
+        published: string | number | null;
+        publish_date: string | null;
+        articles_json: string | null;
+        created_at: string;
+      }>;
+      db.exec(`
+        ALTER TABLE newspaper_issues RENAME TO newspaper_issues_legacy;
+        CREATE TABLE newspaper_issues (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          realm_id INTEGER NOT NULL DEFAULT 0,
+          issue_id INTEGER NOT NULL,
+          published TEXT,
+          publish_date TEXT,
+          articles_json TEXT DEFAULT '[]',
+          created_at TEXT NOT NULL,
+          UNIQUE (realm_id, issue_id)
+        );
+      `);
+      const insertIssue = db.prepare(
+        `INSERT INTO newspaper_issues
+          (id, realm_id, issue_id, published, publish_date, articles_json, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`
+      );
+      for (const issue of legacyIssues) {
+        insertIssue.run(
+          issue.id,
+          issue.realm_id,
+          issue.issue_id,
+          issue.published,
+          issue.publish_date,
+          issue.articles_json,
+          issue.created_at
+        );
+      }
+      db.exec('DROP TABLE newspaper_issues_legacy');
+    }
+  },
+  {
+    version: 14,
+    name: '014_newspaper_sponsor_contract',
+    up: (db: DatabaseSync) => {
+      const columns = db.prepare('PRAGMA table_info(newspaper_sponsors)').all() as Array<{ name: string }>;
+      if (columns.some(column => column.name === 'position')) {
+        return;
+      }
+
+      // The frontend-compatible newspaper module uses position/company_name/
+      // logo, while migration 8 created a separate booking-oriented shape.
+      const legacySponsors = db.prepare(
+        'SELECT id, newspaper_id, slot_number, company_id, text, booked_at FROM newspaper_sponsors'
+      ).all() as Array<{
+        id: number;
+        newspaper_id: number;
+        slot_number: number;
+        company_id: number | null;
+        text: string | null;
+        booked_at: string | null;
+      }>;
+      db.exec(`
+        ALTER TABLE newspaper_sponsors RENAME TO newspaper_sponsors_legacy;
+        CREATE TABLE newspaper_sponsors (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          newspaper_id INTEGER,
+          position INTEGER,
+          company_id INTEGER,
+          company_name TEXT,
+          text TEXT,
+          logo TEXT,
+          created_at TEXT
+        );
+      `);
+      const insertSponsor = db.prepare(
+        `INSERT INTO newspaper_sponsors
+          (id, newspaper_id, position, company_id, company_name, text, logo, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+      );
+      for (const sponsor of legacySponsors) {
+        insertSponsor.run(
+          sponsor.id,
+          sponsor.newspaper_id,
+          sponsor.slot_number,
+          sponsor.company_id,
+          null,
+          sponsor.text,
+          null,
+          sponsor.booked_at
+        );
+      }
+      db.exec('DROP TABLE newspaper_sponsors_legacy');
+    }
+  },
+  {
+    version: 15,
+    name: '015_simboost_use_history',
+    up: (db: DatabaseSync) => {
+      // SocialRepository records every successful SimBoost spend here.  This
+      // table was created only by a legacy runtime path, so fresh migrated
+      // databases failed as soon as a construction rush succeeded.
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS simboost_use_history (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          company_id INTEGER NOT NULL,
+          action TEXT NOT NULL,
+          spend_simboosts INTEGER NOT NULL,
+          datetime TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_simboost_use_history_company_datetime
+          ON simboost_use_history (company_id, datetime DESC);
+      `);
     }
   }
 ];
