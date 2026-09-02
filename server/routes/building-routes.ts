@@ -1,6 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { RouteRegistry, globalRouteRegistry } from '../http/route-registry.ts';
-import { sendJson } from './utils.ts';
+import { readJsonBody, sendJson } from './utils.ts';
 import {
   startProductionUseCase,
   type StartProductionInput
@@ -36,6 +36,7 @@ import {
   toSimCompaniesBuildingsListDTO
 } from '../compatibility/simcompanies/building-dto.ts';
 import { normalizePosition } from '../domain/buildings/building-rules.ts';
+import { addFollower, listFollowers, removeFollower } from '../application/buildings/followers.ts';
 import {
   getBuildingAbundance,
   prospectBuildingAbundance
@@ -162,22 +163,46 @@ export function registerBuildingRoutes(registry: RouteRegistry = globalRouteRegi
     }
   });
 
-  // 4. Followers stubs
+  // 4. Followers (logistics links between the company's own buildings)
   registry.register({
     method: 'GET',
     pattern: '/api/v3/companies/buildings/:id/followers/',
     auth: 'none',
-    handler: async (_req, res) => {
-      sendJson(res, { linking: [] });
+    handler: async (_req, res, _ctx, params) => {
+      sendJson(res, { linking: listFollowers(Number(params.id)) });
     }
   });
 
   registry.register({
     method: 'POST',
     pattern: '/api/v3/companies/buildings/:id/followers/',
-    auth: 'none',
-    handler: async (_req, res) => {
-      sendJson(res, { error: 'Building followers are not supported yet' }, 501);
+    auth: 'company',
+    handler: async (req, res, ctx, params, body) => {
+      if (!ctx?.companyId) {
+        sendJson(res, { error: 'Unauthorized' }, 401);
+        return;
+      }
+      const followerId = Number((body as Record<string, unknown>)?.follower);
+      try {
+        sendJson(res, { linking: addFollower(Number(params.id), followerId, ctx.companyId) });
+      } catch (err) {
+        sendJson(res, { error: err instanceof Error ? err.message : String(err) }, 400);
+      }
+    }
+  });
+
+  registry.register({
+    method: 'DELETE',
+    pattern: '/api/v3/companies/buildings/:id/followers/',
+    auth: 'company',
+    handler: async (req, res, _ctx, params) => {
+      const body = await readJsonBody(req).catch(() => ({}) as Record<string, unknown>);
+      const followerId = Number((body as Record<string, unknown>).follower);
+      if (!Number.isFinite(followerId)) {
+        sendJson(res, { error: 'follower id required' }, 400);
+        return;
+      }
+      sendJson(res, { linking: removeFollower(Number(params.id), followerId) });
     }
   });
 

@@ -11,6 +11,8 @@ import { hashPassword } from '../db/migrations/index.ts';
 import { companyRepository } from '../repositories/company-repository.ts';
 import { referralsRepository, REFERRAL_JOIN_BONUS } from '../repositories/referrals-repository.ts';
 import { checkRateLimit } from '../security/rate-limiter.ts';
+import { addCompanyTag, deleteCompanyTag, getCompanyTags } from '../game/tags.ts';
+import { unlockTagSlot } from '../game/simboosts.ts';
 import {
   getAuthData,
   getPlayerCompanies,
@@ -355,7 +357,56 @@ export async function handleAuthRoutes(
     return true;
   }
 
-  // Tags (profile tags; must not swallow /warehouse/tags/ handled later)
+  // Tags (profile trade tags). Exact routes only, so /warehouse/tags/ and
+  // other *tags* URLs are never swallowed.
+  const companyTagsMatch = pathname.match(/^\/api\/v2\/companies\/(\d+|me)\/tags\/?$/);
+  if (companyTagsMatch) {
+    const targetId = companyTagsMatch[1] === 'me' ? currentCompanyId : Number(companyTagsMatch[1]);
+    if (method === 'GET') {
+      if (!targetId) {
+        sendJson(res, { error: 'Unauthorized' }, 401);
+        return true;
+      }
+      sendJson(res, getCompanyTags(targetId));
+      return true;
+    }
+    if (method === 'POST') {
+      if (!currentCompanyId) {
+        sendJson(res, { error: 'Unauthorized' }, 401);
+        return true;
+      }
+      const body = await readJsonBody(req);
+      const count = getCompanyTags(currentCompanyId).length;
+      const comp = getCompanyById(currentCompanyId);
+      if (comp && count >= Math.max(1, comp.max_tags ?? 1)) {
+        sendJson(res, { error: 'No free tag slots — unlock more with SimBoosts' }, 400);
+        return true;
+      }
+      sendJson(res, addCompanyTag(currentCompanyId, String(body.kind ?? ''), String(body.buySell ?? 'b')));
+      return true;
+    }
+    if (method === 'PATCH') {
+      if (!currentCompanyId) {
+        sendJson(res, { error: 'Unauthorized' }, 401);
+        return true;
+      }
+      try {
+        sendJson(res, await unlockTagSlot(currentCompanyId));
+      } catch (err) {
+        sendJson(res, { error: err instanceof Error ? err.message : String(err) }, 400);
+      }
+      return true;
+    }
+  }
+  const tagDeleteMatch = pathname.match(/^\/api\/v2\/companies\/tags\/(\d+)\/?$/);
+  if (tagDeleteMatch && method === 'DELETE') {
+    if (!currentCompanyId) {
+      sendJson(res, { error: 'Unauthorized' }, 401);
+      return true;
+    }
+    sendJson(res, deleteCompanyTag(Number(tagDeleteMatch[1]), currentCompanyId));
+    return true;
+  }
   if (
     method === 'GET' && pathname.startsWith('/api/') && pathname.includes('/tags/') &&
     !pathname.includes('/warehouse/')

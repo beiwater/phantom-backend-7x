@@ -582,5 +582,12 @@ export function runMigrations(db: DatabaseSync): void {
     );
     CREATE INDEX IF NOT EXISTS idx_contest_participants_contest
       ON contest_participants(contest_id, rank);
+
+    CREATE TABLE IF NOT EXISTS building_followers (
+      building_id INTEGER NOT NULL,
+      follower_building_id INTEGER NOT NULL,
+      created_at TEXT,
+      PRIMARY KEY (building_id, follower_building_id)
+    );
   `);
 }

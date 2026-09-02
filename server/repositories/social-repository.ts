@@ -61,6 +61,29 @@ export class SocialRepository {
       .all(companyId) as Array<{ id: number; spendSimBoosts: number; action: string; datetime: string }>;
   }
 
+  // --- Building followers (logistics links) --------------------------------
+
+  listBuildingFollowers(buildingId: number): Array<{ id: number }> {
+    return this.database.prepare('SELECT follower_building_id AS id FROM building_followers WHERE building_id = ? ORDER BY follower_building_id')
+      .all(buildingId) as Array<{ id: number }>;
+  }
+
+  /** Both buildings must belong to companyId; returns false otherwise. */
+  buildingsOwnedByCompany(buildingId: number, followerBuildingId: number, companyId: number): boolean {
+    const rows = this.database.prepare('SELECT company_id FROM buildings WHERE id IN (?, ?)').all(buildingId, followerBuildingId) as Array<{ company_id: number }>;
+    return rows.length === 2 && rows.every(r => Number(r.company_id) === companyId);
+  }
+
+  linkBuildingFollower(buildingId: number, followerBuildingId: number): void {
+    this.database.prepare('INSERT OR IGNORE INTO building_followers (building_id, follower_building_id, created_at) VALUES (?, ?, ?)')
+      .run(buildingId, followerBuildingId, new Date().toISOString());
+  }
+
+  unlinkBuildingFollower(buildingId: number, followerBuildingId: number): void {
+    this.database.prepare('DELETE FROM building_followers WHERE building_id = ? AND follower_building_id = ?')
+      .run(buildingId, followerBuildingId);
+  }
+
   // --- Polls --------------------------------------------------------------
 
   getActivePoll(realmId: number, nowIso: string): PollRow | undefined {

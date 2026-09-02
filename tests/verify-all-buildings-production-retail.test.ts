@@ -56,6 +56,10 @@ async function runAllBuildingsProductionAndRetailTest() {
   console.log('================================================================');
 
   const user = await register('full_suite');
+  // Lift the company above the L15+ queue-duration tier (48h) so every
+  // production kind — including slow aerospace items (~33h for 10 units) —
+  // fits the Issue #99 duration gate.
+  db.prepare('UPDATE companies SET level = 20, experience = 999999999 WHERE company_id = ?').run(user.companyId);
   const headers = { 'Content-Type': 'application/json', Cookie: user.cookie };
 
   // Map resources by building kind
@@ -152,14 +156,16 @@ async function runAllBuildingsProductionAndRetailTest() {
   // ----------------------------------------------------------------
   console.log('\n--- PART 2: Testing Retail Sales Across ALL Sales Building Kinds ---');
   
+  // Canonical retail building kinds + products (game-data/retail.ts is the
+  // authoritative map — the old S/E/T/C/H/F letters predate the decompile).
   const RETAIL_MAP: Record<string, number[]> = {
-    G: [3, 4, 119, 7, 8, 9, 62],  // Grocery Store
-    S: [11, 12, 60, 61],          // Gas Station
-    E: [24, 25, 40, 80],          // Electronics Store
-    T: [19, 20, 21, 22],          // Hardware / Tools
-    C: [50, 51, 52, 53],          // Car Dealership
-    H: [102, 103, 104],           // Hardware Store
-    F: [17, 18, 115, 116, 117, 118], // Fashion Store
+    G: [3],   // Grocery store
+    A: [11],  // Gas station
+    C: [24],  // Electronics store
+    '2': [53], // Car dealership
+    H: [60],  // Fashion store
+    d: [102], // Hardware store
+    r: [117], // Restaurant
   };
 
   const salesBuildingKinds = Object.keys(RETAIL_MAP);
