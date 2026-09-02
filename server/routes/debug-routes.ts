@@ -53,6 +53,30 @@ export async function handleDebugRoutes(
     });
     return true;
   }
+  // 2.1. GET & POST /api/v2/debug/market-mode/
+  if (pathname === '/api/v2/debug/market-mode/' || pathname === '/api/debug/market-mode/') {
+    if (method === 'GET') {
+      sendJson(res, FixtureService.getMarketPricingMode());
+      return true;
+    }
+    if (method === 'POST') {
+      try {
+        const body = await readJsonBody<{ mode: 'realistic' | 'test' }>(req);
+        if (body.mode !== 'realistic' && body.mode !== 'test') {
+          sendJson(res, { error: 'mode must be "realistic" or "test"' }, 400);
+          return true;
+        }
+        const result = await FixtureService.setMarketPricingMode(body.mode);
+        sendJson(res, { success: true, ...result });
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        sendJson(res, { error: msg }, 500);
+      }
+      return true;
+    }
+    sendJson(res, { error: 'Method not allowed' }, 405);
+    return true;
+  }
 
   // 3. POST /api/v2/debug/time-warp/
   if (pathname === '/api/v2/debug/time-warp/' || pathname === '/api/debug/time-warp/') {

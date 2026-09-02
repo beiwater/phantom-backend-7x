@@ -21,7 +21,12 @@
  *     --building "r:10" --building "P:5" \
  *     --warehouse "117:3:5000" --warehouse "1:2:20000"
  *
- *   # 4. Status Check
+ *   # 4. Market Pricing Switcher
+ *   node --experimental-strip-types scripts/dev-tool.ts market --mode realistic
+ *   node --experimental-strip-types scripts/dev-tool.ts market --mode test
+ *   node --experimental-strip-types scripts/dev-tool.ts market --status
+ *
+ *   # 5. Status Check
  *   node --experimental-strip-types scripts/dev-tool.ts status
  */
 import { virtualClock } from '../server/core/virtual-clock.ts';
@@ -64,6 +69,8 @@ async function main() {
     console.log(`Real Wall Clock : ${new Date().toISOString()}`);
     console.log(`Virtual Clock   : ${virtualClock.nowIso()}`);
     console.log(`Time Offset     : ${virtualClock.getOffsetHours()} hours (${virtualClock.getOffsetMs()} ms)`);
+    const marketMode = FixtureService.getMarketPricingMode();
+    console.log(`Market Pricing  : [${marketMode.mode.toUpperCase()}] (${marketMode.totalNpcOrders} active orders)`);
     console.log(`Presets Avail   : ${Object.keys(FixtureService.PRESETS).join(', ')}`);
     return;
   }
@@ -175,7 +182,35 @@ async function main() {
     return;
   }
 
-  console.log(`Unknown command: "${command}". Available commands: status, warp, fixture`);
+  if (command === 'market') {
+    console.log('=== Marketplace Pricing Mode Manager ===');
+    if (argv.status || (!argv.mode)) {
+      const current = FixtureService.getMarketPricingMode();
+      console.log(`Current Market Mode : [${current.mode.toUpperCase()}]`);
+      console.log(`Total NPC Orders    : ${current.totalNpcOrders}`);
+      console.log('\nTo switch pricing mode:');
+      console.log('  scripts/dev-tool.ts market --mode realistic  (Canonical economy prices)');
+      console.log('  scripts/dev-tool.ts market --mode test       (Flat $1.00 testing prices)');
+      return;
+    }
+
+    const targetMode = String(argv.mode).toLowerCase();
+    if (targetMode !== 'realistic' && targetMode !== 'test') {
+      console.error(`Invalid mode: "${argv.mode}". Must be "realistic" or "test".`);
+      process.exit(1);
+    }
+
+    console.log(`Switching marketplace pricing to [${targetMode.toUpperCase()}]...`);
+    const res = await FixtureService.setMarketPricingMode(targetMode as 'realistic' | 'test');
+    console.log(`✅ Market Pricing Switched to [${res.mode.toUpperCase()}]!`);
+    console.log(`- Orders Updated : ${res.ordersUpdated}`);
+    console.log('- Sample Resource Prices:');
+    for (const sample of res.samplePrices) {
+      console.log(`  * ${sample.resource.padEnd(32)}: Q0=$${sample.q0} | Q2=$${sample.q2}`);
+    }
+    return;
+  }
+  console.log(`Unknown command: "${command}". Available commands: status, warp, fixture, market`);
 }
 
 main().catch(err => {

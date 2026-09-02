@@ -342,4 +342,96 @@ export class FixtureService {
     const combined = { ...preset, ...overrides };
     return FixtureService.applyScenario(combined);
   }
+
+  /**
+   * Switch marketplace pricing mode:
+   * - 'realistic': Seeds market orders using canonical production costs from economy models.
+   * - 'test': Seeds market orders with flat $1.00 + Q testing prices.
+   */
+  static async setMarketPricingMode(
+    mode: 'realistic' | 'test',
+    database: typeof db = db
+  ): Promise<{ mode: string; ordersUpdated: number; samplePrices: Array<{ resource: string; q0: number; q2: number }> }> {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const { CONFIG } = await import('../config.ts');
+    const { CONSTANTS_RESOURCES } = await import('../game/constants.ts');
+    const { getPriceTickSize } = await import('../domain/market/market-rules.ts');
+
+    let economyModels: Record<string, any> = {};
+    try {
+      const modelPath = path.join(CONFIG.CONSTANTS_DIR, '..', 'decompile', 'economy_model.json');
+      if (fs.existsSync(modelPath)) {
+        economyModels = JSON.parse(fs.readFileSync(modelPath, 'utf-8')).models || {};
+      }
+    } catch {
+      // fallback
+    }
+
+    function roundToTick(price: number): number {
+      const tick = getPriceTickSize(price);
+      return Math.round((Math.round(price / tick) * tick) * 1000) / 1000;
+    }
+
+    const nowIso = new Date().toISOString();
+    const samplePrices: Array<{ resource: string; q0: number; q2: number }> = [];
+    let ordersUpdated = 0;
+
+    return runInTransaction(async () => {
+      // 1. Delete previous NPC seeded market orders (seller_id = 999900)
+      database.prepare('DELETE FROM market_orders WHERE seller_id = 999900').run();
+
+      const insertStmt = database.prepare(`
+        INSERT INTO market_orders (seller_id, kind, quality, quantity, price, fees, posted_at, active)
+        VALUES (999900, ?, ?, 100000, ?, 0, ?, 1)
+      `);
+
+      for (const [k, def] of Object.entries(CONSTANTS_RESOURCES)) {
+        const kind = Number(k);
+        if (def.isExchangeTradable === false) continue;
+
+        const model = economyModels[String(kind)]?.state_1 || economyModels[String(kind)]?.state_0;
+        const baseCost = Number(model?.modeledProductionCostPerUnit) || 2.0;
+
+        let q0Price = 1.0;
+        let q2Price = 1.02;
+
+        for (let q = 0; q <= 12; q++) {
+          let unitPrice = 1.0 + q;
+          if (mode === 'realistic') {
+            unitPrice = roundToTick(baseCost * (1.05 + q * 0.10));
+          } else {
+            unitPrice = roundToTick(1.0 + q * 0.01);
+          }
+
+          if (q === 0) q0Price = unitPrice;
+          if (q === 2) q2Price = unitPrice;
+
+          insertStmt.run(kind, q, unitPrice, nowIso);
+          ordersUpdated++;
+        }
+
+        if (samplePrices.length < 6) {
+          samplePrices.push({ resource: def.image || `Resource #${kind}`, q0: q0Price, q2: q2Price });
+        }
+      }
+
+      return { mode, ordersUpdated, samplePrices };
+    });
+  }
+
+  /**
+   * Get current market pricing mode based on sample electricity/water prices.
+   */
+  static getMarketPricingMode(database: typeof db = db): { mode: 'realistic' | 'test' | 'custom'; totalNpcOrders: number } {
+    const sample = database.prepare('SELECT price FROM market_orders WHERE seller_id = 999900 AND kind = 1 AND quality = 0').get() as { price: number } | undefined;
+    const total = (database.prepare('SELECT COUNT(*) as c FROM market_orders WHERE seller_id = 999900').get() as { c: number })?.c || 0;
+
+    let mode: 'realistic' | 'test' | 'custom' = 'custom';
+    if (sample) {
+      if (Math.abs(sample.price - 1.0) < 0.001) mode = 'test';
+      else if (sample.price < 0.3) mode = 'realistic';
+    }
+    return { mode, totalNpcOrders: total };
+  }
 }
