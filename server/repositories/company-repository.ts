@@ -234,7 +234,7 @@ export class CompanyRepository {
       SELECT
         (SELECT COUNT(*) FROM buildings WHERE company_id = ?) AS building_count,
         (SELECT COALESCE(SUM(size), 0) FROM buildings WHERE company_id = ?) AS total_size,
-        (SELECT COALESCE(MAX(COALESCE(skill_accounting, 0)), 0) FROM executives
+        (SELECT COALESCE(MAX(COALESCE(skill_management, 0)), 0) FROM executives
            WHERE company_id = ? AND status = 'employed' AND position = 'coo') AS coo_skill
     `).get(companyId, companyId, companyId) as {
       building_count: number;
