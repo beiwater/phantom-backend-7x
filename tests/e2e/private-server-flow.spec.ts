@@ -176,7 +176,7 @@ test('player can explore encyclopedia, newspaper, and financial overview without
 
   // 2. Explore Newspaper
   await page.goto('/zh-cn/newspaper/0/');
-  await expect(page.getByText('私人服务器经济模型平稳运行', { exact: true }).first()).toBeVisible();
+  await expect(page.getByText('市场全品类现货贸易与宏观经济展望', { exact: true }).first()).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath('09-newspaper.png') });
 
   // 3. Explore Headquarters & Finances
