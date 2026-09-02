@@ -1,0 +1,63 @@
+{
+  "$comment": "Decompile evidence registry (#162). One JSON per domain. Each record: verified frontend contract with evidence links. Rules: check here + server/data/decompile + tests before opening any minified bundle; add records only when a new contract is actually investigated; mark stale records instead of silently overwriting.",
+  "domains": [
+    {
+      "file": "abundance.json",
+      "features": [
+        "abundance"
+      ]
+    },
+    {
+      "file": "executives-skills.json",
+      "features": [
+        "executive-skills"
+      ]
+    },
+    {
+      "file": "executives-academy.json",
+      "features": [
+        "academy"
+      ]
+    },
+    {
+      "file": "retail-selling-busy.json",
+      "features": [
+        "retail-selling-busy",
+        "order-take"
+      ]
+    },
+    {
+      "file": "retail-sales-office.json",
+      "features": [
+        "sales-office-find-customer"
+      ]
+    },
+    {
+      "file": "finance-accounting-lift.json",
+      "features": [
+        "accounting-lift",
+        "administration-overhead"
+      ]
+    },
+    {
+      "file": "finance-recreation.json",
+      "features": [
+        "recreation-bonus"
+      ]
+    },
+    {
+      "file": "simboosts.json",
+      "features": [
+        "simboost-spend-action-codes"
+      ]
+    },
+    {
+      "file": "seasonal.json",
+      "features": [
+        "seasonal-markets",
+        "seasonal-saturation",
+        "seasonal-capability"
+      ]
+    }
+  ]
+}

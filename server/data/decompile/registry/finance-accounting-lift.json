@@ -1,0 +1,15 @@
+{
+  "feature": "accounting-lift",
+  "semantics": "Accounting fee free-amount threshold base Xcr=3e6 (cash+bonds holdings). Bank panel (kind 'n', Fe branch): '{boost}% boost' with boost=size*10; '$' lift = cfoAccountingSkill x (500000 + bankSize x 50000). A bank contributes only while placed and not under construction (Building.bankNotContributing / messageBankNotContrinutingUntilPlaced). Only one bank allowed per company. Money transaction details render ledger detail keys: bank_level, bank_lift, executive_lift, bank_not_contributing_reason (frontend Ut enum).",
+  "formulas": {
+    "executiveLift": "cfoSkill * 500000",
+    "bankLift": "cfoSkill * bankSize * 50000",
+    "exemptThreshold": "3000000 + executiveLift + bankLift"
+  },
+  "evidence": [
+    { "type": "bundle", "path": "frontend-original/static/bundle/assets/index-cgzgptQ8.js", "symbol": "Xcr=3e6/se*(5e5+z.size*5e4)/Ut.BANK_LIFT" },
+    { "type": "issue", "ref": "#155" }
+  ],
+  "implementedIn": "server/repositories/company-repository.ts getAccountingLift; server/application/scheduler/daily-jobs.ts chargeDailyAccountingOverhead",
+  "confidence": "verified"
+}

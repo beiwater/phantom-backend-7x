@@ -1,0 +1,10 @@
+{
+  "feature": "retail-selling-busy",
+  "semantics": "startRetail occupies buildings.busy_until; the frontend renders the SELLING state from busy.category='s' (Ai.SELLING) plus busy.sales_order {image,name,amount,price,remainingProfit,profitAvailableNow} and canFetch. A building with a busy window and no production/retail entry falls back to EXPANDING ('b'). POST /api/v2/order/take/:buildingId/ with {cash} must collect a finished sales order (revenue) and fall back to production collection otherwise.",
+  "evidence": [
+    { "type": "bundle", "path": "frontend-original/static/bundle/assets/index-cgzgptQ8.js", "symbol": "w3/vri/H4t" },
+    { "type": "issue", "ref": "#142" }
+  ],
+  "implementedIn": "server/game/buildings.ts getRetailBusy; server/routes/building-routes.ts order/take",
+  "confidence": "verified"
+}

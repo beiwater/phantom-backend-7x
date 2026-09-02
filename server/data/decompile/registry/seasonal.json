@@ -1,0 +1,10 @@
+{
+  "feature": "seasonal-markets",
+  "semantics": "Retail product lists per seasonal building kind (bundle Bmr): Halloween 't':[146,147,148], Xmas 'u':[67,144,150], Summer 'z':[153,154], Easter 'I':[151,155]. Season windows (bundle Jgr/iO, UTC month-day): t 10-10..11-05, u 12-01..12-27, z 07-08..08-29, I 04-02..04-12 (Vge returns true when OUTSIDE the window). CRITICAL: the sell panel does NOT hard-gate by season. Lpe filter is 'canSeasonal || RO(resource, now)'; companies with capabilities.seasonal (level >= 5) see seasonal goods unconditionally. Off-season only lowers DEMAND via saturation tables (Imr: Xmas Omr = Jan .3->.03, Nov .03->.7, Dec 04 1.0 -> Dec 24 1.0 -> Dec 31 .3; in-season indicator threshold cj=0.8). Demand reaches the client via WebSocket 'newEconomyCycle' pushes (temporals.economyState), not via any gating endpoint. Hard-gating Xmas goods off-season would DIVERGE from official behavior.",
+  "evidence": [
+    { "type": "bundle", "path": "frontend-original/static/bundle/assets/index-cgzgptQ8.js", "symbol": "Bmr/Jgr/iO/Vge/Lpe/Imr(Omr)/cj/Rgr" },
+    { "type": "issue", "ref": "#157" }
+  ],
+  "implementedIn": "server/game-data/retail.ts RETAIL_PRODUCTS (matches Bmr); server/domain/leveling/level-rules.ts capabilities.seasonal",
+  "confidence": "verified"
+}

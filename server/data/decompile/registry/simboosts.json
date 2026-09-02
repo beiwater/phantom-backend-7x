@@ -1,0 +1,12 @@
+{
+  "feature": "simboost-spend-action-codes",
+  "endpoint": "/api/v2/players/simboosts-use/:companyId/",
+  "frontendReads": ["id", "spendSimBoosts", "action", "datetime"],
+  "semantics": "Each row's action must be a single-character code resolvable by the frontend table Bhe (a-z, 0-9, A-F) or formatMessage(undefined) crashes the whole SimBoosts page. Official codes (SimboostsSpendActions.*): c=Construction Speedup (api_v1_rush covers construction AND production rushes), k=Recreation Building Upkeep, q=HQ Building Unlock, D=Personal Assistant Unlock. spendSimBoosts is stored negative; the client renders -n.spendSimBoosts.",
+  "evidence": [
+    { "type": "bundle", "path": "frontend-original/static/bundle/assets/index-cgzgptQ8.js", "symbol": "Bhe / uki component" },
+    { "type": "issue", "ref": "#158" }
+  ],
+  "implementedIn": "server/repositories/social-repository.ts SIMBOOST_ACTION_CODES",
+  "confidence": "verified"
+}

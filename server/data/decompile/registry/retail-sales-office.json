@@ -1,0 +1,13 @@
+{
+  "feature": "sales-office-find-customer",
+  "endpoint": "/api/v2/companies/buildings/:salesOfficeId/sales-orders/",
+  "request": { "method": "POST", "body": "empty" },
+  "semantics": "POSTing to a Sales Office (kind 'B') is the 'Look for customer' flow (bundle addOrder): the response's salesOrder is appended to the panel and money is a DELTA fed to addMoney (negative fee). Displayed contract: 47h duration; cost per customer = floor(AVERAGE_SALARY(345) x salesOffice.salaryModifier(1.7) x Yd(level, skill) x 47 x discount%). Contracts ask for aerospace products (resource kinds 76-84). PUT .../sales-orders/:orderId/ fulfils (consumes units, pays revenue).",
+  "responseShape": { "salesOrder": "RetailOrderDTO", "money": "negative fee delta" },
+  "evidence": [
+    { "type": "bundle", "path": "frontend-original/static/bundle/assets/index-cgzgptQ8.js", "symbol": "addOrder/_On/wOn" },
+    { "type": "issue", "ref": "#153" }
+  ],
+  "implementedIn": "server/application/retail/retail-use-cases.ts findSalesOfficeCustomerUseCase",
+  "confidence": "verified"
+}

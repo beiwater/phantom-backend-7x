@@ -1,0 +1,14 @@
+{
+  "feature": "abundance",
+  "endpoint": "/api/v2/companies/buildings/:id/abundance/",
+  "frontendReads": ["buildingId", "abundance", "originalAbundance"],
+  "request": { "method": "GET" },
+  "semantics": "The frontend thunk (bundle fmr) dispatches G4t whose reducer indexes the payload by payload.buildingId (abundance[id] and fetching.abundance[id]=false). A response without buildingId lands in abundance[undefined] and the extractor page stays on 'loading abundance' forever. Applies to Mine, Quarry, Oil Rig (all extractor buildings).",
+  "responseShape": { "buildingId": "number", "abundance": "number", "originalAbundance": "number" },
+  "evidence": [
+    { "type": "bundle", "path": "frontend-original/static/bundle/assets/index-cgzgptQ8.js", "symbol": "fmr/G4t reducer" },
+    { "type": "issue", "ref": "#160" }
+  ],
+  "implementedIn": "server/routes/building-routes.ts (abundance + prospect handlers)",
+  "confidence": "verified"
+}

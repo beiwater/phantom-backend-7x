@@ -1,0 +1,10 @@
+{
+  "feature": "recreation-bonus",
+  "semantics": "The finance page reads buildings.recreationBonus from the CLIENT selector zP: sum of sizes of recreation buildings with truthy busy.upkeep (category 'u') and position not starting 'l'. The upkeep busy object is emitted by the building DTO when upkeep_active and busy_until in the future. /administration-overhead/ must mirror the same value server-side.",
+  "evidence": [
+    { "type": "bundle", "path": "frontend-original/static/bundle/assets/index-cgzgptQ8.js", "symbol": "zP selector" },
+    { "type": "issue", "ref": "#152" }
+  ],
+  "implementedIn": "server/routes/finance-routes.ts administration-overhead",
+  "confidence": "verified"
+}

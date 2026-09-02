@@ -1,0 +1,11 @@
+{
+  "feature": "executive-skills",
+  "semantics": "COO administration-overhead reduction is defined over skill_management (bundle ph formula + restaurant getCooManagement precedent). CFO accounting skill drives accounting-fee lift, not COO. Apprentice skill contribution: exact-position match x1.0, apprentice-in-role x0.5, other executives x0.25 (bundle BT).",
+  "formula": "effectiveOverhead = AO - (AO-1) * skillCOO / 100",
+  "evidence": [
+    { "type": "decompile", "path": "server/data/decompile/formulas_admin.md", "section": "5-6" },
+    { "type": "issue", "ref": "#159" }
+  ],
+  "implementedIn": "server/repositories/company-repository.ts getAccountingOverheadStats",
+  "confidence": "verified"
+}

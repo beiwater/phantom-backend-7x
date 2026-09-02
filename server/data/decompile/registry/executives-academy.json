@@ -1,0 +1,10 @@
+{
+  "feature": "academy",
+  "semantics": "Client aggregator (bundle ld, kind Ft.ACADEMY='y'): active = sum of sizes of academies not busy and off landmark positions ('l' prefix); slots = sum size (size-1 while expanding). Apprentice slots unlock every Gu=5 academy levels: COO@5, CFO@10, CMO@15, CTO@20. A LVL1 academy correctly shows locked slots. The original client renders 'the specific impact is not documented' (Building.academyImpactNotDocumented) unconditionally - there is no numeric formula in the original. Apprentice starting skills: 50% (mPt) of relevant skill. Canonical server rules chosen (documented in code): +1 training skill point and starting-skill point per 5 active academy levels, max +2.",
+  "evidence": [
+    { "type": "bundle", "path": "frontend-original/static/bundle/assets/index-cgzgptQ8.js", "symbol": "ld/Gu=5/CD component" },
+    { "type": "issue", "ref": "#154" }
+  ],
+  "implementedIn": "server/game/executives.ts getAcademyLevels/trainExecutive/hireExecutive",
+  "confidence": "verified"
+}
