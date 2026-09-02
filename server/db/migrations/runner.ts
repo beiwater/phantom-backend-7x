@@ -914,6 +914,27 @@ export const MIGRATIONS: MigrationDefinition[] = [
         db.exec('ALTER TABLE scheduler_state ADD COLUMN runs INTEGER NOT NULL DEFAULT 0');
       }
     }
+  },
+  {
+    version: 17,
+    name: '017_building_followers_contract',
+    up: (db: DatabaseSync) => {
+      // Building detail responses always include their logistics followers.
+      // The repository was added after the core schema, but its backing
+      // relation was never migrated for clean databases.
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS building_followers (
+          building_id INTEGER NOT NULL,
+          follower_building_id INTEGER NOT NULL,
+          created_at TEXT NOT NULL,
+          PRIMARY KEY (building_id, follower_building_id),
+          FOREIGN KEY (building_id) REFERENCES buildings(id),
+          FOREIGN KEY (follower_building_id) REFERENCES buildings(id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_building_followers_follower
+          ON building_followers (follower_building_id);
+      `);
+    }
   }
 ];
 
