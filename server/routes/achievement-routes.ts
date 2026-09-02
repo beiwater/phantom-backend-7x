@@ -12,6 +12,18 @@ import {
   removeDisplayCaseSlot,
   getCertificates
 } from '../game/achievements.ts';
+import {
+  BASKET_KINDS,
+  SIMBOOSTS_OPTIONS,
+  claimBasket,
+  deleteReceived,
+  getDraft,
+  listOutgoing,
+  listReceived,
+  saveDraft,
+  sendBasket,
+  updateOutgoingMessage
+} from '../game-data/gift-baskets.ts';
 
 /** Issue #88: DomainError carries an authoritative status + machine code. */
 function sendDomainError(res: ServerResponse, err: unknown): void {
@@ -72,9 +84,125 @@ export async function handleAchievementRoutes(
     return true;
   }
 
-  // 4. Sync 3rd party achievements
+  // 4. Sync 3rd party achievements (Steam/Xbox/PSN binding — private server
+  // has no external platform accounts; authoritative empty task list).
   if (pathname.startsWith('/api/') && pathname.includes('/achievements/sync-3rd-party/')) {
     sendJson(res, { tasks: [] });
+    return true;
+  }
+
+  // 4b. Gift baskets (official 2/end gift economy, decompile-backed).
+  const basketDraftMatch = pathname.match(/^\/api\/v1\/gift-baskets\/(\d+|me)\/draft\/?$/);
+  if (basketDraftMatch && (method === 'GET' || method === 'PATCH')) {
+    if (!currentCompanyId) {
+      sendJson(res, { error: 'Unauthorized' }, 401);
+      return true;
+    }
+    const year = new Date().getFullYear();
+    if (method === 'GET') {
+      sendJson(res, getDraft(currentCompanyId, year));
+      return true;
+    }
+    const body = await readJsonBody(req);
+    sendJson(res, saveDraft(currentCompanyId, year, body as Record<string, unknown>));
+    return true;
+  }
+
+  const basketOutgoingMatch = pathname.match(/^\/api\/v2\/gift-baskets\/(\d+|me)\/outgoing\/(\d{4})\/?$/);
+  if (basketOutgoingMatch) {
+    if (!currentCompanyId) {
+      sendJson(res, { error: 'Unauthorized' }, 401);
+      return true;
+    }
+    const year = Number(basketOutgoingMatch[2]);
+    if (method === 'GET') {
+      sendJson(res, { outgoingBaskets: listOutgoing(currentCompanyId, year) });
+      return true;
+    }
+    if (method === 'POST') {
+      const body = await readJsonBody(req);
+      try {
+        sendJson(res, await sendBasket(currentCompanyId, year, {
+          kind: String(body.kind ?? ''),
+          simboosts: Number(body.simboosts ?? 0),
+          message: body.message !== undefined ? String(body.message) : undefined,
+          quality: body.quality !== undefined ? Number(body.quality) : undefined,
+          collectibleId: body.collectibleId !== undefined ? Number(body.collectibleId) : undefined,
+          recipientId: Number(body.recipientId)
+        }));
+      } catch (err) {
+        sendJson(res, { error: err instanceof Error ? err.message : String(err) }, 400);
+      }
+      return true;
+    }
+  }
+
+  const basketOutgoingGetMatch = pathname.match(/^\/api\/v2\/gift-baskets\/(\d+|me)\/outgoing\/(\d{4})\/(\d+)\/?$/);
+  if (basketOutgoingGetMatch) {
+    if (!currentCompanyId) {
+      sendJson(res, { error: 'Unauthorized' }, 401);
+      return true;
+    }
+    const basketId = Number(basketOutgoingGetMatch[3]);
+    if (method === 'GET') {
+      const basket = listOutgoing(currentCompanyId, Number(basketOutgoingGetMatch[2])).find(b => b.id === basketId);
+      if (!basket) {
+        sendJson(res, { error: 'Basket not found' }, 404);
+        return true;
+      }
+      sendJson(res, basket);
+      return true;
+    }
+    if (method === 'PATCH') {
+      const body = await readJsonBody(req);
+      updateOutgoingMessage(currentCompanyId, basketId, String(body.message ?? ''));
+      sendJson(res, { success: true });
+      return true;
+    }
+    if (method === 'DELETE') {
+      sendJson(res, { success: true });
+      return true;
+    }
+  }
+
+  const basketReceivedMatch = pathname.match(/^\/api\/v2\/gift-baskets\/(\d+|me)\/received\/(\d{4})\/?$/);
+  if (basketReceivedMatch && method === 'GET') {
+    if (!currentCompanyId) {
+      sendJson(res, { error: 'Unauthorized' }, 401);
+      return true;
+    }
+    sendJson(res, { receivedBaskets: listReceived(currentCompanyId, Number(basketReceivedMatch[2])) });
+    return true;
+  }
+
+  const basketReceivedGetMatch = pathname.match(/^\/api\/v2\/gift-baskets\/(\d+|me)\/received\/(\d{4})\/(\d+)\/?$/);
+  if (basketReceivedGetMatch) {
+    if (!currentCompanyId) {
+      sendJson(res, { error: 'Unauthorized' }, 401);
+      return true;
+    }
+    const basketId = Number(basketReceivedGetMatch[3]);
+    if (method === 'PATCH') {
+      try {
+        sendJson(res, await claimBasket(currentCompanyId, basketId));
+      } catch (err) {
+        sendJson(res, { error: err instanceof Error ? err.message : String(err) }, 400);
+      }
+      return true;
+    }
+    if (method === 'DELETE') {
+      deleteReceived(currentCompanyId, basketId);
+      sendJson(res, { success: true });
+      return true;
+    }
+  }
+
+  // Gift basket catalog (configurator constants).
+  if (pathname === '/api/v1/gift-baskets/' && method === 'GET') {
+    sendJson(res, {
+      kinds: BASKET_KINDS,
+      simboostsOptions: SIMBOOSTS_OPTIONS
+    });
     return true;
   }
 
@@ -222,7 +350,8 @@ export async function handleAchievementRoutes(
     return true;
   }
 
-  // 12. Unlocked PAs
+  // 12. Unlocked PAs — real handler lives in social-routes (runs first);
+  // this catch only fires for unmatched URL variants.
   if (pathname.startsWith('/api/') && pathname.includes('/unlocked-pas/')) {
     sendJson(res, { pas: [] });
     return true;

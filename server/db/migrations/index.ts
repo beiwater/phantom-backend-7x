@@ -589,5 +589,33 @@ export function runMigrations(db: DatabaseSync): void {
       created_at TEXT,
       PRIMARY KEY (building_id, follower_building_id)
     );
+
+    CREATE TABLE IF NOT EXISTS gift_baskets (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      sender_company_id INTEGER NOT NULL,
+      recipient_company_id INTEGER NOT NULL,
+      kind TEXT NOT NULL,
+      simboosts INTEGER DEFAULT 0,
+      quality INTEGER,
+      collectible_id INTEGER,
+      message TEXT,
+      year INTEGER NOT NULL,
+      sent INTEGER DEFAULT 0,
+      simboosts_claimed INTEGER DEFAULT 0,
+      created_at TEXT,
+      sent_at TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_gift_baskets_recipient
+      ON gift_baskets(recipient_company_id, year);
+    CREATE INDEX IF NOT EXISTS idx_gift_baskets_sender
+      ON gift_baskets(sender_company_id, year);
+
+    CREATE TABLE IF NOT EXISTS gift_basket_drafts (
+      company_id INTEGER NOT NULL,
+      year INTEGER NOT NULL,
+      draft_json TEXT,
+      updated_at TEXT,
+      PRIMARY KEY (company_id, year)
+    );
   `);
 }
