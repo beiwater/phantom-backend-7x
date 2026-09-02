@@ -90,9 +90,74 @@ export function normalizePositionCode(pos: string | null | undefined): string {
   return lower;
 }
 
-function defaultGenomeFor(avatar?: string | null): string {
-  const isFemale = Boolean(avatar && avatar.includes('female'));
-  return isFemale ? 'female-01-0-0-0-0-0' : 'male-01-0-0-0-0-0';
+interface GeneLimits {
+  eyes: number;
+  hair: number;
+  tatoos: number;
+  cloths: number;
+  accessories: number;
+}
+
+const MALE_GENES: Record<string, GeneLimits> = {
+  '01': { eyes: 4, hair: 10, tatoos: 1, cloths: 18, accessories: 4 },
+  '02': { eyes: 4, hair: 14, tatoos: 1, cloths: 18, accessories: 4 },
+  '03': { eyes: 4, hair: 10, tatoos: 1, cloths: 18, accessories: 4 },
+  '04': { eyes: 4, hair: 32, tatoos: 1, cloths: 18, accessories: 4 },
+  '05': { eyes: 4, hair: 23, tatoos: 1, cloths: 18, accessories: 4 },
+};
+
+const FEMALE_GENES: Record<string, GeneLimits> = {
+  '01': { eyes: 5, hair: 11, tatoos: 1, cloths: 16, accessories: 5 },
+  '02': { eyes: 5, hair: 7,  tatoos: 1, cloths: 17, accessories: 5 },
+  '05': { eyes: 5, hair: 7,  tatoos: 1, cloths: 23, accessories: 5 },
+};
+
+const FEMALE_NAMES = new Set(['elena', 'sophia', 'sarah', 'emma', 'olivia', 'isabella', 'mia', 'ava', 'chloe', 'emily', 'grace', 'hannah', 'lily', 'natalie', 'zoe', 'anna', 'laura', 'maria', 'rachel', 'jessica', 'victoria', 'lucy']);
+const MALE_NAMES = new Set(['alexander', 'david', 'marcus', 'lucas', 'gordon', 'maitre', 'john', 'michael', 'james', 'robert', 'william', 'richard', 'thomas', 'charles', 'daniel', 'matthew', 'anthony', 'donald', 'paul', 'mark', 'george', 'steven', 'edward', 'brian', 'kevin']);
+
+function generateDeterministicGenome(seed: number | string, avatar?: string | null, name?: string | null): { genome: string; age: number } {
+  let hash = 0;
+  const str = String(seed || '') + String(avatar || '') + String(name || '');
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash) + str.charCodeAt(i);
+    hash |= 0;
+  }
+  const h = Math.abs(hash);
+
+  const firstName = String(name || '').trim().split(/\s+/)[0]?.toLowerCase();
+  let isFemale = false;
+  if (avatar && avatar.includes('female')) {
+    isFemale = true;
+  } else if (avatar && avatar.includes('male')) {
+    isFemale = false;
+  } else if (firstName && FEMALE_NAMES.has(firstName)) {
+    isFemale = true;
+  } else if (firstName && MALE_NAMES.has(firstName)) {
+    isFemale = false;
+  } else {
+    isFemale = (h % 3 === 0);
+  }
+  const gender = isFemale ? 'female' : 'male';
+  const geneDict = isFemale ? FEMALE_GENES : MALE_GENES;
+  const modelKeys = Object.keys(geneDict);
+  const model = modelKeys[h % modelKeys.length];
+  const limits = geneDict[model];
+
+  const eyes = (Math.floor(h / 7)) % limits.eyes;
+  const hair = (Math.floor(h / 13)) % limits.hair;
+  const tatoos = 0;
+  const cloths = (Math.floor(h / 19)) % limits.cloths;
+  const accessories = (Math.floor(h / 23)) % limits.accessories;
+
+  const age = 28 + (h % 35);
+  const genome = `${gender}-${model}-${eyes}-${hair}-${tatoos}-${cloths}-${accessories}`;
+  return { genome, age };
+}
+
+function validIsoOrNull(val: unknown): string | null {
+  if (!val || typeof val !== 'string') return null;
+  const parsed = Date.parse(val);
+  return Number.isNaN(parsed) ? null : new Date(parsed).toISOString();
 }
 
 export function formatExecutive(e: ExecutiveRow) {
@@ -102,12 +167,13 @@ export function formatExecutive(e: ExecutiveRow) {
   const sci = Number(e.skill_science) || 0;
   const comm = Number(e.skill_communication) || 0;
   const avatar = e.avatar || 'images/avatars/male_01.png';
+  const gen = generateDeterministicGenome(e.id || e.name, avatar, e.name);
   return {
     id: e.id,
     name: e.name,
     avatar,
-    genome: defaultGenomeFor(avatar),
-    age: 35,
+    genome: gen.genome,
+    age: gen.age,
     position: normPos,
     skills: {
       coo: mgmt,
@@ -146,8 +212,8 @@ export function formatOffer(offer: ExecutiveOfferRow, exec: ExecutiveRow | null)
     executiveAllTrainings: 0,
     executiveRecentTrainings: 0,
     accelerated: Boolean(offer.accelerated),
-    extended: offer.extended_at,
-    created: offer.created_at,
+    extended: validIsoOrNull(offer.extended_at) || (offer.status === 's' ? validIsoOrNull(offer.created_at) || new Date().toISOString() : null),
+    created: validIsoOrNull(offer.created_at) || new Date().toISOString(),
     researchPoacher: offer.research_poacher ? JSON.parse(offer.research_poacher) : null
   };
 }
@@ -174,27 +240,27 @@ export function seedDefaultExecutives(companyId: number, database: DatabaseSync 
 
   const now = new Date().toISOString();
   const defaults = [
-    { name: 'Alexander Wright', pos: 'coo', mgmt: 12, acc: 4, sci: 3, comm: 6, sal: 450 },
-    { name: 'Elena Rostova', pos: 'cfo', mgmt: 4, acc: 14, sci: 2, comm: 5, sal: 480 },
-    { name: 'David Chen', pos: 'cto', mgmt: 5, acc: 3, sci: 15, comm: 4, sal: 500 }
+    { name: 'Alexander Wright', avatar: 'images/avatars/male_01.png', pos: 'coo', mgmt: 12, acc: 4, sci: 3, comm: 6, sal: 450 },
+    { name: 'Elena Rostova', avatar: 'images/avatars/female_01.png', pos: 'cfo', mgmt: 4, acc: 14, sci: 2, comm: 5, sal: 480 },
+    { name: 'David Chen', avatar: 'images/avatars/male_02.png', pos: 'cto', mgmt: 5, acc: 3, sci: 15, comm: 4, sal: 500 }
   ];
   for (const d of defaults) {
     database.prepare(`
       INSERT INTO executives (company_id, name, avatar, position, skill_management, skill_accounting, skill_science, skill_communication, salary, status, created_at)
-      VALUES (?, ?, 'images/avatars/female_01.png', ?, ?, ?, ?, ?, ?, 'employed', ?)
-    `).run(companyId, d.name, d.pos, d.mgmt, d.acc, d.sci, d.comm, d.sal, now);
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'employed', ?)
+    `).run(companyId, d.name, d.avatar, d.pos, d.mgmt, d.acc, d.sci, d.comm, d.sal, now);
   }
 
   const candidates = [
-    { name: 'Marcus Vance', mgmt: 8, acc: 6, sci: 7, comm: 9, sal: 320 },
-    { name: 'Sophia Sterling', mgmt: 11, acc: 5, sci: 4, comm: 10, sal: 360 },
-    { name: 'Lucas Meyer', mgmt: 4, acc: 10, sci: 11, comm: 5, sal: 340 }
+    { name: 'Marcus Vance', avatar: 'images/avatars/male_03.png', mgmt: 8, acc: 6, sci: 7, comm: 9, sal: 320 },
+    { name: 'Sophia Sterling', avatar: 'images/avatars/female_02.png', mgmt: 11, acc: 5, sci: 4, comm: 10, sal: 360 },
+    { name: 'Lucas Meyer', avatar: 'images/avatars/male_04.png', mgmt: 4, acc: 10, sci: 11, comm: 5, sal: 340 }
   ];
   for (const c of candidates) {
     database.prepare(`
       INSERT INTO executives (company_id, name, avatar, position, skill_management, skill_accounting, skill_science, skill_communication, salary, status, created_at)
-      VALUES (?, ?, 'images/avatars/male_02.png', 'unassigned', ?, ?, ?, ?, ?, 'candidate', ?)
-    `).run(companyId, c.name, c.mgmt, c.acc, c.sci, c.comm, c.sal, now);
+      VALUES (?, ?, ?, 'unassigned', ?, ?, ?, ?, ?, 'candidate', ?)
+    `).run(companyId, c.name, c.avatar, c.mgmt, c.acc, c.sci, c.comm, c.sal, now);
   }
 }
 
