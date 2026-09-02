@@ -18,6 +18,7 @@
  * errors fall back to 400 like the other legacy route handlers.
  */
 import type { IncomingMessage, ServerResponse } from 'node:http';
+import { CONFIG } from '../config.ts';
 import { readJsonBody, sendJson } from './utils.ts';
 import {
   buyCollectible,
@@ -59,7 +60,10 @@ export async function handleCollectibleRoutes(
       sendJson(res, { error: 'Method not allowed', code: 'METHOD_NOT_ALLOWED' }, 405, { Allow: 'GET' });
       return true;
     }
-    sendJson(res, { simboosts: 250, available: 250, simBoostsAvailableForPurchase: 250 });
+    // Truthful availability: with PAYMENTS_DISABLED (private-server posture)
+    // no SimBoost packs can actually be purchased.
+    const purchasable = CONFIG.PAYMENTS_DISABLED ? 0 : 250;
+    sendJson(res, { simboosts: purchasable, available: purchasable, simBoostsAvailableForPurchase: purchasable });
     return true;
   }
 

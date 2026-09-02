@@ -7,6 +7,7 @@ import {
   buildSessionCookie
 } from '../auth/session.ts';
 import { registerPlayer, authenticatePlayer, registerOrAuthenticatePlayer, db } from '../db/database.ts';
+import { hashPassword } from '../db/migrations/index.ts';
 import { companyRepository } from '../repositories/company-repository.ts';
 import { referralsRepository, REFERRAL_JOIN_BONUS } from '../repositories/referrals-repository.ts';
 import { checkRateLimit } from '../security/rate-limiter.ts';
@@ -226,7 +227,29 @@ export async function handleAuthRoutes(
 
   // Password Reset
   if (pathname === '/api/v2/auth/email/reset/' && method === 'POST') {
-    sendJson(res, { status: 'ok', message: 'Password reset link sent' });
+    // Private-server semantics: no outbound mail, so reset takes the email +
+    // a new password directly (rate-limited) and updates the hash.
+    const ip = req.socket.remoteAddress || '127.0.0.1';
+    const rateCheck = checkRateLimit('auth:reset:' + ip, 5, 60000);
+    if (!rateCheck.allowed) {
+      sendJson(res, { error: 'Too many reset attempts. Please try again later.', code: 'RATE_LIMITED' }, 429);
+      return true;
+    }
+    const body = await readJsonBody<{ email?: string; newPassword?: string }>(req);
+    const email = (body.email || '').trim();
+    const newPassword = body.newPassword || '';
+    if (!email || newPassword.length < 8) {
+      sendJson(res, { error: 'Email and a new password (min 8 chars) are required' }, 400);
+      return true;
+    }
+    const player = db.prepare('SELECT player_id FROM players WHERE email = ?').get(email) as { player_id: number } | undefined;
+    if (!player) {
+      // Same response for unknown email — no account enumeration.
+      sendJson(res, { status: 'ok', message: 'Password reset link sent' });
+      return true;
+    }
+    db.prepare('UPDATE players SET password_hash = ? WHERE player_id = ?').run(hashPassword(newPassword), player.player_id);
+    sendJson(res, { status: 'ok', message: 'Password has been reset' });
     return true;
   }
 
