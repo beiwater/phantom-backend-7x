@@ -17,6 +17,10 @@ export function sendDomainError(
 ): void {
   if (error instanceof DomainError) {
     sendJson(res, {
+      // #161: the original client's axios catch renders `data.message`
+      // verbatim and only falls back to "An unexpected error occurred"
+      // when `message` is missing. `error` stays for our own tooling.
+      message: error.message,
       error: error.message,
       code: error.code,
       details: error.details
@@ -30,6 +34,7 @@ export function sendDomainError(
 
   const msg = error instanceof Error ? error.message : String(error);
   sendJson(res, {
+    message: msg,
     error: msg,
     code: statusCode === 413 ? 'PAYLOAD_TOO_LARGE' : 'BAD_REQUEST'
   }, statusCode);

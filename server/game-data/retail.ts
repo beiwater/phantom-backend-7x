@@ -216,7 +216,13 @@ export function calculateRetailDuration(
       const adjRevenue = g - Math.pow(price - optimalPrice, 2) * alpha;
       const numerator = units * (price - modeledProductionCostPerUnit) * 3600 - modeledStoreWages;
       const denominator = adjRevenue + modeledStoreWages;
-      if (denominator > 0 && numerator > 0) {
+      // #161: mirror the client's f$r exactly — it divides numerator by
+      // denominator unconditionally, so selling below the modeled cost
+      // (both negative) yields a small positive time-to-sell the widget
+      // displays. Guarding numerator > 0 here diverged from that estimate
+      // and made the backend reject sales the frontend believed fit the
+      // tier limit. Only non-finite/non-positive results fall back.
+      if (denominator !== 0) {
         const timeToSellSeconds = numerator / denominator;
         if (Number.isFinite(timeToSellSeconds) && timeToSellSeconds > 0) {
           const adjustedTime = (timeToSellSeconds / Math.max(1, buildingSize)) * (1 - salesModifier / 100);
