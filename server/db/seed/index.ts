@@ -155,6 +155,10 @@ export function authenticatePlayer(
 
   const company = database.prepare('SELECT * FROM companies WHERE player_id = ? ORDER BY id ASC LIMIT 1').get(player.player_id) as { company_id?: number } | undefined;
   if (!company?.company_id) throw new Error('Company not found');
+  const banned = database
+    .prepare("SELECT value FROM company_settings WHERE company_id = ? AND key = 'banned'")
+    .get(company.company_id);
+  if (banned) throw new Error('This company has been suspended');
   return {
     playerId: player.player_id,
     companyId: company.company_id,

@@ -1,6 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { db } from '../db/database.ts';
 import { sendJson, readJsonBody } from './utils.ts';
+import { auditRepository, banCompany } from '../repositories/audit-repository.ts';
 import { getCompanyById } from '../game/company.ts';
 import { buildingRepository } from '../repositories/building-repository.ts';
 import { toSimCompaniesBuildingDTO } from '../compatibility/simcompanies/building-dto.ts';
@@ -143,31 +144,21 @@ export async function handleAuditRoutes(
     return true;
   }
 
-  // 3. Global audits / moderator notes list: /api/v2/audits/
+  // 3. Global audits list: /api/v2/audits/ — real persisted moderation rows
   if (pathname === '/api/v2/audits/' && method === 'GET') {
-    sendJson(res, [
-      {
-        id: 101,
-        company: { id: 7706929, name: "Shadow Automation Ltd." },
-        reason: "Detected high-frequency automated retail calls (10 requests/sec). Account flagged for bot audit.",
-        datetime: new Date(now.getTime() - 3600 * 1000 * 5).toISOString(),
-        auditor: "UN Security Bot"
-      },
-      {
-        id: 102,
-        company: { id: 4775639, name: "Zero Cent Resource Dumping Co." },
-        reason: "Contract audit flagged: 50,000 units of Q5 Aerospace components transferred at $0.01 to sub-account.",
-        datetime: new Date(now.getTime() - 3600 * 1000 * 19).toISOString(),
-        auditor: "UN Market Compliance"
-      },
-      {
-        id: 103,
-        company: { id: 4259175, name: "lifeline" },
-        reason: "Initial baseline bootstrap verified. All ledger transactions reconciled.",
-        datetime: new Date(now.getTime() - 3600 * 1000 * 120).toISOString(),
-        auditor: "UN System Superadmin"
-      }
-    ]);
+    if (!isAdmin) {
+      sendJson(res, { error: 'Forbidden' }, 403);
+      return true;
+    }
+    const rows = auditRepository.list(200);
+    sendJson(res, rows.map(a => ({
+      id: a.id,
+      company: { id: a.targetCompanyId },
+      action: a.action,
+      reason: a.reason,
+      datetime: a.createdAt,
+      auditorCompanyId: a.actorCompanyId
+    })));
     return true;
   }
 
@@ -439,15 +430,26 @@ export async function handleAuditRoutes(
     return true;
   }
 
-  // 9g. /api/v2/companies/:id/ban/
+  // 9g. /api/v2/companies/:id/ban/ — real ban (deleted flag + session revoke)
   const banMatch = pathname.match(/^\/api\/v2\/companies\/(\d+)\/ban\/?$/);
   if (banMatch) {
+    if (!isAdmin) {
+      sendJson(res, { error: 'Forbidden' }, 403);
+      return true;
+    }
+    const targetCompanyId = Number(banMatch[1]);
     if (method === 'GET') {
-      sendJson(res, []);
+      sendJson(res, auditRepository.listForCompany(targetCompanyId));
       return true;
     }
     if (method === 'POST') {
-      sendJson(res, { success: true, message: 'Ban status updated' });
+      const body = await readJsonBody<{ reason?: string }>(req);
+      const result = banCompany(targetCompanyId, currentCompanyId, body.reason || '');
+      if (!result.banned) {
+        sendJson(res, { error: 'Company not found' }, 404);
+        return true;
+      }
+      sendJson(res, { success: true, message: 'Company banned', auditId: result.audits.id });
       return true;
     }
   }
