@@ -9,6 +9,7 @@ const email = process.env.E2E_EMAIL;
 const password = process.env.E2E_PASSWORD;
 const restaurantId = process.env.E2E_RESTAURANT_ID ?? '17';
 const groceryId = process.env.E2E_GROCERY_ID ?? '19';
+const chatroomPath = '/zh-cn/messages/chatroom_[ZH]%20游戏-chatroom_[ZH]%20交易-chatroom_Social/';
 const results = [];
 
 function record(issue, observed, detail = '') {
@@ -166,6 +167,27 @@ async function reproduceExecutiveSlot(page) {
   record('#138', lost, 'unlocked slot/cost is not retained after reload');
 }
 
+async function reproduceChatMessagePersistence(page) {
+  await page.goto(`${baseUrl}${chatroomPath}`);
+  const input = page.getByRole('textbox');
+  if (!(await input.isVisible({ timeout: 5000 }).catch(() => false))) {
+    record('#151', false, 'precondition missing: chat input is not visible');
+    return;
+  }
+
+  const marker = `DOM CHAT PERSISTENCE ${Date.now()}`;
+  await input.fill(marker);
+  await input.press('Enter');
+  await page.waitForTimeout(800);
+  const immediatelyVisible = (await bodyText(page)).includes(marker);
+
+  await page.reload();
+  await page.waitForTimeout(900);
+  const visibleAfterReload = (await bodyText(page)).includes(marker);
+  record('#151', immediatelyVisible && !visibleAfterReload,
+    `immediatelyVisible=${immediatelyVisible}; visibleAfterReload=${visibleAfterReload}`);
+}
+
 const browser = await chromium.launch({
   headless: true,
   executablePath: findBrowserExecutable(),
@@ -184,6 +206,7 @@ try {
     await reproduceExecutivePage(page);
     await reproduceExecutiveOfferNaN(page);
     await reproduceExecutiveSlot(page);
+    await reproduceChatMessagePersistence(page);
   }
 } finally {
   await browser.close();
