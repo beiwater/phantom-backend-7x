@@ -205,8 +205,14 @@ export class CompanyRepository {
   }> {
     const rows = this.database
       .prepare(
-        `SELECT company_id, name, logo, realm_id, money FROM companies
-         WHERE deleted = 0 ORDER BY money DESC LIMIT ?`
+        // Issue #114: companies has no 'deleted' column; banned companies are
+        // flagged in company_settings (ban semantics, audit-repository).
+        `SELECT c.company_id, c.name, c.logo, c.realm_id, c.money FROM companies c
+         WHERE NOT EXISTS (
+           SELECT 1 FROM company_settings cs
+           WHERE cs.company_id = c.company_id AND cs.key = 'banned' AND cs.value = '1'
+         )
+         ORDER BY c.money DESC LIMIT ?`
       )
       .all(limit) as Array<{ company_id: number; name: string; logo: string; realm_id: number; money: number }>;
     return rows.map(r => ({
@@ -255,6 +261,12 @@ export class CompanyRepository {
       money: Number(r.money),
       salaries: Number(r.salaries)
     }));
+  }
+
+  /** Check if a player holds admin privileges. */
+  isPlayerAdmin(playerId: number): boolean {
+    const row = this.database.prepare('SELECT is_admin FROM players WHERE player_id = ?').get(playerId) as { is_admin?: number } | undefined;
+    return Boolean(row && row.is_admin === 1);
   }
 }
 

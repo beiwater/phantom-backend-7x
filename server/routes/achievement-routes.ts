@@ -10,7 +10,10 @@ import {
   getDisplayCase,
   updateDisplayCase,
   removeDisplayCaseSlot,
-  getCertificates
+  getCertificates,
+  getLatestCertificates,
+  getRarestCertificates,
+  getCertificateDetail
 } from '../game/achievements.ts';
 import {
   BASKET_KINDS,
@@ -323,12 +326,35 @@ export async function handleAchievementRoutes(
     return true;
   }
 
-  // 8. Certificates Explorer
-  const certMatch = pathname.match(/^\/api\/v2\/certificates-explorer\/(\d+)\/latest\/$/) ||
-                    (pathname.startsWith('/api/') && pathname.includes('/certificates'));
-  if (certMatch) {
-    const realmId = 0;
-    sendJson(res, getCertificates(realmId));
+  // 8. Certificates Explorer (Issue #113: strict schema with company objects & rarity)
+  if (pathname.startsWith('/api/') && pathname.includes('/certificates-explorer/')) {
+    const detailMatch = pathname.match(/\/certificates-explorer\/(\d+)\/certificate\/([^/]+)\/([^/]+)\/([^/]+)\/?/);
+    if (detailMatch) {
+      const realmId = Number(detailMatch[1]) || 0;
+      const kind = Number(detailMatch[2]) || 1;
+      const level = Number(detailMatch[3]) || 1;
+      const resourceKind = detailMatch[4];
+      sendJson(res, getCertificateDetail(realmId, kind, level, resourceKind));
+      return true;
+    }
+    const realmMatch = pathname.match(/\/certificates-explorer\/(\d+)/);
+    const realmId = realmMatch ? Number(realmMatch[1]) || 0 : 0;
+    if (pathname.includes('/latest/')) {
+      sendJson(res, { latestCertificates: getLatestCertificates(realmId) });
+      return true;
+    }
+    if (pathname.includes('/rarest/')) {
+      sendJson(res, { rarestCertificates: getRarestCertificates(realmId) });
+      return true;
+    }
+    sendJson(res, {
+      latestCertificates: getLatestCertificates(realmId),
+      rarestCertificates: getRarestCertificates(realmId)
+    });
+    return true;
+  }
+  if (pathname.startsWith('/api/') && pathname.includes('/certificates/')) {
+    sendJson(res, getCertificates(0));
     return true;
   }
 

@@ -438,7 +438,10 @@ export function getAuthData(playerId?: number | null, targetCompanyId?: number |
         excludeFromRanks: true,
         challengeStart: null
       },
-      levelInfo: null,
+      // Issue #119: the SPA dereferences levelInfo.acceleration unguarded on
+      // public market pages, so anonymous visitors must still receive a
+      // well-formed guest levelInfo (level 0, no capabilities) instead of null.
+      levelInfo: computeLevelInfo({ level: 0, experience: 0, rating: "BBB" }),
       temporals: {
         sale: "",
         simboostsSalePromotion: null,

@@ -54,11 +54,17 @@ export async function handleAuthRoutes(
   currentCompanyId: number | null
 ): Promise<boolean> {
 
-  // Signout / Logout
+  // Signout / Logout (Issue #111: redirect to landing page with Location header and expire cookies)
   if (pathname === '/signout/' || pathname === '/zh-cn/signout/' || pathname === '/logout/' || pathname.endsWith('/signout/')) {
     if (sessionToken) destroySession(sessionToken);
+    const localeMatch = pathname.match(/^\/([a-zA-Z]{2}(?:-[a-zA-Z]{2,4})?)\//);
+    const target = localeMatch ? `/${localeMatch[1]}/` : '/zh-cn/';
     res.writeHead(302, {
-      'Set-Cookie': buildSessionCookie('')
+      'Location': target,
+      'Set-Cookie': [
+        'sessionid=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Max-Age=0; HttpOnly',
+        'sim_session=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Max-Age=0'
+      ]
     });
     res.end();
     return true;

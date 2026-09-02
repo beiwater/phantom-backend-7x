@@ -181,6 +181,27 @@ export async function handleSocialRoutes(
   }
 
   // 2. Game Notifications: /api/v2/game-notifications/, /api/v2/companies/:id/game-notifications/
+  // Issue #112: The frontend indexed lookup requires valid notificationKind enum strings.
+  const VALID_NOTIFICATION_KINDS = new Set([
+    'EXECUTIVE_OFFER',
+    'EXECUTIVE_TRAINING_FINISHED',
+    'AGENCY_FAILED',
+    'AGENCY_FOUND_EXECUTIVE',
+    'EXECUTIVE_STAYED',
+    'EXECUTIVE_DECLINED_OFFER',
+    'EXECUTIVES_STRIKE',
+    'EXECUTIVES_LEFT',
+    'EXECUTIVE_WILL_RETIRE',
+    'EXECUTIVE_RETIRED',
+    'EXECUTIVE_ACCEPTED_OFFER',
+    'EXECUTIVE_LEFT',
+    'EXECUTIVE_WANTED_TO_ACCEPT_OFFER',
+    'EXECUTIVE_BURNOUT',
+    'TAGS_EXPIRED',
+    'SEASON_START',
+    'SEASON_END'
+  ]);
+
   const gameNotificationsMatch =
     pathname === '/api/v2/game-notifications/' ||
     pathname === '/api/v2/game-notifications' ||
@@ -195,9 +216,21 @@ export async function handleSocialRoutes(
       sendJson(res, { success: true });
       return true;
     }
+    const rawList = gameNotificationsRepository.list(currentCompanyId);
+    const validNotifications = rawList
+      .filter(n => VALID_NOTIFICATION_KINDS.has(n.type))
+      .map(n => ({
+        id: n.id,
+        notificationKind: n.type,
+        read: n.read,
+        datetime: n.createdAt,
+        executive: n.payload?.executive || null,
+        season: n.payload?.season || null
+      }));
+    const unreadCount = validNotifications.filter(n => !n.read).length;
     sendJson(res, {
-      notifications: gameNotificationsRepository.list(currentCompanyId),
-      unreadCount: gameNotificationsRepository.unreadCount(currentCompanyId)
+      notifications: validNotifications,
+      unreadCount
     });
     return true;
   }

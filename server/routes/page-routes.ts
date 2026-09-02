@@ -1,7 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { sendJson } from './utils.ts';
-import { db } from '../db/database.ts';
-
+import { companyRepository } from '../repositories/company-repository.ts';
 /**
  * P1-03: Static page / guide article content route.
  *
@@ -149,8 +148,7 @@ export async function handlePageRoutes(
   if (pathname === '/admin-xSwwtH67Cr' || pathname === '/admin-xSwwtH67Cr/') {
     let isAdmin = false;
     if (currentPlayerId) {
-      const player = db.prepare('SELECT is_admin FROM players WHERE player_id = ?').get(currentPlayerId) as { is_admin?: number } | undefined;
-      isAdmin = Boolean(player && player.is_admin === 1);
+      isAdmin = companyRepository.isPlayerAdmin(currentPlayerId);
     }
     if (!isAdmin) {
       res.writeHead(403, { 'Content-Type': 'text/html; charset=utf-8' });

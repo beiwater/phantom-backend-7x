@@ -70,90 +70,65 @@ export function normalizeOfferStatus(status: string): string {
   if (lower === 'ru.looking' || lower === 'looking' || lower === 'l') return 'l';
   return s || 'f';
 }
-
-export interface ExecutiveRow {
-  id: number;
-  company_id: number;
-  name: string;
-  avatar: string;
-  position: string;
-  skill_management: number;
-  skill_accounting: number;
-  skill_science: number;
-  skill_communication: number;
-  salary: number;
-  status: string;
-  training_finish_at: string | null;
-  created_at: string;
-}
-
-export interface ExecutiveOfferRow {
-  id: number;
-  poacher_company_id: number;
-  target_company_id: number;
-  target_executive_id: number;
-  slot_position: string;
-  skill_position: string;
-  agency: number;
-  status: string;
-  expected_salary: number;
-  salary: number | null;
-  agency_fee: number;
-  accelerated: number;
-  research_poacher: string | null;
-  research_employer: string | null;
-  extended_at: string | null;
-  created_at: string;
-  updated_at: string;
+export function normalizePositionCode(pos: string | null | undefined): string {
+  if (!pos) return 'none';
+  const lower = pos.toLowerCase();
+  if (lower === 'o' || lower === 'coo') return 'o';
+  if (lower === 'f' || lower === 'cfo') return 'f';
+  if (lower === 'm' || lower === 'cmo') return 'm';
+  if (lower === 't' || lower === 'cto') return 't';
+  if (lower === 'v' || lower === 'coo_apprentice' || lower === 'coo-apprentice') return 'v';
+  if (lower === 'x' || lower === 'cfo_apprentice' || lower === 'cfo-apprentice') return 'x';
+  if (lower === 'y' || lower === 'cmo_apprentice' || lower === 'cmo-apprentice') return 'y';
+  if (lower === 'z' || lower === 'cto_apprentice' || lower === 'cto-apprentice') return 'z';
+  if (lower === '1' || lower === 'g1') return '1';
+  if (lower === '2' || lower === 'g2') return '2';
+  if (lower === '3' || lower === 'g3') return '3';
+  if (lower === '4' || lower === 'g4') return '4';
+  if (lower === '5' || lower === 'g5') return '5';
+  if (lower === 'none' || lower === 'unassigned') return 'none';
+  return lower;
 }
 
 export function formatExecutive(e: ExecutiveRow) {
-  const pos = (e.position || 'unassigned').toLowerCase();
+  const normPos = normalizePositionCode(e.position);
+  const mgmt = Number(e.skill_management) || 0;
+  const acct = Number(e.skill_accounting) || 0;
+  const sci = Number(e.skill_science) || 0;
+  const comm = Number(e.skill_communication) || 0;
   return {
     id: e.id,
     name: e.name,
     avatar: e.avatar || 'images/avatars/male_01.png',
-    position: e.position || 'unassigned',
+    genome: '010101010101',
+    age: 35,
+    position: normPos,
     skills: {
-      management: Number(e.skill_management) || 0,
-      accounting: Number(e.skill_accounting) || 0,
-      science: Number(e.skill_science) || 0,
-      communication: Number(e.skill_communication) || 0
+      coo: mgmt,
+      cfo: acct,
+      cmo: comm,
+      cto: sci,
+      management: mgmt,
+      accounting: acct,
+      science: sci,
+      communication: comm
     },
     currentWorkHistory: {
-      position: pos === 'unassigned' ? 'none' : pos,
+      position: normPos,
       start: e.created_at || new Date(Date.now() - 86400000).toISOString()
     },
     salary: Number(e.salary) || 250,
     status: e.status || 'employed',
     trainingFinishAt: e.training_finish_at,
-    totalSkill: (Number(e.skill_management) || 0) + (Number(e.skill_accounting) || 0) + (Number(e.skill_science) || 0) + (Number(e.skill_communication) || 0)
+    totalSkill: mgmt + acct + sci + comm
   };
 }
-
 export function formatOffer(offer: ExecutiveOfferRow, exec: ExecutiveRow | null) {
-  const execObj = exec ? {
-    id: exec.id,
-    name: exec.name,
-    avatar: exec.avatar || 'images/avatars/male_01.png',
-    position: exec.position || 'unassigned',
-    salary: Number(exec.salary) || 250,
-    skills: {
-      management: Number(exec.skill_management) || 0,
-      accounting: Number(exec.skill_accounting) || 0,
-      science: Number(exec.skill_science) || 0,
-      communication: Number(exec.skill_communication) || 0
-    },
-    totalSkill: (Number(exec.skill_management) || 0) + (Number(exec.skill_accounting) || 0) + (Number(exec.skill_science) || 0) + (Number(exec.skill_communication) || 0),
-    isCandidate: exec.status === 'candidate',
-    status: exec.status,
-    age: 35
-  } : null;
-
+  const execObj = exec ? formatExecutive(exec) : null;
   return {
     id: offer.id,
-    slotPosition: offer.slot_position,
-    skillPosition: offer.skill_position,
+    slotPosition: normalizePositionCode(offer.slot_position),
+    skillPosition: offer.skill_position || 'o',
     agency: Number(offer.agency),
     status: offer.status,
     expectedSalary: Number(offer.expected_salary),
@@ -172,22 +147,7 @@ export function formatOffer(offer: ExecutiveOfferRow, exec: ExecutiveRow | null)
 }
 
 export function formatHostileOffer(offer: ExecutiveOfferRow, exec: ExecutiveRow | null) {
-  const execObj = exec ? {
-    id: exec.id,
-    name: exec.name,
-    avatar: exec.avatar || 'images/avatars/male_01.png',
-    position: exec.position || 'unassigned',
-    salary: Number(exec.salary) || 250,
-    skills: {
-      management: Number(exec.skill_management) || 0,
-      accounting: Number(exec.skill_accounting) || 0,
-      science: Number(exec.skill_science) || 0,
-      communication: Number(exec.skill_communication) || 0
-    },
-    totalSkill: (Number(exec.skill_management) || 0) + (Number(exec.skill_accounting) || 0) + (Number(exec.skill_science) || 0) + (Number(exec.skill_communication) || 0),
-    status: exec.status
-  } : null;
-
+  const execObj = exec ? formatExecutive(exec) : null;
   return {
     id: offer.id,
     executiveId: offer.target_executive_id,

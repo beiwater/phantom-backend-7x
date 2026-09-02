@@ -459,41 +459,104 @@ export function removeDisplayCaseSlot(companyId: number, slot: number) {
   return getDisplayCase(companyId);
 }
 
-export function getCertificates(realmId: number) {
-  // Certificates derive from real collected achievements: one certificate per
-  // collected achievement, ranked by (level, unlock time) within its
-  // achievement id. No hardcoded entries.
+export function getLatestCertificates(realmId: number) {
   const rows = db.prepare(`
-    SELECT a.achievement_id, a.collected_at, a.company_id, c.name
+    SELECT a.achievement_id, a.collected_at, a.company_id, c.name, c.logo, c.realm_id
     FROM company_achievements a
     JOIN companies c ON c.company_id = a.company_id
-    ORDER BY a.achievement_id ASC, a.collected_at ASC
-  `).all() as Array<{
+    WHERE c.realm_id = ?
+    ORDER BY a.collected_at DESC
+    LIMIT 20
+  `).all(realmId) as Array<{
     achievement_id: number | string;
-    claimed_at: string;
+    collected_at: string;
     company_id: number;
     name: string;
+    logo?: string;
+    realm_id?: number;
   }>;
 
-  const rankCounter = new Map<string, number>();
-  const certificates: Array<{ id: number; title: string; company: string; companyId: number; date: string; rank: number }> = [];
   let certId = 1;
-  for (const row of rows) {
-    const def = ALL_ACHIEVEMENTS.find(a => String(a.id) === String(row.achievement_id));
-    const title = def ? def.name : `Achievement #${row.achievement_id}`;
-    const key = String(row.achievement_id);
-    const rank = (rankCounter.get(key) ?? 0) + 1;
-    rankCounter.set(key, rank);
-    certificates.push({
-      id: certId++,
-      title,
-      company: row.name || `Company #${row.company_id}`,
-      companyId: row.company_id,
-      date: row.collected_at,
-      rank
-    });
+  return rows.map(r => ({
+    id: certId++,
+    kind: Number(r.achievement_id) || 1,
+    resourceKind: null,
+    yearStarted: r.collected_at ? new Date(r.collected_at).getFullYear() : 2026,
+    datetime: r.collected_at || new Date().toISOString(),
+    company: {
+      id: r.company_id,
+      company: r.name || `Company #${r.company_id}`,
+      logo: r.logo || '',
+      realmId: Number(r.realm_id) || 0
+    }
+  }));
+}
+
+export function getRarestCertificates(realmId: number) {
+  const totalCompanies = (db.prepare('SELECT COUNT(*) as cnt FROM companies WHERE realm_id = ?').get(realmId) as { cnt: number } | undefined)?.cnt || 1;
+  const counts = db.prepare(`
+    SELECT a.achievement_id, COUNT(DISTINCT a.company_id) as holder_count
+    FROM company_achievements a
+    JOIN companies c ON c.company_id = a.company_id
+    WHERE c.realm_id = ?
+    GROUP BY a.achievement_id
+    ORDER BY holder_count ASC
+    LIMIT 20
+  `).all(realmId) as Array<{ achievement_id: number | string; holder_count: number }>;
+
+  if (counts.length === 0) {
+    // Default to known achievement kinds with 0% rarity when none claimed yet
+    return ALL_ACHIEVEMENTS.slice(0, 10).map(def => ({
+      realm: realmId,
+      kind: Number(def.id) || 1,
+      rarity: 0
+    }));
   }
-  return certificates;
+
+  return counts.map(c => ({
+    realm: realmId,
+    kind: Number(c.achievement_id) || 1,
+    rarity: Math.round((c.holder_count / Math.max(1, totalCompanies)) * 1000) / 10
+  }));
+}
+
+export function getCertificateDetail(realmId: number, kind: number, level: number, resourceKind?: string | null) {
+  const rows = db.prepare(`
+    SELECT a.achievement_id, a.collected_at, a.company_id, c.name, c.logo, c.realm_id
+    FROM company_achievements a
+    JOIN companies c ON c.company_id = a.company_id
+    WHERE c.realm_id = ? AND a.achievement_id = ?
+    ORDER BY a.collected_at ASC
+  `).all(realmId, kind) as Array<{
+    achievement_id: number | string;
+    collected_at: string;
+    company_id: number;
+    name: string;
+    logo?: string;
+    realm_id?: number;
+  }>;
+
+  const holders = rows.map(r => ({
+    id: r.company_id,
+    company: r.name || `Company #${r.company_id}`,
+    logo: r.logo || '',
+    realmId: Number(r.realm_id) || 0
+  }));
+
+  return {
+    certificate: {
+      kind,
+      level,
+      resourceKind: resourceKind && resourceKind !== '-' ? resourceKind : null
+    },
+    owner: holders[0] || null,
+    topHunters: [],
+    holders
+  };
+}
+
+export function getCertificates(realmId: number) {
+  return getLatestCertificates(realmId);
 }
 
 // ---------------------------------------------------------------------------
