@@ -199,11 +199,10 @@ export async function queueRocketLaunch(
   if (building.company_id !== companyId) {
     throw new Error('Building does not belong to your company');
   }
-  const isLaunchPad = building.kind === 'l' ||
-    building.category === 'launchpad' ||
-    building.category === 'aerospace' ||
-    building.category === 'research';
-  if (!isLaunchPad && building.kind !== 'l') {
+  // #156: only a real Launchpad (kind 'l') may queue rockets. Launchpad's
+  // category is 'research', so matching by category admitted every lab /
+  // research factory into the launch flow.
+  if (building.kind !== 'l') {
     throw new Error('Building is not a Launch Pad');
   }
 
