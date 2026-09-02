@@ -1,0 +1,11 @@
+{
+  "feature": "error-response-message",
+  "semantics": "The original client's axios catch (bundle Te) renders `response.data.message` verbatim as a flash toast and falls back to 'An unexpected error occurred' ONLY when `message` is missing. It also reacts to data.captcha and data.emailVerificationRequired, and redirects on HTTP 429. Every player-facing error payload MUST therefore include a human-readable `message` field; `error` is kept alongside for server tooling.",
+  "responseShape": { "message": "string (rendered verbatim)", "error": "string (tooling alias)", "code": "string", "details": "optional" },
+  "evidence": [
+    { "type": "bundle", "path": "frontend-original/static/bundle/assets/index-cgzgptQ8.js", "symbol": "Te=(e,t)=>r=>{const{response:n}=r; ... n.data.message||'An unexpected error occurred'" },
+    { "type": "issue", "ref": "#161" }
+  ],
+  "implementedIn": "server/compatibility/simcompanies/response-helpers.ts sendDomainError",
+  "confidence": "verified"
+}

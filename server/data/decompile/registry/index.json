@@ -58,6 +58,18 @@
         "seasonal-saturation",
         "seasonal-capability"
       ]
+    },
+    {
+      "file": "retail-duration.json",
+      "features": [
+        "retail-duration-limit"
+      ]
+    },
+    {
+      "file": "error-message.json",
+      "features": [
+        "error-response-message"
+      ]
     }
   ]
 }
