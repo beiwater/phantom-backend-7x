@@ -32,8 +32,10 @@ import { handleCollectibleRoutes } from './routes/collectible-routes.ts';
 import { handleNewspaperRoutes } from './routes/newspaper-routes.ts';
 import { virtualClock } from './core/virtual-clock.ts';
 import { handleDebugRoutes } from './routes/debug-routes.ts';
+import { handleHealthRoutes } from './routes/health-routes.ts';
+import { logger } from './core/logger.ts';
+
 const methodManifest: Array<{ pattern: RegExp; methods: string[] }> = [
-  { pattern: /^\/api\/v2\/time-millis\/$/, methods: ['GET'] },
   { pattern: /^\/api\/time\/$/, methods: ['GET'] },
   { pattern: /^\/api\/v2\/auth\/email\/(?:auth|connect|reset)\/$/, methods: ['POST'] },
   { pattern: /^\/api\/v2\/auth\/device\/(?:auth|connect)\/$/, methods: ['POST'] },
@@ -51,11 +53,24 @@ const methodManifest: Array<{ pattern: RegExp; methods: string[] }> = [
 ];
 
 export async function handleRequest(req: IncomingMessage, res: ServerResponse) {
+  const startMs = Date.now();
   const parsedUrl = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
   const pathname = parsedUrl.pathname;
   const method = req.method || 'GET';
+  const requestId = (req.headers['x-request-id'] as string) || logger.generateRequestId();
 
-  // Handle CORS preflight without combining wildcard origins and credentials.
+  res.setHeader('X-Request-Id', requestId);
+
+  res.on('finish', () => {
+    const durationMs = Date.now() - startMs;
+    logger.info(`${method} ${pathname} ${res.statusCode} (${durationMs}ms)`, {
+      method,
+      path: pathname,
+      statusCode: res.statusCode,
+      durationMs,
+      ip: req.socket.remoteAddress
+    }, requestId);
+  });
   const requestOrigin = req.headers.origin;
   const requestHost = req.headers.host;
   const allowedOrigin = requestOrigin === undefined
@@ -109,6 +124,10 @@ export async function handleRequest(req: IncomingMessage, res: ServerResponse) {
       res.writeHead(404, { 'Content-Type': 'text/plain' });
       res.end('Asset Not Found');
     }
+    return;
+  }
+  // Health checks & observability probes (Issue #146)
+  if (handleHealthRoutes(req, res, pathname, method)) {
     return;
   }
 

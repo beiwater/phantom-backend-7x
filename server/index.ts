@@ -1,21 +1,24 @@
 import http from 'node:http';
 import { CONFIG } from './config.ts';
+import { validateEnvironment } from './core/env-validator.ts';
+import { logger } from './core/logger.ts';
 import { handleRequest } from './router.ts';
 import { RequestBodyError, sendJson } from './routes/utils.ts';
 import { setupWebSocket } from './ws/websocket.ts';
 import { startExpiredSessionCleanup } from './auth/session.ts';
-import { startScheduler } from './scheduler/timetable.ts';
+import { startScheduler, stopScheduler } from './scheduler/timetable.ts';
 import { wireGameNotifications } from './application/notifications.ts';
+import { db } from './db/database.ts';
 import './scheduler/scheduler-routes.ts';
+
+// Validate environment & configuration on startup (Issue #147 / #149)
+validateEnvironment();
 
 // Issue #17: purge expired sessions at startup and every hour thereafter.
 startExpiredSessionCleanup();
 
-// Issue #98: daily UTC timetable engine (bond interest + accounting overhead,
-// executive salaries, government orders publish/award, economy phase roll,
-// retail saturation). Persists scheduler_state so restarts never double-fire.
+// Issue #98: daily UTC timetable engine. Persists scheduler_state so restarts never double-fire.
 startScheduler();
-
 const server = http.createServer(async (req, res) => {
   try {
     await handleRequest(req, res);
@@ -37,9 +40,42 @@ setupWebSocket(server);
 wireGameNotifications();
 
 server.listen(CONFIG.PORT, CONFIG.HOST, () => {
-  console.log(`===================================================`);
-  console.log(` SimCompanies Private Server is LIVE!`);
-  console.log(` URL: http://${CONFIG.HOST}:${CONFIG.PORT}/zh-cn/`);
-  console.log(` Speed Multiplier: ${CONFIG.PRODUCTION_SPEED_MULTIPLIER}x`);
-  console.log(`===================================================`);
+  logger.info(`===================================================`);
+  logger.info(` SimCompanies Private Server is LIVE!`);
+  logger.info(` URL: http://${CONFIG.HOST}:${CONFIG.PORT}/zh-cn/`);
+  logger.info(` Speed Multiplier: ${CONFIG.PRODUCTION_SPEED_MULTIPLIER}x`);
+  logger.info(`===================================================`);
 });
+
+// Graceful shutdown handler (Issue #147)
+let isShuttingDown = false;
+async function gracefulShutdown(signal: string): Promise<void> {
+  if (isShuttingDown) return;
+  isShuttingDown = true;
+  logger.info(`Received ${signal}. Initiating graceful shutdown...`);
+
+  server.close(err => {
+    if (err) logger.error('Error closing HTTP server:', err);
+    else logger.info('HTTP server closed.');
+  });
+
+  try {
+    stopScheduler();
+    logger.info('Timetable scheduler stopped.');
+  } catch (err) {
+    logger.error('Error stopping scheduler:', err);
+  }
+
+  try {
+    db.exec('PRAGMA wal_checkpoint(TRUNCATE)');
+    logger.info('SQLite WAL checkpoint flushed.');
+  } catch (err) {
+    logger.error('Error flushing SQLite WAL:', err);
+  }
+
+  logger.info('Graceful shutdown completed. Exiting.');
+  process.exit(0);
+}
+
+process.on('SIGTERM', () => { gracefulShutdown('SIGTERM'); });
+process.on('SIGINT', () => { gracefulShutdown('SIGINT'); });

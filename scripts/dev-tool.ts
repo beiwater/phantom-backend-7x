@@ -210,7 +210,76 @@ async function main() {
     }
     return;
   }
-  console.log(`Unknown command: "${command}". Available commands: status, warp, fixture, market`);
+
+  if (command === 'migrate') {
+    const { MigrationRunner } = await import('../server/db/migrations/runner.ts');
+    const runner = new MigrationRunner();
+    console.log('=== Database Migration Manager ===');
+    if (argv.status || (!argv.up && !argv.run)) {
+      const currentVersion = runner.getLatestSchemaVersion();
+      const applied = runner.getAppliedMigrations();
+      console.log(`Current Schema Version: v${currentVersion}`);
+      console.log(`Integrity Check       : ${runner.verifyIntegrity() ? 'OK' : 'FAILED'}`);
+      console.log(`Applied Migrations    : ${applied.length}`);
+      for (const m of applied) {
+        console.log(`  * [v${String(m.version).padStart(3, '0')}] ${m.name.padEnd(32)} (${m.applied_at}) [${m.checksum || 'no-checksum'}]`);
+      }
+      return;
+    }
+
+    console.log('Running pending migrations...');
+    const result = runner.runMigrations();
+    console.log(`✅ Migrations Complete:`);
+    console.log(`- Applied Count : ${result.appliedCount}`);
+    console.log(`- Schema Version: v${result.currentVersion}`);
+    for (const m of result.newlyApplied) {
+      console.log(`  + [v${String(m.version).padStart(3, '0')}] ${m.name}`);
+    }
+    return;
+  }
+  if (command === 'backup') {
+    const { backupEngine } = await import('../server/db/backup.ts');
+    console.log('=== SQLite Hot Backup & Disaster Recovery Manager ===');
+
+    if (argv.create) {
+      console.log('Creating live online hot backup (VACUUM INTO)...');
+      const meta = backupEngine.createBackup();
+      console.log(`[OK] Backup Created Successfully:`);
+      console.log(`- File      : ${meta.filename}`);
+      console.log(`- Path      : ${meta.filepath}`);
+      console.log(`- Size      : ${(meta.sizeBytes / 1024).toFixed(1)} KB`);
+      console.log(`- SHA-256   : ${meta.sha256}`);
+      console.log(`- Integrity : ${meta.integrity}`);
+      return;
+    }
+
+    if (argv.list) {
+      const backups = backupEngine.listBackups();
+      console.log(`Found ${backups.length} backups:`);
+      for (const b of backups) {
+        console.log(`  * ${b.filename.padEnd(36)} | ${(b.sizeBytes / 1024).toFixed(1)} KB | SHA-256: ${b.sha256.substring(0, 16)}... | ${b.createdAt}`);
+      }
+      return;
+    }
+
+    if (argv.verify) {
+      const target = String(argv.verify);
+      console.log(`Verifying backup: ${target}...`);
+      const res = backupEngine.verifyBackup(target);
+      console.log(`- Checksum Match : ${res.checksumMatch ? 'PASS' : 'FAIL'}`);
+      console.log(`- SQLite Check   : ${res.quickCheck}`);
+      console.log(`- Overall Result : ${res.valid ? 'VALID' : 'INVALID'}`);
+      return;
+    }
+
+    console.log('Usage:');
+    console.log('  scripts/dev-tool.ts backup --create        (Create online hot backup)');
+    console.log('  scripts/dev-tool.ts backup --list          (List all backups)');
+    console.log('  scripts/dev-tool.ts backup --verify <file> (Verify backup checksum & integrity)');
+    return;
+  }
+
+  console.log(`Unknown command: "${command}". Available commands: status, warp, fixture, market, migrate, backup`);
 }
 
 main().catch(err => {

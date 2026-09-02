@@ -129,5 +129,10 @@ export function buildSessionCookie(token: string): string {
 }
 
 function cookieSecureSuffix(): string {
-  return process.env.COOKIE_SECURE === '1' ? '; Secure' : '';
+  if (process.env.COOKIE_SECURE === '1') return '; Secure';
+  if (process.env.COOKIE_SECURE === '0') return '';
+  if (process.env.NODE_ENV === 'production' && (process.env.HTTPS === 'true' || process.env.BASE_URL?.startsWith('https:'))) {
+    return '; Secure';
+  }
+  return '';
 }

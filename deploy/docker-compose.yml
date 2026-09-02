@@ -1,0 +1,23 @@
+services:
+  simcompanies-server:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    container_name: simcompanies-server
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - HOST=0.0.0.0
+      - DATA_DIR=/app/data
+      - ADMIN_PASSWORD=ChangeMeStrongPassword123!
+      - BASE_URL=http://localhost:3000
+      - LOG_LEVEL=info
+    volumes:
+      - simcompanies_data:/app/data
+
+volumes:
+  simcompanies_data:
+    driver: local

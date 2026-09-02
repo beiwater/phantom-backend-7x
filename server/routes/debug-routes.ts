@@ -25,6 +25,29 @@ export async function handleDebugRoutes(
     return false;
   }
 
+  // Production Security Gate (Issue #149)
+  if (process.env.NODE_ENV === 'production') {
+    const debugExplicitlyEnabled = process.env.ENABLE_DEBUG_ENDPOINTS === 'true';
+    if (!debugExplicitlyEnabled) {
+      sendJson(res, { error: 'Debug endpoints are disabled in production mode.' }, 403);
+      return true;
+    }
+
+    const adminPassword = process.env.ADMIN_PASSWORD;
+    const headerPassword = req.headers['x-admin-password'];
+    const authHeader = req.headers.authorization;
+    const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7).trim() : null;
+
+    const isAuthorized = Boolean(
+      adminPassword &&
+      (headerPassword === adminPassword || bearerToken === adminPassword)
+    );
+
+    if (!isAuthorized) {
+      sendJson(res, { error: 'Unauthorized: Valid admin password required for debug endpoints in production mode.' }, 401);
+      return true;
+    }
+  }
   // 1. GET /api/v2/debug/state/
   if (pathname === '/api/v2/debug/state/' || pathname === '/api/debug/state/') {
     if (method !== 'GET') {

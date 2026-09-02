@@ -7,3 +7,5 @@ test-results/
 *.sqlite
 *.sqlite-wal
 artifacts/
+data/
+*.sha256

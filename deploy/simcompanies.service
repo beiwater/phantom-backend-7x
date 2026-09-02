@@ -1,0 +1,27 @@
+[Unit]
+Description=SimCompanies Private Server Node.js Service
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/phantom-backend-7x
+Environment=NODE_ENV=production
+Environment=PORT=3000
+Environment=HOST=127.0.0.1
+Environment=DATA_DIR=/home/ubuntu/phantom-backend-7x/data
+Environment=ADMIN_PASSWORD=ChangeMeStrongPassword123!
+Environment=LOG_LEVEL=info
+ExecStart=/opt/magnate/.node22/bin/node --experimental-strip-types server/index.ts
+Restart=always
+RestartSec=5s
+KillSignal=SIGTERM
+TimeoutStopSec=20s
+LimitNOFILE=65536
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=simcompanies
+
+[Install]
+WantedBy=multi-user.target
