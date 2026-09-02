@@ -53,6 +53,8 @@ async function signIn(page: Page, email: string): Promise<void> {
 }
 
 async function completeCompanyCreation(page: Page, companyName: string): Promise<void> {
+  await expect(page).toHaveURL(/\/zh-cn\/(?:create|landscape)\//);
+
   if (!/\/zh-cn\/create\//.test(page.url())) {
     return;
   }
