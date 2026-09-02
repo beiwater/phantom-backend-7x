@@ -543,6 +543,8 @@ export const MIGRATIONS: MigrationDefinition[] = [
           logo TEXT,
           created_at TEXT
         );
+        CREATE UNIQUE INDEX IF NOT EXISTS uq_newspaper_sponsors_issue_position
+          ON newspaper_sponsors (newspaper_id, position);
 
         CREATE TABLE IF NOT EXISTS newspaper_article_reactions (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -809,7 +811,7 @@ export const MIGRATIONS: MigrationDefinition[] = [
           issue.id,
           issue.realm_id,
           issue.issue_id,
-          issue.published,
+          issue.published === 0 || issue.published === '0' ? null : issue.published,
           issue.publish_date,
           issue.articles_json,
           issue.created_at
@@ -830,7 +832,7 @@ export const MIGRATIONS: MigrationDefinition[] = [
       // The frontend-compatible newspaper module uses position/company_name/
       // logo, while migration 8 created a separate booking-oriented shape.
       const legacySponsors = db.prepare(
-        'SELECT id, newspaper_id, slot_number, company_id, text, booked_at FROM newspaper_sponsors'
+        'SELECT id, newspaper_id, slot_number, company_id, text, booked_at FROM newspaper_sponsors ORDER BY id'
       ).all() as Array<{
         id: number;
         newspaper_id: number;
@@ -851,9 +853,11 @@ export const MIGRATIONS: MigrationDefinition[] = [
           logo TEXT,
           created_at TEXT
         );
+        CREATE UNIQUE INDEX uq_newspaper_sponsors_issue_position
+          ON newspaper_sponsors (newspaper_id, position);
       `);
       const insertSponsor = db.prepare(
-        `INSERT INTO newspaper_sponsors
+        `INSERT OR IGNORE INTO newspaper_sponsors
           (id, newspaper_id, position, company_id, company_name, text, logo, created_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
       );
