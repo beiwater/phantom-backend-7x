@@ -961,6 +961,76 @@ export const MIGRATIONS: MigrationDefinition[] = [
       addColumn('robots_quality', 'robots_quality INTEGER NOT NULL DEFAULT 0');
       addColumn('locked_product', 'locked_product INTEGER');
     }
+  },
+  {
+    version: 19,
+    name: '019_universe_schema_contracts',
+    up: (db: DatabaseSync) => {
+      // #169/#174: the collectible exchange and HQ/PA unlock repositories
+      // reference relations that only existed in ad-hoc dev databases —
+      // collectibles.ts promised an "Issue #82 tail section" migration that
+      // was never added, so fresh DATA_DIRs crashed with "no such table".
+      // Schemas mirror the shapes the live databases already use.
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS nft_assets (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          definition_id TEXT NOT NULL,
+          name TEXT NOT NULL,
+          image TEXT NOT NULL,
+          realm INTEGER NOT NULL DEFAULT 0,
+          rarity TEXT NOT NULL DEFAULT 'COMMON',
+          description TEXT NOT NULL DEFAULT '',
+          current_owner_id INTEGER,
+          minted_at TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS nft_listings (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          nft_id INTEGER NOT NULL,
+          seller_id INTEGER,
+          price_simboosts INTEGER NOT NULL,
+          status TEXT NOT NULL DEFAULT 'active',
+          created_at TEXT NOT NULL,
+          updated_at TEXT
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS uq_nft_listings_active_asset
+          ON nft_listings (nft_id) WHERE status = 'active';
+
+        CREATE TABLE IF NOT EXISTS nft_trades (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          nft_id INTEGER NOT NULL,
+          listing_id INTEGER,
+          seller_id INTEGER,
+          buyer_id INTEGER NOT NULL,
+          price_simboosts INTEGER NOT NULL,
+          datetime TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS player_unlocked_hqs (
+          company_id INTEGER NOT NULL,
+          idx INTEGER NOT NULL,
+          created_at TEXT,
+          PRIMARY KEY (company_id, idx)
+        );
+
+        CREATE TABLE IF NOT EXISTS player_unlocked_pas (
+          company_id INTEGER NOT NULL,
+          kind TEXT NOT NULL,
+          created_at TEXT,
+          PRIMARY KEY (company_id, kind)
+        );
+      `);
+
+      // #172: government.ts seeds/orders read government_orders.realm_id;
+      // databases created by the pre-realm migration lack the column.
+      const govColumns = new Set(
+        (db.prepare('PRAGMA table_info(government_orders)').all() as Array<{ name: string }>)
+          .map(column => column.name)
+      );
+      if (govColumns.size > 0 && !govColumns.has('realm_id')) {
+        db.exec('ALTER TABLE government_orders ADD COLUMN realm_id INTEGER NOT NULL DEFAULT 0');
+      }
+    }
   }
 ];
 
