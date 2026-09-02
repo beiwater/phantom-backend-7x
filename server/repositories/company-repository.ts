@@ -248,6 +248,47 @@ export class CompanyRepository {
     };
   }
 
+  /**
+   * Accounting-fee lift from the CFO and banks (#155), decompiled contract:
+   *   executiveLift = cfoSkill × 500,000
+   *   bankLift      = cfoSkill × bankSize × 50,000  (bank panel $ display)
+   * The fee-free holdings threshold base is 3,000,000 (bundle Xcr = 3e6).
+   * A bank only contributes while placed and not under construction
+   * ("bankNotContributing" / "bankNotContributingUntilPlaced").
+   */
+  getAccountingLift(companyId: number): {
+    bankSize: number;
+    bankContributing: boolean;
+    cfoSkill: number;
+    executiveLift: number;
+    bankLift: number;
+    exemptThreshold: number;
+  } {
+    const bank = this.database.prepare(`
+      SELECT COALESCE(SUM(size), 0) AS bank_size,
+             SUM(CASE WHEN busy_until IS NOT NULL AND busy_until > ? THEN 1 ELSE 0 END) AS busy_banks,
+             SUM(CASE WHEN position IS NULL OR position = '' THEN 1 ELSE 0 END) AS unplaced_banks
+      FROM buildings WHERE company_id = ? AND kind = 'n'
+    `).get(new Date().toISOString(), companyId) as { bank_size?: number; busy_banks?: number; unplaced_banks?: number } | undefined;
+    const bankSize = Number(bank?.bank_size) || 0;
+    const bankContributing = bankSize > 0 && Number(bank?.busy_banks) === 0 && Number(bank?.unplaced_banks) === 0;
+    const cfo = this.database.prepare(`
+      SELECT COALESCE(MAX(COALESCE(skill_accounting, 0)), 0) AS cfo_skill FROM executives
+      WHERE company_id = ? AND status = 'employed' AND position = 'cfo'
+    `).get(companyId) as { cfo_skill?: number } | undefined;
+    const cfoSkill = Number(cfo?.cfo_skill) || 0;
+    const executiveLift = cfoSkill * 500000;
+    const bankLift = bankContributing ? cfoSkill * bankSize * 50000 : 0;
+    return {
+      bankSize,
+      bankContributing,
+      cfoSkill,
+      executiveLift,
+      bankLift,
+      exemptThreshold: 3000000 + executiveLift + bankLift
+    };
+  }
+
   /** Payroll rows for every company: (companyId, money, employed salary total). */
   listExecutivePayrolls(): Array<{ companyId: number; money: number; salaries: number }> {
     const rows = this.database.prepare(`

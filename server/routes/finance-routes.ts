@@ -1,6 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { sendJson, readJsonBody } from './utils.ts';
 import { fpaReportsRepository } from '../repositories/fpa-reports-repository.ts';
+import { companyRepository } from '../repositories/company-repository.ts';
 
 const REPORT_CATEGORIES = ['Production', 'Retail', 'Financial', 'Warehouse', 'Market'];
 import { db } from '../db/database.ts';
@@ -147,12 +148,20 @@ export async function handleFinanceRoutes(
         AND position NOT LIKE 'l%'
     `).get(companyId, new Date().toISOString()) as { bonus?: number } | undefined;
     const recreationBonus = Number(recRow?.bonus) || 0;
+    // #155: expose the CFO + bank accounting lift so the accounting surfaces
+    // can show the computation base alongside the overhead.
+    const lift = companyRepository.getAccountingLift(companyId);
     const overhead = Math.max(0, (bldCount - 1) * 0.035);
     sendJson(res, {
       administrationOverhead: overhead,
       recreationBonus,
       workers: bldCount * 100,
-      adminCostDaily: Math.round(overhead * 1000)
+      adminCostDaily: Math.round(overhead * 1000),
+      bankLevel: lift.bankSize,
+      bankContributing: lift.bankContributing,
+      executiveLift: lift.executiveLift,
+      bankLift: lift.bankLift,
+      accountingExemptThreshold: lift.exemptThreshold
     });
     return true;
   }

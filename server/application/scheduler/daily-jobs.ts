@@ -103,19 +103,41 @@ export function chargeDailyAccountingOverhead(): void {
     const ao = 1 + Math.max(0, buildingCount - 1) * 0.035;
     const cooSkill = Math.max(0, Math.min(100, stats.cooSkill));
     const effective = ao - (ao - 1) * cooSkill / 100;
-    const charge = round2(stats.totalSize * 100 * (effective - 1));
+    const baseCharge = round2(stats.totalSize * 100 * (effective - 1));
+
+    // #155: the CFO + bank lift extends the fee-free holdings threshold
+    // (base 3,000,000; executiveLift = cfoSkill × 500k, bankLift = cfoSkill ×
+    // bankLevel × 50k). Our fee is a per-building linear model, so the
+    // exemption is applied as the proportional share of the charge it
+    // exempts: discount = charge × lift / (base + lift). Zero lift keeps
+    // the previous charge unchanged.
+    const lift = companyRepository.getAccountingLift(companyId);
+    const exempt = lift.executiveLift + lift.bankLift;
+    const charge = exempt > 0
+      ? round2(Math.max(0, baseCharge - baseCharge * exempt / (3000000 + exempt)))
+      : baseCharge;
     if (!(charge > 0)) continue;
 
     const funds = comp.money;
     const paid = round2(Math.max(0, Math.min(funds, charge)));
     if (!(paid > 0)) continue;
 
+    const details: Record<string, unknown> = {
+      bank_level: lift.bankSize,
+      bank_lift: lift.bankLift,
+      executive_lift: lift.executiveLift
+    };
+    if (lift.bankSize > 0 && !lift.bankContributing) {
+      details.bank_not_contributing_reason = 'construction';
+    }
+
     recordCashLedger({
       companyId,
       amount: -paid,
       category: 'a',
       description: 'Daily accounting overhead',
-      descriptionKey: 'accountingOverhead'
+      descriptionKey: 'accountingOverhead',
+      details
     });
     updateCompanyMoney(companyId, -paid, true);
   }
