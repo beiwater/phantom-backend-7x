@@ -53,6 +53,7 @@ BACKEND_TESTS=(
   tests/verify-issue-42-bonds.test.ts
   tests/verify-issue-46-financial-reports.test.ts
   tests/verify-issue-80-aerospace.test.ts
+  tests/verify-issue-83-newspaper.test.ts
   tests/verify-issue-84-90-security.test.ts
   tests/verify-issue-86-research.test.ts
   tests/verify-issue-89-finance.test.ts
