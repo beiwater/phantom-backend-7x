@@ -798,12 +798,15 @@ function settleRestaurantRunInTransaction(runId: number, now: Date): { run: Rest
   const revenue = round2(served * menuPrice);
   const cost = Number(row.cost) || 0;
   const profit = round2(revenue - cost);
-  const newRating = computeCurrentRating(row.company_id, {
+  let newRating = computeCurrentRating(row.company_id, {
     goodService: row.good_service === null ? properties.goodService : Boolean(row.good_service),
     isLuxury: row.is_luxury === null ? properties.isLuxury : Boolean(row.is_luxury),
     menu,
     menuPrice
   });
+  if (!properties.keepOpen && newRating > 0) {
+    newRating = round2(newRating * 0.875);
+  }
   const ratingDelta = round2(newRating - Number(row.rating || 0));
   restaurantRepository.resolveRun(runId, {
     ratingBefore: Number(row.rating),
@@ -908,10 +911,7 @@ export async function updateRestaurantProperties(
       buildingRepository.updateBusyUntil(buildingId, companyId, reconstructionUntil);
     }
     const activeRun = getActiveRestaurantRunRow(buildingId, companyId);
-    let rating = computeCurrentRating(companyId, { goodService, isLuxury, menu, menuPrice });
-    if (!keepOpen && current.keepOpen && !styleChanged && current.rating > 0) {
-      rating = round2(current.rating * 0.875);
-    }
+    const rating = current.rating;
     restaurantRepository.upsertProperties({
       buildingId,
       companyId,
@@ -921,12 +921,12 @@ export async function updateRestaurantProperties(
       menuJson: JSON.stringify(menu),
       menuPrice,
       rating,
-      occupancy: 0,
+      occupancy: current.occupancy,
       professionalStaff: goodService,
       lastCycleAt: current.lastCycleAt,
       reconstructionStartedAt,
       reconstructionUntil,
-      ratingPenaltyApplied: !keepOpen && current.keepOpen
+      ratingPenaltyApplied: false
     });
     let cycle: RestaurantRun | null = null;
     let resourceTransactions: Array<{ kind: number; quality: number; amount: number }> = [];
