@@ -27,6 +27,7 @@ import {
   getPersonalData
 } from '../game/company.ts';
 import { getCompanyBuildings } from '../game/buildings.ts';
+import { getTierForLevel } from '../domain/leveling/level-rules.ts';
 
 const COMPANY_NAME_COLORS = ['Aero', 'Almond', 'Amaranth', 'Amber', 'Amethyst', 'Apricot', 'Auburn', 'Azure', 'Beige', 'Bistre', 'Blue', 'Brass', 'Bronze', 'Cedar', 'Cerulean', 'Cobalt', 'Copper', 'Coral', 'Crimson', 'Cyan'];
 const COMPANY_NAME_SIZES = ['Big', 'Colossal', 'Gigantic', 'Great', 'Huge', 'Immense', 'Little', 'Mighty', 'Mini', 'Vast'];
@@ -484,6 +485,9 @@ export async function handleAuthRoutes(
       0
     );
     const extraBuildingSlots = Number(comp.extra_building_slots) || 0;
+    const level = Number(comp.level) || 5;
+    const tier = getTierForLevel(level);
+    const maxBuildings = tier.maxBuildings + extraBuildingSlots;
     sendJson(res, {
       companyPublicInfo: {
         id: comp.company_id,
@@ -492,11 +496,11 @@ export async function handleAuthRoutes(
         realmId: comp.realm_id,
         deleted: false,
         moderatorSign: false,
-        level: comp.level || 5,
-        levelKind: 'FamilyBusiness',
+        level,
+        levelKind: tier.kind,
         hqImage: '',
         note: comp.note || '',
-        maxBuildings: 10,
+        maxBuildings,
         rank: null,
         evaRank: null,
         ratingCode: comp.rating || 'BBB',
@@ -621,6 +625,10 @@ export async function handleAuthRoutes(
     const isCallerAdmin = currentPlayerId ? companyRepository.isPlayerAdmin(currentPlayerId) : false;
 
     const buildings = getCompanyBuildings(targetCompId);
+    const compLevel = Number(comp.level) || 1;
+    const compTier = getTierForLevel(compLevel);
+    const compExtraSlots = Number(comp.extra_building_slots) || 0;
+    const compMaxBuildings = compTier.maxBuildings + compExtraSlots;
     const profileResponse: Record<string, unknown> = {
       companyPublicInfo: {
         id: targetCompId,
@@ -629,9 +637,11 @@ export async function handleAuthRoutes(
         realmId: comp.realm_id || 0,
         deleted: false,
         moderatorSign: Boolean(comp.moderator_sign),
-        level: comp.level,
-        levelKind: 'FamilyBusiness',
-        note: comp.note || ''
+        level: compLevel,
+        levelKind: compTier.kind,
+        note: comp.note || '',
+        maxBuildings: compMaxBuildings,
+        extraBuildingSlots: compExtraSlots
       },
       history: [],
       infrastructure: { recreationBonus: 0, workers: 300, administrationOverhead: 1.0, buildings },
