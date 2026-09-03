@@ -27,16 +27,13 @@ if [ -z "${NODE_BIN:-}" ]; then
   fi
 fi
 
-# Suites that must run standalone (they spawn their own isolated server).
-STANDALONE_RE="verify-issue-70-rest|verify-issue-7[8-9]|verify-issue-8[0-9]|verify-issue-9[0-9]|verify-issue-84-90|bfs-crawler|white-screen|dom-verify"
-# Start shared server for API suites
-pkill -9 -f "server/index.ts" 2>/dev/null || true
-sleep 1
-PORT="$PORT" DATA_DIR="$TEST_DATA_DIR" SPEED_MULTIPLIER="${SPEED_MULTIPLIER:-200}" $NODE_BIN server/index.ts >/dev/null 2>&1 &
-SERVER_PID=$!
-sleep 2
+# Suites that must run standalone (they spawn isolated servers).
+STANDALONE_RE='verify-issue-70-rest|verify-issue-7[8-9]|verify-issue-8[0-9]|verify-issue-84-90|verify-issue-9[0-9]|bfs-crawler|white-screen|dom-verify'
 
-BACKEND_TESTS=(
+# Suites admitted to the default CI gate. New test files are discovered below
+# and reported as quarantined until their runtime assumptions and baseline
+# result are reviewed; they are never silently omitted.
+ADMITTED_TESTS=(
   tests/test-architecture-gates.test.ts
   tests/test-issue-65-simboosts.test.ts
   tests/test-realm-rules.test.ts
@@ -85,6 +82,116 @@ BACKEND_TESTS=(
   tests/verify-warehouse-statistics.test.ts
 )
 
+# Browser/diagnostic suites are intentionally not part of this backend gate.
+# Keep this list explicit: an unclassified tests/*.test.ts file must fail the
+# discovery check instead of silently disappearing from CI.
+EXCLUDED_TESTS=(
+  tests/bfs-crawler-e2e.test.ts
+  tests/comprehensive-white-screen-audit.test.ts
+  tests/dom-verify-p0-03-checkout.test.ts
+  tests/e2e-b0-construct-production.test.ts
+  tests/full-user-journey.test.ts
+  tests/guest-flow.test.ts
+  tests/interactive-gameplay.test.ts
+  tests/multi-account.test.ts
+  tests/repro-retail-duration-limit-dom.test.ts
+  tests/scientific-white-screen-audit.test.ts
+  tests/smart-heuristic-traversal.test.ts
+  tests/tree-recursive-crawler-e2e.test.ts
+  tests/ultra-high-coverage-e2e.test.ts
+  tests/test-avatar-profile.test.ts
+  tests/test-slot-unlock.test.ts
+  tests/verify-slot2-building-construction.test.ts
+  tests/verify-spending-money.test.ts
+)
+
+is_excluded_test() {
+  local candidate="$1"
+  local excluded
+  for excluded in "${EXCLUDED_TESTS[@]}"; do
+    if [ "$candidate" = "$excluded" ]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+is_admitted_test() {
+  local candidate="$1"
+  local admitted
+  for admitted in "${ADMITTED_TESTS[@]}"; do
+    if [ "$candidate" = "$admitted" ]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+ALL_TEST_FILES=()
+DISCOVERED_BACKEND_TESTS=()
+BACKEND_TESTS=()
+QUARANTINED_TESTS=()
+UNCLASSIFIED_TESTS=()
+SKIPPED_TESTS=()
+for t in tests/*.test.ts; do
+  [ -e "$t" ] || continue
+  ALL_TEST_FILES+=("$t")
+  if is_excluded_test "$t"; then
+    SKIPPED_TESTS+=("$t")
+  elif [[ "$t" == tests/test-*.test.ts || "$t" == tests/verify-*.test.ts ]]; then
+    DISCOVERED_BACKEND_TESTS+=("$t")
+    if is_admitted_test "$t"; then
+      BACKEND_TESTS+=("$t")
+    else
+      QUARANTINED_TESTS+=("$t")
+    fi
+  else
+    UNCLASSIFIED_TESTS+=("$t")
+  fi
+done
+
+for t in "${ADMITTED_TESTS[@]}" "${EXCLUDED_TESTS[@]}"; do
+  if [ ! -f "$t" ]; then
+    echo "FAIL: configured test no longer exists: $t"
+    UNCLASSIFIED_TESTS+=("$t")
+  fi
+done
+
+echo "Discovered ${#ALL_TEST_FILES[@]} test files"
+echo "Discovered ${#DISCOVERED_BACKEND_TESTS[@]} backend/API suites"
+echo "Selected ${#BACKEND_TESTS[@]} admitted backend/API suites"
+echo "Quarantined ${#QUARANTINED_TESTS[@]} backend/API suites (not run by default)"
+echo "Explicitly skipped ${#SKIPPED_TESTS[@]} browser/diagnostic suites"
+if [ "${#QUARANTINED_TESTS[@]}" -ne 0 ]; then
+  printf 'Quarantined (set RUN_QUARANTINED=1 to run):\n'
+  printf '  %s\n' "${QUARANTINED_TESTS[@]}"
+fi
+if [ "${#UNCLASSIFIED_TESTS[@]}" -ne 0 ]; then
+  echo "FAIL: unclassified or missing test files:"
+  printf '  %s\n' "${UNCLASSIFIED_TESTS[@]}"
+  exit 1
+fi
+
+if [ "${RUN_QUARANTINED:-0}" = "1" ]; then
+  BACKEND_TESTS+=("${QUARANTINED_TESTS[@]}")
+fi
+
+if [ "${TEST_DISCOVERY_ONLY:-0}" = "1" ]; then
+  echo "TEST DISCOVERY PASSED"
+  exit 0
+fi
+
+# Start shared server for API suites
+pkill -9 -f "server/index.ts" 2>/dev/null || true
+sleep 1
+PORT="$PORT" DATA_DIR="$TEST_DATA_DIR" SPEED_MULTIPLIER="${SPEED_MULTIPLIER:-200}" $NODE_BIN server/index.ts >/dev/null 2>&1 &
+SERVER_PID=$!
+sleep 2
+
+echo "Running backend/API suites:"
+printf '  %s\n' "${BACKEND_TESTS[@]}"
+
+
 FAILED=()
 TOTAL=0
 for t in "${BACKEND_TESTS[@]}"; do
@@ -95,7 +202,7 @@ for t in "${BACKEND_TESTS[@]}"; do
   fi
   TOTAL=$((TOTAL + 1))
   LOG="$(mktemp)"
-  if echo "$t" | grep -qE "$STANDALONE_RE"; then
+  if [[ "$t" =~ $STANDALONE_RE ]]; then
     DATA_DIR="$TEST_DATA_DIR" env -u PORT -u BASE_URL $NODE_BIN "$t" >"$LOG" 2>&1
   else
     DATA_DIR="$TEST_DATA_DIR" PORT="$PORT" BASE_URL="$BASE" $NODE_BIN "$t" >"$LOG" 2>&1
