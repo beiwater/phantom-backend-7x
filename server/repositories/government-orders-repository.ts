@@ -132,8 +132,8 @@ export class GovernmentOrdersRepository {
    */
   static STANDARD_PROJECTS = [
     {
-      key: 'FIRE_TRUCK_FLEET',
-      name: 'Fire Truck Fleet',
+      key: 'FIRE_TRUCKS',
+      name: 'Fire Trucks',
       agency: 'FIRE_DEPARTMENT',
       value: 260000,
       days: 7,
@@ -188,8 +188,8 @@ export class GovernmentOrdersRepository {
       ]
     },
     {
-      key: 'STRATEGIC_GRAIN_RESERVE',
-      name: 'Strategic Grain Reserve',
+      key: 'CROP_DIVERSITY_PROGRAM',
+      name: 'Crop Diversity Program',
       agency: 'DEPARTMENT_OF_AGRICULTURE',
       value: 210000,
       days: 5,
@@ -202,8 +202,8 @@ export class GovernmentOrdersRepository {
       ]
     },
     {
-      key: 'GRID_REINFORCEMENT',
-      name: 'Grid Reinforcement',
+      key: 'FUEL_RESERVES',
+      name: 'Fuel Reserves',
       agency: 'ENERGY_DEPARTMENT',
       value: 480000,
       days: 7,
@@ -216,8 +216,8 @@ export class GovernmentOrdersRepository {
       ]
     },
     {
-      key: 'EMERGENCY_MEDICAL_SUPPLY',
-      name: 'Emergency Medical Supply',
+      key: 'MEDICAL_SUPPLIES',
+      name: 'Medical Supplies',
       agency: 'PUBLIC_HEALTH_DEPARTMENT',
       value: 350000,
       days: 5,
@@ -231,6 +231,16 @@ export class GovernmentOrdersRepository {
     }
   ];
 
+  static LEGACY_KEY_RENAMES: Record<string, string> = {
+    FIRE_TRUCK_FLEET: 'FIRE_TRUCKS',
+    STRATEGIC_GRAIN_RESERVE: 'CROP_DIVERSITY_PROGRAM',
+    GRID_REINFORCEMENT: 'FUEL_RESERVES',
+    EMERGENCY_MEDICAL_SUPPLY: 'MEDICAL_SUPPLIES',
+    SATELLITE_NETWORK: 'MARS_ROVER',
+    BORDER_SECURITY_LOGISTICS: 'DRONE_FLEET',
+    CLEAN_WATER_INITIATIVE: 'GREEN_DIPLOMATIC_FLEET'
+  };
+
   projectDefinition(projectKey: string): {
     key: string;
     name: string;
@@ -240,18 +250,16 @@ export class GovernmentOrdersRepository {
     unitCompensationPrice: number;
     resources: Array<Record<string, number>>;
   } | undefined {
-    return GovernmentOrdersRepository.STANDARD_PROJECTS.find(project => project.key === projectKey);
+    const canonicalKey = GovernmentOrdersRepository.LEGACY_KEY_RENAMES[projectKey] || projectKey;
+    return GovernmentOrdersRepository.STANDARD_PROJECTS.find(
+      project => project.key === canonicalKey || project.key === projectKey
+    );
   }
 
   ensureSeededProjects(realmId: number = 0): void {
     const now = virtualClock.now();
     const nowIso = now.toISOString();
-    const legacyKeyRenames: Record<string, string> = {
-      SATELLITE_NETWORK: 'MARS_ROVER',
-      BORDER_SECURITY_LOGISTICS: 'DRONE_FLEET',
-      CLEAN_WATER_INITIATIVE: 'GREEN_DIPLOMATIC_FLEET'
-    };
-    for (const [oldKey, newKey] of Object.entries(legacyKeyRenames)) {
+    for (const [oldKey, newKey] of Object.entries(GovernmentOrdersRepository.LEGACY_KEY_RENAMES)) {
       const hasNewKey = this.database.prepare(
         'SELECT 1 FROM government_orders WHERE realm_id = ? AND project_key = ? LIMIT 1'
       ).get(realmId, newKey);
@@ -259,6 +267,10 @@ export class GovernmentOrdersRepository {
         this.database.prepare(
           'UPDATE government_orders SET project_key = ? WHERE realm_id = ? AND project_key = ?'
         ).run(newKey, realmId, oldKey);
+      } else {
+        this.database.prepare(
+          'DELETE FROM government_orders WHERE realm_id = ? AND project_key = ?'
+        ).run(realmId, oldKey);
       }
     }
 

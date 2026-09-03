@@ -129,35 +129,201 @@ type GovernmentOrderDbRow = {
   created_at: string | null;
 };
 
+const OFFICIAL_PROJECT_AGENCIES: Record<string, string> = {
+  WATER_RESERVES: 'FIRE_DEPARTMENT',
+  FIRE_TRUCKS: 'FIRE_DEPARTMENT',
+  SAFETY_GEAR: 'FIRE_DEPARTMENT',
+  EMERGENCY_SUPPLIES: 'NATURAL_DISASTER_RELIEF_AGENCY',
+  EVACUATION_VEHICLES: 'NATURAL_DISASTER_RELIEF_AGENCY',
+  EMERGENCY_POWER: 'NATURAL_DISASTER_RELIEF_AGENCY',
+  EMERGENCY_CLOTHING: 'NATURAL_DISASTER_RELIEF_AGENCY',
+  FIRST_RESPONSE: 'NATURAL_DISASTER_RELIEF_AGENCY',
+  CARNIVORE_FEEDING: 'CITY_ZOO',
+  HERBIVORES_FEEDING: 'CITY_ZOO',
+  HABITAT_RENOVATION: 'CITY_ZOO',
+  GREEN_BUSES: 'CITY_PUBLIC_TRANSPORT',
+  DIGITAL_PAYMENT_SYSTEM: 'CITY_PUBLIC_TRANSPORT',
+  METRO_EXPANSION: 'CITY_PUBLIC_TRANSPORT',
+  VACCINE_RESEARCH: 'PUBLIC_HEALTH_DEPARTMENT',
+  MEDICAL_SUPPLIES: 'PUBLIC_HEALTH_DEPARTMENT',
+  TELEMEDICINE_INFRASTRUCTURE: 'PUBLIC_HEALTH_DEPARTMENT',
+  CROP_DIVERSITY_PROGRAM: 'DEPARTMENT_OF_AGRICULTURE',
+  SUSTAINABLE_FARMING: 'DEPARTMENT_OF_AGRICULTURE',
+  ANIMAL_BREEDING: 'DEPARTMENT_OF_AGRICULTURE',
+  WATER_PURIFICATION: 'ENVIRONMENTAL_PROTECTION_AGENCY',
+  REFORESTATION: 'ENVIRONMENTAL_PROTECTION_AGENCY',
+  AIR_QUALITY_MONITORING: 'ENVIRONMENTAL_PROTECTION_AGENCY',
+  SOLAR_POWER_INITIATIVE: 'ENERGY_DEPARTMENT',
+  WIND_TURBINES: 'ENERGY_DEPARTMENT',
+  NUCLEAR_POWER_PLANT: 'ENERGY_DEPARTMENT',
+  FUEL_RESERVES: 'ENERGY_DEPARTMENT',
+  DIGITAL_INFRASTRUCTURE: 'DEPARTMENT_OF_COMMERCE',
+  ECONOMIC_SUPPORT: 'DEPARTMENT_OF_COMMERCE',
+  EXCLUSIVE_MERCHANDISE: 'DEPARTMENT_OF_COMMERCE',
+  DATA_CENTER: 'DEPARTMENT_OF_DEFENSE',
+  CYBERSECURITY_PROGRAM: 'DEPARTMENT_OF_DEFENSE',
+  DRONE_FLEET: 'DEPARTMENT_OF_DEFENSE',
+  DRONES_PROGRAM: 'DEPARTMENT_OF_DEFENSE',
+  SATELLITE_SURVEILLANCE: 'DEPARTMENT_OF_DEFENSE',
+  BALLISTIC_MISSILES: 'DEPARTMENT_OF_DEFENSE',
+  AIRCRAFT_SPARE_PARTS: 'DEPARTMENT_OF_DEFENSE',
+  E_LEARNING_DEVICES: 'DEPARTMENT_OF_EDUCATION',
+  SCHOOL_LUNCH_PROGRAM: 'DEPARTMENT_OF_EDUCATION',
+  SCHOOL_LUNCH_SUPPLIES: 'DEPARTMENT_OF_EDUCATION',
+  CULINARY_RESEARCH: 'DEPARTMENT_OF_EDUCATION',
+  AFFORDABLE_HOUSING: 'DEPARTMENT_OF_HOUSING',
+  GREEN_BUILDINGS: 'DEPARTMENT_OF_HOUSING',
+  NAVIGATION_CONSTELLATION: 'SPACE_EXPLORATION_AGENCY',
+  MARS_ROVER: 'SPACE_EXPLORATION_AGENCY',
+  MARS_ROVER_2: 'SPACE_EXPLORATION_AGENCY',
+  STARSHIP_DEVELOPMENT: 'SPACE_EXPLORATION_AGENCY',
+  OUTERSPACE_EXPLORATION: 'SPACE_EXPLORATION_AGENCY',
+  RESEARCH_GRANT: 'SPACE_EXPLORATION_AGENCY',
+  ELECTRONICS_INNOVATION: 'SPACE_EXPLORATION_AGENCY',
+  ADVANCED_PROPULSION: 'SPACE_EXPLORATION_AGENCY',
+  ADVANCED_PROPULSION_2: 'SPACE_EXPLORATION_AGENCY',
+  ROCKET_PROPULSION_TESTING: 'SPACE_EXPLORATION_AGENCY',
+  FOOD_SECURITY_RESERVES: 'NATIONAL_FOOD_AGENCY',
+  DAIRY_PRODUCTION: 'NATIONAL_FOOD_AGENCY',
+  WILDFIRE_PREVENTION: 'FORESTRY_DEPARTMENT',
+  FOREST_RESTORATION: 'FORESTRY_DEPARTMENT',
+  AUTOMATED_TRAFFIC_SYSTEMS: 'TRANSPORTATION_SAFETY_BOARD',
+  SMART_ROADS: 'TRANSPORTATION_SAFETY_BOARD',
+  SAFETY_RULES: 'TRANSPORTATION_SAFETY_BOARD',
+  CRUSH_TESTS: 'TRANSPORTATION_SAFETY_BOARD',
+  ENGINES_TESTS: 'TRANSPORTATION_SAFETY_BOARD',
+  MANUFACTURING_SUPPORT: 'ECONOMIC_DEVELOPMENT_AGENCY',
+  ADVANCED_ROBOTICS: 'ECONOMIC_DEVELOPMENT_AGENCY',
+  COMMUNICATION_UPGRADES: 'ECONOMIC_DEVELOPMENT_AGENCY',
+  CRITICAL_RESERVES: 'MINING_AND_RESOURCES_AGENCY',
+  PRECIOUS_METALS: 'MINING_AND_RESOURCES_AGENCY',
+  RAW_MATERIAL_EXTRACTION: 'MINING_AND_RESOURCES_AGENCY',
+  METAL_PROCESSING: 'MINING_AND_RESOURCES_AGENCY',
+  DIPLOMATIC_MISSIONS: 'FOREIGN_AFFAIRS_DEPARTMENT',
+  G10_SUMMIT_CATERING: 'FOREIGN_AFFAIRS_DEPARTMENT',
+  G6_SUMMIT_CATERING: 'FOREIGN_AFFAIRS_DEPARTMENT',
+  UN_SUMMIT_CATERING: 'FOREIGN_AFFAIRS_DEPARTMENT',
+  SUMMIT_CATERING: 'FOREIGN_AFFAIRS_DEPARTMENT',
+  TRANSPORTATION_UPGRADE: 'FOREIGN_AFFAIRS_DEPARTMENT',
+  CITY_DECORATIONS: 'TOWN_HALL',
+  FEED_THE_HOMELESS: 'TOWN_HALL',
+  FEED_THE_POOR: 'TOWN_HALL',
+  DRESS_THE_HOMELESS: 'TOWN_HALL',
+  MUSEUM_OF_ART: 'NATIONAL_ARTS_AGENCY',
+  CITY_FESTIVAL: 'NATIONAL_ARTS_AGENCY',
+  FASHION_FESTIVAL: 'NATIONAL_ARTS_AGENCY',
+  FLYING_SPAGHETTI_MONSTER_STATUE: 'NATIONAL_ARTS_AGENCY',
+  PROTEIN_RESERVES: 'NATIONAL_FOOD_AGENCY',
+  MEAT_SUPPLY: 'DEPARTMENT_OF_AGRICULTURE',
+  DIPLOMATIC_FLEET: 'FOREIGN_AFFAIRS_DEPARTMENT',
+  GREEN_DIPLOMATIC_FLEET: 'FOREIGN_AFFAIRS_DEPARTMENT',
+  LUXURY_VEHICLE_TESTING: 'TRANSPORTATION_SAFETY_BOARD',
+  SPACECRAFT_SYSTEMS: 'SPACE_EXPLORATION_AGENCY',
+  EMERGENCY_SUPPLIES_2: 'NATURAL_DISASTER_RELIEF_AGENCY',
+  SUSTAINABLE_FARMING_2: 'DEPARTMENT_OF_AGRICULTURE',
+  FOOD_SECURITY_RESERVES_2: 'NATIONAL_FOOD_AGENCY',
+  AIR_QUALITY_MONITORING_2: 'ENVIRONMENTAL_PROTECTION_AGENCY',
+  GREEN_BUSES_2: 'CITY_PUBLIC_TRANSPORT',
+  MEDICAL_SUPPLIES_2: 'PUBLIC_HEALTH_DEPARTMENT',
+  ECONOMIC_SUPPORT_2: 'DEPARTMENT_OF_COMMERCE',
+  DRONE_FLEET_2: 'DEPARTMENT_OF_DEFENSE',
+  SATELLITE_SURVEILLANCE_2: 'DEPARTMENT_OF_DEFENSE',
+  E_LEARNING_DEVICES_2: 'DEPARTMENT_OF_EDUCATION',
+  WIND_TURBINES_2: 'ENERGY_DEPARTMENT',
+  NUCLEAR_POWER_PLANT_2: 'ENERGY_DEPARTMENT',
+  SMART_ROADS_2: 'TRANSPORTATION_SAFETY_BOARD',
+  ADVANCED_ROBOTICS_2: 'ECONOMIC_DEVELOPMENT_AGENCY'
+};
+
+const LEGACY_PROJECT_KEY_MAP: Record<string, string> = {
+  FIRE_TRUCK_FLEET: 'FIRE_TRUCKS',
+  STRATEGIC_GRAIN_RESERVE: 'CROP_DIVERSITY_PROGRAM',
+  GRID_REINFORCEMENT: 'FUEL_RESERVES',
+  EMERGENCY_MEDICAL_SUPPLY: 'MEDICAL_SUPPLIES',
+  SATELLITE_NETWORK: 'MARS_ROVER',
+  BORDER_SECURITY_LOGISTICS: 'DRONE_FLEET',
+  CLEAN_WATER_INITIATIVE: 'GREEN_DIPLOMATIC_FLEET'
+};
+
 function mapGovernmentOrderRow(row: GovernmentOrderDbRow): GovernmentOrderTemplate {
-  let resources: GovernmentRequiredResource[] = [];
+  const rawKey = String(row.project_key || '').trim();
+  const canonicalKey = LEGACY_PROJECT_KEY_MAP[rawKey] || rawKey;
+  const projectDef =
+    governmentOrdersRepository.projectDefinition(canonicalKey) ||
+    governmentOrdersRepository.projectDefinition(rawKey);
+  const projectKey =
+    canonicalKey in OFFICIAL_PROJECT_AGENCIES
+      ? canonicalKey
+      : (projectDef?.key || 'FIRE_TRUCKS');
+
+  // Ensure agency is never empty or undefined (#191)
+  const agency =
+    row.agency ||
+    projectDef?.agency ||
+    OFFICIAL_PROJECT_AGENCIES[projectKey] ||
+    'FIRE_DEPARTMENT';
+
+  let rawResources: Array<Record<string, unknown>> = [];
   try {
-    resources = JSON.parse(row.required_resources_json || '[]') as GovernmentRequiredResource[];
+    const parsed = JSON.parse(row.required_resources_json || '[]');
+    rawResources = Array.isArray(parsed) ? parsed : [];
   } catch {
-    resources = [];
+    rawResources = [];
   }
-  const created = row.created_at || virtualClock.nowIso();
-  const startDate = row.start_date || created;
-  const daysToFulfill = Number(row.days_to_fulfill) || 0;
-  const deadline = row.deadline || new Date(
-    Date.parse(startDate) + daysToFulfill * 24 * 60 * 60 * 1000
-  ).toISOString();
-  const name = governmentProjectName(row.project_key);
+  if (rawResources.length === 0 && projectDef?.resources) {
+    rawResources = projectDef.resources as Array<Record<string, unknown>>;
+  }
+  if (rawResources.length === 0) {
+    rawResources = [{ id: 1, kind: 12, quality: 0, amountBase: 100, targetAmount: 100, unitCompensationPrice: 10, unitPrice: 10 }];
+  }
+
+  const resources: GovernmentRequiredResource[] = rawResources.map((r, idx) => ({
+    id: Number(r.id) || idx + 1,
+    kind: Number(r.kind) || 1,
+    quality: Number(r.quality) || 0,
+    amountBase: Number(r.amountBase) || 100,
+    targetAmount: Number(r.targetAmount) || Number(r.amountBase) || 100,
+    unitCompensationPrice: Number(r.unitCompensationPrice) || 0,
+    unitPrice: Number(r.unitPrice) || 0
+  }));
+
+  const nowMs = virtualClock.now().getTime();
+  const createdParsed = Date.parse(row.created_at || '');
+  const created = !isNaN(createdParsed) ? new Date(createdParsed).toISOString() : virtualClock.nowIso();
+  const startParsed = Date.parse(row.start_date || '');
+  const startDate = !isNaN(startParsed) ? new Date(startParsed).toISOString() : created;
+  const startMs = !isNaN(startParsed) ? startParsed : (!isNaN(createdParsed) ? createdParsed : nowMs);
+  const daysToFulfill = Number(row.days_to_fulfill) || projectDef?.days || 7;
+  let deadline = row.deadline;
+  const deadlineParsed = Date.parse(deadline || '');
+  if (isNaN(deadlineParsed)) {
+    deadline = new Date(startMs + daysToFulfill * 24 * 60 * 60 * 1000).toISOString();
+  }
+
+  const name =
+    projectDef?.name ||
+    governmentProjectName(projectKey) ||
+    governmentProjectName(rawKey) ||
+    'Government Order';
+
+  const unitCompensationPrice = Number(row.unit_compensation_price) || projectDef?.unitCompensationPrice || 0;
+  const estimatedBaseValue = Number(row.estimated_base_value) || projectDef?.value || 100000;
+
   return {
     id: row.id,
-    realm: row.realm_id,
-    realmId: row.realm_id,
-    projectKey: row.project_key,
+    realm: Number(row.realm_id) || 0,
+    realmId: Number(row.realm_id) || 0,
+    projectKey,
     name,
     projectName: name,
-    agency: row.agency,
-    estimatedBaseValue: row.estimated_base_value,
+    agency,
+    estimatedBaseValue,
     daysToFulfill,
-    resourceMultiplierAwarded: row.resource_multiplier_awarded,
+    resourceMultiplierAwarded: row.resource_multiplier_awarded ?? null,
     created,
     startDate,
     deadline,
-    unitCompensationPrice: row.unit_compensation_price || 0,
+    unitCompensationPrice,
     governmentorderrequiredresourceSet: mapGovernmentResources(resources)
   };
 }

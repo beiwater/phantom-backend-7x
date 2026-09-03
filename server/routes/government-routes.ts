@@ -292,11 +292,12 @@ export async function handleGovernmentRoutes(
         // Return single template combined with governmentOrders list for compatibility
         sendJson(res, {
           ...template,
-          governmentOrders: getGovernmentOrders(template.realm)
+          governmentOrders: getGovernmentOrders(template.realm),
+          orders: getGovernmentOrders(template.realm)
         });
       } else {
         const orders = getGovernmentOrders(idOrRealm);
-        sendJson(res, { governmentOrders: orders });
+        sendJson(res, { governmentOrders: orders, orders });
       }
       return true;
     }
@@ -324,7 +325,8 @@ export function registerGovernmentRoutes(registry: RouteRegistry = globalRouteRe
   const companyIdFromContext = (ctx: { companyId: number } | null): number | null => ctx?.companyId ?? null;
   const contextRealm = (ctx: { realmId: number } | null): number => ctx?.realmId ?? 0;
   const sendProject = (res: ServerResponse, projectId: number): void => {
-    const project = getGovernmentOrderById(projectId);
+    const validProjectId = Number.isFinite(projectId) ? projectId : 0;
+    const project = getGovernmentOrderById(validProjectId);
     const orders = project ? getGovernmentOrders(project.realm) : [];
     sendJson(
       res,
@@ -335,7 +337,8 @@ export function registerGovernmentRoutes(registry: RouteRegistry = globalRouteRe
     );
   };
   const sendOrderList = (res: ServerResponse, realmId: number): void => {
-    const orders = getGovernmentOrders(realmId);
+    const validRealmId = Number.isFinite(realmId) ? realmId : 0;
+    const orders = getGovernmentOrders(validRealmId);
     sendJson(res, { governmentOrders: orders, orders });
   };
 
