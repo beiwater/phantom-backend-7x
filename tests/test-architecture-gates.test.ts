@@ -97,10 +97,9 @@ function testArchitectureGates() {
     'game/company.ts',
     'game/government.ts'
   ];
-  const applicationGameMutationAllowlist = new Map<string, string[]>([
-    // #179 remaining vertical migrations:
-    ['scheduler/daily-jobs.ts', ['game/government.ts']]
-  ]);
+  // Issue #179 COMPLETE: no application file may import any game/* mutation
+  // engine. The Strangler Fig migration is done at the application boundary.
+  const applicationGameMutationAllowlist = new Map<string, string[]>([]);
 
   const gameMutationDebt: Array<{ file: string; modules: string[]; allowlisted: boolean }> = [];
   for (const entry of fs.readdirSync(appDir, { recursive: true })) {

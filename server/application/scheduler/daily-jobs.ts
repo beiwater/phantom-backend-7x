@@ -14,7 +14,6 @@ import { companyRepository } from '../../repositories/company-repository.ts';
 import { governmentOrdersRepository } from '../../repositories/government-orders-repository.ts';
 import { schedulerStateRepository } from '../../repositories/scheduler-state-repository.ts';
 import { recordCashLedger } from '../../game/cash-ledger.ts';
-import { ensureSeededProjects } from '../../game/government.ts';
 import { getAllResourceDefs } from '../../game-data/resources.ts';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -180,7 +179,7 @@ export function publishGovernmentOrders(occurrence: Date): void {
   const realmRows = governmentOrdersRepository.listRealms();
   const realms = realmRows.length > 0 ? realmRows : [0];
   for (const realmId of realms) {
-    ensureSeededProjects(realmId);
+    governmentOrdersRepository.ensureSeededProjects(realmId);
   }
 
   const occIso = occurrence.toISOString();
