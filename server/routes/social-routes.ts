@@ -289,8 +289,7 @@ export async function handleSocialRoutes(
     const realmByCompanyId = new Map<number, number>(
       socialRepository.listCompanyRealms().map(row => [row.company_id, row.realm_id])
     );
-
-    sendJson(res, messages.reverse().map(m => ({
+    sendJson(res, messages.map(m => ({
       id: m.id,
       chatroom: m.room,
       // C-3: frontend resolves the realm badge via Kt[sender.realmId]; a
