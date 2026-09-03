@@ -29,7 +29,7 @@ async function invoke(pathname: string, companyId: number): Promise<CapturedResp
 const firstCompany = await FixtureService.applyScenario({ companyName: 'Issue 189 chat sender A', money: 100_000, level: 30 });
 const secondCompany = await FixtureService.applyScenario({ companyName: 'Issue 189 chat sender B', money: 100_000, level: 30 });
 const room = 'ISSUE_189_ORDER';
-db.prepare('DELETE FROM chat_messages WHERE room = ?').run(room);
+db.prepare("DELETE FROM chat_messages WHERE room IN (?, 'N', '1')").run(room);
 
 const tieTimestamp = '2043-01-02T10:00:00.000Z';
 const firstId = socialRepository.insertChatMessage(room, firstCompany.companyId, 'Sender A', 'first', tieTimestamp);

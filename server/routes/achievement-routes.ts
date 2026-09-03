@@ -384,13 +384,13 @@ export async function handleAchievementRoutes(
     sendJson(res, getCompanyCertificates(requestedCompanyId));
     return true;
   }
-  if (pathname.startsWith('/api/') && pathname.includes('/certificates/')) {
+  if (pathname.startsWith('/api/') && !pathname.includes('/pages/') && pathname.includes('/certificates/')) {
     sendJson(res, getCertificates(0));
     return true;
   }
 
   // 10. Government Orders — real data from the government engine
-  if (pathname.startsWith('/api/') && pathname.includes('/government-orders/')) {
+  if (pathname.startsWith('/api/') && !pathname.includes('/pages/') && pathname.includes('/government-orders/')) {
     const realmOrders = getGovernmentOrders(0);
     const tierInfo = getGovernmentTier(currentCompanyId);
     sendJson(res, {
@@ -402,14 +402,14 @@ export async function handleAchievementRoutes(
   }
 
   // 11. Gift baskets
-  if (pathname.startsWith('/api/') && pathname.includes('/gift-baskets/')) {
+  if (pathname.startsWith('/api/') && !pathname.includes('/pages/') && pathname.includes('/gift-baskets/')) {
     sendJson(res, { baskets: [] });
     return true;
   }
 
   // 12. Unlocked PAs — real handler lives in social-routes (runs first);
   // this catch only fires for unmatched URL variants.
-  if (pathname.startsWith('/api/') && pathname.includes('/unlocked-pas/')) {
+  if (pathname.startsWith('/api/') && !pathname.includes('/pages/') && pathname.includes('/unlocked-pas/')) {
     sendJson(res, { pas: [] });
     return true;
   }

@@ -423,16 +423,6 @@ export function registerEncyclopediaRoutes(registry: RouteRegistry = globalRoute
       handler: async (_req, res) => { sendJson(res, getCertificates(0)); }
     })
     .register({
-      method: 'GET', pattern: '/api/v3/:scope/:realmId/government-orders/', owner: 'encyclopedia',
-      handler: async (_req, res, ctx) => {
-        sendJson(res, {
-          governmentOrders: getGovernmentOrders(0),
-          applications: getGovernmentBids(0),
-          tier: getGovernmentTier(ctx?.companyId ?? null).tierIndex
-        });
-      }
-    })
-    .register({
       method: 'GET', pattern: '/api/v4/:scope/:realmId/stats/top/:stat/', owner: 'encyclopedia',
       handler: async (_req, res) => {
         const rows = companyRepository.listTopCompaniesByMoney(100);

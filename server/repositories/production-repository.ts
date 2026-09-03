@@ -39,6 +39,7 @@ export interface ProductionQueueDbRow {
   economy_phase_started_at: string | null;
   economy_source: string | null;
   production_modifier: number | null;
+  production_output_multiplier: number | null;
   launch_consumes_research: number | null;
 }
 
@@ -59,6 +60,7 @@ function mapQueueRow(row: ProductionQueueDbRow): ProductionQueueEntity {
     economyPhaseStartedAt: row.economy_phase_started_at,
     economySource: row.economy_source || 'migration',
     productionModifier: Number(row.production_modifier ?? 0),
+    productionOutputMultiplier: Number(row.production_output_multiplier ?? 1),
     launchConsumesResearch: Boolean(row.launch_consumes_research ?? 1),
   };
 }

@@ -11,6 +11,7 @@ const RESOURCE_NAMES: Record<string, string> = {
   '12': 'Diesel',
   '13': 'Transport',
   '18': 'Aluminium',
+  '22': 'Batteries',
   '48': 'Electric motor',
   '66': 'Seeds',
   '75': 'Carbon fibers',

@@ -8,7 +8,13 @@ cd "$(dirname "$0")/.."
 # The server and legacy contract suites default to port 3000. Keeping this
 # aligned avoids false failures from suites that intentionally use that public
 # default rather than BASE_URL.
-PORT="${PORT:-3000}"
+if [ -z "${PORT:-}" ]; then
+  if ss -tulpn 2>/dev/null | grep -qE "(:| )3000 "; then
+    PORT="3100"
+  else
+    PORT="3000"
+  fi
+fi
 BASE="${BASE_URL:-http://127.0.0.1:$PORT}"
 # Use a fresh database unless a caller deliberately provides one. Old local
 # schemas must not make a regression run fail before the server can start.
@@ -64,6 +70,8 @@ BACKEND_TESTS=(
   tests/verify-issue-184-government-content.test.ts
   tests/verify-issue-185-economy.test.ts
   tests/verify-issue-197-launchpad-mapping.test.ts
+  tests/verify-issue-182-certificates.test.ts
+  tests/verify-production-process.test.ts
   tests/verify-issue-186-time-warp-consistency.test.ts
   tests/verify-issue-187-executive-offer-flow.test.ts
   tests/verify-issue-188-chat-timestamps.test.ts
@@ -81,17 +89,20 @@ for t in "${BACKEND_TESTS[@]}"; do
     continue
   fi
   TOTAL=$((TOTAL + 1))
+  LOG="$(mktemp)"
   if echo "$t" | grep -qE "$STANDALONE_RE"; then
-    DATA_DIR="$TEST_DATA_DIR" env -u PORT -u BASE_URL $NODE_BIN "$t" >/dev/null 2>&1
+    DATA_DIR="$TEST_DATA_DIR" env -u PORT -u BASE_URL $NODE_BIN "$t" >"$LOG" 2>&1
   else
-    DATA_DIR="$TEST_DATA_DIR" PORT="$PORT" BASE_URL="$BASE" $NODE_BIN "$t" >/dev/null 2>&1
+    DATA_DIR="$TEST_DATA_DIR" PORT="$PORT" BASE_URL="$BASE" $NODE_BIN "$t" >"$LOG" 2>&1
   fi
   if [ $? -ne 0 ]; then
     FAILED+=("$t")
     echo "FAIL: $t"
+    cat "$LOG"
   else
     echo "PASS: $t"
   fi
+  rm -f "$LOG"
 done
 
 kill -9 $SERVER_PID 2>/dev/null || true
