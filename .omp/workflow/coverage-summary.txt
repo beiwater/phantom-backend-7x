@@ -16,7 +16,7 @@ Issues Addressed & Verified:
 - Issue #194: unpublished newspaper issues & articles blocked from direct access
 - Issue #195: hired executive detail page DTO and array fields restored
 - Issue #196: NaN eliminated from executive candidates, offers, countdowns, and history
-
+- Issue #191: Government orders project keys normalized to frontend catalog (FIRE_TRUCKS, CROP_DIVERSITY_PROGRAM, FUEL_RESERVES, MEDICAL_SUPPLIES) with safe agency/deadline/resource fallbacks preventing DOM crash
 Test Suite Results:
 Suites Run: 46
 Suites Passed: 46

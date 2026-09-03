@@ -4,13 +4,13 @@
   "current_phase": "ci_repair_and_issue_fix_completed",
   "active_frontier": "clean_suite_regression_locked",
   "active_finding": null,
-  "active_fix": "Issues #183, #184, #189, #190, #192, #193, #194, #195, #196 verified",
-  "last_verified_transition": "all_46_test_suites_passed",
-  "graph_revision": 24,
-  "updated_at": "2026-09-03T04:20:00Z",
+  "active_fix": "Issues #183, #184, #189, #190, #191, #192, #193, #194, #195, #196 verified",
+  "last_verified_transition": "all_46_test_suites_passed_and_e2e_government_orders_verified",
+  "graph_revision": 25,
+  "updated_at": "2026-09-03T09:20:00Z",
   "currentFrontier": [],
   "lastTransition": "Unit test suite fully repaired and green: 46 passed / 0 failed",
-  "lastVerified": "741a4c5 on master; 46/46 suites green; architecture gates clean",
-  "graphRevision": "2026-09-03T04:20:00.000Z",
-  "note": "Issues #183, #184, #189, #190, #192, #193, #194, #195, #196 resolved and regression tested"
+  "lastVerified": "5a31a98 on master; 46/46 suites green; CI 33738087573 passed; Issue #191 closed",
+  "graphRevision": "2026-09-03T09:20:00.000Z",
+  "note": "Issues #183, #184, #189, #190, #191, #192, #193, #194, #195, #196 resolved and regression tested"
 }
