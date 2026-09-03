@@ -2,7 +2,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { readJsonBody, sendJson } from './utils.ts';
 import { gameNotificationsRepository } from '../repositories/game-notifications-repository.ts';
 import { referralsRepository } from '../repositories/referrals-repository.ts';
-import { db } from '../db/database.ts';
+import { socialRepository } from '../repositories/social-repository.ts';
 import { getCompanyById } from '../game/company.ts';
 import { checkRateLimit } from '../security/rate-limiter.ts';
 import { getArticlesBySubstring, getNewspaperIssue, getNewspaperIssues, getTopArticlesByReaction } from '../game/newspaper.ts';
@@ -42,12 +42,11 @@ const DEFAULT_CHATROOMS: Array<ChatroomSubscriptionEntry> = [
 ];
 
 function loadChatroomSubscriptions(companyId: number): Array<ChatroomSubscriptionEntry> {
-  const row = db.prepare('SELECT value FROM company_settings WHERE company_id = ? AND key = ?')
-    .get(companyId, 'chatroom_subscriptions') as { value?: string } | undefined;
+  const settingValue = socialRepository.getCompanySetting(companyId, 'chatroom_subscriptions');
   let unsubscribed: string[] = [];
-  if (row?.value) {
+  if (settingValue) {
     try {
-      const parsed: unknown = JSON.parse(row.value);
+      const parsed: unknown = JSON.parse(settingValue);
       if (Array.isArray(parsed)) unsubscribed = parsed.map(String);
     } catch {
       unsubscribed = [];
@@ -95,7 +94,7 @@ export async function handleSocialRoutes(
       }
       const body = await readJsonBody<{ freeText?: string }>(req);
       const newText = String(body?.freeText ?? '').slice(0, 2000);
-      db.prepare('UPDATE companies SET note = ? WHERE company_id = ?').run(newText, targetCompanyId);
+      socialRepository.setCompanyNote(newText, targetCompanyId);
       sendJson(res, newText);
       return true;
     }
@@ -108,8 +107,7 @@ export async function handleSocialRoutes(
   if (playerNotificationsMatch) {
     const CATEGORIES = ['emailNotifications', 'popupNotifications', 'pushNotifications'] as const;
     const loadRow = (): Record<string, Record<string, boolean>> => {
-      const row = db.prepare('SELECT email_json, popup_json, push_json FROM notification_preferences WHERE company_id = ?')
-        .get(currentCompanyId ?? -1) as { email_json?: string; popup_json?: string; push_json?: string } | undefined;
+      const row = socialRepository.getNotificationPreferences(currentCompanyId ?? -1);
       const parse = (raw: string | undefined): Record<string, boolean> => {
         if (!raw) return {};
         try { return JSON.parse(raw); } catch { return {}; }
@@ -145,11 +143,7 @@ export async function handleSocialRoutes(
       const flags = rest[category] ?? {};
       const column = category === 'emailNotifications' ? 'email_json'
         : category === 'popupNotifications' ? 'popup_json' : 'push_json';
-      db.prepare(`
-        INSERT INTO notification_preferences (company_id, ${column}, updated_at)
-        VALUES (?, ?, ?)
-        ON CONFLICT(company_id) DO UPDATE SET ${column} = excluded.${column}, updated_at = excluded.updated_at
-      `).run(currentCompanyId, JSON.stringify(flags), new Date().toISOString());
+      socialRepository.upsertNotificationPreferences(currentCompanyId, column, JSON.stringify(flags), new Date().toISOString());
       sendJson(res, loadRow());
       return true;
     }
@@ -268,12 +262,9 @@ export async function handleSocialRoutes(
   if (chatFromIdMatch) {
     const room = decodeURIComponent(chatFromIdMatch[1]);
     const fromId = Number(chatFromIdMatch[2]) || 0;
-    const messages = db.prepare(`
-      SELECT * FROM chat_messages WHERE (room = ? OR room = 'N' OR room = '1') AND id > ? ORDER BY id ASC LIMIT 50
-    `).all(room, fromId) as Array<{ id: number; room: string; sender_id: number; sender_company: string; text: string; sent_at: string }>;
+    const messages = socialRepository.listChatMessagesFromId(room, fromId);
     const realmByCompanyId = new Map<number, number>(
-      (db.prepare('SELECT company_id, realm_id FROM companies').all() as Array<{ company_id: number; realm_id: number }>)
-        .map(row => [row.company_id, row.realm_id])
+      socialRepository.listCompanyRealms().map(row => [row.company_id, row.realm_id])
     );
 
     sendJson(res, messages.map(m => ({
@@ -292,12 +283,9 @@ export async function handleSocialRoutes(
   const chatroomMatch = pathname.match(/^\/api\/v2\/chatroom\/([^/]+)\/$/);
   if (chatroomMatch) {
     const room = decodeURIComponent(chatroomMatch[1]);
-    const messages = db.prepare(`
-      SELECT * FROM chat_messages WHERE room = ? OR room = 'N' OR room = '1' ORDER BY id DESC LIMIT 50
-    `).all(room) as Array<{ id: number; room: string; sender_id: number; sender_company: string; text: string; sent_at: string }>;
+    const messages = socialRepository.listChatMessages(room);
     const realmByCompanyId = new Map<number, number>(
-      (db.prepare('SELECT company_id, realm_id FROM companies').all() as Array<{ company_id: number; realm_id: number }>)
-        .map(row => [row.company_id, row.realm_id])
+      socialRepository.listCompanyRealms().map(row => [row.company_id, row.realm_id])
     );
 
     sendJson(res, messages.reverse().map(m => ({
@@ -349,13 +337,10 @@ export async function handleSocialRoutes(
     }
 
     const now = new Date().toISOString();
-    const result = db.prepare(`
-      INSERT INTO chat_messages (room, sender_id, sender_company, text, sent_at)
-      VALUES (?, ?, ?, ?, ?)
-    `).run(room, comp.company_id, comp.name, text, now);
+    const messageId = socialRepository.insertChatMessage(room, comp.company_id, comp.name, text, now);
 
     sendJson(res, {
-      id: Number(result.lastInsertRowid),
+      id: messageId,
       chatroom: room,
       sender: { id: comp.company_id, company: comp.name, logo: '', supporter: false, realmId: comp.realm_id ?? 0 },
       body: text,
@@ -392,8 +377,7 @@ export async function handleSocialRoutes(
       for (const letter of deleted) {
         subs = subs.map(s => (s.db_letter === letter ? { ...s, notSubscribed: true } : s));
       }
-      db.prepare('INSERT INTO company_settings (company_id, key, value) VALUES (?, ?, ?) ON CONFLICT(company_id, key) DO UPDATE SET value = excluded.value')
-        .run(targetId, 'chatroom_subscriptions', JSON.stringify(subs.filter(s => s.notSubscribed).map(s => s.db_letter)));
+      socialRepository.upsertCompanySetting(targetId, 'chatroom_subscriptions', JSON.stringify(subs.filter(s => s.notSubscribed).map(s => s.db_letter)));
       sendJson(res, subs);
       return true;
     }
@@ -415,7 +399,7 @@ export async function handleSocialRoutes(
     if (method === 'POST') {
       const body = await readJsonBody<{ note?: string }>(req);
       const noteText = String(body?.note ?? '').slice(0, 4000);
-      db.prepare('UPDATE companies SET note = ? WHERE company_id = ?').run(noteText, currentCompanyId);
+      socialRepository.setCompanyNote(noteText, currentCompanyId);
       sendJson(res, noteText);
       return true;
     }
@@ -434,18 +418,10 @@ export async function handleSocialRoutes(
 
     if (method === 'GET') {
       if (aboutCompanyId) {
-        const row = db.prepare('SELECT note FROM company_notes WHERE company_id = ? AND about_company_id = ?')
-          .get(currentCompanyId, aboutCompanyId) as { note?: string } | undefined;
-        sendJson(res, { note: row?.note ?? '' });
+        sendJson(res, { note: socialRepository.getCompanyNote(currentCompanyId, aboutCompanyId) ?? '' });
         return true;
       }
-      const rows = db.prepare(`
-        SELECT cn.id, cn.note, cn.priority, c.company_id, c.name, c.realm_id, c.logo
-        FROM company_notes cn
-        JOIN companies c ON c.company_id = cn.about_company_id
-        WHERE cn.company_id = ?
-        ORDER BY cn.priority ASC, cn.id ASC
-      `).all(currentCompanyId) as Array<{ id: number; note: string; priority: number; company_id: number; name: string; realm_id: number; logo: string }>;
+      const rows = socialRepository.listCompanyNotes(currentCompanyId);
       sendJson(res, rows.map(row => ({
         id: row.id,
         note: row.note,
@@ -471,15 +447,11 @@ export async function handleSocialRoutes(
       const noteText = String(body?.note ?? '').slice(0, 4000);
       const now = new Date().toISOString();
       if (noteText === '') {
-        db.prepare('DELETE FROM company_notes WHERE company_id = ? AND about_company_id = ?').run(currentCompanyId, aboutCompanyId);
+        socialRepository.deleteCompanyNote(currentCompanyId, aboutCompanyId);
         sendJson(res, { note: '' });
         return true;
       }
-      db.prepare(`
-        INSERT INTO company_notes (company_id, about_company_id, note, priority, created_at, updated_at)
-        VALUES (?, ?, ?, 0, ?, ?)
-        ON CONFLICT(company_id, about_company_id) DO UPDATE SET note = excluded.note, updated_at = excluded.updated_at
-      `).run(currentCompanyId, aboutCompanyId, noteText, now, now);
+      socialRepository.upsertCompanyNote(currentCompanyId, aboutCompanyId, noteText, now, now);
       sendJson(res, { note: noteText });
       return true;
     }
@@ -487,23 +459,22 @@ export async function handleSocialRoutes(
     if (method === 'PUT') {
       const body = await readJsonBody<{ priority?: string }>(req);
       const direction = String(body?.priority ?? '');
-      const row = db.prepare('SELECT id FROM company_notes WHERE company_id = ? AND about_company_id = ?')
-        .get(currentCompanyId, aboutCompanyId) as { id?: number } | undefined;
-      if (!row?.id) {
+      const noteId = socialRepository.getCompanyNoteId(currentCompanyId, aboutCompanyId);
+      if (!noteId) {
         sendJson(res, { error: 'Note not found' }, 404);
         return true;
       }
       if (direction === 'up') {
-        db.prepare('UPDATE company_notes SET priority = priority - 1 WHERE id = ?').run(row.id);
+        socialRepository.decrementCompanyNotePriority(noteId);
       } else if (direction === 'down') {
-        db.prepare('UPDATE company_notes SET priority = priority + 1 WHERE id = ?').run(row.id);
+        socialRepository.incrementCompanyNotePriority(noteId);
       }
       sendJson(res, { success: true });
       return true;
     }
 
     if (method === 'DELETE') {
-      db.prepare('DELETE FROM company_notes WHERE company_id = ? AND about_company_id = ?').run(currentCompanyId, aboutCompanyId);
+      socialRepository.deleteCompanyNote(currentCompanyId, aboutCompanyId);
       sendJson(res, { success: true });
       return true;
     }
@@ -520,14 +491,7 @@ export async function handleSocialRoutes(
       sendJson(res, []);
       return true;
     }
-    const rows = db.prepare(`
-      SELECT company_id, name, realm_id, logo
-      FROM companies
-      WHERE realm_id = ?
-        AND lower(replace(name, '/', '-')) LIKE '%' || lower(replace(?, '-', ' ')) || '%'
-      ORDER BY company_id ASC
-      LIMIT 25
-    `).all(realmId, query) as Array<{ company_id: number; name: string; realm_id: number; logo: string }>;
+    const rows = socialRepository.searchCompaniesByRealm(realmId, query);
     sendJson(res, rows.map(row => ({
       companyId: row.company_id,
       company: row.name,

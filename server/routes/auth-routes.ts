@@ -6,8 +6,9 @@ import {
   switchSessionCompany,
   buildSessionCookie
 } from '../auth/session.ts';
-import { registerPlayer, authenticatePlayer, registerOrAuthenticatePlayer, db } from '../db/database.ts';
+import { authenticatePlayer, registerOrAuthenticatePlayer } from '../db/seed/index.ts';
 import { hashPassword } from '../db/migrations/index.ts';
+import { authRepository } from '../repositories/auth-repository.ts';
 import { companyRepository } from '../repositories/company-repository.ts';
 import { referralsRepository, REFERRAL_JOIN_BONUS } from '../repositories/referrals-repository.ts';
 import { checkRateLimit } from '../security/rate-limiter.ts';
@@ -212,22 +213,18 @@ export async function handleAuthRoutes(
       return true;
     }
     if (method === 'GET') {
-      const rows = db.prepare('SELECT id, device_uuid AS deviceUuid, device_name AS deviceName, last_login AS lastLogin FROM player_devices WHERE player_id = ?')
-        .all(currentPlayerId);
+      const rows = authRepository.listPlayerDevices(currentPlayerId);
       sendJson(res, rows);
       return true;
     }
     // POST: register/update the caller's device
     const body = await readJsonBody<{ deviceUuid?: string; deviceName?: string }>(req);
     const uuid = body.deviceUuid || 'unknown-device';
-    const existing = db.prepare('SELECT id FROM player_devices WHERE player_id = ? AND device_uuid = ?')
-      .get(currentPlayerId, uuid);
+    const existing = authRepository.findPlayerDevice(currentPlayerId, uuid);
     if (existing) {
-      db.prepare('UPDATE player_devices SET device_name = ?, last_login = ? WHERE id = ?')
-        .run(body.deviceName || 'device', new Date().toISOString(), (existing as { id: number }).id);
+      authRepository.updatePlayerDevice(existing.id, body.deviceName || 'device', new Date().toISOString());
     } else {
-      db.prepare('INSERT INTO player_devices (player_id, device_uuid, device_name, last_login) VALUES (?, ?, ?, ?)')
-        .run(currentPlayerId, uuid, body.deviceName || 'device', new Date().toISOString());
+      authRepository.insertPlayerDevice(currentPlayerId, uuid, body.deviceName || 'device', new Date().toISOString());
     }
     sendJson(res, { status: 'ok' });
     return true;
@@ -250,13 +247,13 @@ export async function handleAuthRoutes(
       sendJson(res, { error: 'Email and a new password (min 8 chars) are required' }, 400);
       return true;
     }
-    const player = db.prepare('SELECT player_id FROM players WHERE email = ?').get(email) as { player_id: number } | undefined;
+    const player = authRepository.findPlayerIdByEmail(email);
     if (!player) {
       // Same response for unknown email — no account enumeration.
       sendJson(res, { status: 'ok', message: 'Password reset link sent' });
       return true;
     }
-    db.prepare('UPDATE players SET password_hash = ? WHERE player_id = ?').run(hashPassword(newPassword), player.player_id);
+    authRepository.updatePlayerPasswordHash(player.player_id, hashPassword(newPassword));
     sendJson(res, { status: 'ok', message: 'Password has been reset' });
     return true;
   }
@@ -339,14 +336,10 @@ export async function handleAuthRoutes(
       return true;
     }
     // Stable per-company referral code (generated once, stored in company_settings)
-    let row = db.prepare(
-      "SELECT value FROM company_settings WHERE company_id = ? AND key = 'referral_code'"
-    ).get(currentCompanyId) as { value: string } | undefined;
+    let row = authRepository.findReferralCode(currentCompanyId);
     if (!row || !row.value) {
       const code = `ref-${currentCompanyId}-${Math.random().toString(36).slice(2, 8)}`;
-      db.prepare(
-        "INSERT INTO company_settings (company_id, key, value) VALUES (?, 'referral_code', ?) ON CONFLICT(company_id, key) DO UPDATE SET value = excluded.value"
-      ).run(currentCompanyId, code);
+      authRepository.upsertReferralCode(currentCompanyId, code);
       row = { value: code };
     }
     const referred = referralsRepository.findReferredBy(currentCompanyId);
@@ -476,24 +469,7 @@ export async function handleAuthRoutes(
       return true;
     }
 
-    const companies = db.prepare(`
-      SELECT company_id, player_id, name, logo, level, rating, created_at, note,
-             extra_building_slots, realm_id
-      FROM companies
-      WHERE realm_id = ?
-      ORDER BY id ASC
-    `).all(realmId) as unknown as Array<{
-      company_id: number;
-      player_id: number;
-      name: string;
-      logo: string;
-      level: number;
-      rating: string;
-      created_at: string;
-      note: string;
-      extra_building_slots?: number;
-      realm_id: number;
-    }>;
+    const companies = authRepository.listCompaniesByRealm(realmId);
     const comp = companies.find(company => company.name.replace(/[\/\\\s]/g, '-') === slug);
     if (!comp) {
       sendJson(res, { error: 'Company not found' }, 404);
@@ -598,7 +574,7 @@ export async function handleAuthRoutes(
         return true;
       }
       if (body.note !== undefined) {
-        db.prepare('UPDATE companies SET note = ? WHERE company_id = ?').run(String(body.note), currentCompanyId);
+        authRepository.updateCompanyNote(currentCompanyId, String(body.note));
       }
       // P1-04: the frontend naming flow (/create/) PATCHes { company }.
       // Reject empty names and names conflicting with existing companies;
@@ -613,7 +589,7 @@ export async function handleAuthRoutes(
           sendJson(res, { error: 'Please use only letters, numbers, or dots' }, 400);
           return true;
         }
-        const clash = db.prepare('SELECT company_id FROM companies WHERE name = ? AND company_id != ?').get(requested, currentCompanyId);
+        const clash = authRepository.findCompanyNameClash(requested, currentCompanyId);
         if (clash) {
           sendJson(res, {
             error: 'The selected name conflicts with existing companies',
@@ -622,14 +598,14 @@ export async function handleAuthRoutes(
           }, 400);
           return true;
         }
-        db.prepare('UPDATE companies SET name = ? WHERE company_id = ?').run(requested, currentCompanyId);
+        authRepository.updateCompanyName(currentCompanyId, requested);
       } else if (body.name !== undefined) {
         const requested = String(body.name).trim();
         if (requested.length === 0) {
           sendJson(res, { error: 'Company name cannot be empty' }, 400);
           return true;
         }
-        db.prepare('UPDATE companies SET name = ? WHERE company_id = ?').run(requested, currentCompanyId);
+        authRepository.updateCompanyName(currentCompanyId, requested);
       }
       sendJson(res, { status: 'ok', company: getCompanyById(currentCompanyId) });
       return true;
@@ -640,9 +616,7 @@ export async function handleAuthRoutes(
       sendJson(res, { error: 'Company not found' }, 404);
       return true;
     }
-    const isCallerAdmin = currentPlayerId ? Boolean(
-      (db.prepare('SELECT is_admin FROM players WHERE player_id = ?').get(currentPlayerId) as { is_admin?: number } | undefined)?.is_admin === 1
-    ) : false;
+    const isCallerAdmin = currentPlayerId ? companyRepository.isPlayerAdmin(currentPlayerId) : false;
 
     const buildings = getCompanyBuildings(targetCompId);
     const profileResponse: Record<string, unknown> = {
@@ -705,9 +679,7 @@ function applyReferralOnSignup(
   if (!auth.created || !referralCode || referralCode.trim() === '') return;
   try {
     const code = referralCode.trim();
-    const owner = db.prepare(
-      "SELECT company_id FROM company_settings WHERE key = 'referral_code' AND value = ?"
-    ).get(code) as { company_id: number } | undefined;
+    const owner = authRepository.findCompanyIdByReferralCode(code);
     if (!owner) return;
     const referrerCompanyId = Number(owner.company_id);
     if (referrerCompanyId === auth.companyId) return;

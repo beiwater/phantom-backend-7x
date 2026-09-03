@@ -1,5 +1,4 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { db } from '../db/database.ts';
 import { sendJson, readJsonBody } from './utils.ts';
 import { auditRepository, banCompany } from '../repositories/audit-repository.ts';
 import { getCompanyById } from '../game/company.ts';
@@ -20,11 +19,9 @@ export async function handleAuditRoutes(
   // Issue #84: Admin authorization check
   let isAdmin = false;
   if (currentPlayerId) {
-    const player = db.prepare('SELECT is_admin FROM players WHERE player_id = ?').get(currentPlayerId) as { is_admin?: number } | undefined;
-    isAdmin = Boolean(player && player.is_admin === 1);
+    isAdmin = auditRepository.isPlayerAdmin(currentPlayerId);
   } else if (currentCompanyId) {
-    const player = db.prepare('SELECT p.is_admin FROM players p JOIN companies c ON c.player_id = p.player_id WHERE c.company_id = ?').get(currentCompanyId) as { is_admin?: number } | undefined;
-    isAdmin = Boolean(player && player.is_admin === 1);
+    isAdmin = auditRepository.isCompanyAdmin(currentCompanyId);
   }
 
   const isAdminOnlyRoute =
@@ -314,11 +311,7 @@ export async function handleAuditRoutes(
   // 7. Purchase detective (v2 admin): real large market purchases
   // (inactive orders with above-median value) from authoritative data.
   if (pathname === '/api/v2/admin/purchase-detective/' && method === 'GET') {
-    const rows = db.prepare(`
-      SELECT id, seller_id, kind, quality, quantity, price, posted_at
-      FROM market_orders WHERE active = 0 AND quantity * price >= 100000
-      ORDER BY posted_at DESC LIMIT 100
-    `).all() as Array<Record<string, unknown>>;
+    const rows = auditRepository.listLargeInactiveMarketOrders();
     sendJson(res, {
       purchases: rows.map(r => ({
         id: Number(r.id),
@@ -356,7 +349,7 @@ export async function handleAuditRoutes(
       logo: "images/buildings/other/hq_tier01.png",
       created_at: new Date(now.getTime() - 86400000 * 30).toISOString()
     };
-    const player = db.prepare('SELECT * FROM players WHERE player_id = ?').get(comp.player_id) as Record<string, unknown> | undefined;
+    const player = auditRepository.getPlayerById(comp.player_id);
     const rawBuildings = buildingRepository.findByCompany(targetCompanyId);
     const buildingsDTO = rawBuildings.map(toSimCompaniesBuildingDTO);
     sendJson(res, {
@@ -439,9 +432,7 @@ export async function handleAuditRoutes(
       sendJson(res, []);
       return true;
     }
-    const sessions = db.prepare(`
-      SELECT created_at, expires_at FROM sessions WHERE player_id = ? ORDER BY created_at DESC LIMIT 50
-    `).all(comp.player_id) as Array<{ created_at: string; expires_at: string | null }>;
+    const sessions = auditRepository.listPlayerSessions(comp.player_id);
     sendJson(res, sessions.map(s => ({
       created: s.created_at,
       expiresAt: s.expires_at ?? null
@@ -461,11 +452,7 @@ export async function handleAuditRoutes(
   const auditContractsMatch = pathname.match(/^\/api\/v2\/audit\/(\d+)\/contracts\/?$/);
   if (auditContractsMatch && method === 'GET') {
     const targetId = Number(auditContractsMatch[1]);
-    const rows = db.prepare(`
-      SELECT id, sender_company_id, recipient_company_id, status, kind, quality, amount, price, created_at
-      FROM contracts WHERE sender_company_id = ? OR recipient_company_id = ?
-      ORDER BY id DESC LIMIT 100
-    `).all(targetId, targetId) as Array<Record<string, unknown>>;
+    const rows = auditRepository.listCompanyContracts(targetId);
     sendJson(res, rows.map(r => ({
       id: Number(r.id),
       senderCompanyId: Number(r.sender_company_id),
@@ -484,11 +471,7 @@ export async function handleAuditRoutes(
   const auditTradesMatch = pathname.match(/^\/api\/v2\/audit\/(\d+)\/market-trades\/?$/);
   if (auditTradesMatch && method === 'GET') {
     const targetId = Number(auditTradesMatch[1]);
-    const rows = db.prepare(`
-      SELECT id, seller_id, kind, quality, quantity, price, posted_at
-      FROM market_orders WHERE seller_id = ? AND active = 0
-      ORDER BY id DESC LIMIT 100
-    `).all(targetId) as Array<Record<string, unknown>>;
+    const rows = auditRepository.listCompanyMarketTrades(targetId);
     sendJson(res, rows.map(r => ({
       id: Number(r.id),
       sellerCompanyId: Number(r.seller_id),
@@ -529,10 +512,8 @@ export async function handleAuditRoutes(
   const ipAuditMatch = pathname.match(/^\/api\/v2\/audit-ip\/(\d+)\/([^/]+)\/?$/);
   if (ipAuditMatch && method === 'GET') {
     const playerId = Number(ipAuditMatch[1]);
-    const sessions = db.prepare(`
-      SELECT created_at, expires_at FROM sessions WHERE player_id = ? ORDER BY created_at DESC LIMIT 50
-    `).all(playerId) as Array<{ created_at: string; expires_at: string | null }>;
-    const companies = db.prepare('SELECT company_id, name FROM companies WHERE player_id = ?').all(playerId) as Array<{ company_id: number; name: string }>;
+    const sessions = auditRepository.listPlayerSessions(playerId);
+    const companies = auditRepository.listCompaniesByPlayer(playerId);
     const events = companies.flatMap(c => auditRepository.listForCompany(c.company_id).map(a => ({
       type: 'audit',
       companyId: c.company_id,
@@ -561,19 +542,7 @@ export async function handleAuditRoutes(
   }
   // 12. Newcomers: /api/v2/newcomers/
   if ((pathname === '/api/v2/newcomers/' || pathname === '/api/v2/newcomers') && method === 'GET') {
-    const rows = db.prepare(`
-      SELECT company_id, name, logo, realm_id, created_at, note
-      FROM companies
-      ORDER BY id DESC
-      LIMIT 50
-    `).all() as Array<{
-      company_id: number;
-      name: string;
-      logo: string | null;
-      realm_id: number | null;
-      created_at: string | null;
-      note: string | null;
-    }>;
+    const rows = auditRepository.listNewcomerCompanies();
 
     const newcomers = rows.map(r => ({
       id: r.company_id,
@@ -610,9 +579,9 @@ export async function handleAuditRoutes(
     }
 
     // Credit 50 SimBoosts to player's first company if it exists
-    const company = db.prepare('SELECT company_id, simboosts FROM companies WHERE player_id = ? ORDER BY id ASC LIMIT 1').get(playerId) as { company_id: number; simboosts: number } | undefined;
+    const company = auditRepository.findFirstCompanyByPlayer(playerId);
     if (company) {
-      db.prepare('UPDATE companies SET simboosts = simboosts + 50 WHERE company_id = ?').run(company.company_id);
+      auditRepository.grantLoyaltySimboosts(company.company_id);
     }
 
     sendJson(res, {

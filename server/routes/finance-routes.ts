@@ -2,9 +2,9 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { sendJson, readJsonBody } from './utils.ts';
 import { fpaReportsRepository } from '../repositories/fpa-reports-repository.ts';
 import { companyRepository } from '../repositories/company-repository.ts';
+import { financeRepository } from '../repositories/finance-repository.ts';
 
 const REPORT_CATEGORIES = ['Production', 'Retail', 'Financial', 'Warehouse', 'Market'];
-import { db } from '../db/database.ts';
 import { getCompanyById } from '../game/company.ts';
 import { takeLoan, repayLoan, getActiveLoans } from '../game/loans.ts';
 import {
@@ -15,34 +15,6 @@ import {
   sumPositive,
   sumNegative
 } from '../game/cash-ledger.ts';
-
-function inventoryValue(companyId: number): number {
-  const row = db.prepare(
-    'SELECT COALESCE(SUM(amount * cost_market), 0) AS total FROM warehouse WHERE company_id = ?'
-  ).get(companyId) as { total: number | null };
-  return Number(row?.total) || 0;
-}
-
-function buildingsValue(companyId: number): number {
-  const row = db.prepare(
-    'SELECT COALESCE(SUM(cost * size), 0) AS total FROM buildings WHERE company_id = ?'
-  ).get(companyId) as { total: number | null };
-  return Number(row?.total) || 0;
-}
-
-function bondsHeldValue(companyId: number): number {
-  const row = db.prepare(
-    `SELECT COALESCE(SUM(amount) * 5000, 0) AS total FROM bonds WHERE buyer_company_id = ? AND status = 'active'`
-  ).get(companyId) as { total: number | null };
-  return Number(row?.total) || 0;
-}
-
-function loansOutstanding(companyId: number): number {
-  const row = db.prepare(
-    `SELECT COALESCE(SUM(remaining), 0) AS total FROM loans WHERE company_id = ? AND status = 'active'`
-  ).get(companyId) as { total: number | null };
-  return Number(row?.total) || 0;
-}
 
 function safeParseDetails(raw: string): Record<string, unknown> {
   try {
@@ -57,14 +29,6 @@ function round2(value: number): number {
   return Math.round(value * 100) / 100;
 }
 
-function employeeCount(companyId: number): number {
-  const row = db.prepare(
-    `SELECT COALESCE(SUM(size), 0) AS total FROM buildings WHERE company_id = ?`
-  ).get(companyId) as { total: number | null };
-  const bldCount = Number(row?.total) || 0;
-  return Math.floor(bldCount * 100 * (1 + (bldCount - 1) / 170)) || 0;
-}
-
 export async function handleFinanceRoutes(
   req: IncomingMessage,
   res: ServerResponse,
@@ -73,9 +37,7 @@ export async function handleFinanceRoutes(
   currentCompanyId: number | null
 ): Promise<boolean> {
   const requestedCompanyMatch = pathname.match(/\/companies\/(\d+|me)\//);
-  const isCurrentAdmin = currentCompanyId ? Boolean(
-    (db.prepare('SELECT p.is_admin FROM players p JOIN companies c ON c.player_id = p.player_id WHERE c.company_id = ?').get(currentCompanyId) as { is_admin?: number } | undefined)?.is_admin
-  ) : false;
+  const isCurrentAdmin = currentCompanyId ? financeRepository.isCompanyAdmin(currentCompanyId) : false;
 
   const authorizeRequestedCompany = (): number | null => {
     if (!currentCompanyId) {
@@ -136,18 +98,8 @@ export async function handleFinanceRoutes(
   if (adminOverheadMatch) {
     const companyId = authorizeRequestedCompany();
     if (companyId === null) return true;
-    const bldRow = db.prepare('SELECT COUNT(*) AS count FROM buildings WHERE company_id = ?').get(companyId) as { count?: number } | undefined;
-    const bldCount = Number(bldRow?.count) || 0;
-    // #152: recreation bonus mirrors the client selector zP — sum of sizes
-    // of recreation buildings with an active paid upkeep (busy_until in the
-    // future and upkeep_active set), excluding landmark positions ('l...').
-    const recRow = db.prepare(`
-      SELECT COALESCE(SUM(size), 0) AS bonus FROM buildings
-      WHERE company_id = ? AND category = 'recreation' AND upkeep_active = 1
-        AND busy_until IS NOT NULL AND busy_until > ?
-        AND position NOT LIKE 'l%'
-    `).get(companyId, new Date().toISOString()) as { bonus?: number } | undefined;
-    const recreationBonus = Number(recRow?.bonus) || 0;
+    const bldCount = financeRepository.buildingCount(companyId);
+    const recreationBonus = financeRepository.recreationBonus(companyId, new Date().toISOString());
     // #155: expose the CFO + bank accounting lift so the accounting surfaces
     // can show the computation base alongside the overhead.
     const lift = companyRepository.getAccountingLift(companyId);
@@ -208,10 +160,10 @@ export async function handleFinanceRoutes(
     if (companyId === null) return true;
     const comp = getCompanyById(companyId);
     const money = comp ? round2(Number(comp.money) || 0) : 0;
-    const inventory = round2(inventoryValue(companyId));
-    const buildings = round2(buildingsValue(companyId));
-    const bondsHeld = round2(bondsHeldValue(companyId));
-    const liabilities = round2(loansOutstanding(companyId));
+    const inventory = round2(financeRepository.inventoryValue(companyId));
+    const buildings = round2(financeRepository.buildingsValue(companyId));
+    const bondsHeld = round2(financeRepository.bondsHeldValue(companyId));
+    const liabilities = round2(financeRepository.loansOutstanding(companyId));
     const date = new Date().toISOString().replace('Z', '+00:00');
     sendJson(res, {
       date,
@@ -235,7 +187,7 @@ export async function handleFinanceRoutes(
       retainedEarnings: round2(money + inventory + buildings + bondsHeld - liabilities - 100000),
       valuationAllowance: 0,
       deposits: 0,
-      employees: employeeCount(companyId)
+      employees: financeRepository.employeeCount(companyId)
     });
     return true;
   }
@@ -287,7 +239,7 @@ export async function handleFinanceRoutes(
       + payload.donations;
     payload.netIncome = Math.round(components * 100) / 100;
     // EVA: net income minus 1.5% capital charge on non-cash assets (official rate 0.0015).
-    payload.economicValueAdded = Math.round((payload.netIncome - 0.0015 * (buildingsValue(companyId) + inventoryValue(companyId))) * 100) / 100;
+    payload.economicValueAdded = Math.round((payload.netIncome - 0.0015 * (financeRepository.buildingsValue(companyId) + financeRepository.inventoryValue(companyId))) * 100) / 100;
     sendJson(res, payload);
     return true;
   }

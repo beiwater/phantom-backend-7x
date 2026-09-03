@@ -21,6 +21,14 @@ const SIMBOOST_ACTION_CODES: Record<string, string> = {
 };
 export interface PollRow { [key: string]: unknown }
 
+export interface ChatMessageRow { id: number; room: string; sender_id: number; sender_company: string; text: string; sent_at: string }
+
+export interface CompanyRealmRow { company_id: number; realm_id: number }
+
+export interface CompanyNoteListRow { id: number; note: string; priority: number; company_id: number; name: string; realm_id: number; logo: string }
+
+export interface CompanySearchRow { company_id: number; name: string; realm_id: number; logo: string }
+
 export class SocialRepository {
   private database: DatabaseSync;
 
@@ -272,6 +280,108 @@ export class SocialRepository {
     this.database.prepare('INSERT INTO course_students (course_id, company_id, company_name, company_logo, company_realm_id, joined_at) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT (course_id, company_id) DO NOTHING')
       .run(courseId, companyId, companyName, logo, realmId, new Date().toISOString());
     this.database.prepare('UPDATE courses SET indicated_students = indicated_students + 1 WHERE id = ?').run(courseId);
+  }
+
+  // --- Chat messages -------------------------------------------------------
+
+  listChatMessages(room: string): ChatMessageRow[] {
+    return this.database.prepare(`
+      SELECT * FROM chat_messages WHERE room = ? OR room = 'N' OR room = '1' ORDER BY id DESC LIMIT 50
+    `).all(room) as ChatMessageRow[];
+  }
+
+  listChatMessagesFromId(room: string, fromId: number): ChatMessageRow[] {
+    return this.database.prepare(`
+      SELECT * FROM chat_messages WHERE (room = ? OR room = 'N' OR room = '1') AND id > ? ORDER BY id ASC LIMIT 50
+    `).all(room, fromId) as ChatMessageRow[];
+  }
+
+  insertChatMessage(room: string, senderId: number, senderCompany: string, text: string, sentAt: string): number {
+    const result = this.database.prepare(`
+      INSERT INTO chat_messages (room, sender_id, sender_company, text, sent_at)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(room, senderId, senderCompany, text, sentAt);
+    return Number(result.lastInsertRowid);
+  }
+
+  listCompanyRealms(): CompanyRealmRow[] {
+    return this.database.prepare('SELECT company_id, realm_id FROM companies').all() as CompanyRealmRow[];
+  }
+
+  // --- Notification preferences --------------------------------------------
+
+  getNotificationPreferences(companyId: number): { email_json?: string; popup_json?: string; push_json?: string } | undefined {
+    return this.database.prepare('SELECT email_json, popup_json, push_json FROM notification_preferences WHERE company_id = ?')
+      .get(companyId) as { email_json?: string; popup_json?: string; push_json?: string } | undefined;
+  }
+
+  upsertNotificationPreferences(companyId: number, column: 'email_json' | 'popup_json' | 'push_json', valueJson: string, updatedAt: string): void {
+    this.database.prepare(`
+      INSERT INTO notification_preferences (company_id, ${column}, updated_at)
+      VALUES (?, ?, ?)
+      ON CONFLICT(company_id) DO UPDATE SET ${column} = excluded.${column}, updated_at = excluded.updated_at
+    `).run(companyId, valueJson, updatedAt);
+  }
+
+  // --- Company notes (own bio + notes about other companies) ----------------
+
+  setCompanyNote(note: string, companyId: number): void {
+    this.database.prepare('UPDATE companies SET note = ? WHERE company_id = ?').run(note, companyId);
+  }
+
+  getCompanyNote(companyId: number, aboutCompanyId: number): string | null {
+    const row = this.database.prepare('SELECT note FROM company_notes WHERE company_id = ? AND about_company_id = ?')
+      .get(companyId, aboutCompanyId) as { note?: string } | undefined;
+    return row?.note ?? null;
+  }
+
+  listCompanyNotes(companyId: number): CompanyNoteListRow[] {
+    return this.database.prepare(`
+      SELECT cn.id, cn.note, cn.priority, c.company_id, c.name, c.realm_id, c.logo
+      FROM company_notes cn
+      JOIN companies c ON c.company_id = cn.about_company_id
+      WHERE cn.company_id = ?
+      ORDER BY cn.priority ASC, cn.id ASC
+    `).all(companyId) as CompanyNoteListRow[];
+  }
+
+  upsertCompanyNote(companyId: number, aboutCompanyId: number, note: string, createdAt: string, updatedAt: string): void {
+    this.database.prepare(`
+      INSERT INTO company_notes (company_id, about_company_id, note, priority, created_at, updated_at)
+      VALUES (?, ?, ?, 0, ?, ?)
+      ON CONFLICT(company_id, about_company_id) DO UPDATE SET note = excluded.note, updated_at = excluded.updated_at
+    `).run(companyId, aboutCompanyId, note, createdAt, updatedAt);
+  }
+
+  getCompanyNoteId(companyId: number, aboutCompanyId: number): number | null {
+    const row = this.database.prepare('SELECT id FROM company_notes WHERE company_id = ? AND about_company_id = ?')
+      .get(companyId, aboutCompanyId) as { id?: number } | undefined;
+    return row?.id ?? null;
+  }
+
+  decrementCompanyNotePriority(noteId: number): void {
+    this.database.prepare('UPDATE company_notes SET priority = priority - 1 WHERE id = ?').run(noteId);
+  }
+
+  incrementCompanyNotePriority(noteId: number): void {
+    this.database.prepare('UPDATE company_notes SET priority = priority + 1 WHERE id = ?').run(noteId);
+  }
+
+  deleteCompanyNote(companyId: number, aboutCompanyId: number): void {
+    this.database.prepare('DELETE FROM company_notes WHERE company_id = ? AND about_company_id = ?').run(companyId, aboutCompanyId);
+  }
+
+  // --- Company search -------------------------------------------------------
+
+  searchCompaniesByRealm(realmId: number, query: string): CompanySearchRow[] {
+    return this.database.prepare(`
+      SELECT company_id, name, realm_id, logo
+      FROM companies
+      WHERE realm_id = ?
+        AND lower(replace(name, '/', '-')) LIKE '%' || lower(replace(?, '-', ' ')) || '%'
+      ORDER BY company_id ASC
+      LIMIT 25
+    `).all(realmId, query) as CompanySearchRow[];
   }
 }
 

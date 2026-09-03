@@ -8,17 +8,22 @@ function testArchitectureGates() {
   const routesDir = path.resolve('server/routes');
   const routeFiles = fs.readdirSync(routesDir).filter(f => f.endsWith('.ts'));
 
-  // Allowlist of legacy routes permitted to import db directly during migration.
-  // This list MUST ONLY SHRINK as remaining slices migrate to repositories.
-  const legacyDirectDbAllowlist = new Set([
-    'auth-routes.ts',
-    'finance-routes.ts',
-    'retail-routes.ts',
-    'social-routes.ts',
-    // Upstream PR #77 shipped audit-routes.ts with a direct db import;
-    // it joins the migration allowlist until it moves to repositories.
-    'audit-routes.ts',
-  ]);
+  // Issue #180: the migration allowlist is now EMPTY — no route file may
+  // import db directly, import node:sqlite, or execute raw statements.
+  // Persistence belongs to repositories; routes do HTTP + use cases only.
+  const legacyDirectDbAllowlist = new Set<string>([]);
+
+  // Patterns that constitute direct persistence access from a route (#180):
+  // explicit db/connection imports, node:sqlite, raw statement execution and
+  // indirect imports through the db compatibility barrel.
+  const ROUTE_DB_PATTERNS: Array<[RegExp, string]> = [
+    [/from\s+['"]\.\.\/db\/database\.ts['"]/, 'imports db/database.ts'],
+    [/from\s+['"]\.\.\/db\/connection\.ts['"]/, 'imports db/connection.ts'],
+    [/from\s+['"]\.\.\/db\/['"]/, 'imports db barrel'],
+    [/from\s+['"]node:sqlite['"]/, 'imports node:sqlite'],
+    [/\bdb\.prepare\s*\(/, 'executes db.prepare'],
+    [/\bdb\.exec\s*\(/, 'executes db.exec']
+  ];
 
   const directDbImporters: string[] = [];
 
@@ -26,17 +31,15 @@ function testArchitectureGates() {
     const filePath = path.join(routesDir, file);
     const content = fs.readFileSync(filePath, 'utf-8');
 
-    const importsDb = (
-      content.includes("from '../db/database.ts'") ||
-      content.includes("from '../db/connection.ts'") ||
-      content.includes("from 'node:sqlite'")
-    );
+    const violations = ROUTE_DB_PATTERNS
+      .filter(([pattern]) => pattern.test(content))
+      .map(([, label]) => label);
 
-    if (importsDb) {
+    if (violations.length > 0) {
       directDbImporters.push(file);
       assert(
         legacyDirectDbAllowlist.has(file),
-        `Architecture Violation: Route file '${file}' directly imports database, but is NOT on the legacy migration allowlist!`
+        `Architecture Violation: Route file '${file}' directly accesses persistence (${violations.join(', ')}), but is NOT on the legacy migration allowlist!`
       );
     }
   }
