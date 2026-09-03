@@ -1,0 +1,222 @@
+{
+  "feature": "encyclopedia-formulas",
+  "snapshot": "frontend-original/static/bundle/assets/index-cgzgptQ8.js (2026-05-27 decompile snapshot)",
+  "purpose": "Reusable traces from the official encyclopedia resource/building/event surfaces to calculation inputs and displayed outputs. This record does not define backend rules.",
+  "surfaces": {
+    "resourcePage": {
+      "ui": "resource encyclopedia detail",
+      "fetches": [
+        "GET /api/v2/companies/me/administration-overhead/",
+        "GET /api/v4/{realmId}/resources-retail-info/",
+        "GET /api/v3/market-ticker/{realmId}/",
+        "GET /api/v2/production-modifiers/{realmId}/"
+      ],
+      "staticInput": "Redux resource constants: producedPerHourRaw, producedAt, producedFrom, isResearch, productionSeason, retailSeason, productionMechanic"
+    },
+    "buildingPage": {
+      "ui": "building encyclopedia detail and statistics tables",
+      "fetches": [
+        "GET /api/v4/{realmId}/resources-retail-info/",
+        "GET /api/v3/market-ticker/{realmId}/",
+        "GET /api/v2/production-modifiers/{realmId}/"
+      ],
+      "staticInput": "Redux building constants: costUnits, buildDuration, salaryModifier, category, level images"
+    },
+    "eventsPage": {
+      "ui": "encyclopedia Events page",
+      "fetches": ["GET /api/v3/encyclopedia/events/{realmId}/"],
+      "response": "{ events: Array<{ kind, speedModifier, since, until }> }"
+    }
+  },
+  "findings": [
+    {
+      "id": "encyclopedia-production-rate",
+      "confidence": "verified",
+      "formula": "base = producedPerHourRaw * (AVERAGE_SALARY / SALARY_MID[economyState]) ^ salaryModifier; adjustedBase = (isMining(resourceKind) ? base * quality / 100 : base) * (1 + activeEvent.speedModifier / 100); ratePerHour = size * adjustedBase / (1 - (productionModifier + recreationBonus + extraAccumulatorBonus) / 100)",
+      "inputs": ["resourceConstant.producedPerHourRaw", "resourceConstant.producedAt", "quality", "size", "user.authCompany.productionModifier", "buildings.recreationBonus", "user.temporals.economyState", "constants.resourceProductionModifiers[realmId][].speedModifier"],
+      "outputs": ["Units an hour = ratePerHour * levelInfo.acceleration.multiplier", "Unit worker cost = OH(producedAt) / ratePerHour", "OH(buildingKind) = AVERAGE_SALARY * building.salaryModifier"],
+      "affectedUiApi": ["resource encyclopedia page", "GET /api/v2/production-modifiers/{realmId}/"],
+      "evidence": [
+        { "type": "bundle", "path": "frontend-original/static/bundle/assets/index-cgzgptQ8.js", "offset": 2444740, "anchor": "function oNt(e,t,r){return e*Math.pow(ea.AVERAGE_SALARY/t,Qr[r].salaryModifier)}" },
+        { "type": "bundle", "path": "frontend-original/static/bundle/assets/index-cgzgptQ8.js", "offset": 2444820, "anchor": "function sNt(e,t,r,n,i,a,o){...return i*c/(1-u/100)}" },
+        { "type": "bundle", "path": "frontend-original/static/bundle/assets/index-cgzgptQ8.js", "offset": 2785629, "anchor": "function ncn({resourceConstant:e,pageRealmId:t,size:r,setSize:n})" },
+        { "type": "bundle", "path": "frontend-original/static/bundle/assets/index-cgzgptQ8.js", "offset": 2787458, "anchor": "let qe=sNt(e.dbLetter,_+(B?Eur*(T??0):0),0,S,r,oNt(...),De)" },
+        { "type": "bundle", "path": "frontend-original/static/bundle/assets/index-cgzgptQ8.js", "offset": 2444854, "anchor": "const c=(_3(e)?a*n/100:a)" },
+        { "type": "canonical", "path": "server/data/decompile/resource_lookups.json", "section": "Ji: AVERAGE_SALARY and SALARY_MID" },
+        { "type": "canonical", "path": "server/data/decompile/resources.json", "section": "Apples (id/dbLetter 3): producedPerHourRaw=250, producedAt=P" },
+        { "type": "canonical", "path": "server/data/decompile/buildings.json", "section": "farm: salaryModifier=0.3" },
+        { "type": "dom_screenshot", "path": "server/data/decompile/fixtures/encyclopedia-apples.png", "observation": "Production calculator shows level 1, robots 0, production speed increase 0%, 202.19 units/hour" }
+      ],
+      "crossCheck": "For Apples at the screenshot's matching salary state, 250 * (345 / 700)^0.3 = 202.1884417437, displayed as 202.19. The other canonical salary states do not round to the observed value.",
+      "unresolved": "The screenshot does not preserve a Network response for the active event array; zero event speed is established for this no-event fixture only."
+    },
+    {
+      "id": "encyclopedia-production-worker-admin-cost",
+      "confidence": "verified",
+      "formula": "workerCostPerUnit = (AVERAGE_SALARY * building.salaryModifier) / ratePerHour; effectiveOverhead = administrationOverhead - (administrationOverhead - 1) * cooSkill / 100; adminCostPerUnit = max(0, effectiveOverhead - 1) * workerCostPerUnit",
+      "inputs": ["ratePerHour", "building.salaryModifier", "user.administrationOverhead", "effective COO skill"],
+      "outputs": ["Unit worker cost and Unit admin cost"],
+      "affectedUiApi": ["resource encyclopedia page", "GET /api/v2/companies/{companyId}/administration-overhead/"],
+      "evidence": [
+        { "type": "bundle", "path": "frontend-original/static/bundle/assets/index-cgzgptQ8.js", "offset": 2443862, "anchor": "function OH(e){return ea.AVERAGE_SALARY*Qr[e].salaryModifier}" },
+        { "type": "bundle", "path": "frontend-original/static/bundle/assets/index-cgzgptQ8.js", "offset": 2138343, "anchor": "Yd=(e,t)=>{const r=e||1;return r-(r-1)*t/100}" },
+        { "type": "bundle", "path": "frontend-original/static/bundle/assets/index-cgzgptQ8.js", "offset": 2787797, "anchor": "OH(e.producedAt)/(U*Ie/r)" },
+        { "type": "bundle", "path": "frontend-original/static/bundle/assets/index-cgzgptQ8.js", "offset": 2787924, "anchor": "Math.max(0,v-1)*De" },
+        { "type": "dom_screenshot", "path": "server/data/decompile/fixtures/encyclopedia-apples.png", "observation": "The calculator shows administration overhead 3.1%, Unit worker cost $0.51, Unit admin cost $0.02" }
+      ],
+      "crossCheck": "With OH=345*0.3=103.5, rate=202.1884417437, and no COO skill, worker cost=0.5119... -> $0.51 and 0.031*worker cost=0.01587... -> $0.02 at the page's two-decimal display precision.",
+      "unresolved": "The screenshot contains the rounded overhead display, not the raw administration-overhead response or a persisted COO skill payload."
+    },
+    {
+      "id": "encyclopedia-production-accumulator-and-research",
+      "confidence": "strong",
+      "formula": "Accumulator extra salary bonus = bonusPerQuality(4) * researchedQuality; accumulator display rate = ratePerHour / (baseValue * 2^accumulatorValue). Research resource rate = ratePerHour * (100 + effectiveCTOSkill * 2) / 100.",
+      "inputs": ["productionMechanic.accumulatorParameters.{bonusPerQuality,baseValue}", "researched quality/value", "effective CTO skill", "isResearch"],
+      "outputs": ["Production calculator rate and accumulator quality panel", "Research resource production rate"],
+      "affectedUiApi": ["resource encyclopedia page", "GET /api/v2/companies/{companyId}/resource-ability/{resourceKind}/", "GET /api/v3/players/research/"],
+      "evidence": [
+        { "type": "bundle", "path": "frontend-original/static/bundle/assets/index-cgzgptQ8.js", "offset": 1225663, "anchor": "Eur=4" },
+        { "type": "bundle", "path": "frontend-original/static/bundle/assets/index-cgzgptQ8.js", "offset": 2778970, "anchor": "function w0e(e,t){return e*bln(2,t)}" },
+        { "type": "bundle", "path": "frontend-original/static/bundle/assets/index-cgzgptQ8.js", "offset": 2787637, "anchor": "const dt=w0e(e.productionMechanic.accumulatorParameters.baseValue,k)" },
+        { "type": "bundle", "path": "frontend-original/static/bundle/assets/index-cgzgptQ8.js", "offset": 2787565, "anchor": "if(e.isResearch&&R!==void 0&&(qe*=(100+R)/100)" },
+        { "type": "bundle", "path": "frontend-original/static/bundle/assets/index-cgzgptQ8.js", "offset": 2891337, "anchor": "if(e.isResearch){...return X*(100+W*Qh)/100}" },
+        { "type": "canonical", "path": "server/data/decompile/formulas_production.md", "section": "Accumulator mechanics and Research (CTO) Effect" },
+        { "type": "canonical", "path": "server/data/decompile/research_tree.json", "section": "qualityLevels and research buildings" }
+      ],
+      "unresolved": "No saved encyclopedia accumulator/research DOM plus raw resource-ability fixture is available for independent numeric comparison. Do not promote these constants to backend rules from this record alone."
+    },
+    {
+      "id": "encyclopedia-retail-rate",
+      "confidence": "strong",
+      "formula": "retailRate = 100 * 3600 / (baseSellSeconds / acceleration / size * (1 - salesModifier/100) / weather.sellingSpeedMultiplier); baseSellSeconds = (100 * (price - modeledProductionCostPerUnit) * 3600 - modeledStoreWages) / (adjustedRevenue + modeledStoreWages), with saturation, quality/12, economy model, modeledUnitsSoldAnHour, modeledProductionCostPerUnit, modeledStoreWages, and RETAIL_MODELING_QUALITY_WEIGHT=0.3 feeding adjustedRevenue.",
+      "inputs": ["resourceRetail[realmId][].{dbLetter,quality,averagePrice,saturation,retailData}", "economyModel state/resource fields", "salesModifier", "acceleration.multiplier", "size", "weather.sellingSpeedMultiplier for Summer"],
+      "outputs": ["Sales calculator: Units sold an hour and Time to sell 1"],
+      "affectedUiApi": ["resource encyclopedia page", "GET /api/v4/{realmId}/resources-retail-info/"],
+      "evidence": [
+        { "type": "bundle", "path": "frontend-original/static/bundle/assets/index-cgzgptQ8.js", "offset": 2443995, "anchor": "function Kve(e,t,r,n,i,a,o,l,c){const u=kce(...);return 100*3600/u}" },
+        { "type": "bundle", "path": "frontend-original/static/bundle/assets/index-cgzgptQ8.js", "offset": 2444080, "anchor": "function kce(e,t,r,n,i,a,o,l,c,u){...p=d/l/c; ... f/=u.sellingSpeedMultiplier}" },
+        { "type": "bundle", "path": "frontend-original/static/bundle/assets/index-cgzgptQ8.js", "offset": 2444230, "anchor": "function u$r(e,t,r,n,i,a){...d/2*(1+f*ea.RETAIL_MODELING_QUALITY_WEIGHT)...}" },
+        { "type": "bundle", "path": "frontend-original/static/bundle/assets/index-cgzgptQ8.js", "offset": 2875698, "anchor": "function pcn({resourceConstant:e,size:t,setSize:r,pageRealmId:n})" },
+        { "type": "bundle", "path": "frontend-original/static/bundle/assets/index-cgzgptQ8.js", "offset": 2877659, "anchor": "return Kve($,le,S,k,h?0:E,B.saturation,u,t,j?_e:void 0)" },
+        { "type": "canonical", "path": "server/data/decompile/formulas_retail.md", "section": "Retail Sales Formula (Core)" }
+      ],
+      "unresolved": "No saved official retail-info Network body paired with the screenshot. The current route's fixed values are not authoritative evidence, so the numeric verifier does not assert this formula."
+    },
+    {
+      "id": "encyclopedia-profit-calculator",
+      "confidence": "strong",
+      "formula": "sourceCost = sum(recipeInputAmount * selected warehouse unit cost or market ticker price); laborCostPerUnit = OH(retailBuilding) * effectiveOverhead / productionRate; profitPerUnit = outputTickerPrice - (sourceCost + laborCostPerUnit); profitPerHourPerLevel = profitPerUnit * productionRate.",
+      "inputs": ["producedFrom", "warehouse resource cost values or market ticker entries", "producedAt", "production rate", "output ticker price"],
+      "outputs": ["Profit calculator: profit per unit, profit per hour per level, sourcing cost"],
+      "affectedUiApi": ["resource encyclopedia page", "GET /api/v3/market-ticker/{realmId}/"],
+      "evidence": [
+        { "type": "bundle", "path": "frontend-original/static/bundle/assets/index-cgzgptQ8.js", "offset": 2891337, "anchor": "X=sNt(e.dbLetter,l,a,90,1,oNt(...),V); if(e.isResearch)..." },
+        { "type": "bundle", "path": "frontend-original/static/bundle/assets/index-cgzgptQ8.js", "offset": 2891900, "anchor": "warehouse unit cost map versus market ticker price; reduce(...)+j" },
+        { "type": "bundle", "path": "frontend-original/static/bundle/assets/index-cgzgptQ8.js", "offset": 4041128, "anchor": "tickerPriceFor=r=>...filter(l=>l.kind===r)...o.price" },
+        { "type": "bundle", "path": "frontend-original/static/bundle/assets/index-cgzgptQ8.js", "offset": 2878093, "anchor": "return k-t*((le||1)*u*_)/z" }
+      ],
+      "unresolved": "No saved official warehouse/market toggle payload and ticker fixture is available for a numeric comparison."
+    },
+    {
+      "id": "encyclopedia-building-reference-cost",
+      "confidence": "strong",
+      "formula": "fallbackReferenceCostPerLevel = costUnits * 10 * AVERAGE_SALARY; referenceValueAtLevel = fallbackReferenceCostPerLevel * level. If every construction-material ticker price is numeric, approximateCost = sum(tickerPrice[kind] * costUnits * materialMultiplier[kind]); otherwise use fallbackReferenceCostPerLevel.",
+      "inputs": ["building.costUnits", "ticker entries {kind,price}", "material multipliers {101:4,102:55,108:16,111:1}", "level"],
+      "outputs": ["Building encyclopedia: Approximate cost and Reference value tables"],
+      "affectedUiApi": ["building encyclopedia page", "GET /api/v3/market-ticker/{realmId}/"],
+      "evidence": [
+        { "type": "bundle", "path": "frontend-original/static/bundle/assets/index-cgzgptQ8.js", "offset": 1217151, "anchor": "ag={101:4,102:55,108:16,111:1}" },
+        { "type": "bundle", "path": "frontend-original/static/bundle/assets/index-cgzgptQ8.js", "offset": 4062720, "anchor": "ope=(e,t)=>{...l*t*o...i>0?i:n}" },
+        { "type": "bundle", "path": "frontend-original/static/bundle/assets/index-cgzgptQ8.js", "offset": 168945, "anchor": "function Q3(e){return e*10*ea.AVERAGE_SALARY}" },
+        { "type": "bundle", "path": "frontend-original/static/bundle/assets/index-cgzgptQ8.js", "offset": 4063821, "anchor": "function S5n({buildingCostUnits:e,ticker:t,levels:r})" },
+        { "type": "bundle", "path": "frontend-original/static/bundle/assets/index-cgzgptQ8.js", "offset": 4065293, "anchor": "function T5n({buildingCostUnits:e,levels:t})" },
+        { "type": "canonical", "path": "server/data/decompile/buildings.json", "section": "_meta.upgradeFormula" }
+      ],
+      "unresolved": "No saved building-page ticker response is available to compare a non-fallback approximate cost."
+    },
+    {
+      "id": "encyclopedia-building-duration-wages-robots",
+      "confidence": "strong",
+      "formula": "construction time: level 1 = buildDuration / 3600 hours; displayed upgrade level r = buildDuration / 3600 * (r - 1) hours. Worker wages = AVERAGE_SALARY * salaryModifier * selectedLevel. Robot table amount at displayed level n-1 = ceil(max(1, raw + (raw - 4.5) * 1.2) * (n-1)), raw = salaryModifier * (AVERAGE_SALARY * 24 * 7 * 5 * 0.03) / ROBOT_COST.",
+      "inputs": ["building.buildDuration", "building.salaryModifier", "building level", "AVERAGE_SALARY", "ROBOT_COST=940"],
+      "outputs": ["Building encyclopedia: Construction time, Worker wages, Industrial robots table"],
+      "affectedUiApi": ["building encyclopedia page"],
+      "evidence": [
+        { "type": "bundle", "path": "frontend-original/static/bundle/assets/index-cgzgptQ8.js", "offset": 4066254, "anchor": "function D5n({buildingBuildDuration:e,levels:t}){...e/60/60*(r-1)...}" },
+        { "type": "bundle", "path": "frontend-original/static/bundle/assets/index-cgzgptQ8.js", "offset": 1791157, "anchor": "function jS(e,t,r){...anHour...salaryModifier}" },
+        { "type": "bundle", "path": "frontend-original/static/bundle/assets/index-cgzgptQ8.js", "offset": 1791616, "anchor": "function bj(e){...ROBOT_COST...Math.ceil(t+(t-4.5)*1.2)}" },
+        { "type": "bundle", "path": "frontend-original/static/bundle/assets/index-cgzgptQ8.js", "offset": 4069421, "anchor": "function G5n({building:e,levels:t}){...Math.ceil(bj(e)*(n-1))...}" },
+        { "type": "bundle", "path": "frontend-original/static/bundle/assets/index-cgzgptQ8.js", "offset": 4096916, "anchor": "function gst(e,t){...launch pad 10, bank 40, recreation 3, otherwise 99}" },
+        { "type": "canonical", "path": "server/data/decompile/buildings.json", "section": "farm record and level tiers" }
+      ],
+      "unresolved": "No saved DOM fixture for a non-level-1 wage/duration comparison."
+    },
+    {
+      "id": "encyclopedia-production-event-fields",
+      "confidence": "strong",
+      "formula": "Active event lookup is by event.kind/resource dbLetter and UTC since/until bounds; speedModifier is applied as (1 + speedModifier / 100) in production rate. Events page renders kind, speedModifier, until, and since.",
+      "inputs": ["resourceProductionModifiers[realmId][] {kind,speedModifier,since,until}"],
+      "outputs": ["Event banner on resource/building pages and Events table"],
+      "affectedUiApi": ["resource/building encyclopedia pages", "GET /api/v2/production-modifiers/{realmId}/", "GET /api/v3/encyclopedia/events/{realmId}/"],
+      "evidence": [
+        { "type": "bundle", "path": "frontend-original/static/bundle/assets/index-cgzgptQ8.js", "offset": 2515900, "anchor": "IA(e)...api_v2_production_modifiers(e)...data.resourceProductionModifiers" },
+        { "type": "bundle", "path": "frontend-original/static/bundle/assets/index-cgzgptQ8.js", "offset": 2897757, "anchor": "P0e({resourceDbLetter:e,realmId:t})...o.speedModifier" },
+        { "type": "bundle", "path": "frontend-original/static/bundle/assets/index-cgzgptQ8.js", "offset": 4228460, "anchor": "function gjn(){...api_v3_encyclopedia_events(u)...data.events.sort(...)" },
+        { "type": "bundle", "path": "frontend-original/static/bundle/assets/index-cgzgptQ8.js", "offset": 4229000, "anchor": "o.map(u=>...u.kind...u.speedModifier...u.until...u.since)" }
+      ],
+      "unresolved": "No official event response fixture is saved; current private route output must not be treated as real event data."
+    },
+    {
+      "id": "encyclopedia-ticker-reference-price",
+      "confidence": "strong",
+      "formula": "No client-side reference-price formula was found. The resource page takes the first ticker entry matching kind and reads .price; building approximate cost and profit calculator use those dynamic prices. The official article says reference prices are assigned from market trading activity in the prior 24 hours, but the assignment algorithm is server-side/undisclosed in this bundle.",
+      "inputs": ["GET /api/v3/market-ticker/{realmId}/ response array entries {kind,price}", "server-side market activity"],
+      "outputs": ["Resource page exchange/recipe prices; building approximate cost; profit calculator wholesale price"],
+      "affectedUiApi": ["resource/building encyclopedia pages", "GET /api/v3/market-ticker/{realmId}/"],
+      "evidence": [
+        { "type": "bundle", "path": "frontend-original/static/bundle/assets/index-cgzgptQ8.js", "offset": 678072, "anchor": "api_v3_market_ticker:e=>`/api/v3/market-ticker/${e}/`" },
+        { "type": "bundle", "path": "frontend-original/static/bundle/assets/index-cgzgptQ8.js", "offset": 1398661, "anchor": "pU(e,t)...data:i...ticker[realmId]" },
+        { "type": "bundle", "path": "frontend-original/static/bundle/assets/index-cgzgptQ8.js", "offset": 4041128, "anchor": "tickerPriceFor=r=>...filter(l=>l.kind===r)...o.price" },
+        { "type": "canonical", "path": "server/data/decompile/INDEX.md", "section": "Prices are dynamic via /api/v3/market-ticker/" },
+        { "type": "i18n", "path": "frontend-original/static/js/lang6/en.b0ef0ef4cd73.json", "section": "Articles.referencePricesText" }
+      ],
+      "nextInvestigation": "Capture one official market-ticker response plus the corresponding resource/building DOM, then correlate a 24-hour market activity window with generated ticker values. Do not infer the algorithm from one price."
+    }
+  ],
+  "responseShapeGaps": [
+    {
+      "surface": "resource retail history chart",
+      "confidence": "strong",
+      "finding": "The chart maps retailData[].date to x-axis, retailData[].averagePrice to price, retailData[].saturation to the demand-series data, and reads retailData[].demand and retailData[].amountSold; restaurant chart reads amountSoldRestaurant. Direct consumers are at bundle offsets 4035713 and 4036637-4037194.",
+      "currentEvidence": "server/routes/encyclopedia-routes.ts currently constructs only date, saturation, and averagePrice in retailData; no route change is made in this evidence task.",
+      "nextInvestigation": "Save an official /api/v4/{realmId}/resources-retail-info/ response and compare all chart fields before changing a route."
+    },
+    {
+      "surface": "industry/realm modifiers",
+      "confidence": "tentative",
+      "finding": "No exact original-bundle endpoint or field consumer for industry-modifiers or realm-modifiers was found after searching known encyclopedia/resource anchors. The observed production path consumes resourceProductionModifiers only.",
+      "nextInvestigation": "Use a visible original-client page/network capture or exact translation/component anchor before defining any industry or realm modifier schema."
+    },
+    {
+      "surface": "v4 encyclopedia resource detail wrapper",
+      "confidence": "strong",
+      "finding": "The bundle defines /api/v4/{realmId}/{resourceType}/encyclopedia/resources/{kind}/{quality}/ at offset 678731, but the observed resource page reads Redux constants and does not call this wrapper. Keep its response contract unresolved until a network capture shows a caller."
+    },
+    {
+      "surface": "reference price algorithm",
+      "confidence": "tentative",
+      "finding": "The article describes 24-hour market-activity assignment but exposes no arithmetic. There is no safe client formula to persist; server/HAR evidence is required."
+    }
+  ],
+  "verifier": {
+    "path": "tests/verify-encyclopedia-formulas.test.ts",
+    "status": "production_fixture_only",
+    "covered": ["encyclopedia-production-rate", "encyclopedia-production-worker-admin-cost"],
+    "fixture": "Tracked official frontend DOM screenshot server/data/decompile/fixtures/encyclopedia-apples.png plus canonical Apples/farm/Ji records",
+    "blocked": [
+      "Retail rate and profit: no saved official retail-info/economy-model Network body paired with the screenshot.",
+      "Reference prices: server-side formula is not exposed by the bundle.",
+      "Events and non-level-1 building tables: no saved official response/DOM numeric fixture."
+    ]
+  }
+}

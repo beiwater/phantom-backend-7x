@@ -121,6 +121,13 @@
       "features": [
         "simboosts-use-action"
       ]
+    },
+    {
+      "file": "encyclopedia-formulas.json",
+      "features": [
+        "encyclopedia-formulas",
+        "encyclopedia-formula-verifier"
+      ]
     }
   ]
 }
