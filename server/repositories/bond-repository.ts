@@ -62,6 +62,22 @@ export class BondRepository {
     `).all(now) as BondRow[];
   }
 
+  /** Bonds actively held by a company (daily interest job source, camelCase). */
+  findActiveHeld(): Array<{ id: number; sellerCompanyId: number; buyerCompanyId: number; amount: number; interestRate: number }> {
+    const rows = this.database.prepare(`
+      SELECT id, seller_company_id, buyer_company_id, amount, interest_rate
+      FROM bonds
+      WHERE status = 'active' AND buyer_company_id IS NOT NULL
+    `).all() as Array<{ id: number; seller_company_id: number; buyer_company_id: number; amount: number; interest_rate: number }>;
+    return rows.map(r => ({
+      id: Number(r.id),
+      sellerCompanyId: Number(r.seller_company_id),
+      buyerCompanyId: Number(r.buyer_company_id),
+      amount: Number(r.amount),
+      interestRate: Number(r.interest_rate)
+    }));
+  }
+
   /** Insert a player-issued offering; returns the freshly persisted row. */
   insertBond(sellerCompanyId: number, interestRate: number, amount: number, createdAt: string, maturityDate: string): BondRow {
     const res = this.database.prepare(`

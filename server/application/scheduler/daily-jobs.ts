@@ -9,7 +9,6 @@
  */
 import { db } from '../../db/database.ts';
 import { runInTransaction } from '../../db/transaction.ts';
-import { getCompanyById, updateCompanyMoney } from '../../game/company.ts';
 import { bondRepository } from '../../repositories/bond-repository.ts';
 import { companyRepository } from '../../repositories/company-repository.ts';
 import { governmentOrdersRepository } from '../../repositories/government-orders-repository.ts';
@@ -39,11 +38,11 @@ export function chargeDailyBondInterest(): void {
     if (!(interest > 0)) continue;
 
     const holderId = bond.buyerCompanyId as number;
-    const holder = getCompanyById(holderId);
+    const holder = companyRepository.findById(holderId);
     if (!holder) continue;
 
     const issuerId = bond.sellerCompanyId;
-    const issuer = issuerId !== null ? getCompanyById(issuerId) : null;
+    const issuer = issuerId !== null ? companyRepository.findById(issuerId) : null;
 
     if (issuer) {
       const funds = Number(issuer.money) || 0;
@@ -57,7 +56,7 @@ export function chargeDailyBondInterest(): void {
           descriptionKey: '1-bondinterest',
           details: { bondId: bond.id }
         });
-        updateCompanyMoney(issuerId as number, -paid, true);
+        companyRepository.updateMoney(issuerId as number, -paid, { skipLedger: true });
         recordCashLedger({
           companyId: holderId,
           amount: paid,
@@ -66,7 +65,7 @@ export function chargeDailyBondInterest(): void {
           descriptionKey: '1-bondyield',
           details: { bondId: bond.id }
         });
-        updateCompanyMoney(holderId, paid, true);
+        companyRepository.updateMoney(holderId, paid, { skipLedger: true });
       }
       if (paid < interest) {
         bondRepository.markDefaulted(bond.id);
@@ -80,7 +79,7 @@ export function chargeDailyBondInterest(): void {
         descriptionKey: '1-bondyield',
         details: { bondId: bond.id }
       });
-      updateCompanyMoney(holderId, interest, true);
+      companyRepository.updateMoney(holderId, interest, { skipLedger: true });
     }
   }
 }
@@ -139,7 +138,7 @@ export function chargeDailyAccountingOverhead(): void {
       descriptionKey: '1-accounting',
       details
     });
-    updateCompanyMoney(companyId, -paid, true);
+    companyRepository.updateMoney(companyId, -paid, { skipLedger: true });
   }
 }
 
@@ -166,7 +165,7 @@ export function debitExecutiveSalaries(): void {
       description: 'Executive daily salaries',
       descriptionKey: '1-salaries'
     });
-    updateCompanyMoney(companyId, -paid, true);
+    companyRepository.updateMoney(companyId, -paid, { skipLedger: true });
   }
 }
 
@@ -251,7 +250,7 @@ export function awardGovernmentBids(occurrence: Date): void {
       }
       governmentOrdersRepository.markBidRejected(bid.id);
       for (const contractor of governmentOrdersRepository.listDepositHolders(bid.secret)) {
-        if (getCompanyById(contractor.companyId)) {
+        if (companyRepository.findById(contractor.companyId)) {
           updateCompanyMoney(contractor.companyId, contractor.depositPaid);
         }
         governmentOrdersRepository.forfeitDeposits(bid.secret, contractor.companyId);
