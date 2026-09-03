@@ -196,6 +196,7 @@ export function sumNegative(rows: Array<{ amount: number }>): number {
 /** Read the ledger window (last 24h) backing the financial statements. */
 export function readStatementWindow(companyId: number): StatementWindow {
   const now = virtualClock.now();
+  const from = new Date(now.getTime() - LEDGER_WINDOW_DAYS * 24 * 60 * 60 * 1000);
   const rows = db.prepare(`
     SELECT amount, category FROM cash_ledger
     WHERE company_id = ? AND created_at >= ?
@@ -247,7 +248,9 @@ export function upsertDailyFinanceSnapshot(
   }
 ): void {
   const { companyId, date, ...rest } = snapshot;
-  const createdAt = isoWithMicros(date ?? virtualClock.now());
+  const snapshotDate = date ?? virtualClock.now();
+  const dayKey = snapshotDate.toISOString().slice(0, 10);
+  const createdAt = isoWithMicros(snapshotDate);
   db.prepare(`
     INSERT INTO finance_daily_snapshots (
       company_id, snapshot_date, total, current_assets, non_current_assets,
