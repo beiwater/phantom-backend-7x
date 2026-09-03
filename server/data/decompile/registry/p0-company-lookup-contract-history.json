@@ -1,0 +1,47 @@
+{
+  "$schema": "decompile-evidence-v1",
+  "domain": "p0-company-lookup-contract-history",
+  "sourceBundle": "frontend-original/static/bundle/assets/index-cgzgptQ8.js",
+  "contracts": [
+    {
+      "id": "company-lookup",
+      "endpoint": "GET /api/v2/company-lookup/:companyId/:realmId/:name/",
+      "routerKey": "Wcr.api_company_lookup",
+      "routerOffset": 660481,
+      "requestPathFields": [
+        "companyId",
+        "realmId",
+        "name"
+      ],
+      "responseFields": [
+        "company",
+        "realm_id"
+      ],
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": {
+        "file": "server/routes/auth-routes.ts",
+        "symbol": "companyLookupMatch"
+      },
+      "notes": "The lookup is public but only returns a match when the numeric company id, realm id, and normalized company-name slug identify the same persisted company."
+    },
+    {
+      "id": "contract-history-detail",
+      "endpoint": "GET /api/v2/contracts-history/:contractId/",
+      "routerKey": "Wcr.api_contract_history",
+      "routerOffset": 660596,
+      "responseShape": "FormattedContract",
+      "responseHeaders": [
+        "x-timestamp"
+      ],
+      "authorization": "authenticated owner of the settled contract sender or recipient",
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": {
+        "file": "server/routes/contract-routes.ts",
+        "symbol": "getContractHistoryDetail"
+      },
+      "notes": "The id is the settled contract id, not a company id. Pending, missing, and unowned contracts return 404; unauthenticated requests return 401."
+    }
+  ]
+}

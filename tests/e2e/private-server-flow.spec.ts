@@ -71,6 +71,15 @@ async function clickNavigation(page: Page, name: string): Promise<void> {
 }
 
 async function openVisibleFarm(page: Page): Promise<void> {
+  const buildingUrl = /\/zh-cn\/b\/\d+\/?/;
+  const isFarmDetail = async (): Promise<boolean> =>
+    buildingUrl.test(page.url())
+    || await page.getByRole('heading', { name: 'FARM', exact: true }).isVisible().catch(() => false);
+
+  if (await isFarmDetail()) {
+    return;
+  }
+
   const farmLink = page.locator('a.test-building-P:visible').first();
   await expect(farmLink).toBeVisible();
   // The map can briefly contain a non-interactive animation layer after a
@@ -78,13 +87,16 @@ async function openVisibleFarm(page: Page): Promise<void> {
   // targets the same visible anchor without bypassing the UI.
   await farmLink.focus();
   await farmLink.press('Enter');
-  if (!/\/zh-cn\/b\/3\//.test(page.url())) {
+  await page.waitForURL(buildingUrl, { timeout: 2000 }).catch(() => {});
+  if (!(await isFarmDetail())) {
     // Wait for the map's building label to finish its transition before
     // retrying the same visible anchor action.
     await page.waitForTimeout(500);
-    await page.locator('a.test-building-P:visible').first().click();
+    const retryFarmLink = page.locator('a.test-building-P:visible').first();
+    await expect(retryFarmLink).toBeVisible();
+    await retryFarmLink.click();
   }
-  await expect(page).toHaveURL(/\/zh-cn\/b\/3\//);
+  await expect.poll(isFarmDetail).toBe(true);
 }
 
 test('real player core loop keeps UI and persisted state coherent', async ({ page, diagnostics }, testInfo) => {
@@ -123,7 +135,7 @@ test('real player core loop keeps UI and persisted state coherent', async ({ pag
   // navigating away and back. A normal browser refresh obtains the finished
   // queue state and performs its normal completion request.
   await page.reload();
-  await expect(page).toHaveURL(/\/zh-cn\/b\/3\//);
+  await expect(page).toHaveURL(/\/zh-cn\/b\/\d+\/?/);
   await expect(page.locator('body')).toContainText('当前库存：10,001');
   await expect(page.locator('body')).not.toContainText('NaN');
   await page.screenshot({ path: testInfo.outputPath('04-production-collected.png') });

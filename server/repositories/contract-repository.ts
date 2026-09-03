@@ -46,6 +46,14 @@ export class ContractRepository {
     `).get(contractId) as ContractRow | undefined;
     return row || null;
   }
+  /** Settled contract by id, or null for pending/missing history entries. */
+  findHistoryById(contractId: number): ContractRow | null {
+    const row = this.database.prepare(`
+      SELECT * FROM contracts
+      WHERE id = ? AND status != 'pending'
+    `).get(contractId) as ContractRow | undefined;
+    return row || null;
+  }
 
   /** Insert a pending contract; returns the new contract id. */
   insertPending(

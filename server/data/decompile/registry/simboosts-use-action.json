@@ -1,0 +1,28 @@
+{
+  "feature": "simboost-spend-action",
+  "endpoint": "POST /api/v2/players/simboosts-use/:action/",
+  "status": "blocked",
+  "blocker": "The preserved frontend bundle defines only GET /api/v2/players/simboosts-use/:companyId/ for reading spend history. It has no POST callsite, request payload, response access, or action-to-domain transition for this path.",
+  "knownAtomicSpends": [
+    "POST /api/v2/companies/buildings/:buildingId/rush/ uses the persisted rush-production use case and records action code c.",
+    "POST /api/v2/companies/buildings/:buildingId/construction-rush/ uses the persisted rush-construction use case and records action code c.",
+    "POST /api/v2/players/unlocked-hqs/ and POST /api/v2/players/unlocked-pas/ use persisted entitlement use cases and record action codes q and D."
+  ],
+  "evidence": [
+    {
+      "type": "bundle",
+      "path": "frontend-original/static/bundle/assets/index-cgzgptQ8.js",
+      "locators": [
+        "api_v2_company_simboosts_use:e=>`/api/v2/players/simboosts-use/${e}/`",
+        "uki({companyId:e}) GET call reads id/spendSimBoosts/action/datetime"
+      ]
+    },
+    {
+      "type": "repository",
+      "path": "server/repositories/social-repository.ts",
+      "locator": "SIMBOOST_ACTION_CODES and recordSimboostSpend"
+    }
+  ],
+  "decision": "Do not add a permissive POST handler or debit based only on the action code table. Implement a new action only after an observed request payload, exact preconditions, and persisted state transition are available.",
+  "confidence": "verified_bundle_static"
+}

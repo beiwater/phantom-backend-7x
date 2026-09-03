@@ -16,8 +16,23 @@ import { getResourceDef } from '../../game/constants.ts';
 
 // --- DTO mapping ---------------------------------------------------------------
 
+export interface FormattedContract {
+  id: number;
+  kind: number;
+  quality: number;
+  amount: number;
+  quantity: number;
+  price: number;
+  total: number;
+  created: string;
+  status: string;
+  sender: { id: number; company: string; logo: string };
+  recipient: { id: number; company: string; logo: string };
+  resource: { name: string; image: string } | null;
+}
+
 /** Legacy contract DTO shape (game/contracts.ts::formatContract), preserved as-is. */
-export function formatContract(c: ContractRow) {
+export function formatContract(c: ContractRow): FormattedContract {
   const sender = companyRepository.findById(c.sender_company_id);
   const recipient = companyRepository.findById(c.recipient_company_id);
   const resDef = getResourceDef(c.kind);
@@ -64,6 +79,21 @@ export function getOutgoingContracts(companyId: number) {
 
 export function getContractHistory(companyId: number, direction: 'incoming' | 'outgoing') {
   return contractRepository.listHistoryRows(companyId, direction).map(formatContract);
+}
+
+/** Settled contract detail, hidden when the caller owns neither side. */
+export function getContractHistoryDetail(
+  companyId: number,
+  contractId: number
+): FormattedContract | null {
+  const contract = contractRepository.findHistoryById(contractId);
+  if (
+    !contract ||
+    (contract.sender_company_id !== companyId && contract.recipient_company_id !== companyId)
+  ) {
+    return null;
+  }
+  return formatContract(contract);
 }
 
 export function getWarehouseContractsSummary(companyId: number) {

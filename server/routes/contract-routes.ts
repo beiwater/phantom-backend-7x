@@ -11,6 +11,7 @@ import {
   rejectContractCommand,
   cancelContractCommand
 } from '../application/finance/finance-use-cases.ts';
+import { getContractHistoryDetail } from '../application/finance/contract-use-cases.ts';
 import { createGameContext, type GameContext } from '../context/game-context.ts';
 
 // Contract commands require an authenticated company; bound at handler entry.
@@ -53,6 +54,30 @@ export async function handleContractRoutes(
       return true;
     }
     sendJson(res, getOutgoingContractsQuery(currentCompanyId), 200, { 'x-timestamp': new Date().toISOString() });
+    return true;
+  }
+
+  // Contract history detail: :id is a settled direct-sale contract id.
+  // The application query hides records where the caller owns neither side.
+  const contractHistoryMatch = pathname.match(/^\/api\/v2\/contracts-history\/(\d+|me)\/?$/);
+  if (contractHistoryMatch && method === 'GET') {
+    if (!currentCompanyId) {
+      sendJson(res, { error: 'Unauthorized' }, 401);
+      return true;
+    }
+    const contractId = Number(contractHistoryMatch[1]);
+    if (!Number.isSafeInteger(contractId) || contractId <= 0) {
+      sendJson(res, { error: 'Invalid contract id' }, 400);
+      return true;
+    }
+    const contract = getContractHistoryDetail(currentCompanyId, contractId);
+    if (!contract) {
+      sendJson(res, { error: 'Contract history not found' }, 404);
+      return true;
+    }
+    sendJson(res, contract, 200, {
+      'x-timestamp': new Date().toISOString()
+    });
     return true;
   }
 
@@ -218,6 +243,13 @@ export function registerContractRoutes(registry: RouteRegistry = globalRouteRegi
     .register({ method: 'GET', pattern: '/api/v2/contracts-outgoing/', owner: 'contracts', handler: async (req, res, ctx) => listOutgoing(req, res, ctx) })
     .register({ method: 'GET', pattern: '/api/v3/contracts-outgoing/:companyId/', owner: 'contracts', handler: async (req, res, ctx) => listOutgoing(req, res, ctx) })
     .register({ method: 'GET', pattern: '/api/v3/contracts-outgoing/:realm/:companyId/', owner: 'contracts', handler: async (req, res, ctx) => listOutgoing(req, res, ctx) })
+    .register({
+      method: 'GET', pattern: '/api/v2/contracts-history/:contractId/', owner: 'contracts',
+      handler: async (req, res, ctx) => {
+        const pathname = new URL(req.url || '/', 'http://localhost').pathname;
+        await handleContractRoutes(req, res, pathname, 'GET', ctx?.companyId ?? null);
+      }
+    })
     .register({ method: 'GET', pattern: '/api/v2/contracts-history-incoming/', owner: 'contracts', handler: async (_req, res, ctx) => listHistory(_req, res, ctx, 'incoming') })
     .register({ method: 'GET', pattern: '/api/v2/contracts-history-outgoing/', owner: 'contracts', handler: async (_req, res, ctx) => listHistory(_req, res, ctx, 'outgoing') })
     .register({ method: 'GET', pattern: '/api/v2/contracts-history-incoming/:companyId/', owner: 'contracts', handler: async (_req, res, ctx) => listHistory(_req, res, ctx, 'incoming') })

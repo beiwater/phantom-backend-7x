@@ -1,0 +1,5441 @@
+{
+  "metadata": {
+    "version": "1.0.0",
+    "description": "Official SimCompanies Frontend API Contract Registry extracted directly from index-cgzgptQ8.js router tables (Wcr & Ycr)",
+    "sourceBundle": "frontend-original/static/bundle/assets/index-cgzgptQ8.js",
+    "totalWcrEndpoints": 297,
+    "totalI18nYcrEndpoints": 297,
+    "totalCombined": 594,
+    "backendCoverageRate": "55.9%",
+    "exactBackendMatches": 166,
+    "versionPathDiscrepancies": 2,
+    "unimplementedEndpoints": 129
+  },
+  "endpoints": [
+    {
+      "name": "api_bonds",
+      "table": "Wcr",
+      "domain": "bonds",
+      "params": [],
+      "rawUrl": "/api/bonds/",
+      "normalizedUrl": "/api/bonds/",
+      "bundleSourceOffset": 659913,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/bond-routes.ts",
+          "line": 53,
+          "method": "ANY",
+          "path": "/api/bonds/"
+        }
+      ]
+    },
+    {
+      "name": "api_bonds_by_rating",
+      "table": "Wcr",
+      "domain": "bonds",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/bonds/rating/${e}/",
+      "normalizedUrl": "/api/bonds/rating/:e/",
+      "bundleSourceOffset": 659941,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/bond-routes.ts",
+          "line": 254,
+          "method": "ANY",
+          "path": "/api/bonds/rating/:rating/"
+        }
+      ]
+    },
+    {
+      "name": "api_bonds_get",
+      "table": "Wcr",
+      "domain": "bonds",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/bonds/${e}/",
+      "normalizedUrl": "/api/bonds/:e/",
+      "bundleSourceOffset": 659990,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/bond-routes.ts",
+          "line": 260,
+          "method": "ANY",
+          "path": "/api/bonds/:bondId/"
+        }
+      ]
+    },
+    {
+      "name": "api_captcha",
+      "table": "Wcr",
+      "domain": "captcha",
+      "params": [],
+      "rawUrl": "/api/v2/captcha/",
+      "normalizedUrl": "/api/v2/captcha/",
+      "bundleSourceOffset": 660026,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_certificates_explorer_detail",
+      "table": "Wcr",
+      "domain": "certificates-explorer",
+      "params": [
+        "e",
+        "t",
+        "r",
+        "n"
+      ],
+      "rawUrl": "/api/v2/certificates-explorer/${e}/certificate/${t}/${r}/${n}/",
+      "normalizedUrl": "/api/v2/certificates-explorer/:e/certificate/:t/:r/:n/",
+      "bundleSourceOffset": 660061,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/achievement-routes.ts",
+          "line": 459,
+          "method": "ANY",
+          "path": "/api/v2/certificates-explorer/:realmId/certificate/:kind/:level/:resourceKind/"
+        }
+      ]
+    },
+    {
+      "name": "api_certificates_latest",
+      "table": "Wcr",
+      "domain": "certificates-explorer",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/certificates-explorer/${e}/latest/",
+      "normalizedUrl": "/api/v2/certificates-explorer/:e/latest/",
+      "bundleSourceOffset": 660170,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/achievement-routes.ts",
+          "line": 457,
+          "method": "ANY",
+          "path": "/api/v2/certificates-explorer/:realmId/latest/"
+        }
+      ]
+    },
+    {
+      "name": "api_certificates_rarest",
+      "table": "Wcr",
+      "domain": "certificates-explorer",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/certificates-explorer/${e}/rarest/",
+      "normalizedUrl": "/api/v2/certificates-explorer/:e/rarest/",
+      "bundleSourceOffset": 660242,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/achievement-routes.ts",
+          "line": 458,
+          "method": "ANY",
+          "path": "/api/v2/certificates-explorer/:realmId/rarest/"
+        }
+      ]
+    },
+    {
+      "name": "api_chatroom",
+      "table": "Wcr",
+      "domain": "chatroom",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/chatroom/${e}/",
+      "normalizedUrl": "/api/v2/chatroom/:e/",
+      "bundleSourceOffset": 660314,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_chatroom_from_id",
+      "table": "Wcr",
+      "domain": "chatroom",
+      "params": [
+        "e",
+        "t"
+      ],
+      "rawUrl": "/api/v2/chatroom/${e}/from-id/${t}/",
+      "normalizedUrl": "/api/v2/chatroom/:e/from-id/:t/",
+      "bundleSourceOffset": 660355,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_chatroom_summary",
+      "table": "Wcr",
+      "domain": "ai",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v3/ai/chatroom-summary/${e}/",
+      "normalizedUrl": "/api/v3/ai/chatroom-summary/:e/",
+      "bundleSourceOffset": 660421,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_company_lookup",
+      "table": "Wcr",
+      "domain": "company-lookup",
+      "params": [
+        "e",
+        "t",
+        "r"
+      ],
+      "rawUrl": "/api/v2/company-lookup/${e}/${t}/${r}/",
+      "normalizedUrl": "/api/v2/company-lookup/:e/:t/:r/",
+      "bundleSourceOffset": 660481,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/auth-routes.ts",
+          "line": 467,
+          "method": "GET",
+          "path": "/api/v2/company-lookup/:companyId/:realmId/:name/"
+        }
+      ]
+    },
+    {
+      "name": "api_contract_get",
+      "table": "Wcr",
+      "domain": "contracts",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/contracts/${e}/",
+      "normalizedUrl": "/api/v2/contracts/:e/",
+      "bundleSourceOffset": 660550,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/contract-routes.ts",
+          "line": 310,
+          "method": "ANY",
+          "path": "/api/v2/contracts/:contractId/"
+        }
+      ]
+    },
+    {
+      "name": "api_contract_history",
+      "table": "Wcr",
+      "domain": "contracts-history",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/contracts-history/${e}/",
+      "normalizedUrl": "/api/v2/contracts-history/:e/",
+      "bundleSourceOffset": 660596,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/contract-routes.ts",
+          "line": 62,
+          "method": "GET",
+          "path": "/api/v2/contracts-history/:contractId/"
+        }
+      ]
+    },
+    {
+      "name": "api_contract_history_incoming",
+      "table": "Wcr",
+      "domain": "contracts-history-incoming",
+      "params": [],
+      "rawUrl": "/api/v2/contracts-history-incoming/",
+      "normalizedUrl": "/api/v2/contracts-history-incoming/",
+      "bundleSourceOffset": 660654,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/contract-routes.ts",
+          "line": 61,
+          "method": "ANY",
+          "path": "/api/v2/contracts-history-incoming/"
+        }
+      ]
+    },
+    {
+      "name": "api_contract_history_outgoing",
+      "table": "Wcr",
+      "domain": "contracts-history-outgoing",
+      "params": [],
+      "rawUrl": "/api/v2/contracts-history-outgoing/",
+      "normalizedUrl": "/api/v2/contracts-history-outgoing/",
+      "bundleSourceOffset": 660726,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/contract-routes.ts",
+          "line": 62,
+          "method": "ANY",
+          "path": "/api/v2/contracts-history-outgoing/"
+        }
+      ]
+    },
+    {
+      "name": "api_contract_history_outgoing_get",
+      "table": "Wcr",
+      "domain": "contracts-history-outgoing",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/contracts-history-outgoing/${e}/",
+      "normalizedUrl": "/api/v2/contracts-history-outgoing/:e/",
+      "bundleSourceOffset": 660798,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/contract-routes.ts",
+          "line": 224,
+          "method": "ANY",
+          "path": "/api/v2/contracts-history-outgoing/:companyId/"
+        }
+      ]
+    },
+    {
+      "name": "api_contract_incoming",
+      "table": "Wcr",
+      "domain": "contracts-incoming",
+      "params": [],
+      "rawUrl": "/api/v2/contracts-incoming/",
+      "normalizedUrl": "/api/v2/contracts-incoming/",
+      "bundleSourceOffset": 660878,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/contract-routes.ts",
+          "line": 33,
+          "method": "ANY",
+          "path": "/api/v2/contracts-incoming/"
+        }
+      ]
+    },
+    {
+      "name": "api_contract_outgoing",
+      "table": "Wcr",
+      "domain": "contracts-outgoing",
+      "params": [],
+      "rawUrl": "/api/v2/contracts-outgoing/",
+      "normalizedUrl": "/api/v2/contracts-outgoing/",
+      "bundleSourceOffset": 660934,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/contract-routes.ts",
+          "line": 47,
+          "method": "ANY",
+          "path": "/api/v2/contracts-outgoing/"
+        }
+      ]
+    },
+    {
+      "name": "api_cookies_consent",
+      "table": "Wcr",
+      "domain": "players",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/players/${e}/cookie-consent/",
+      "normalizedUrl": "/api/v2/players/:e/cookie-consent/",
+      "bundleSourceOffset": 660990,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_course",
+      "table": "Wcr",
+      "domain": "courses",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/courses/${e}/",
+      "normalizedUrl": "/api/courses/:e/",
+      "bundleSourceOffset": 661052,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_course_history",
+      "table": "Wcr",
+      "domain": "courses",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/courses/${e}/history/",
+      "normalizedUrl": "/api/courses/:e/history/",
+      "bundleSourceOffset": 661087,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_course_invitations",
+      "table": "Wcr",
+      "domain": "courses",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/courses/${e}/invitations/",
+      "normalizedUrl": "/api/courses/:e/invitations/",
+      "bundleSourceOffset": 661138,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_course_invitations_get",
+      "table": "Wcr",
+      "domain": "courses",
+      "params": [
+        "e",
+        "t"
+      ],
+      "rawUrl": "/api/courses/${e}/invitations/${t}/",
+      "normalizedUrl": "/api/courses/:e/invitations/:t/",
+      "bundleSourceOffset": 661197,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_course_invite",
+      "table": "Wcr",
+      "domain": "courses",
+      "params": [],
+      "rawUrl": "/api/courses/invite/",
+      "normalizedUrl": "/api/courses/invite/",
+      "bundleSourceOffset": 661269,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_course_invoice",
+      "table": "Wcr",
+      "domain": "courses",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/courses/${e}/invoice/",
+      "normalizedUrl": "/api/courses/:e/invoice/",
+      "bundleSourceOffset": 661314,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_course_leads",
+      "table": "Wcr",
+      "domain": "courses",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/courses/${e}/leads/",
+      "normalizedUrl": "/api/courses/:e/leads/",
+      "bundleSourceOffset": 661365,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_course_payment",
+      "table": "Wcr",
+      "domain": "courses",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/courses/${e}/payment/",
+      "normalizedUrl": "/api/courses/:e/payment/",
+      "bundleSourceOffset": 661412,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_course_students_get",
+      "table": "Wcr",
+      "domain": "courses",
+      "params": [
+        "e",
+        "t"
+      ],
+      "rawUrl": "/api/courses/${e}/students/${t}/",
+      "normalizedUrl": "/api/courses/:e/students/:t/",
+      "bundleSourceOffset": 661463,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_courses",
+      "table": "Wcr",
+      "domain": "courses",
+      "params": [],
+      "rawUrl": "/api/courses/",
+      "normalizedUrl": "/api/courses/",
+      "bundleSourceOffset": 661529,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/social-routes.ts",
+          "line": 716,
+          "method": "ANY",
+          "path": "/api/courses/"
+        },
+        {
+          "file": "server/routes/social-routes.ts",
+          "line": 716,
+          "method": "ANY",
+          "path": "/api/courses"
+        }
+      ]
+    },
+    {
+      "name": "api_csrf",
+      "table": "Wcr",
+      "domain": "csrf",
+      "params": [],
+      "rawUrl": "/api/csrf/",
+      "normalizedUrl": "/api/csrf/",
+      "bundleSourceOffset": 661561,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/encyclopedia-routes.ts",
+          "line": 43,
+          "method": "ANY",
+          "path": "/api/csrf/"
+        }
+      ]
+    },
+    {
+      "name": "api_device_login",
+      "table": "Wcr",
+      "domain": "auth",
+      "params": [],
+      "rawUrl": "/api/v2/auth/device/auth/",
+      "normalizedUrl": "/api/v2/auth/device/auth/",
+      "bundleSourceOffset": 661587,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/auth-routes.ts",
+          "line": 194,
+          "method": "ANY",
+          "path": "/api/v2/auth/device/auth/"
+        }
+      ]
+    },
+    {
+      "name": "api_devices",
+      "table": "Wcr",
+      "domain": "players",
+      "params": [],
+      "rawUrl": "/api/v2/players/devices/",
+      "normalizedUrl": "/api/v2/players/devices/",
+      "bundleSourceOffset": 661636,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_devices_delete",
+      "table": "Wcr",
+      "domain": "players",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/players/devices/${e}/",
+      "normalizedUrl": "/api/v2/players/devices/:e/",
+      "bundleSourceOffset": 661679,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_email_prompt",
+      "table": "Wcr",
+      "domain": "email-prompt",
+      "params": [],
+      "rawUrl": "/api/v2/email-prompt/",
+      "normalizedUrl": "/api/v2/email-prompt/",
+      "bundleSourceOffset": 661733,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_email_verification_send",
+      "table": "Wcr",
+      "domain": "email-verification",
+      "params": [],
+      "rawUrl": "/api/v2/email-verification/send/",
+      "normalizedUrl": "/api/v2/email-verification/send/",
+      "bundleSourceOffset": 661778,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_error_announcement",
+      "table": "Wcr",
+      "domain": "error-announcement",
+      "params": [],
+      "rawUrl": "/api/v2/error-announcement/",
+      "normalizedUrl": "/api/v2/error-announcement/",
+      "bundleSourceOffset": 661845,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/social-routes.ts",
+          "line": 235,
+          "method": "ANY",
+          "path": "/api/v2/error-announcement/"
+        }
+      ]
+    },
+    {
+      "name": "api_get_braintree_key",
+      "table": "Wcr",
+      "domain": "checkout",
+      "params": [],
+      "rawUrl": "/api/checkout/braintree-key/",
+      "normalizedUrl": "/api/checkout/braintree-key/",
+      "bundleSourceOffset": 661902,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_gift_baskets_draft",
+      "table": "Wcr",
+      "domain": "gift-baskets",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v1/gift-baskets/${e}/draft/",
+      "normalizedUrl": "/api/v1/gift-baskets/:e/draft/",
+      "bundleSourceOffset": 661959,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/achievement-routes.ts",
+          "line": 441,
+          "method": "ANY",
+          "path": "/api/v1/gift-baskets/:companyId/draft/"
+        }
+      ]
+    },
+    {
+      "name": "api_gift_baskets_outgoing",
+      "table": "Wcr",
+      "domain": "gift-baskets",
+      "params": [
+        "e",
+        "t"
+      ],
+      "rawUrl": "/api/v2/gift-baskets/${e}/outgoing/${t}/",
+      "normalizedUrl": "/api/v2/gift-baskets/:e/outgoing/:t/",
+      "bundleSourceOffset": 662020,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/achievement-routes.ts",
+          "line": 443,
+          "method": "ANY",
+          "path": "/api/v2/gift-baskets/:companyId/outgoing/:year/"
+        }
+      ]
+    },
+    {
+      "name": "api_gift_baskets_outgoing_get",
+      "table": "Wcr",
+      "domain": "gift-baskets",
+      "params": [
+        "e",
+        "t",
+        "r"
+      ],
+      "rawUrl": "/api/v2/gift-baskets/${e}/outgoing/${t}/${r}/",
+      "normalizedUrl": "/api/v2/gift-baskets/:e/outgoing/:t/:r/",
+      "bundleSourceOffset": 662096,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/achievement-routes.ts",
+          "line": 445,
+          "method": "ANY",
+          "path": "/api/v2/gift-baskets/:companyId/outgoing/:year/:basketId/"
+        }
+      ]
+    },
+    {
+      "name": "api_gift_baskets_received",
+      "table": "Wcr",
+      "domain": "gift-baskets",
+      "params": [
+        "e",
+        "t"
+      ],
+      "rawUrl": "/api/v2/gift-baskets/${e}/received/${t}/",
+      "normalizedUrl": "/api/v2/gift-baskets/:e/received/:t/",
+      "bundleSourceOffset": 662183,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/achievement-routes.ts",
+          "line": 448,
+          "method": "ANY",
+          "path": "/api/v2/gift-baskets/:companyId/received/:year/"
+        }
+      ]
+    },
+    {
+      "name": "api_gift_baskets_received_get",
+      "table": "Wcr",
+      "domain": "gift-baskets",
+      "params": [
+        "e",
+        "t",
+        "r"
+      ],
+      "rawUrl": "/api/v2/gift-baskets/${e}/received/${t}/${r}/",
+      "normalizedUrl": "/api/v2/gift-baskets/:e/received/:t/:r/",
+      "bundleSourceOffset": 662259,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/achievement-routes.ts",
+          "line": 449,
+          "method": "ANY",
+          "path": "/api/v2/gift-baskets/:companyId/received/:year/:basketId/"
+        }
+      ]
+    },
+    {
+      "name": "api_invite_payment",
+      "table": "Wcr",
+      "domain": "courses",
+      "params": [],
+      "rawUrl": "/api/courses/invite/payment/",
+      "normalizedUrl": "/api/courses/invite/payment/",
+      "bundleSourceOffset": 662346,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_market",
+      "table": "Wcr",
+      "domain": "market",
+      "params": [
+        "e",
+        "t"
+      ],
+      "rawUrl": "/api/v3/market/${e}/${t}/",
+      "normalizedUrl": "/api/v3/market/:e/:t/",
+      "bundleSourceOffset": 662474,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/market-routes.ts",
+          "line": 367,
+          "method": "ANY",
+          "path": "/api/v3/market/:realmId/:kind/"
+        }
+      ]
+    },
+    {
+      "name": "api_market_all",
+      "table": "Wcr",
+      "domain": "market",
+      "params": [
+        "e",
+        "t"
+      ],
+      "rawUrl": "/api/v3/market/all/${e}/${t}/",
+      "normalizedUrl": "/api/v3/market/all/:e/:t/",
+      "bundleSourceOffset": 662520,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/market-routes.ts",
+          "line": 373,
+          "method": "ANY",
+          "path": "/api/v3/market/all/:realmId/:kind/"
+        }
+      ]
+    },
+    {
+      "name": "api_market_buy_orders",
+      "table": "Wcr",
+      "domain": "market",
+      "params": [
+        "e",
+        "t"
+      ],
+      "rawUrl": "/api/v3/market/buy/${e}/${t}/",
+      "normalizedUrl": "/api/v3/market/buy/:e/:t/",
+      "bundleSourceOffset": 662574,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/market-routes.ts",
+          "line": 361,
+          "method": "ANY",
+          "path": "/api/v3/market/buy/:realmId/:kind/"
+        }
+      ]
+    },
+    {
+      "name": "api_market_limits",
+      "table": "Wcr",
+      "domain": "market",
+      "params": [
+        "e",
+        "t",
+        "r"
+      ],
+      "rawUrl": "/api/v2/market/limits/${e}/${t}/${r}/",
+      "normalizedUrl": "/api/v2/market/limits/:e/:t/:r/",
+      "bundleSourceOffset": 662635,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/market-routes.ts",
+          "line": 355,
+          "method": "ANY",
+          "path": "/api/v2/market/limits/:realmId/:kind/:quality/"
+        }
+      ]
+    },
+    {
+      "name": "api_market_recent_resources",
+      "table": "Wcr",
+      "domain": "market",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v3/market/recent-resources/${e}/",
+      "normalizedUrl": "/api/v3/market/recent-resources/:e/",
+      "bundleSourceOffset": 662702,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/market-routes.ts",
+          "line": 550,
+          "method": "ANY",
+          "path": "/api/v3/market/recent-resources/:realmId/"
+        }
+      ]
+    },
+    {
+      "name": "api_message",
+      "table": "Wcr",
+      "domain": "message",
+      "params": [],
+      "rawUrl": "/api/v2/message/",
+      "normalizedUrl": "/api/v2/message/",
+      "bundleSourceOffset": 662773,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/social-routes.ts",
+          "line": 307,
+          "method": "ANY",
+          "path": "/api/v2/message/"
+        }
+      ]
+    },
+    {
+      "name": "api_message_suggestion",
+      "table": "Wcr",
+      "domain": "ai",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v3/ai/message-suggestion/${e}/",
+      "normalizedUrl": "/api/v3/ai/message-suggestion/:e/",
+      "bundleSourceOffset": 662808,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_message_translate",
+      "table": "Wcr",
+      "domain": "ai",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v3/ai/message-translate/${e}/",
+      "normalizedUrl": "/api/v3/ai/message-translate/:e/",
+      "bundleSourceOffset": 662872,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_messages",
+      "table": "Wcr",
+      "domain": "messages",
+      "params": [],
+      "rawUrl": "/api/messages/",
+      "normalizedUrl": "/api/messages/",
+      "bundleSourceOffset": 662934,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/social-routes.ts",
+          "line": 354,
+          "method": "ANY",
+          "path": "/api/messages/"
+        }
+      ]
+    },
+    {
+      "name": "api_messages_by_company",
+      "table": "Wcr",
+      "domain": "messages_by_company",
+      "params": [],
+      "rawUrl": "/api/messages_by_company/",
+      "normalizedUrl": "/api/messages_by_company/",
+      "bundleSourceOffset": 662968,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/social-routes.ts",
+          "line": 354,
+          "method": "ANY",
+          "path": "/api/messages_by_company/"
+        }
+      ]
+    },
+    {
+      "name": "api_messages_cases",
+      "table": "Wcr",
+      "domain": "messages-cases",
+      "params": [],
+      "rawUrl": "/api/v2/messages-cases/",
+      "normalizedUrl": "/api/v2/messages-cases/",
+      "bundleSourceOffset": 663024,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/page-routes.ts",
+          "line": 191,
+          "method": "ANY",
+          "path": "/api/v2/messages-cases/"
+        },
+        {
+          "file": "server/routes/audit-routes.ts",
+          "line": 33,
+          "method": "ANY",
+          "path": "/api/v2/messages-cases"
+        },
+        {
+          "file": "server/routes/audit-routes.ts",
+          "line": 275,
+          "method": "ANY",
+          "path": "/api/v2/messages-cases/"
+        }
+      ]
+    },
+    {
+      "name": "api_messages_cases_get",
+      "table": "Wcr",
+      "domain": "messages-cases",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/messages-cases/${e}/",
+      "normalizedUrl": "/api/v2/messages-cases/:e/",
+      "bundleSourceOffset": 663073,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_moderators",
+      "table": "Wcr",
+      "domain": "moderators",
+      "params": [],
+      "rawUrl": "/api/v2/moderators/",
+      "normalizedUrl": "/api/v2/moderators/",
+      "bundleSourceOffset": 663130,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_moderators_delete",
+      "table": "Wcr",
+      "domain": "moderators",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/moderators/${e}/",
+      "normalizedUrl": "/api/v2/moderators/:e/",
+      "bundleSourceOffset": 663171,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_newcomers",
+      "table": "Wcr",
+      "domain": "newcomers",
+      "params": [],
+      "rawUrl": "/api/v2/newcomers/",
+      "normalizedUrl": "/api/v2/newcomers/",
+      "bundleSourceOffset": 663223,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/page-routes.ts",
+          "line": 192,
+          "method": "ANY",
+          "path": "/api/v2/newcomers/"
+        },
+        {
+          "file": "server/routes/audit-routes.ts",
+          "line": 544,
+          "method": "ANY",
+          "path": "/api/v2/newcomers/"
+        },
+        {
+          "file": "server/routes/audit-routes.ts",
+          "line": 544,
+          "method": "ANY",
+          "path": "/api/v2/newcomers"
+        }
+      ]
+    },
+    {
+      "name": "api_nfts_collectors",
+      "table": "Wcr",
+      "domain": "nfts",
+      "params": [],
+      "rawUrl": "/api/v2/nfts/collectors/",
+      "normalizedUrl": "/api/v2/nfts/collectors/",
+      "bundleSourceOffset": 663262,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/collectible-routes.ts",
+          "line": 165,
+          "method": "ANY",
+          "path": "/api/v2/nfts/collectors/"
+        },
+        {
+          "file": "server/routes/collectible-routes.ts",
+          "line": 165,
+          "method": "ANY",
+          "path": "/api/v2/nfts/collectors"
+        }
+      ]
+    },
+    {
+      "name": "api_pa_action",
+      "table": "Wcr",
+      "domain": "pa-action",
+      "params": [
+        "e",
+        "t"
+      ],
+      "rawUrl": "/api/v2/pa-action/${e}/${t}/",
+      "normalizedUrl": "/api/v2/pa-action/:e/:t/",
+      "bundleSourceOffset": 663313,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_payment",
+      "table": "Wcr",
+      "domain": "payment",
+      "params": [],
+      "rawUrl": "/api/v2/payment/",
+      "normalizedUrl": "/api/v2/payment/",
+      "bundleSourceOffset": 663365,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/simboost-routes.ts",
+          "line": 219,
+          "method": "ANY",
+          "path": "/api/v2/payment/"
+        }
+      ]
+    },
+    {
+      "name": "api_payment_can_purchase",
+      "table": "Wcr",
+      "domain": "payment",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/payment/can-purchase/${e}/",
+      "normalizedUrl": "/api/v2/payment/can-purchase/:e/",
+      "bundleSourceOffset": 663400,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/simboost-routes.ts",
+          "line": 573,
+          "method": "ANY",
+          "path": "/api/v2/payment/can-purchase/:sku/"
+        }
+      ]
+    },
+    {
+      "name": "api_payment_crypto_tron",
+      "table": "Wcr",
+      "domain": "payment-crypto",
+      "params": [],
+      "rawUrl": "/api/v2/payment-crypto/tron/",
+      "normalizedUrl": "/api/v2/payment-crypto/tron/",
+      "bundleSourceOffset": 663465,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/simboost-routes.ts",
+          "line": 222,
+          "method": "ANY",
+          "path": "/api/v2/payment-crypto/tron/"
+        }
+      ]
+    },
+    {
+      "name": "api_payment_crypto_tron_get",
+      "table": "Wcr",
+      "domain": "payment-crypto",
+      "params": [
+        "e",
+        "t"
+      ],
+      "rawUrl": "/api/v2/payment-crypto/tron/${e}/${t}/",
+      "normalizedUrl": "/api/v2/payment-crypto/tron/:e/:t/",
+      "bundleSourceOffset": 663524,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/simboost-routes.ts",
+          "line": 578,
+          "method": "ANY",
+          "path": "/api/v2/payment-crypto/tron/:driver/:invoiceId/"
+        }
+      ]
+    },
+    {
+      "name": "api_payment_stripe",
+      "table": "Wcr",
+      "domain": "payment-stripe",
+      "params": [],
+      "rawUrl": "/api/v2/payment-stripe/",
+      "normalizedUrl": "/api/v2/payment-stripe/",
+      "bundleSourceOffset": 663600,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/simboost-routes.ts",
+          "line": 220,
+          "method": "ANY",
+          "path": "/api/v2/payment-stripe/"
+        }
+      ]
+    },
+    {
+      "name": "api_payment_stripe_async",
+      "table": "Wcr",
+      "domain": "payment-stripe",
+      "params": [],
+      "rawUrl": "/api/v2/payment-stripe/async",
+      "normalizedUrl": "/api/v2/payment-stripe/async",
+      "bundleSourceOffset": 663649,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_payment_stripe_failed",
+      "table": "Wcr",
+      "domain": "payment-stripe",
+      "params": [],
+      "rawUrl": "/api/v2/payment-stripe/failed",
+      "normalizedUrl": "/api/v2/payment-stripe/failed",
+      "bundleSourceOffset": 663709,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_payment_stripe_sync",
+      "table": "Wcr",
+      "domain": "payment-stripe",
+      "params": [],
+      "rawUrl": "/api/v2/payment-stripe/sync",
+      "normalizedUrl": "/api/v2/payment-stripe/sync",
+      "bundleSourceOffset": 663771,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/simboost-routes.ts",
+          "line": 221,
+          "method": "ANY",
+          "path": "/api/v2/payment-stripe/sync"
+        }
+      ]
+    },
+    {
+      "name": "api_player_companies",
+      "table": "Wcr",
+      "domain": "players",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/players/${e}/companies/",
+      "normalizedUrl": "/api/v2/players/:e/companies/",
+      "bundleSourceOffset": 663829,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/auth-routes.ts",
+          "line": 756,
+          "method": "ANY",
+          "path": "/api/v2/players/:playerId/companies/"
+        }
+      ]
+    },
+    {
+      "name": "api_polls_get",
+      "table": "Wcr",
+      "domain": "dynamic",
+      "params": [
+        "e",
+        "t"
+      ],
+      "rawUrl": "/api/v3/${e}/polls/${t}/",
+      "normalizedUrl": "/api/v3/:e/polls/:t/",
+      "bundleSourceOffset": 663887,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_polls_vote",
+      "table": "Wcr",
+      "domain": "polls",
+      "params": [
+        "e",
+        "t"
+      ],
+      "rawUrl": "/api/v2/polls/${e}/${t}/vote/",
+      "normalizedUrl": "/api/v2/polls/:e/:t/vote/",
+      "bundleSourceOffset": 663935,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_push_devices",
+      "table": "Wcr",
+      "domain": "players",
+      "params": [],
+      "rawUrl": "/api/v2/players/push-devices/",
+      "normalizedUrl": "/api/v2/players/push-devices/",
+      "bundleSourceOffset": 663989,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/auth-routes.ts",
+          "line": 749,
+          "method": "ANY",
+          "path": "/api/v2/players/push-devices/"
+        }
+      ]
+    },
+    {
+      "name": "api_push_devices_delete",
+      "table": "Wcr",
+      "domain": "players",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/players/push-devices/${e}/",
+      "normalizedUrl": "/api/v2/players/push-devices/:e/",
+      "bundleSourceOffset": 664042,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_registration_captcha",
+      "table": "Wcr",
+      "domain": "registrations",
+      "params": [],
+      "rawUrl": "/api/v2/registrations/captcha/",
+      "normalizedUrl": "/api/v2/registrations/captcha/",
+      "bundleSourceOffset": 664106,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_report",
+      "table": "Wcr",
+      "domain": "report",
+      "params": [],
+      "rawUrl": "/api/v2/report/",
+      "normalizedUrl": "/api/v2/report/",
+      "bundleSourceOffset": 664168,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_time",
+      "table": "Wcr",
+      "domain": "time-millis",
+      "params": [],
+      "rawUrl": "/api/v2/time-millis/",
+      "normalizedUrl": "/api/v2/time-millis/",
+      "bundleSourceOffset": 664201,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/encyclopedia-routes.ts",
+          "line": 38,
+          "method": "ANY",
+          "path": "/api/v2/time-millis/"
+        }
+      ]
+    },
+    {
+      "name": "api_v1_accumulator_collect",
+      "table": "Wcr",
+      "domain": "buildings",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v1/buildings/${e}/accumulator/collect/",
+      "normalizedUrl": "/api/v1/buildings/:e/accumulator/collect/",
+      "bundleSourceOffset": 664237,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v1_audit_requests",
+      "table": "Wcr",
+      "domain": "audit-requests",
+      "params": [],
+      "rawUrl": "/api/v1/audit-requests/",
+      "normalizedUrl": "/api/v1/audit-requests/",
+      "bundleSourceOffset": 664313,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/audit-routes.ts",
+          "line": 35,
+          "method": "ANY",
+          "path": "/api/v1/audit-requests"
+        },
+        {
+          "file": "server/routes/audit-routes.ts",
+          "line": 294,
+          "method": "ANY",
+          "path": "/api/v1/audit-requests/"
+        }
+      ]
+    },
+    {
+      "name": "api_v1_audit_requests_patch",
+      "table": "Wcr",
+      "domain": "audit-requests",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v1/audit-requests/${e}/",
+      "normalizedUrl": "/api/v1/audit-requests/:e/",
+      "bundleSourceOffset": 664365,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v1_busy",
+      "table": "Wcr",
+      "domain": "buildings",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v1/buildings/${e}/busy/",
+      "normalizedUrl": "/api/v1/buildings/:e/busy/",
+      "bundleSourceOffset": 664427,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/building-routes.ts",
+          "line": 118,
+          "method": "ANY",
+          "path": "/api/v1/buildings/:id/busy/"
+        }
+      ]
+    },
+    {
+      "name": "api_v1_challenges_attempt",
+      "table": "Wcr",
+      "domain": "challenges",
+      "params": [],
+      "rawUrl": "/api/v1/challenges/attempt/",
+      "normalizedUrl": "/api/v1/challenges/attempt/",
+      "bundleSourceOffset": 664473,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/social-routes.ts",
+          "line": 685,
+          "method": "ANY",
+          "path": "/api/v1/challenges/attempt/"
+        }
+      ]
+    },
+    {
+      "name": "api_v1_challenges_current",
+      "table": "Wcr",
+      "domain": "challenges",
+      "params": [],
+      "rawUrl": "/api/v1/challenges/current/",
+      "normalizedUrl": "/api/v1/challenges/current/",
+      "bundleSourceOffset": 664533,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/social-routes.ts",
+          "line": 677,
+          "method": "ANY",
+          "path": "/api/v1/challenges/current/"
+        }
+      ]
+    },
+    {
+      "name": "api_v1_challenges_leaderboard",
+      "table": "Wcr",
+      "domain": "challenges",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v1/challenges/${e}/leaderboard/",
+      "normalizedUrl": "/api/v1/challenges/:e/leaderboard/",
+      "bundleSourceOffset": 664593,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v1_challenges_restart",
+      "table": "Wcr",
+      "domain": "challenges",
+      "params": [],
+      "rawUrl": "/api/v1/challenges/restart/",
+      "normalizedUrl": "/api/v1/challenges/restart/",
+      "bundleSourceOffset": 664665,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/social-routes.ts",
+          "line": 685,
+          "method": "ANY",
+          "path": "/api/v1/challenges/restart/"
+        }
+      ]
+    },
+    {
+      "name": "api_v1_reaction",
+      "table": "Wcr",
+      "domain": "article",
+      "params": [
+        "e",
+        "t"
+      ],
+      "rawUrl": "/api/v1/article/${e}/reaction/${t}",
+      "normalizedUrl": "/api/v1/article/:e/reaction/:t",
+      "bundleSourceOffset": 664725,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/newspaper-routes.ts",
+          "line": 374,
+          "method": "ANY",
+          "path": "/api/v1/article/:articleId/reaction/:type/"
+        }
+      ]
+    },
+    {
+      "name": "api_v1_reaction_list",
+      "table": "Wcr",
+      "domain": "newspaper",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v1/newspaper/${e}/reaction",
+      "normalizedUrl": "/api/v1/newspaper/:e/reaction",
+      "bundleSourceOffset": 664785,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/newspaper-routes.ts",
+          "line": 404,
+          "method": "ANY",
+          "path": "/api/v1/newspaper/:issueId/reaction/"
+        }
+      ]
+    },
+    {
+      "name": "api_v1_rush",
+      "table": "Wcr",
+      "domain": "rush",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v1/rush/${e}/",
+      "normalizedUrl": "/api/v1/rush/:e/",
+      "bundleSourceOffset": 664843,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v2_admin_purchase_details",
+      "table": "Wcr",
+      "domain": "admin",
+      "params": [],
+      "rawUrl": "/api/v2/admin/purchase-details/",
+      "normalizedUrl": "/api/v2/admin/purchase-details/",
+      "bundleSourceOffset": 664879,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v2_admin_test_email",
+      "table": "Wcr",
+      "domain": "admin",
+      "params": [],
+      "rawUrl": "/api/v2/admin/test-email/",
+      "normalizedUrl": "/api/v2/admin/test-email/",
+      "bundleSourceOffset": 664947,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v2_admin_test_push",
+      "table": "Wcr",
+      "domain": "admin",
+      "params": [],
+      "rawUrl": "/api/v2/admin/test-push/",
+      "normalizedUrl": "/api/v2/admin/test-push/",
+      "bundleSourceOffset": 665003,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v2_analytics_lifetime_value",
+      "table": "Wcr",
+      "domain": "analytics",
+      "params": [],
+      "rawUrl": "/api/v2/analytics/lifetime-value/",
+      "normalizedUrl": "/api/v2/analytics/lifetime-value/",
+      "bundleSourceOffset": 665057,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v2_analytics_player_base",
+      "table": "Wcr",
+      "domain": "analytics",
+      "params": [],
+      "rawUrl": "/api/v2/analytics/player-base/",
+      "normalizedUrl": "/api/v2/analytics/player-base/",
+      "bundleSourceOffset": 665129,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v2_analytics_player_registrations",
+      "table": "Wcr",
+      "domain": "analytics",
+      "params": [],
+      "rawUrl": "/api/v2/analytics/player-registrations/",
+      "normalizedUrl": "/api/v2/analytics/player-registrations/",
+      "bundleSourceOffset": 665195,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v2_analytics_player_retention",
+      "table": "Wcr",
+      "domain": "analytics",
+      "params": [],
+      "rawUrl": "/api/v2/analytics/player-retention/",
+      "normalizedUrl": "/api/v2/analytics/player-retention/",
+      "bundleSourceOffset": 665279,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v2_analytics_purchases_by_size",
+      "table": "Wcr",
+      "domain": "analytics",
+      "params": [],
+      "rawUrl": "/api/v2/analytics/purchases-by-size/",
+      "normalizedUrl": "/api/v2/analytics/purchases-by-size/",
+      "bundleSourceOffset": 665355,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v2_analytics_recent_payments",
+      "table": "Wcr",
+      "domain": "analytics",
+      "params": [],
+      "rawUrl": "/api/v2/analytics/recent-payments/",
+      "normalizedUrl": "/api/v2/analytics/recent-payments/",
+      "bundleSourceOffset": 665433,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v2_analytics_revenue_by_country",
+      "table": "Wcr",
+      "domain": "analytics",
+      "params": [],
+      "rawUrl": "/api/v2/analytics/revenue-by-country/",
+      "normalizedUrl": "/api/v2/analytics/revenue-by-country/",
+      "bundleSourceOffset": 665507,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v2_analytics_revenue_by_provider",
+      "table": "Wcr",
+      "domain": "analytics",
+      "params": [],
+      "rawUrl": "/api/v2/analytics/revenue-by-provider/",
+      "normalizedUrl": "/api/v2/analytics/revenue-by-provider/",
+      "bundleSourceOffset": 665587,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v2_analytics_revenue_heartbeat",
+      "table": "Wcr",
+      "domain": "analytics",
+      "params": [],
+      "rawUrl": "/api/v2/analytics/revenue-heartbeat/",
+      "normalizedUrl": "/api/v2/analytics/revenue-heartbeat/",
+      "bundleSourceOffset": 665669,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v2_analytics_revenue_this_month",
+      "table": "Wcr",
+      "domain": "analytics",
+      "params": [],
+      "rawUrl": "/api/v2/analytics/revenue-this-month/",
+      "normalizedUrl": "/api/v2/analytics/revenue-this-month/",
+      "bundleSourceOffset": 665747,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v2_analytics_revenue_timeline",
+      "table": "Wcr",
+      "domain": "analytics",
+      "params": [],
+      "rawUrl": "/api/v2/analytics/revenue-timeline/",
+      "normalizedUrl": "/api/v2/analytics/revenue-timeline/",
+      "bundleSourceOffset": 665827,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v2_analytics_time_to_purchase",
+      "table": "Wcr",
+      "domain": "analytics",
+      "params": [],
+      "rawUrl": "/api/v2/analytics/time-to-purchase/",
+      "normalizedUrl": "/api/v2/analytics/time-to-purchase/",
+      "bundleSourceOffset": 665903,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v2_articles_by_author",
+      "table": "Wcr",
+      "domain": "newspaper",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/newspaper/articles-by-author/${e}/",
+      "normalizedUrl": "/api/v2/newspaper/articles-by-author/:e/",
+      "bundleSourceOffset": 665979,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/social-routes.ts",
+          "line": 798,
+          "method": "ANY",
+          "path": "/api/v2/newspaper/articles-by-author/:authorId/"
+        }
+      ]
+    },
+    {
+      "name": "api_v2_articles_by_substring",
+      "table": "Wcr",
+      "domain": "newspaper",
+      "params": [
+        "e",
+        "t"
+      ],
+      "rawUrl": "/api/v2/newspaper/articles-by-substring/${e}/${t}/",
+      "normalizedUrl": "/api/v2/newspaper/articles-by-substring/:e/:t/",
+      "bundleSourceOffset": 666053,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v2_audit_company",
+      "table": "Wcr",
+      "domain": "audit",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/audit/${e}/personal/",
+      "normalizedUrl": "/api/v2/audit/:e/personal/",
+      "bundleSourceOffset": 666142,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v2_audit_company_audits",
+      "table": "Wcr",
+      "domain": "audit",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/audit/${e}/audits/",
+      "normalizedUrl": "/api/v2/audit/:e/audits/",
+      "bundleSourceOffset": 666197,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v2_audit_company_auth",
+      "table": "Wcr",
+      "domain": "audit",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/audit/${e}/auth/",
+      "normalizedUrl": "/api/v2/audit/:e/auth/",
+      "bundleSourceOffset": 666257,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v2_audit_company_payments",
+      "table": "Wcr",
+      "domain": "audit",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/audit/${e}/payments/",
+      "normalizedUrl": "/api/v2/audit/:e/payments/",
+      "bundleSourceOffset": 666313,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v2_audit_contracts",
+      "table": "Wcr",
+      "domain": "audit",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/audit/${e}/contracts/",
+      "normalizedUrl": "/api/v2/audit/:e/contracts/",
+      "bundleSourceOffset": 666377,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v2_audit_ip",
+      "table": "Wcr",
+      "domain": "audit-ip",
+      "params": [
+        "e",
+        "t"
+      ],
+      "rawUrl": "/api/v2/audit-ip/${e}/${t}/",
+      "normalizedUrl": "/api/v2/audit-ip/:e/:t/",
+      "bundleSourceOffset": 666435,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v2_audit_market_trades",
+      "table": "Wcr",
+      "domain": "audit",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/audit/${e}/market-trades/",
+      "normalizedUrl": "/api/v2/audit/:e/market-trades/",
+      "bundleSourceOffset": 666488,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v2_audit_recently_deleted",
+      "table": "Wcr",
+      "domain": "audit",
+      "params": [],
+      "rawUrl": "/api/v2/audit/recently-deleted/",
+      "normalizedUrl": "/api/v2/audit/recently-deleted/",
+      "bundleSourceOffset": 666554,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/page-routes.ts",
+          "line": 193,
+          "method": "ANY",
+          "path": "/api/v2/audit/recently-deleted/"
+        },
+        {
+          "file": "server/routes/audit-routes.ts",
+          "line": 48,
+          "method": "ANY",
+          "path": "/api/v2/audit/recently-deleted/"
+        }
+      ]
+    },
+    {
+      "name": "api_v2_audit_suspended_companies",
+      "table": "Wcr",
+      "domain": "audit",
+      "params": [],
+      "rawUrl": "/api/v2/audit/suspended-companies/",
+      "normalizedUrl": "/api/v2/audit/suspended-companies/",
+      "bundleSourceOffset": 666622,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/page-routes.ts",
+          "line": 194,
+          "method": "ANY",
+          "path": "/api/v2/audit/suspended-companies/"
+        },
+        {
+          "file": "server/routes/audit-routes.ts",
+          "line": 113,
+          "method": "ANY",
+          "path": "/api/v2/audit/suspended-companies/"
+        }
+      ]
+    },
+    {
+      "name": "api_v2_audits",
+      "table": "Wcr",
+      "domain": "audits",
+      "params": [],
+      "rawUrl": "/api/v2/audits/",
+      "normalizedUrl": "/api/v2/audits/",
+      "bundleSourceOffset": 666696,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/page-routes.ts",
+          "line": 189,
+          "method": "ANY",
+          "path": "/api/v2/audits/"
+        },
+        {
+          "file": "server/routes/audit-routes.ts",
+          "line": 29,
+          "method": "ANY",
+          "path": "/api/v2/audits/"
+        },
+        {
+          "file": "server/routes/audit-routes.ts",
+          "line": 30,
+          "method": "ANY",
+          "path": "/api/v2/audits"
+        }
+      ]
+    },
+    {
+      "name": "api_v2_balance_sheet",
+      "table": "Wcr",
+      "domain": "companies",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/companies/${e}/balance-sheet/",
+      "normalizedUrl": "/api/v2/companies/:e/balance-sheet/",
+      "bundleSourceOffset": 666732,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/finance-routes.ts",
+          "line": 563,
+          "method": "GET",
+          "path": "/api/:version/companies/:companyId/balance-sheet/"
+        },
+        {
+          "file": "server/routes/finance-routes.ts",
+          "line": 570,
+          "method": "GET",
+          "path": "/api/:version/companies/:companyId/balance-sheet/:from/:to/"
+        }
+      ]
+    },
+    {
+      "name": "api_v2_balance_sheet_historic",
+      "table": "Wcr",
+      "domain": "companies",
+      "params": [
+        "e",
+        "t",
+        "r"
+      ],
+      "rawUrl": "/api/v2/companies/${e}/balance-sheet/${t}/${r}/",
+      "normalizedUrl": "/api/v2/companies/:e/balance-sheet/:t/:r/",
+      "bundleSourceOffset": 666796,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/finance-routes.ts",
+          "line": 570,
+          "method": "GET",
+          "path": "/api/:version/companies/:companyId/balance-sheet/:from/:to/"
+        }
+      ]
+    },
+    {
+      "name": "api_v2_ban_identity",
+      "table": "Wcr",
+      "domain": "companies",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/companies/${e}/ban-identity/",
+      "normalizedUrl": "/api/v2/companies/:e/ban-identity/",
+      "bundleSourceOffset": 666885,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v2_bids",
+      "table": "Wcr",
+      "domain": "building-auctions",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/building-auctions/bids/${e}/",
+      "normalizedUrl": "/api/v2/building-auctions/bids/:e/",
+      "bundleSourceOffset": 666947,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/building-auction-routes.ts",
+          "line": 284,
+          "method": "ANY",
+          "path": "/api/v2/building-auctions/bids/:companyOrAuction/"
+        }
+      ]
+    },
+    {
+      "name": "api_v2_bids_bid",
+      "table": "Wcr",
+      "domain": "building-auctions",
+      "params": [
+        "e",
+        "t"
+      ],
+      "rawUrl": "/api/v2/building-auctions/bids/${e}/${t}/",
+      "normalizedUrl": "/api/v2/building-auctions/bids/:e/:t/",
+      "bundleSourceOffset": 667001,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/building-auction-routes.ts",
+          "line": 331,
+          "method": "ANY",
+          "path": "/api/v2/building-auctions/bids/:companyId/:bidId/"
+        }
+      ]
+    },
+    {
+      "name": "api_v2_bonus",
+      "table": "Wcr",
+      "domain": "companies",
+      "params": [],
+      "rawUrl": "/api/v2/companies/me/bonus/",
+      "normalizedUrl": "/api/v2/companies/me/bonus/",
+      "bundleSourceOffset": 667068,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/simboost-routes.ts",
+          "line": 147,
+          "method": "ANY",
+          "path": "/api/v2/companies/me/bonus/"
+        }
+      ]
+    },
+    {
+      "name": "api_v2_building_auctions",
+      "table": "Wcr",
+      "domain": "building-auctions",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/building-auctions/${e}/",
+      "normalizedUrl": "/api/v2/building-auctions/:e/",
+      "bundleSourceOffset": 667115,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/building-auction-routes.ts",
+          "line": 402,
+          "method": "ANY",
+          "path": "/api/v2/building-auctions/:auctionId/"
+        }
+      ]
+    },
+    {
+      "name": "api_v2_building_auctions_active_unlocks",
+      "table": "Wcr",
+      "domain": "building-auctions",
+      "params": [],
+      "rawUrl": "/api/v2/building-auctions/active-unlocks/",
+      "normalizedUrl": "/api/v2/building-auctions/active-unlocks/",
+      "bundleSourceOffset": 667177,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/building-auction-routes.ts",
+          "line": 76,
+          "method": "ANY",
+          "path": "/api/v2/building-auctions/active-unlocks/"
+        }
+      ]
+    },
+    {
+      "name": "api_v2_building_auctions_promote",
+      "table": "Wcr",
+      "domain": "building-auctions",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/building-auctions/${e}/promote",
+      "normalizedUrl": "/api/v2/building-auctions/:e/promote",
+      "bundleSourceOffset": 667265,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/building-auction-routes.ts",
+          "line": 354,
+          "method": "ANY",
+          "path": "/api/v2/building-auctions/:auctionId/promote/"
+        }
+      ]
+    },
+    {
+      "name": "api_v2_building_auctions_research_by_auction",
+      "table": "Wcr",
+      "domain": "building-auctions",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/building-auctions/research-by-auction/${e}/",
+      "normalizedUrl": "/api/v2/building-auctions/research-by-auction/:e/",
+      "bundleSourceOffset": 667342,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/building-auction-routes.ts",
+          "line": 276,
+          "method": "ANY",
+          "path": "/api/v2/building-auctions/research-by-auction/:auctionId/"
+        }
+      ]
+    },
+    {
+      "name": "api_v2_building_auctions_research_by_building",
+      "table": "Wcr",
+      "domain": "building-auctions",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/building-auctions/research-by-building/${e}/",
+      "normalizedUrl": "/api/v2/building-auctions/research-by-building/:e/",
+      "bundleSourceOffset": 667444,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/building-auction-routes.ts",
+          "line": 268,
+          "method": "ANY",
+          "path": "/api/v2/building-auctions/research-by-building/:buildingId/"
+        }
+      ]
+    },
+    {
+      "name": "api_v2_busy_take",
+      "table": "Wcr",
+      "domain": "order",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/order/take/${e}/",
+      "normalizedUrl": "/api/v2/order/take/:e/",
+      "bundleSourceOffset": 667548,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/building-routes.ts",
+          "line": 690,
+          "method": "ANY",
+          "path": "/api/v2/order/take/:id/"
+        }
+      ]
+    },
+    {
+      "name": "api_v2_cashflow",
+      "table": "Wcr",
+      "domain": "companies",
+      "params": [
+        "e",
+        "t"
+      ],
+      "rawUrl": "/api/v2/companies/${e}/cashflow/${t}/",
+      "normalizedUrl": "/api/v2/companies/:e/cashflow/:t/",
+      "bundleSourceOffset": 667595,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/finance-routes.ts",
+          "line": 548,
+          "method": "ANY",
+          "path": "/api/v2/companies/:companyId/cashflow/:range/"
+        }
+      ]
+    },
+    {
+      "name": "api_v2_cashflow_statement",
+      "table": "Wcr",
+      "domain": "companies",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/companies/${e}/cashflow-statement/",
+      "normalizedUrl": "/api/v2/companies/:e/cashflow-statement/",
+      "bundleSourceOffset": 667658,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/finance-routes.ts",
+          "line": 609,
+          "method": "GET",
+          "path": "/api/:version/companies/:companyId/cashflow-statement/"
+        }
+      ]
+    },
+    {
+      "name": "api_v2_cashflow_statement_historic",
+      "table": "Wcr",
+      "domain": "companies",
+      "params": [
+        "e",
+        "t",
+        "r"
+      ],
+      "rawUrl": "/api/v2/companies/${e}/cashflow-statement/${t}/${r}/",
+      "normalizedUrl": "/api/v2/companies/:e/cashflow-statement/:t/:r/",
+      "bundleSourceOffset": 667732,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/finance-routes.ts",
+          "line": 616,
+          "method": "GET",
+          "path": "/api/:version/companies/:companyId/cashflow-statement/:from/:to/"
+        }
+      ]
+    },
+    {
+      "name": "api_v2_chatentry",
+      "table": "Wcr",
+      "domain": "chatentry",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/chatentry/${e}/",
+      "normalizedUrl": "/api/v2/chatentry/:e/",
+      "bundleSourceOffset": 667831,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v2_chatentry_pin",
+      "table": "Wcr",
+      "domain": "chatentry",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/chatentry/${e}/pin/",
+      "normalizedUrl": "/api/v2/chatentry/:e/pin/",
+      "bundleSourceOffset": 667877,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v2_chatrules",
+      "table": "Wcr",
+      "domain": "chatroom",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/chatroom/${e}/show-rules/",
+      "normalizedUrl": "/api/v2/chatroom/:e/show-rules/",
+      "bundleSourceOffset": 667931,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v2_companies_achievements",
+      "table": "Wcr",
+      "domain": "no-cache",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/no-cache/companies/${e}/achievements/",
+      "normalizedUrl": "/api/v2/no-cache/companies/:e/achievements/",
+      "bundleSourceOffset": 667987,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/achievement-routes.ts",
+          "line": 437,
+          "method": "ANY",
+          "path": "/api/v2/no-cache/companies/:companyId/achievements/"
+        }
+      ]
+    },
+    {
+      "name": "api_v2_companies_achievements_get",
+      "table": "Wcr",
+      "domain": "no-cache",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/no-cache/companies/achievements/${e}/",
+      "normalizedUrl": "/api/v2/no-cache/companies/achievements/:e/",
+      "bundleSourceOffset": 668068,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/achievement-routes.ts",
+          "line": 435,
+          "method": "ANY",
+          "path": "/api/v2/no-cache/companies/achievements/:achievementId/"
+        }
+      ]
+    },
+    {
+      "name": "api_v2_companies_achievements_overview",
+      "table": "Wcr",
+      "domain": "companies",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/companies/${e}/achievements/",
+      "normalizedUrl": "/api/v2/companies/:e/achievements/",
+      "bundleSourceOffset": 668153,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/achievement-routes.ts",
+          "line": 438,
+          "method": "ANY",
+          "path": "/api/v2/companies/:companyId/achievements/"
+        }
+      ]
+    },
+    {
+      "name": "api_v2_companies_achievements_sync_3rd_party",
+      "table": "Wcr",
+      "domain": "companies",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/companies/${e}/achievements/sync-3rd-party/",
+      "normalizedUrl": "/api/v2/companies/:e/achievements/sync-3rd-party/",
+      "bundleSourceOffset": 668234,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/achievement-routes.ts",
+          "line": 439,
+          "method": "ANY",
+          "path": "/api/v2/companies/:companyId/achievements/sync-3rd-party/"
+        }
+      ]
+    },
+    {
+      "name": "api_v2_companies_administration_overhead",
+      "table": "Wcr",
+      "domain": "companies",
+      "params": [],
+      "rawUrl": "/api/v2/companies/me/administration-overhead/",
+      "normalizedUrl": "/api/v2/companies/me/administration-overhead/",
+      "bundleSourceOffset": 668336,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v2_companies_administration_overhead_plus_one",
+      "table": "Wcr",
+      "domain": "companies",
+      "params": [],
+      "rawUrl": "/api/v2/companies/me/administration-overhead/plus-one/",
+      "normalizedUrl": "/api/v2/companies/me/administration-overhead/plus-one/",
+      "bundleSourceOffset": 668429,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v2_companies_ban",
+      "table": "Wcr",
+      "domain": "companies",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/companies/${e}/ban/",
+      "normalizedUrl": "/api/v2/companies/:e/ban/",
+      "bundleSourceOffset": 668540,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v2_companies_ban_get",
+      "table": "Wcr",
+      "domain": "companies",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/companies/ban/${e}/",
+      "normalizedUrl": "/api/v2/companies/ban/:e/",
+      "bundleSourceOffset": 668594,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v2_companies_bans",
+      "table": "Wcr",
+      "domain": "companies",
+      "params": [],
+      "rawUrl": "/api/v2/companies/ban/",
+      "normalizedUrl": "/api/v2/companies/ban/",
+      "bundleSourceOffset": 668652,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v2_companies_bonds_owned",
+      "table": "Wcr",
+      "domain": "companies",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/companies/${e}/bonds/owned/",
+      "normalizedUrl": "/api/v2/companies/:e/bonds/owned/",
+      "bundleSourceOffset": 668703,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/bond-routes.ts",
+          "line": 198,
+          "method": "ANY",
+          "path": "/api/v2/companies/:companyId/bonds/owned/"
+        }
+      ]
+    },
+    {
+      "name": "api_v2_companies_bonds_sold",
+      "table": "Wcr",
+      "domain": "companies",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/companies/${e}/bonds/sold/",
+      "normalizedUrl": "/api/v2/companies/:e/bonds/sold/",
+      "bundleSourceOffset": 668773,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/bond-routes.ts",
+          "line": 211,
+          "method": "ANY",
+          "path": "/api/v2/companies/:companyId/bonds/sold/"
+        }
+      ]
+    },
+    {
+      "name": "api_v2_companies_buildings",
+      "table": "Wcr",
+      "domain": "companies",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/companies/${e}/buildings/",
+      "normalizedUrl": "/api/v2/companies/:e/buildings/",
+      "bundleSourceOffset": 668841,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/building-routes.ts",
+          "line": 232,
+          "method": "ANY",
+          "path": "/api/v2/companies/:companyId/buildings/"
+        }
+      ]
+    },
+    {
+      "name": "api_v2_companies_buildings_abundance",
+      "table": "Wcr",
+      "domain": "companies",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/companies/buildings/${e}/abundance/",
+      "normalizedUrl": "/api/v2/companies/buildings/:e/abundance/",
+      "bundleSourceOffset": 668907,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/building-routes.ts",
+          "line": 518,
+          "method": "ANY",
+          "path": "/api/v2/companies/buildings/:id/abundance/"
+        }
+      ]
+    },
+    {
+      "name": "api_v2_companies_buildings_get",
+      "table": "Wcr",
+      "domain": "companies",
+      "params": [
+        "e",
+        "t"
+      ],
+      "rawUrl": "/api/v2/companies/${e}/buildings/${t}/",
+      "normalizedUrl": "/api/v2/companies/:e/buildings/:t/",
+      "bundleSourceOffset": 668993,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/building-routes.ts",
+          "line": 320,
+          "method": "ANY",
+          "path": "/api/v2/companies/:companyId/buildings/:id/"
+        }
+      ]
+    },
+    {
+      "name": "api_v2_companies_buildings_history",
+      "table": "Wcr",
+      "domain": "companies",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/companies/buildings/${e}/history/",
+      "normalizedUrl": "/api/v2/companies/buildings/:e/history/",
+      "bundleSourceOffset": 669072,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/building-routes.ts",
+          "line": 159,
+          "method": "ANY",
+          "path": "/api/v2/companies/buildings/:id/history/"
+        }
+      ]
+    },
+    {
+      "name": "api_v2_companies_buildings_queue",
+      "table": "Wcr",
+      "domain": "companies",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/companies/buildings/${e}/queue/",
+      "normalizedUrl": "/api/v2/companies/buildings/:e/queue/",
+      "bundleSourceOffset": 669154,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/building-routes.ts",
+          "line": 648,
+          "method": "ANY",
+          "path": "/api/v2/companies/buildings/:id/queue/"
+        }
+      ]
+    },
+    {
+      "name": "api_v2_companies_buildings_queue_get",
+      "table": "Wcr",
+      "domain": "companies",
+      "params": [
+        "e",
+        "t"
+      ],
+      "rawUrl": "/api/v2/companies/buildings/${e}/queue/${t}/",
+      "normalizedUrl": "/api/v2/companies/buildings/:e/queue/:t/",
+      "bundleSourceOffset": 669232,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/building-routes.ts",
+          "line": 674,
+          "method": "ANY",
+          "path": "/api/v2/companies/buildings/:id/queue/:queueId/"
+        }
+      ]
+    },
+    {
+      "name": "api_v2_companies_buildings_restaurant_properties",
+      "table": "Wcr",
+      "domain": "companies",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/companies/buildings/${e}/restaurant-properties/",
+      "normalizedUrl": "/api/v2/companies/buildings/:e/restaurant-properties/",
+      "bundleSourceOffset": 669323,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/restaurant-routes.ts",
+          "line": 378,
+          "method": "ANY",
+          "path": "/api/v2/companies/buildings/:buildingId/restaurant-properties/"
+        }
+      ]
+    },
+    {
+      "name": "api_v2_companies_buildings_restaurant_runs",
+      "table": "Wcr",
+      "domain": "companies",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/companies/buildings/${e}/restaurant-runs/",
+      "normalizedUrl": "/api/v2/companies/buildings/:e/restaurant-runs/",
+      "bundleSourceOffset": 669433,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/restaurant-routes.ts",
+          "line": 382,
+          "method": "ANY",
+          "path": "/api/v2/companies/buildings/:buildingId/restaurant-runs/"
+        }
+      ]
+    },
+    {
+      "name": "api_v2_companies_buildings_sales_orders",
+      "table": "Wcr",
+      "domain": "companies",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/companies/buildings/${e}/sales-orders/",
+      "normalizedUrl": "/api/v2/companies/buildings/:e/sales-orders/",
+      "bundleSourceOffset": 669531,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/retail-routes.ts",
+          "line": 209,
+          "method": "ANY",
+          "path": "/api/v2/companies/buildings/:buildingId/sales-orders/"
+        }
+      ]
+    },
+    {
+      "name": "api_v2_companies_buildings_sales_orders_get",
+      "table": "Wcr",
+      "domain": "companies",
+      "params": [
+        "e",
+        "t"
+      ],
+      "rawUrl": "/api/v2/companies/buildings/${e}/sales-orders/${t}/",
+      "normalizedUrl": "/api/v2/companies/buildings/:e/sales-orders/:t/",
+      "bundleSourceOffset": 669623,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/retail-routes.ts",
+          "line": 211,
+          "method": "ANY",
+          "path": "/api/v2/companies/buildings/:buildingId/sales-orders/:orderId/"
+        }
+      ]
+    },
+    {
+      "name": "api_v2_companies_certificates",
+      "table": "Wcr",
+      "domain": "companies",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/companies/${e}/certificates/",
+      "normalizedUrl": "/api/v2/companies/:e/certificates/",
+      "bundleSourceOffset": 669728,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/achievement-routes.ts",
+          "line": 460,
+          "method": "ANY",
+          "path": "/api/v2/companies/:companyId/certificates/"
+        }
+      ]
+    },
+    {
+      "name": "api_v2_companies_chatrooms",
+      "table": "Wcr",
+      "domain": "companies",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/companies/chatrooms/${e}/",
+      "normalizedUrl": "/api/v2/companies/chatrooms/:e/",
+      "bundleSourceOffset": 669800,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v2_companies_chatrooms_get",
+      "table": "Wcr",
+      "domain": "companies",
+      "params": [
+        "e",
+        "t"
+      ],
+      "rawUrl": "/api/v2/companies/chatrooms/${e}/${t}/",
+      "normalizedUrl": "/api/v2/companies/chatrooms/:e/:t/",
+      "bundleSourceOffset": 669866,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v2_companies_display_case",
+      "table": "Wcr",
+      "domain": "companies",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/companies/${e}/display-case/",
+      "normalizedUrl": "/api/v2/companies/:e/display-case/",
+      "bundleSourceOffset": 669945,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/simboost-routes.ts",
+          "line": 585,
+          "method": "ANY",
+          "path": "/api/v2/companies/:companyId/display-case/"
+        },
+        {
+          "file": "server/routes/achievement-routes.ts",
+          "line": 453,
+          "method": "ANY",
+          "path": "/api/v2/companies/:companyId/display-case/"
+        }
+      ]
+    },
+    {
+      "name": "api_v2_companies_display_case_get",
+      "table": "Wcr",
+      "domain": "companies",
+      "params": [
+        "e",
+        "t"
+      ],
+      "rawUrl": "/api/v2/companies/${e}/display-case/${t}/",
+      "normalizedUrl": "/api/v2/companies/:e/display-case/:t/",
+      "bundleSourceOffset": 670017,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/achievement-routes.ts",
+          "line": 455,
+          "method": "ANY",
+          "path": "/api/v2/companies/:companyId/display-case/:slot/"
+        }
+      ]
+    },
+    {
+      "name": "api_v2_companies_executives_my_offers",
+      "table": "Wcr",
+      "domain": "companies",
+      "params": [],
+      "rawUrl": "/api/v2/companies/executives/my-offers/",
+      "normalizedUrl": "/api/v2/companies/executives/my-offers/",
+      "bundleSourceOffset": 670102,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/executive-routes.ts",
+          "line": 77,
+          "method": "ANY",
+          "path": "/api/v2/companies/executives/my-offers/"
+        },
+        {
+          "file": "server/routes/executive-routes.ts",
+          "line": 77,
+          "method": "ANY",
+          "path": "/api/v2/companies/executives/my-offers"
+        }
+      ]
+    },
+    {
+      "name": "api_v2_companies_executives_my_offers_get",
+      "table": "Wcr",
+      "domain": "companies",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/companies/executives/my-offers/${e}/",
+      "normalizedUrl": "/api/v2/companies/executives/my-offers/:e/",
+      "bundleSourceOffset": 670186,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/executive-routes.ts",
+          "line": 486,
+          "method": "ANY",
+          "path": "/api/v2/companies/executives/my-offers/:offerId/"
+        }
+      ]
+    },
+    {
+      "name": "api_v2_companies_former_executives",
+      "table": "Wcr",
+      "domain": "companies",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/companies/${e}/former-executives/",
+      "normalizedUrl": "/api/v2/companies/:e/former-executives/",
+      "bundleSourceOffset": 670278,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/executive-routes.ts",
+          "line": 499,
+          "method": "ANY",
+          "path": "/api/v2/companies/:companyId/former-executives/"
+        }
+      ]
+    },
+    {
+      "name": "api_v2_companies_free_text",
+      "table": "Wcr",
+      "domain": "companies",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/companies/${e}/free-text/",
+      "normalizedUrl": "/api/v2/companies/:e/free-text/",
+      "bundleSourceOffset": 670360,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v2_companies_ignore",
+      "table": "Wcr",
+      "domain": "companies",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/companies/${e}/ignore/",
+      "normalizedUrl": "/api/v2/companies/:e/ignore/",
+      "bundleSourceOffset": 670426,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v2_companies_market_buy_orders",
+      "table": "Wcr",
+      "domain": "companies",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/companies/${e}/market-buy-orders/",
+      "normalizedUrl": "/api/v2/companies/:e/market-buy-orders/",
+      "bundleSourceOffset": 670486,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/market-routes.ts",
+          "line": 390,
+          "method": "ANY",
+          "path": "/api/v2/companies/:companyId/market-buy-orders/"
+        }
+      ]
+    },
+    {
+      "name": "api_v2_companies_market_buy_orders_get",
+      "table": "Wcr",
+      "domain": "companies",
+      "params": [
+        "e",
+        "t"
+      ],
+      "rawUrl": "/api/v2/companies/${e}/market-buy-orders/${t}/",
+      "normalizedUrl": "/api/v2/companies/:e/market-buy-orders/:t/",
+      "bundleSourceOffset": 670568,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v2_companies_market_orders",
+      "table": "Wcr",
+      "domain": "companies",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/companies/${e}/market-orders/",
+      "normalizedUrl": "/api/v2/companies/:e/market-orders/",
+      "bundleSourceOffset": 670663,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/market-routes.ts",
+          "line": 379,
+          "method": "ANY",
+          "path": "/api/v2/companies/:companyId/market-orders/"
+        }
+      ]
+    },
+    {
+      "name": "api_v2_companies_my_note",
+      "table": "Wcr",
+      "domain": "companies",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/companies/${e}/my-note/",
+      "normalizedUrl": "/api/v2/companies/:e/my-note/",
+      "bundleSourceOffset": 670737,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v2_companies_note",
+      "table": "Wcr",
+      "domain": "companies",
+      "params": [
+        "e",
+        "t"
+      ],
+      "rawUrl": "/api/v2/companies/${e}/note/${t}/",
+      "normalizedUrl": "/api/v2/companies/:e/note/:t/",
+      "bundleSourceOffset": 670799,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v2_companies_note_list",
+      "table": "Wcr",
+      "domain": "companies",
+      "params": [],
+      "rawUrl": "/api/v2/companies/me/note/",
+      "normalizedUrl": "/api/v2/companies/me/note/",
+      "bundleSourceOffset": 670864,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v2_companies_past_finances_overview",
+      "table": "Wcr",
+      "domain": "companies",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/companies/${e}/past-finances-overview/",
+      "normalizedUrl": "/api/v2/companies/:e/past-finances-overview/",
+      "bundleSourceOffset": 670924,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/finance-routes.ts",
+          "line": 580,
+          "method": "ANY",
+          "path": "/api/v2/companies/:companyId/past-finances-overview/"
+        }
+      ]
+    },
+    {
+      "name": "api_v2_companies_referrals",
+      "table": "Wcr",
+      "domain": "companies",
+      "params": [],
+      "rawUrl": "/api/v2/companies/referrals/",
+      "normalizedUrl": "/api/v2/companies/referrals/",
+      "bundleSourceOffset": 671016,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v2_companies_resource_ability",
+      "table": "Wcr",
+      "domain": "companies",
+      "params": [
+        "e",
+        "t"
+      ],
+      "rawUrl": "/api/v2/companies/${e}/resource-ability/${t}/",
+      "normalizedUrl": "/api/v2/companies/:e/resource-ability/:t/",
+      "bundleSourceOffset": 671078,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/research-routes.ts",
+          "line": 135,
+          "method": "ANY",
+          "path": "/api/v2/companies/:companyId/resource-ability/:resourceKind/"
+        }
+      ]
+    },
+    {
+      "name": "api_v2_companies_royalties",
+      "table": "Wcr",
+      "domain": "companies",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/companies/${e}/royalties/",
+      "normalizedUrl": "/api/v2/companies/:e/royalties/",
+      "bundleSourceOffset": 671167,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v2_company_building_auctions",
+      "table": "Wcr",
+      "domain": "companies",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/companies/${e}/building-auctions/",
+      "normalizedUrl": "/api/v2/companies/:e/building-auctions/",
+      "bundleSourceOffset": 671233,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/building-auction-routes.ts",
+          "line": 440,
+          "method": "ANY",
+          "path": "/api/v2/companies/:companyId/building-auctions/"
+        }
+      ]
+    },
+    {
+      "name": "api_v2_company_list",
+      "table": "Wcr",
+      "domain": "companies",
+      "params": [
+        "e",
+        "t"
+      ],
+      "rawUrl": "/api/v2/companies/list/${e}/${t}/",
+      "normalizedUrl": "/api/v2/companies/list/:e/:t/",
+      "bundleSourceOffset": 671313,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v2_company_simboosts_use",
+      "table": "Wcr",
+      "domain": "players",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/players/simboosts-use/${e}/",
+      "normalizedUrl": "/api/v2/players/simboosts-use/:e/",
+      "bundleSourceOffset": 671376,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v2_company_tags",
+      "table": "Wcr",
+      "domain": "companies",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/companies/${e}/tags/",
+      "normalizedUrl": "/api/v2/companies/:e/tags/",
+      "bundleSourceOffset": 671446,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/auth-routes.ts",
+          "line": 763,
+          "method": "ANY",
+          "path": "/api/v2/companies/:companyId/tags/"
+        }
+      ]
+    },
+    {
+      "name": "api_v2_company_tags_get",
+      "table": "Wcr",
+      "domain": "companies",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/companies/tags/${e}/",
+      "normalizedUrl": "/api/v2/companies/tags/:e/",
+      "bundleSourceOffset": 671500,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/auth-routes.ts",
+          "line": 766,
+          "method": "ANY",
+          "path": "/api/v2/companies/tags/:tagId/"
+        }
+      ]
+    },
+    {
+      "name": "api_v2_compay_exists",
+      "table": "Wcr",
+      "domain": "companies",
+      "params": [
+        "e",
+        "t"
+      ],
+      "rawUrl": "/api/v2/companies/exists/${e}/${t}/",
+      "normalizedUrl": "/api/v2/companies/exists/:e/:t/",
+      "bundleSourceOffset": 671558,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v2_constants_buildings",
+      "table": "Wcr",
+      "domain": "constants",
+      "params": [],
+      "rawUrl": "/api/v2/constants/buildings/",
+      "normalizedUrl": "/api/v2/constants/buildings/",
+      "bundleSourceOffset": 671624,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/encyclopedia-routes.ts",
+          "line": 30,
+          "method": "ANY",
+          "path": "/api/v2/constants/buildings/"
+        }
+      ]
+    },
+    {
+      "name": "api_v2_constants_core",
+      "table": "Wcr",
+      "domain": "constants",
+      "params": [],
+      "rawUrl": "/api/v2/constants/core/",
+      "normalizedUrl": "/api/v2/constants/core/",
+      "bundleSourceOffset": 671686,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/encyclopedia-routes.ts",
+          "line": 26,
+          "method": "ANY",
+          "path": "/api/v2/constants/core/"
+        }
+      ]
+    },
+    {
+      "name": "api_v2_constants_resources",
+      "table": "Wcr",
+      "domain": "constants",
+      "params": [],
+      "rawUrl": "/api/v2/constants/resources/",
+      "normalizedUrl": "/api/v2/constants/resources/",
+      "bundleSourceOffset": 671738,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/encyclopedia-routes.ts",
+          "line": 34,
+          "method": "ANY",
+          "path": "/api/v2/constants/resources/"
+        }
+      ]
+    },
+    {
+      "name": "api_v2_contacts",
+      "table": "Wcr",
+      "domain": "contacts",
+      "params": [],
+      "rawUrl": "/api/v2/contacts/",
+      "normalizedUrl": "/api/v2/contacts/",
+      "bundleSourceOffset": 671800,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/social-routes.ts",
+          "line": 162,
+          "method": "ANY",
+          "path": "/api/v2/contacts/"
+        }
+      ]
+    },
+    {
+      "name": "api_v2_contacts_get",
+      "table": "Wcr",
+      "domain": "contacts",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/contacts/${e}/",
+      "normalizedUrl": "/api/v2/contacts/:e/",
+      "bundleSourceOffset": 671840,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v2_country_pricing",
+      "table": "Wcr",
+      "domain": "payment-pricing",
+      "params": [],
+      "rawUrl": "/api/v2/payment-pricing/",
+      "normalizedUrl": "/api/v2/payment-pricing/",
+      "bundleSourceOffset": 671888,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/simboost-routes.ts",
+          "line": 133,
+          "method": "ANY",
+          "path": "/api/v2/payment-pricing/"
+        }
+      ]
+    },
+    {
+      "name": "api_v2_custom_reports",
+      "table": "Wcr",
+      "domain": "fpa",
+      "params": [],
+      "rawUrl": "/api/v2/fpa/custom-reports/",
+      "normalizedUrl": "/api/v2/fpa/custom-reports/",
+      "bundleSourceOffset": 671942,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/finance-routes.ts",
+          "line": 60,
+          "method": "ANY",
+          "path": "/api/v2/fpa/custom-reports/"
+        }
+      ]
+    },
+    {
+      "name": "api_v2_egg_collect_busy",
+      "table": "Wcr",
+      "domain": "egg-collect",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/egg-collect/${e}/",
+      "normalizedUrl": "/api/v2/egg-collect/:e/",
+      "bundleSourceOffset": 671998,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v2_egg_collection",
+      "table": "Wcr",
+      "domain": "companies",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/companies/${e}/egg-collection/",
+      "normalizedUrl": "/api/v2/companies/:e/egg-collection/",
+      "bundleSourceOffset": 672053,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v2_egg_market_orders",
+      "table": "Wcr",
+      "domain": "egg-market-orders",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/egg-market-orders/${e}/",
+      "normalizedUrl": "/api/v2/egg-market-orders/:e/",
+      "bundleSourceOffset": 672119,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v2_egg_movements",
+      "table": "Wcr",
+      "domain": "companies",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/companies/${e}/egg-movements/",
+      "normalizedUrl": "/api/v2/companies/:e/egg-movements/",
+      "bundleSourceOffset": 672181,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v2_egg_swap_get",
+      "table": "Wcr",
+      "domain": "companies",
+      "params": [
+        "e",
+        "t"
+      ],
+      "rawUrl": "/api/v2/companies/${e}/egg-swaps/${t}/",
+      "normalizedUrl": "/api/v2/companies/:e/egg-swaps/:t/",
+      "bundleSourceOffset": 672245,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v2_egg_swaps",
+      "table": "Wcr",
+      "domain": "companies",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/companies/${e}/egg-swaps/",
+      "normalizedUrl": "/api/v2/companies/:e/egg-swaps/",
+      "bundleSourceOffset": 672313,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v2_exchange",
+      "table": "Wcr",
+      "domain": "exchange",
+      "params": [],
+      "rawUrl": "/api/v2/exchange/",
+      "normalizedUrl": "/api/v2/exchange/",
+      "bundleSourceOffset": 672369,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/simboost-routes.ts",
+          "line": 389,
+          "method": "ANY",
+          "path": "/api/v2/exchange/"
+        }
+      ]
+    },
+    {
+      "name": "api_v2_game_notifications",
+      "table": "Wcr",
+      "domain": "companies",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/companies/${e}/game-notifications/",
+      "normalizedUrl": "/api/v2/companies/:e/game-notifications/",
+      "bundleSourceOffset": 672409,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v2_game_notifications_get",
+      "table": "Wcr",
+      "domain": "companies",
+      "params": [
+        "e",
+        "t"
+      ],
+      "rawUrl": "/api/v2/companies/${e}/game-notifications/${t}/",
+      "normalizedUrl": "/api/v2/companies/:e/game-notifications/:t/",
+      "bundleSourceOffset": 672483,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v2_google_purchase",
+      "table": "Wcr",
+      "domain": "google-purchase",
+      "params": [],
+      "rawUrl": "/api/v2/google-purchase/",
+      "normalizedUrl": "/api/v2/google-purchase/",
+      "bundleSourceOffset": 672570,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v2_help_chatroom",
+      "table": "Wcr",
+      "domain": "help-chatroom",
+      "params": [],
+      "rawUrl": "/api/v2/help-chatroom/",
+      "normalizedUrl": "/api/v2/help-chatroom/",
+      "bundleSourceOffset": 672624,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/social-routes.ts",
+          "line": 241,
+          "method": "ANY",
+          "path": "/api/v2/help-chatroom/"
+        },
+        {
+          "file": "server/routes/social-routes.ts",
+          "line": 241,
+          "method": "ANY",
+          "path": "/api/v2/help-chatroom"
+        }
+      ]
+    },
+    {
+      "name": "api_v2_image_upload",
+      "table": "Wcr",
+      "domain": "image-upload",
+      "params": [],
+      "rawUrl": "/api/v2/image-upload/",
+      "normalizedUrl": "/api/v2/image-upload/",
+      "bundleSourceOffset": 672674,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v2_income_statement",
+      "table": "Wcr",
+      "domain": "companies",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/companies/${e}/income-statement/",
+      "normalizedUrl": "/api/v2/companies/:e/income-statement/",
+      "bundleSourceOffset": 672722,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/finance-routes.ts",
+          "line": 577,
+          "method": "GET",
+          "path": "/api/:version/companies/:companyId/income-statement/"
+        }
+      ]
+    },
+    {
+      "name": "api_v2_income_statement_historic",
+      "table": "Wcr",
+      "domain": "companies",
+      "params": [
+        "e",
+        "t",
+        "r"
+      ],
+      "rawUrl": "/api/v2/companies/${e}/income-statement/${t}/${r}/",
+      "normalizedUrl": "/api/v2/companies/:e/income-statement/:t/:r/",
+      "bundleSourceOffset": 672792,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/finance-routes.ts",
+          "line": 584,
+          "method": "GET",
+          "path": "/api/:version/companies/:companyId/income-statement/:from/:to/"
+        }
+      ]
+    },
+    {
+      "name": "api_v2_level_bonus",
+      "table": "Wcr",
+      "domain": "no-cache",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/no-cache/companies/level-bonus/${e}/",
+      "normalizedUrl": "/api/v2/no-cache/companies/level-bonus/:e/",
+      "bundleSourceOffset": 672887,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/simboost-routes.ts",
+          "line": 569,
+          "method": "ANY",
+          "path": "/api/v2/no-cache/companies/level-bonus/:companyId/"
+        }
+      ]
+    },
+    {
+      "name": "api_v2_market_collectibles",
+      "table": "Wcr",
+      "domain": "market-collectibles",
+      "params": [],
+      "rawUrl": "/api/v2/market-collectibles/",
+      "normalizedUrl": "/api/v2/market-collectibles/",
+      "bundleSourceOffset": 672956,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/collectible-routes.ts",
+          "line": 72,
+          "method": "ANY",
+          "path": "/api/v2/market-collectibles/"
+        },
+        {
+          "file": "server/routes/collectible-routes.ts",
+          "line": 72,
+          "method": "ANY",
+          "path": "/api/v2/market-collectibles"
+        }
+      ]
+    },
+    {
+      "name": "api_v2_market_collectibles_patch",
+      "table": "Wcr",
+      "domain": "market-collectibles",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/market-collectibles/${e}/",
+      "normalizedUrl": "/api/v2/market-collectibles/:e/",
+      "bundleSourceOffset": 673018,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/collectible-routes.ts",
+          "line": 221,
+          "method": "ANY",
+          "path": "/api/v2/market-collectibles/:listingId/"
+        }
+      ]
+    },
+    {
+      "name": "api_v2_market_collectibles_simboosts_available",
+      "table": "Wcr",
+      "domain": "market-collectibles-sbs",
+      "params": [],
+      "rawUrl": "/api/v2/market-collectibles-sbs/",
+      "normalizedUrl": "/api/v2/market-collectibles-sbs/",
+      "bundleSourceOffset": 673090,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/collectible-routes.ts",
+          "line": 59,
+          "method": "ANY",
+          "path": "/api/v2/market-collectibles-sbs/"
+        },
+        {
+          "file": "server/routes/collectible-routes.ts",
+          "line": 59,
+          "method": "ANY",
+          "path": "/api/v2/market-collectibles-sbs"
+        }
+      ]
+    },
+    {
+      "name": "api_v2_market_order",
+      "table": "Wcr",
+      "domain": "market-order",
+      "params": [],
+      "rawUrl": "/api/v2/market-order/",
+      "normalizedUrl": "/api/v2/market-order/",
+      "bundleSourceOffset": 673176,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/market-routes.ts",
+          "line": 216,
+          "method": "ANY",
+          "path": "/api/v2/market-order/"
+        },
+        {
+          "file": "server/routes/market-routes.ts",
+          "line": 216,
+          "method": "ANY",
+          "path": "/api/v2/market-order"
+        }
+      ]
+    },
+    {
+      "name": "api_v2_market_order_debug",
+      "table": "Wcr",
+      "domain": "market-order-debug",
+      "params": [],
+      "rawUrl": "/api/v2/market-order-debug/",
+      "normalizedUrl": "/api/v2/market-order-debug/",
+      "bundleSourceOffset": 673224,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v2_moderator_notes",
+      "table": "Wcr",
+      "domain": "players",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/players/${e}/moderator-notes/",
+      "normalizedUrl": "/api/v2/players/:e/moderator-notes/",
+      "bundleSourceOffset": 673284,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v2_moderator_notes_delete",
+      "table": "Wcr",
+      "domain": "players",
+      "params": [
+        "e",
+        "t"
+      ],
+      "rawUrl": "/api/v2/players/${e}/moderator-notes/${t}/",
+      "normalizedUrl": "/api/v2/players/:e/moderator-notes/:t/",
+      "bundleSourceOffset": 673350,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v2_moderator_notes_latest",
+      "table": "Wcr",
+      "domain": "moderator-notes",
+      "params": [],
+      "rawUrl": "/api/v2/moderator-notes/",
+      "normalizedUrl": "/api/v2/moderator-notes/",
+      "bundleSourceOffset": 673432,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/page-routes.ts",
+          "line": 190,
+          "method": "ANY",
+          "path": "/api/v2/moderator-notes/"
+        },
+        {
+          "file": "server/routes/audit-routes.ts",
+          "line": 31,
+          "method": "ANY",
+          "path": "/api/v2/moderator-notes"
+        },
+        {
+          "file": "server/routes/audit-routes.ts",
+          "line": 165,
+          "method": "ANY",
+          "path": "/api/v2/moderator-notes/"
+        }
+      ]
+    },
+    {
+      "name": "api_v2_moderator_notes_more",
+      "table": "Wcr",
+      "domain": "moderator-notes",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/moderator-notes/${e}/",
+      "normalizedUrl": "/api/v2/moderator-notes/:e/",
+      "bundleSourceOffset": 673493,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v2_newspaper_sponsor_params",
+      "table": "Wcr",
+      "domain": "newspaper",
+      "params": [],
+      "rawUrl": "/api/v2/newspaper/sponsor-params/",
+      "normalizedUrl": "/api/v2/newspaper/sponsor-params/",
+      "bundleSourceOffset": 673556,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/social-routes.ts",
+          "line": 640,
+          "method": "ANY",
+          "path": "/api/v2/newspaper/sponsor-params/"
+        },
+        {
+          "file": "server/routes/newspaper-routes.ts",
+          "line": 44,
+          "method": "ANY",
+          "path": "/api/v2/newspaper/sponsor-params/"
+        }
+      ]
+    },
+    {
+      "name": "api_v2_nfts_assets_get",
+      "table": "Wcr",
+      "domain": "nfts",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/nfts/assets/${e}/",
+      "normalizedUrl": "/api/v2/nfts/assets/:e/",
+      "bundleSourceOffset": 673628,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/collectible-routes.ts",
+          "line": 238,
+          "method": "ANY",
+          "path": "/api/v2/nfts/assets/:assetId/"
+        }
+      ]
+    },
+    {
+      "name": "api_v2_nfts_assets_get_trades",
+      "table": "Wcr",
+      "domain": "nfts",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/nfts/assets/${e}/trades/",
+      "normalizedUrl": "/api/v2/nfts/assets/:e/trades/",
+      "bundleSourceOffset": 673682,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/collectible-routes.ts",
+          "line": 259,
+          "method": "ANY",
+          "path": "/api/v2/nfts/assets/:assetId/trades/"
+        }
+      ]
+    },
+    {
+      "name": "api_v2_notifications",
+      "table": "Wcr",
+      "domain": "players",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/players/notifications/${e}",
+      "normalizedUrl": "/api/v2/players/notifications/:e",
+      "bundleSourceOffset": 673750,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v2_player",
+      "table": "Wcr",
+      "domain": "players",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/players/${e}/",
+      "normalizedUrl": "/api/v2/players/:e/",
+      "bundleSourceOffset": 673811,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v2_player_bonuses",
+      "table": "Wcr",
+      "domain": "players",
+      "params": [],
+      "rawUrl": "/api/v2/players/bonuses/",
+      "normalizedUrl": "/api/v2/players/bonuses/",
+      "bundleSourceOffset": 673852,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/simboost-routes.ts",
+          "line": 139,
+          "method": "ANY",
+          "path": "/api/v2/players/bonuses/"
+        }
+      ]
+    },
+    {
+      "name": "api_v2_player_preferences",
+      "table": "Wcr",
+      "domain": "players",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/players/${e}/preferences/",
+      "normalizedUrl": "/api/v2/players/:e/preferences/",
+      "bundleSourceOffset": 673905,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/auth-routes.ts",
+          "line": 759,
+          "method": "ANY",
+          "path": "/api/v2/players/:playerId/preferences/"
+        }
+      ]
+    },
+    {
+      "name": "api_v2_player_verification",
+      "table": "Wcr",
+      "domain": "players",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/players/${e}/verification/",
+      "normalizedUrl": "/api/v2/players/:e/verification/",
+      "bundleSourceOffset": 673970,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v2_players_language",
+      "table": "Wcr",
+      "domain": "players",
+      "params": [],
+      "rawUrl": "/api/v2/players/language/",
+      "normalizedUrl": "/api/v2/players/language/",
+      "bundleSourceOffset": 674037,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/auth-routes.ts",
+          "line": 321,
+          "method": "ANY",
+          "path": "/api/v2/players/language/"
+        }
+      ]
+    },
+    {
+      "name": "api_v2_players_personal_data",
+      "table": "Wcr",
+      "domain": "players",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/players/${e}/personal-data/",
+      "normalizedUrl": "/api/v2/players/:e/personal-data/",
+      "bundleSourceOffset": 674093,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/auth-routes.ts",
+          "line": 757,
+          "method": "ANY",
+          "path": "/api/v2/players/:playerId/personal-data/"
+        }
+      ]
+    },
+    {
+      "name": "api_v2_production_modifiers",
+      "table": "Wcr",
+      "domain": "production-modifiers",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/production-modifiers/${e}/",
+      "normalizedUrl": "/api/v2/production-modifiers/:e/",
+      "bundleSourceOffset": 674163,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v2_redeem_code",
+      "table": "Wcr",
+      "domain": "redeem-code",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/redeem-code/${e}/",
+      "normalizedUrl": "/api/v2/redeem-code/:e/",
+      "bundleSourceOffset": 674231,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v2_resource_donate",
+      "table": "Wcr",
+      "domain": "resources",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/resources/${e}/donate/",
+      "normalizedUrl": "/api/v2/resources/:e/donate/",
+      "bundleSourceOffset": 674281,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v2_resource_get",
+      "table": "Wcr",
+      "domain": "resources",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/resources/${e}/",
+      "normalizedUrl": "/api/v2/resources/:e/",
+      "bundleSourceOffset": 674340,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/warehouse-routes.ts",
+          "line": 154,
+          "method": "ANY",
+          "path": "/api/v2/resources/:companyId/"
+        }
+      ]
+    },
+    {
+      "name": "api_v2_resource_transactions",
+      "table": "Wcr",
+      "domain": "resources-transactions",
+      "params": [
+        "e",
+        "t"
+      ],
+      "rawUrl": "/api/v2/resources-transactions/${e}/${t}/",
+      "normalizedUrl": "/api/v2/resources-transactions/:e/:t/",
+      "bundleSourceOffset": 674389,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/warehouse-routes.ts",
+          "line": 306,
+          "method": "ANY",
+          "path": "/api/v2/resources-transactions/:param1/:param2/"
+        }
+      ]
+    },
+    {
+      "name": "api_v2_resource_transactions_summary",
+      "table": "Wcr",
+      "domain": "resources-transactions-summary",
+      "params": [
+        "e",
+        "t"
+      ],
+      "rawUrl": "/api/v2/resources-transactions-summary/${e}/${t}/",
+      "normalizedUrl": "/api/v2/resources-transactions-summary/:e/:t/",
+      "bundleSourceOffset": 674469,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/warehouse-routes.ts",
+          "line": 313,
+          "method": "ANY",
+          "path": "/api/v2/resources-transactions-summary/:param1/:param2/"
+        }
+      ]
+    },
+    {
+      "name": "api_v2_revoke",
+      "table": "Wcr",
+      "domain": "players",
+      "params": [],
+      "rawUrl": "/api/v2/players/revoke-links/",
+      "normalizedUrl": "/api/v2/players/revoke-links/",
+      "bundleSourceOffset": 674565,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v2_rocket_launches",
+      "table": "Wcr",
+      "domain": "rocket-launches",
+      "params": [
+        "e",
+        "t"
+      ],
+      "rawUrl": "/api/v3/rocket-launches/${e}/${t}/",
+      "normalizedUrl": "/api/v3/rocket-launches/:e/:t/",
+      "bundleSourceOffset": 674615,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/aerospace-routes.ts",
+          "line": 222,
+          "method": "ANY",
+          "path": "/api/v3/rocket-launches/:realmId/:companyId/"
+        }
+      ]
+    },
+    {
+      "name": "api_v2_sponsor_get",
+      "table": "Wcr",
+      "domain": "newspaper",
+      "params": [
+        "e",
+        "t"
+      ],
+      "rawUrl": "/api/v2/newspaper/${e}/sponsor/${t}/",
+      "normalizedUrl": "/api/v2/newspaper/:e/sponsor/:t/",
+      "bundleSourceOffset": 674682,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/newspaper-routes.ts",
+          "line": 295,
+          "method": "ANY",
+          "path": "/api/v2/newspaper/:issueId/sponsor/:slot/"
+        }
+      ]
+    },
+    {
+      "name": "api_v2_sponsor_get_all",
+      "table": "Wcr",
+      "domain": "newspaper",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/newspaper/${e}/sponsor/",
+      "normalizedUrl": "/api/v2/newspaper/:e/sponsor/",
+      "bundleSourceOffset": 674747,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "version_mismatch",
+      "backendImplementation": [
+        {
+          "file": "server/routes/newspaper-routes.ts",
+          "line": 253,
+          "method": "ANY",
+          "path": "/api/v3/newspaper/:newspaperId/sponsor/"
+        }
+      ]
+    },
+    {
+      "name": "api_v2_steam_confirm_purchase",
+      "table": "Wcr",
+      "domain": "steam-confirm-purchase",
+      "params": [],
+      "rawUrl": "/api/v2/steam-confirm-purchase/",
+      "normalizedUrl": "/api/v2/steam-confirm-purchase/",
+      "bundleSourceOffset": 674807,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v2_steam_products",
+      "table": "Wcr",
+      "domain": "steam-products",
+      "params": [],
+      "rawUrl": "/api/v2/steam-products/",
+      "normalizedUrl": "/api/v2/steam-products/",
+      "bundleSourceOffset": 674875,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v2_steam_purchase",
+      "table": "Wcr",
+      "domain": "steam-purchase",
+      "params": [],
+      "rawUrl": "/api/v2/steam-purchase/",
+      "normalizedUrl": "/api/v2/steam-purchase/",
+      "bundleSourceOffset": 674927,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v2_steam_refund",
+      "table": "Wcr",
+      "domain": "steam-refund",
+      "params": [],
+      "rawUrl": "/api/v2/steam-refund/",
+      "normalizedUrl": "/api/v2/steam-refund/",
+      "bundleSourceOffset": 674979,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v2_tag_search",
+      "table": "Wcr",
+      "domain": "tag-search",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/tag-search/${e}/",
+      "normalizedUrl": "/api/v2/tag-search/:e/",
+      "bundleSourceOffset": 675027,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v2_top_articles_by_reaction",
+      "table": "Wcr",
+      "domain": "dynamic",
+      "params": [
+        "e",
+        "t",
+        "r"
+      ],
+      "rawUrl": "/api/v2/${e}/${t}/articles/top-by-reaction/${r}/",
+      "normalizedUrl": "/api/v2/:e/:t/articles/top-by-reaction/:r/",
+      "bundleSourceOffset": 675075,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/newspaper-routes.ts",
+          "line": 417,
+          "method": "ANY",
+          "path": "/api/v2/:scope/:realmId/articles/top-by-reaction/:metric/"
+        }
+      ]
+    },
+    {
+      "name": "api_v2_unlock",
+      "table": "Wcr",
+      "domain": "unlock",
+      "params": [],
+      "rawUrl": "/api/v2/unlock/",
+      "normalizedUrl": "/api/v2/unlock/",
+      "bundleSourceOffset": 675167,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/simboost-routes.ts",
+          "line": 189,
+          "method": "ANY",
+          "path": "/api/v2/unlock/"
+        }
+      ]
+    },
+    {
+      "name": "api_v2_unlocked_hqs",
+      "table": "Wcr",
+      "domain": "players",
+      "params": [],
+      "rawUrl": "/api/v2/players/unlocked-hqs/",
+      "normalizedUrl": "/api/v2/players/unlocked-hqs/",
+      "bundleSourceOffset": 675203,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/social-routes.ts",
+          "line": 575,
+          "method": "ANY",
+          "path": "/api/v2/players/unlocked-hqs/"
+        },
+        {
+          "file": "server/routes/social-routes.ts",
+          "line": 575,
+          "method": "ANY",
+          "path": "/api/v2/players/unlocked-hqs"
+        }
+      ]
+    },
+    {
+      "name": "api_v2_unlocked_pas",
+      "table": "Wcr",
+      "domain": "players",
+      "params": [],
+      "rawUrl": "/api/v2/players/unlocked-pas/",
+      "normalizedUrl": "/api/v2/players/unlocked-pas/",
+      "bundleSourceOffset": 675259,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/social-routes.ts",
+          "line": 596,
+          "method": "ANY",
+          "path": "/api/v2/players/unlocked-pas/"
+        },
+        {
+          "file": "server/routes/social-routes.ts",
+          "line": 596,
+          "method": "ANY",
+          "path": "/api/v2/players/unlocked-pas"
+        }
+      ]
+    },
+    {
+      "name": "api_v2_warehouse_contracts_summary",
+      "table": "Wcr",
+      "domain": "warehouse-contracts-summary",
+      "params": [
+        "e",
+        "t"
+      ],
+      "rawUrl": "/api/v2/warehouse-contracts-summary/${e}/${t}/",
+      "normalizedUrl": "/api/v2/warehouse-contracts-summary/:e/:t/",
+      "bundleSourceOffset": 675315,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/warehouse-routes.ts",
+          "line": 295,
+          "method": "ANY",
+          "path": "/api/v2/warehouse-contracts-summary/:companyId/:type/"
+        }
+      ]
+    },
+    {
+      "name": "api_v2_weather",
+      "table": "Wcr",
+      "domain": "weather",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/weather/${e}/",
+      "normalizedUrl": "/api/v2/weather/:e/",
+      "bundleSourceOffset": 675406,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/encyclopedia-routes.ts",
+          "line": 342,
+          "method": "ANY",
+          "path": "/api/v2/weather/:realmId/"
+        }
+      ]
+    },
+    {
+      "name": "api_v3_analytics_simboosts_spend",
+      "table": "Wcr",
+      "domain": "analytics",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v3/analytics/simboosts-spend/${e}/",
+      "normalizedUrl": "/api/v3/analytics/simboosts-spend/:e/",
+      "bundleSourceOffset": 675448,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v3_analytics_simboosts_spend_year_ago",
+      "table": "Wcr",
+      "domain": "analytics",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v3/analytics/simboosts-spend/year-ago/${e}/",
+      "normalizedUrl": "/api/v3/analytics/simboosts-spend/year-ago/:e/",
+      "bundleSourceOffset": 675526,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v3_article_get",
+      "table": "Wcr",
+      "domain": "dynamic",
+      "params": [
+        "e",
+        "t",
+        "r"
+      ],
+      "rawUrl": "/api/v3/${e}/newspaper/${t}/article/${r}/",
+      "normalizedUrl": "/api/v3/:e/newspaper/:t/article/:r/",
+      "bundleSourceOffset": 675622,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v3_article_get_all",
+      "table": "Wcr",
+      "domain": "dynamic",
+      "params": [
+        "e",
+        "t"
+      ],
+      "rawUrl": "/api/v3/${e}/newspaper/${t}/article/",
+      "normalizedUrl": "/api/v3/:e/newspaper/:t/article/",
+      "bundleSourceOffset": 675694,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v3_companies",
+      "table": "Wcr",
+      "domain": "companies",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v3/companies/${e}/",
+      "normalizedUrl": "/api/v3/companies/:e/",
+      "bundleSourceOffset": 675763,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/auth-routes.ts",
+          "line": 773,
+          "method": "ANY",
+          "path": "/api/v3/companies/:companyId/"
+        }
+      ]
+    },
+    {
+      "name": "api_v3_companies_auth_data",
+      "table": "Wcr",
+      "domain": "companies",
+      "params": [],
+      "rawUrl": "/api/v3/companies/auth-data/",
+      "normalizedUrl": "/api/v3/companies/auth-data/",
+      "bundleSourceOffset": 675809,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/auth-routes.ts",
+          "line": 265,
+          "method": "ANY",
+          "path": "/api/v3/companies/auth-data/"
+        }
+      ]
+    },
+    {
+      "name": "api_v3_companies_buildings_followers",
+      "table": "Wcr",
+      "domain": "companies",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v3/companies/buildings/${e}/followers/",
+      "normalizedUrl": "/api/v3/companies/buildings/:e/followers/",
+      "bundleSourceOffset": 675871,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/building-routes.ts",
+          "line": 171,
+          "method": "ANY",
+          "path": "/api/v3/companies/buildings/:id/followers/"
+        }
+      ]
+    },
+    {
+      "name": "api_v3_companies_by_company",
+      "table": "Wcr",
+      "domain": "companies-by-company",
+      "params": [
+        "e",
+        "t"
+      ],
+      "rawUrl": "/api/v3/companies-by-company/${e}/${t}/",
+      "normalizedUrl": "/api/v3/companies-by-company/:e/:t/",
+      "bundleSourceOffset": 675957,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/auth-routes.ts",
+          "line": 770,
+          "method": "ANY",
+          "path": "/api/v3/companies-by-company/:realmId/:name/"
+        }
+      ]
+    },
+    {
+      "name": "api_v3_companies_collectibles",
+      "table": "Wcr",
+      "domain": "companies",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v3/companies/${e}/collectibles/",
+      "normalizedUrl": "/api/v3/companies/:e/collectibles/",
+      "bundleSourceOffset": 676034,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/achievement-routes.ts",
+          "line": 456,
+          "method": "ANY",
+          "path": "/api/v3/companies/:companyId/collectibles/"
+        }
+      ]
+    },
+    {
+      "name": "api_v3_companies_executives",
+      "table": "Wcr",
+      "domain": "companies",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v3/companies/${e}/executives/",
+      "normalizedUrl": "/api/v3/companies/:e/executives/",
+      "bundleSourceOffset": 676106,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/executive-routes.ts",
+          "line": 480,
+          "method": "ANY",
+          "path": "/api/v3/companies/:companyId/executives/"
+        }
+      ]
+    },
+    {
+      "name": "api_v3_companies_executives_hostile_offers",
+      "table": "Wcr",
+      "domain": "companies",
+      "params": [],
+      "rawUrl": "/api/v3/companies/executives/hostile-offers/",
+      "normalizedUrl": "/api/v3/companies/executives/hostile-offers/",
+      "bundleSourceOffset": 676174,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/executive-routes.ts",
+          "line": 207,
+          "method": "ANY",
+          "path": "/api/v3/companies/executives/hostile-offers/"
+        },
+        {
+          "file": "server/routes/executive-routes.ts",
+          "line": 207,
+          "method": "ANY",
+          "path": "/api/v3/companies/executives/hostile-offers"
+        }
+      ]
+    },
+    {
+      "name": "api_v3_companies_executives_hostile_offers_get",
+      "table": "Wcr",
+      "domain": "companies",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v3/companies/executives/hostile-offers/${e}/",
+      "normalizedUrl": "/api/v3/companies/executives/hostile-offers/:e/",
+      "bundleSourceOffset": 676268,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/executive-routes.ts",
+          "line": 493,
+          "method": "ANY",
+          "path": "/api/v3/companies/executives/hostile-offers/:offerId/"
+        }
+      ]
+    },
+    {
+      "name": "api_v3_companies_past_finances",
+      "table": "Wcr",
+      "domain": "companies",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v3/companies/${e}/past-finances/",
+      "normalizedUrl": "/api/v3/companies/:e/past-finances/",
+      "bundleSourceOffset": 676370,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/finance-routes.ts",
+          "line": 587,
+          "method": "ANY",
+          "path": "/api/v3/companies/:companyId/past-finances/"
+        }
+      ]
+    },
+    {
+      "name": "api_v3_contest",
+      "table": "Wcr",
+      "domain": "dynamic",
+      "params": [
+        "e",
+        "t"
+      ],
+      "rawUrl": "/api/v3/${e}/contest/${t}/",
+      "normalizedUrl": "/api/v3/:e/contest/:t/",
+      "bundleSourceOffset": 676444,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v3_contract_incoming",
+      "table": "Wcr",
+      "domain": "contracts-incoming",
+      "params": [
+        "e",
+        "t"
+      ],
+      "rawUrl": "/api/v3/contracts-incoming/${e}/${t}/",
+      "normalizedUrl": "/api/v3/contracts-incoming/:e/:t/",
+      "bundleSourceOffset": 676495,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/contract-routes.ts",
+          "line": 217,
+          "method": "ANY",
+          "path": "/api/v3/contracts-incoming/:realm/:companyId/"
+        }
+      ]
+    },
+    {
+      "name": "api_v3_contract_outgoing",
+      "table": "Wcr",
+      "domain": "contracts-outgoing",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v3/contracts-outgoing/${e}/",
+      "normalizedUrl": "/api/v3/contracts-outgoing/:e/",
+      "bundleSourceOffset": 676567,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/contract-routes.ts",
+          "line": 219,
+          "method": "ANY",
+          "path": "/api/v3/contracts-outgoing/:companyId/"
+        }
+      ]
+    },
+    {
+      "name": "api_v3_encyclopedia_events",
+      "table": "Wcr",
+      "domain": "encyclopedia",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v3/encyclopedia/events/${e}/",
+      "normalizedUrl": "/api/v3/encyclopedia/events/:e/",
+      "bundleSourceOffset": 676630,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v3_encyclopedia_supporters_all",
+      "table": "Wcr",
+      "domain": "encyclopedia",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v3/encyclopedia/supporters/${e}/",
+      "normalizedUrl": "/api/v3/encyclopedia/supporters/:e/",
+      "bundleSourceOffset": 676696,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v3_government_orders",
+      "table": "Wcr",
+      "domain": "government-orders",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v3/government-orders/${e}/",
+      "normalizedUrl": "/api/v3/government-orders/:e/",
+      "bundleSourceOffset": 676774,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/government-routes.ts",
+          "line": 531,
+          "method": "ANY",
+          "path": "/api/v3/government-orders/:realmId/"
+        }
+      ]
+    },
+    {
+      "name": "api_v3_government_orders_applications",
+      "table": "Wcr",
+      "domain": "government-orders",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v3/government-orders/realm/${e}/bids/",
+      "normalizedUrl": "/api/v3/government-orders/realm/:e/bids/",
+      "bundleSourceOffset": 676836,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/government-routes.ts",
+          "line": 475,
+          "method": "ANY",
+          "path": "/api/v3/government-orders/realm/:realmId/bids/"
+        }
+      ]
+    },
+    {
+      "name": "api_v3_government_orders_applications_blocked_companies",
+      "table": "Wcr",
+      "domain": "government-orders",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v3/government-orders/bids/${e}/blocked-companies/",
+      "normalizedUrl": "/api/v3/government-orders/bids/:e/blocked-companies/",
+      "bundleSourceOffset": 676922,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/government-routes.ts",
+          "line": 363,
+          "method": "ANY",
+          "path": "/api/v3/government-orders/bids/:secret/blocked-companies/"
+        }
+      ]
+    },
+    {
+      "name": "api_v3_government_orders_applications_blocked_companies_get",
+      "table": "Wcr",
+      "domain": "government-orders",
+      "params": [
+        "e",
+        "t"
+      ],
+      "rawUrl": "/api/v3/government-orders/bids/${e}/blocked-companies/${t}/",
+      "normalizedUrl": "/api/v3/government-orders/bids/:e/blocked-companies/:t/",
+      "bundleSourceOffset": 677038,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/government-routes.ts",
+          "line": 356,
+          "method": "ANY",
+          "path": "/api/v3/government-orders/bids/:secret/blocked-companies/:companyId/"
+        }
+      ]
+    },
+    {
+      "name": "api_v3_government_orders_applications_contractors",
+      "table": "Wcr",
+      "domain": "government-orders",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v3/government-orders/bids/${e}/contractors/",
+      "normalizedUrl": "/api/v3/government-orders/bids/:e/contractors/",
+      "bundleSourceOffset": 677167,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/government-routes.ts",
+          "line": 394,
+          "method": "ANY",
+          "path": "/api/v3/government-orders/bids/:secret/contractors/"
+        }
+      ]
+    },
+    {
+      "name": "api_v3_government_orders_applications_contractors_get",
+      "table": "Wcr",
+      "domain": "government-orders",
+      "params": [
+        "e",
+        "t"
+      ],
+      "rawUrl": "/api/v3/government-orders/bids/${e}/contractors/${t}/",
+      "normalizedUrl": "/api/v3/government-orders/bids/:e/contractors/:t/",
+      "bundleSourceOffset": 677271,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/government-routes.ts",
+          "line": 376,
+          "method": "ANY",
+          "path": "/api/v3/government-orders/bids/:secret/contractors/:contractorId/"
+        }
+      ]
+    },
+    {
+      "name": "api_v3_government_orders_applications_get",
+      "table": "Wcr",
+      "domain": "government-orders",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v3/government-orders/bids/${e}/",
+      "normalizedUrl": "/api/v3/government-orders/bids/:e/",
+      "bundleSourceOffset": 677388,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/government-routes.ts",
+          "line": 415,
+          "method": "ANY",
+          "path": "/api/v3/government-orders/bids/:secret/"
+        }
+      ]
+    },
+    {
+      "name": "api_v3_government_orders_company_applications",
+      "table": "Wcr",
+      "domain": "government-orders",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v3/government-orders/company/${e}/",
+      "normalizedUrl": "/api/v3/government-orders/company/:e/",
+      "bundleSourceOffset": 677472,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/government-routes.ts",
+          "line": 352,
+          "method": "ANY",
+          "path": "/api/v3/government-orders/company/:companyId/"
+        }
+      ]
+    },
+    {
+      "name": "api_v3_government_orders_company_bids",
+      "table": "Wcr",
+      "domain": "government-orders",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v3/government-orders/company/${e}/bids/",
+      "normalizedUrl": "/api/v3/government-orders/company/:e/bids/",
+      "bundleSourceOffset": 677563,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/government-routes.ts",
+          "line": 348,
+          "method": "ANY",
+          "path": "/api/v3/government-orders/company/:companyId/bids/"
+        }
+      ]
+    },
+    {
+      "name": "api_v3_government_orders_get",
+      "table": "Wcr",
+      "domain": "government-orders",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v3/government-orders/realm/${e}/",
+      "normalizedUrl": "/api/v3/government-orders/realm/:e/",
+      "bundleSourceOffset": 677651,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/government-routes.ts",
+          "line": 518,
+          "method": "ANY",
+          "path": "/api/v3/government-orders/realm/:realmId/"
+        }
+      ]
+    },
+    {
+      "name": "api_v3_government_orders_tier",
+      "table": "Wcr",
+      "domain": "government-orders",
+      "params": [],
+      "rawUrl": "/api/v3/government-orders/tier/",
+      "normalizedUrl": "/api/v3/government-orders/tier/",
+      "bundleSourceOffset": 677723,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/government-routes.ts",
+          "line": 36,
+          "method": "ANY",
+          "path": "/api/v3/government-orders/tier/"
+        },
+        {
+          "file": "server/routes/government-routes.ts",
+          "line": 36,
+          "method": "ANY",
+          "path": "/api/v3/government-orders/tier"
+        }
+      ]
+    },
+    {
+      "name": "api_v3_market_ticker",
+      "table": "Wcr",
+      "domain": "market-ticker",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v3/market-ticker/${e}/",
+      "normalizedUrl": "/api/v3/market-ticker/:e/",
+      "bundleSourceOffset": 677791,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v3_newspaper_get",
+      "table": "Wcr",
+      "domain": "dynamic",
+      "params": [
+        "e",
+        "t",
+        "r"
+      ],
+      "rawUrl": "/api/v3/${e}/${t}/newspaper/${r}/",
+      "normalizedUrl": "/api/v3/:e/:t/newspaper/:r/",
+      "bundleSourceOffset": 677845,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/newspaper-routes.ts",
+          "line": 463,
+          "method": "ANY",
+          "path": "/api/v3/:scope/:realmId/newspaper/:issueId/"
+        }
+      ]
+    },
+    {
+      "name": "api_v3_newspaper_get_all",
+      "table": "Wcr",
+      "domain": "dynamic",
+      "params": [
+        "e",
+        "t"
+      ],
+      "rawUrl": "/api/v3/${e}/${t}/newspaper/",
+      "normalizedUrl": "/api/v3/:e/:t/newspaper/",
+      "bundleSourceOffset": 677911,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/newspaper-routes.ts",
+          "line": 453,
+          "method": "ANY",
+          "path": "/api/v3/:scope/:realmId/newspaper/"
+        }
+      ]
+    },
+    {
+      "name": "api_v3_pages",
+      "table": "Wcr",
+      "domain": "pages",
+      "params": [
+        "e",
+        "t"
+      ],
+      "rawUrl": "/api/v3/pages/${e}/${t}/",
+      "normalizedUrl": "/api/v3/pages/:e/:t/",
+      "bundleSourceOffset": 677974,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/page-routes.ts",
+          "line": 227,
+          "method": "ANY",
+          "path": "/api/v3/pages/:locale/:slug/"
+        }
+      ]
+    },
+    {
+      "name": "api_v3_research",
+      "table": "Wcr",
+      "domain": "players",
+      "params": [],
+      "rawUrl": "/api/v3/players/research/",
+      "normalizedUrl": "/api/v3/players/research/",
+      "bundleSourceOffset": 678021,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/research-routes.ts",
+          "line": 20,
+          "method": "ANY",
+          "path": "/api/v3/players/research/"
+        }
+      ]
+    },
+    {
+      "name": "api_v3_resources",
+      "table": "Wcr",
+      "domain": "resources",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v3/resources/${e}/",
+      "normalizedUrl": "/api/v3/resources/:e/",
+      "bundleSourceOffset": 678069,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/warehouse-routes.ts",
+          "line": 165,
+          "method": "ANY",
+          "path": "/api/v3/resources/:companyId/"
+        }
+      ]
+    },
+    {
+      "name": "api_v3_sponsor_get_all",
+      "table": "Wcr",
+      "domain": "newspaper",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v3/newspaper/${e}/sponsor/",
+      "normalizedUrl": "/api/v3/newspaper/:e/sponsor/",
+      "bundleSourceOffset": 678115,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/newspaper-routes.ts",
+          "line": 253,
+          "method": "ANY",
+          "path": "/api/v3/newspaper/:newspaperId/sponsor/"
+        }
+      ]
+    },
+    {
+      "name": "api_v4_encyclopedia_eva_ranking",
+      "table": "Wcr",
+      "domain": "encyclopedia",
+      "params": [
+        "e",
+        "t"
+      ],
+      "rawUrl": "/api/v4/encyclopedia/eva-ranking/${e}/${t}/",
+      "normalizedUrl": "/api/v4/encyclopedia/eva-ranking/:e/:t/",
+      "bundleSourceOffset": 678175,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/encyclopedia-routes.ts",
+          "line": 382,
+          "method": "ANY",
+          "path": "/api/v4/encyclopedia/eva-ranking/:realmId/:blobIndex/"
+        }
+      ]
+    },
+    {
+      "name": "api_v4_encyclopedia_existing_resource_quality",
+      "table": "Wcr",
+      "domain": "dynamic",
+      "params": [
+        "e",
+        "t"
+      ],
+      "rawUrl": "/api/v4/${e}/${t}/encyclopedia/existing-resource-quality/",
+      "normalizedUrl": "/api/v4/:e/:t/encyclopedia/existing-resource-quality/",
+      "bundleSourceOffset": 678260,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "version_mismatch",
+      "backendImplementation": [
+        {
+          "file": "server/routes/encyclopedia-routes.ts",
+          "line": 374,
+          "method": "ANY",
+          "path": "/api/v2/:scope/:realmId/encyclopedia/existing-resource-quality/"
+        }
+      ]
+    },
+    {
+      "name": "api_v4_encyclopedia_ranking",
+      "table": "Wcr",
+      "domain": "encyclopedia",
+      "params": [
+        "e",
+        "t"
+      ],
+      "rawUrl": "/api/v4/encyclopedia/ranking/${e}/${t}/",
+      "normalizedUrl": "/api/v4/encyclopedia/ranking/:e/:t/",
+      "bundleSourceOffset": 678373,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/encyclopedia-routes.ts",
+          "line": 390,
+          "method": "ANY",
+          "path": "/api/v4/encyclopedia/ranking/:realmId/:blobIndex/"
+        }
+      ]
+    },
+    {
+      "name": "api_v4_encyclopedia_resources",
+      "table": "Wcr",
+      "domain": "dynamic",
+      "params": [
+        "e",
+        "t",
+        "r",
+        "n"
+      ],
+      "rawUrl": "/api/v4/${e}/${t}/encyclopedia/resources/${r}/${n}/",
+      "normalizedUrl": "/api/v4/:e/:t/encyclopedia/resources/:r/:n/",
+      "bundleSourceOffset": 678450,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/encyclopedia-routes.ts",
+          "line": 368,
+          "method": "ANY",
+          "path": "/api/v4/:scope/:realmId/encyclopedia/resources/:kind/:quality/"
+        }
+      ]
+    },
+    {
+      "name": "api_v4_encyclopedia_resources_retail_info",
+      "table": "Wcr",
+      "domain": "dynamic",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v4/${e}/resources-retail-info/",
+      "normalizedUrl": "/api/v4/:e/resources-retail-info/",
+      "bundleSourceOffset": 678545,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v4_executives_get",
+      "table": "Wcr",
+      "domain": "executives",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v4/executives/${e}/",
+      "normalizedUrl": "/api/v4/executives/:e/",
+      "bundleSourceOffset": 678628,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/executive-routes.ts",
+          "line": 508,
+          "method": "ANY",
+          "path": "/api/v4/executives/:executiveId/"
+        }
+      ]
+    },
+    {
+      "name": "api_v4_executives_get_note",
+      "table": "Wcr",
+      "domain": "executives",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v4/executives/${e}/note/",
+      "normalizedUrl": "/api/v4/executives/:e/note/",
+      "bundleSourceOffset": 678680,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "api_v4_executives_trainings",
+      "table": "Wcr",
+      "domain": "executives",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v4/executives/${e}/trainings/",
+      "normalizedUrl": "/api/v4/executives/:e/trainings/",
+      "bundleSourceOffset": 678742,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/executive-routes.ts",
+          "line": 505,
+          "method": "ANY",
+          "path": "/api/v4/executives/:executiveId/trainings/"
+        }
+      ]
+    },
+    {
+      "name": "api_v4_executives_trainings_get",
+      "table": "Wcr",
+      "domain": "executives",
+      "params": [
+        "e",
+        "t"
+      ],
+      "rawUrl": "/api/v4/executives/${e}/trainings/${t}/",
+      "normalizedUrl": "/api/v4/executives/:e/trainings/:t/",
+      "bundleSourceOffset": 678810,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/executive-routes.ts",
+          "line": 506,
+          "method": "ANY",
+          "path": "/api/v4/executives/:executiveId/trainings/:trainingId/"
+        }
+      ]
+    },
+    {
+      "name": "api_v4_packages",
+      "table": "Wcr",
+      "domain": "payment-packages",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v4/payment-packages/${e}/",
+      "normalizedUrl": "/api/v4/payment-packages/:e/",
+      "bundleSourceOffset": 678891,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/simboost-routes.ts",
+          "line": 564,
+          "method": "ANY",
+          "path": "/api/v4/payment-packages/:type/"
+        }
+      ]
+    },
+    {
+      "name": "api_v4_stats",
+      "table": "Wcr",
+      "domain": "dynamic",
+      "params": [
+        "e",
+        "t",
+        "r"
+      ],
+      "rawUrl": "/api/v4/${e}/${t}/stats/top/${r}/",
+      "normalizedUrl": "/api/v4/:e/:t/stats/top/:r/",
+      "bundleSourceOffset": 678943,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/encyclopedia-routes.ts",
+          "line": 426,
+          "method": "ANY",
+          "path": "/api/v4/:scope/:realmId/stats/top/:stat/"
+        }
+      ]
+    },
+    {
+      "name": "article_api",
+      "table": "Wcr",
+      "domain": "",
+      "params": [],
+      "rawUrl": "/articles/api/",
+      "normalizedUrl": "/articles/api/",
+      "bundleSourceOffset": 679068,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "emailAuth",
+      "table": "Wcr",
+      "domain": "auth",
+      "params": [],
+      "rawUrl": "/api/v2/auth/email/auth/",
+      "normalizedUrl": "/api/v2/auth/email/auth/",
+      "bundleSourceOffset": 682761,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/auth-routes.ts",
+          "line": 132,
+          "method": "ANY",
+          "path": "/api/v2/auth/email/auth/"
+        }
+      ]
+    },
+    {
+      "name": "emailConnect",
+      "table": "Wcr",
+      "domain": "auth",
+      "params": [],
+      "rawUrl": "/api/v2/auth/email/connect/",
+      "normalizedUrl": "/api/v2/auth/email/connect/",
+      "bundleSourceOffset": 682802,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/auth-routes.ts",
+          "line": 163,
+          "method": "ANY",
+          "path": "/api/v2/auth/email/connect/"
+        }
+      ]
+    },
+    {
+      "name": "passwordReset",
+      "table": "Wcr",
+      "domain": "auth",
+      "params": [],
+      "rawUrl": "/api/v2/auth/email/reset/",
+      "normalizedUrl": "/api/v2/auth/email/reset/",
+      "bundleSourceOffset": 686973,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/auth-routes.ts",
+          "line": 237,
+          "method": "ANY",
+          "path": "/api/v2/auth/email/reset/"
+        }
+      ]
+    },
+    {
+      "name": "v1_api_realm_create_company",
+      "table": "Wcr",
+      "domain": "realm-create-company",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v1/realm-create-company/${e}/",
+      "normalizedUrl": "/api/v1/realm-create-company/:e/",
+      "bundleSourceOffset": 688270,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/auth-routes.ts",
+          "line": 769,
+          "method": "ANY",
+          "path": "/api/v1/realm-create-company/:realmId/"
+        }
+      ]
+    },
+    {
+      "name": "v1_api_switch_realm",
+      "table": "Wcr",
+      "domain": "realm",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v1/realm/${e}/switch/",
+      "normalizedUrl": "/api/v1/realm/:e/switch/",
+      "bundleSourceOffset": 688338,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/auth-routes.ts",
+          "line": 768,
+          "method": "ANY",
+          "path": "/api/v1/realm/:realmId/switch/"
+        }
+      ]
+    },
+    {
+      "name": "v1_api_sync_realm",
+      "table": "Wcr",
+      "domain": "realm",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v1/realm/${e}/sync/",
+      "normalizedUrl": "/api/v1/realm/:e/sync/",
+      "bundleSourceOffset": 688390,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "unimplemented",
+      "backendImplementation": null
+    },
+    {
+      "name": "v2_market_order_cancel",
+      "table": "Wcr",
+      "domain": "market-order",
+      "params": [
+        "e"
+      ],
+      "rawUrl": "/api/v2/market-order/${e}/",
+      "normalizedUrl": "/api/v2/market-order/:e/",
+      "bundleSourceOffset": 688482,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/market-routes.ts",
+          "line": 518,
+          "method": "ANY",
+          "path": "/api/v2/market-order/:orderId/"
+        }
+      ]
+    },
+    {
+      "name": "v2_market_take",
+      "table": "Wcr",
+      "domain": "market-order",
+      "params": [],
+      "rawUrl": "/api/v2/market-order/take/",
+      "normalizedUrl": "/api/v2/market-order/take/",
+      "bundleSourceOffset": 688537,
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/market-routes.ts",
+          "line": 262,
+          "method": "ANY",
+          "path": "/api/v2/market-order/take/"
+        },
+        {
+          "file": "server/routes/market-routes.ts",
+          "line": 262,
+          "method": "ANY",
+          "path": "/api/v2/market-order/take"
+        }
+      ]
+    }
+  ]
+}

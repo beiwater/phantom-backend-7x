@@ -16,6 +16,94 @@ import {
   sumPositive,
   sumNegative
 } from '../game/cash-ledger.ts';
+import { virtualClock } from '../core/virtual-clock.ts';
+
+export interface BalanceSheetResponse {
+  date: string;
+  cash: number;
+  money: number;
+  cashReservedForOrders: number;
+  accountsReceivable: number;
+  workInProcess: number;
+  materials: number;
+  research: number;
+  finishedGoods: number;
+  inventory: number;
+  investmentInBonds: number;
+  bonds: number;
+  buildings: number;
+  constructionInProgress: number;
+  patents: number;
+  bondsPayable: number;
+  liabilities: number;
+  contributedCapital: number;
+  retainedEarnings: number;
+  valuationAllowance: number;
+  deposits: number;
+  employees: number;
+}
+
+/**
+ * Build the current statement from durable company, warehouse, loan, bond,
+ * order, retail, production, and government-bid state. The warehouse schema
+ * does not retain an accounting account classification, so the legacy
+ * materials/finishedGoods fields both expose its authoritative valuation.
+ * Original-client accounts (patent valuation, liquidity allowance, and
+ * construction staging) have no persisted representation in this backend;
+ * those fields remain explicit zeroes rather than being inferred from
+ * unrelated balances.
+ */
+function buildBalanceSheet(companyId: number): BalanceSheetResponse {
+  const nowIso = virtualClock.nowIso();
+  const comp = getCompanyById(companyId);
+  const money = comp ? round2(Number(comp.money) || 0) : 0;
+  const inventory = round2(financeRepository.inventoryValue(companyId));
+  const buildings = round2(financeRepository.buildingsValue(companyId));
+  const bondsHeld = round2(financeRepository.bondsHeldValue(companyId));
+  const liabilities = round2(financeRepository.loansOutstanding(companyId));
+  const adjustments = financeRepository.balanceAdjustments(companyId, nowIso);
+  // Tentative compatibility baseline: companies have no contributed-capital
+  // column; their persisted starter-money default is 100,000.
+  const contributedCapital = 100000;
+  const valuationAllowance = 0;
+  const retainedEarnings = round2(
+    money
+      + adjustments.cashReservedForOrders
+      + adjustments.accountsReceivable
+      + adjustments.workInProcess
+      + adjustments.deposits
+      + inventory
+      + bondsHeld
+      + buildings
+      - liabilities
+      - contributedCapital
+  );
+
+  return {
+    date: nowIso,
+    cash: money,
+    money,
+    cashReservedForOrders: adjustments.cashReservedForOrders,
+    accountsReceivable: adjustments.accountsReceivable,
+    workInProcess: adjustments.workInProcess,
+    materials: inventory,
+    research: 0,
+    finishedGoods: inventory,
+    inventory,
+    investmentInBonds: bondsHeld,
+    bonds: bondsHeld,
+    buildings,
+    constructionInProgress: 0,
+    patents: 0,
+    bondsPayable: liabilities,
+    liabilities,
+    contributedCapital,
+    retainedEarnings,
+    valuationAllowance,
+    deposits: adjustments.deposits,
+    employees: financeRepository.employeeCount(companyId)
+  };
+}
 
 function safeParseDetails(raw: string): Record<string, unknown> {
   try {
@@ -131,41 +219,11 @@ export async function handleFinanceRoutes(
     return true;
   }
 
-  // 6. Balance Sheet — official camelCase schema (HAR-verified).
+  // 6. Balance Sheet — official camelCase schema (bundle-verified).
   if (pathname.startsWith('/api/') && pathname.includes('/balance-sheet/')) {
     const companyId = authorizeRequestedCompany();
     if (companyId === null) return true;
-    const comp = getCompanyById(companyId);
-    const money = comp ? round2(Number(comp.money) || 0) : 0;
-    const inventory = round2(financeRepository.inventoryValue(companyId));
-    const buildings = round2(financeRepository.buildingsValue(companyId));
-    const bondsHeld = round2(financeRepository.bondsHeldValue(companyId));
-    const liabilities = round2(financeRepository.loansOutstanding(companyId));
-    const date = new Date().toISOString().replace('Z', '+00:00');
-    sendJson(res, {
-      date,
-      cash: money,
-      money,
-      cashReservedForOrders: 0,
-      accountsReceivable: 0,
-      workInProcess: 0,
-      materials: inventory,
-      research: 0,
-      finishedGoods: inventory,
-      inventory,
-      investmentInBonds: bondsHeld,
-      bonds: bondsHeld,
-      buildings,
-      constructionInProgress: 0,
-      patents: 0,
-      bondsPayable: liabilities,
-      liabilities,
-      contributedCapital: 100000,
-      retainedEarnings: round2(money + inventory + buildings + bondsHeld - liabilities - 100000),
-      valuationAllowance: 0,
-      deposits: 0,
-      employees: financeRepository.employeeCount(companyId)
-    });
+    sendJson(res, buildBalanceSheet(companyId));
     return true;
   }
 
@@ -377,22 +435,7 @@ export function registerFinanceRoutes(registry: RouteRegistry = globalRouteRegis
     sendJson(res, { report: created, canCreate: true });
   };
   const balanceSheet = (res: ServerResponse, companyId: number): void => {
-    const comp = getCompanyById(companyId);
-    const money = comp ? round2(Number(comp.money) || 0) : 0;
-    const inventory = round2(financeRepository.inventoryValue(companyId));
-    const buildings = round2(financeRepository.buildingsValue(companyId));
-    const bondsHeld = round2(financeRepository.bondsHeldValue(companyId));
-    const liabilities = round2(financeRepository.loansOutstanding(companyId));
-    const date = new Date().toISOString().replace('Z', '+00:00');
-    sendJson(res, {
-      date, cash: money, money, cashReservedForOrders: 0, accountsReceivable: 0,
-      workInProcess: 0, materials: inventory, research: 0, finishedGoods: inventory,
-      inventory, investmentInBonds: bondsHeld, bonds: bondsHeld, buildings,
-      constructionInProgress: 0, patents: 0, bondsPayable: liabilities, liabilities,
-      contributedCapital: 100000,
-      retainedEarnings: round2(money + inventory + buildings + bondsHeld - liabilities - 100000),
-      valuationAllowance: 0, deposits: 0, employees: financeRepository.employeeCount(companyId)
-    });
+    sendJson(res, buildBalanceSheet(companyId));
   };
   const incomeStatement = (res: ServerResponse, companyId: number): void => {
     const w = readStatementWindow(companyId);

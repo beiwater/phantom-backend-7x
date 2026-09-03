@@ -1,0 +1,412 @@
+{
+  "$schema": "official-frontend-contract-registry-v1",
+  "metadata": {
+    "sourceBundle": "frontend-original/static/bundle/assets/index-cgzgptQ8.js",
+    "extractedDate": "2026-09-03",
+    "description": "Reverse-traced exact HTTP methods, request payloads, response fields, Redux actions and source offsets for building, production and market systems."
+  },
+  "contracts": [
+    {
+      "id": "building-list-and-positions",
+      "domain": "building",
+      "endpoint": "GET /api/v2/companies/buildings/me/",
+      "routerKey": "Wcr.api_v2_companies_buildings",
+      "routerOffset": 668841,
+      "callsiteOffset": 1634074,
+      "httpMethod": "GET",
+      "requestPayload": null,
+      "responseShape": {
+        "type": "Array<Building>",
+        "itemFields": {
+          "position": "number (used as dictionary key in Redux: data[item.position] = item)",
+          "id": "number",
+          "kind": "string (dbLetter)",
+          "size": "number"
+        }
+      },
+      "responseHeadersAccessed": [
+        "x-timestamp"
+      ],
+      "reduxDispatches": [
+        {
+          "type": "N4t",
+          "purpose": "SET_FETCHING_BUILDINGS"
+        },
+        {
+          "type": "L4t",
+          "purpose": "UPDATE_BUILDINGS_DATA",
+          "payload": "{ data: {[position]: building}, timestamp }"
+        },
+        {
+          "type": "D4t",
+          "purpose": "FETCH_BUILDINGS_ERROR"
+        }
+      ],
+      "confidence": "verified_bundle_ast",
+      "notes": "Redux normalizes buildings into an object keyed by item.position, not item.id."
+    },
+    {
+      "id": "building-construct-slot",
+      "domain": "building",
+      "endpoint": "POST /api/v2/companies/buildings/me/",
+      "routerKey": "Wcr.api_v2_companies_buildings",
+      "routerOffset": 668841,
+      "callsiteOffset": 6305699,
+      "httpMethod": "POST",
+      "requestPayload": {
+        "kind": "string (dbLetter, e.g. te.dbLetter)",
+        "position": "number (slot index)"
+      },
+      "responseShape": {
+        "cost": "number (deducted from cash: -cost)",
+        "resourcesConsumed": "Array<{ db_letter: string, quality: number, amount: number }>",
+        "achievements": "Array<Achievement> (optional)",
+        "building": "Building object"
+      },
+      "reduxDispatches": [
+        {
+          "type": "mU",
+          "purpose": "SET_NEW_BUILDING_PENDING"
+        },
+        {
+          "type": "yS",
+          "purpose": "UPDATE_ACHIEVEMENTS"
+        }
+      ],
+      "confidence": "verified_bundle_ast",
+      "notes": "Client optimistic/immediate subtraction of consumed construction materials happens upon response."
+    },
+    {
+      "id": "building-upgrade-level",
+      "domain": "building",
+      "endpoint": "PATCH /api/v2/companies/buildings/me/:buildingId/",
+      "routerKey": "Wcr.api_v2_companies_buildings_get",
+      "routerOffset": 668993,
+      "callsiteOffset": 1635586,
+      "httpMethod": "PATCH",
+      "requestPayload": {
+        "size": 1
+      },
+      "responseShape": {
+        "building": "Building object",
+        "resourcesConsumed": "Array<{ db_letter: string, quality: number, amount: number }>"
+      },
+      "reduxDispatches": [
+        {
+          "type": "Dp",
+          "purpose": "UPDATE_SINGLE_BUILDING",
+          "payload": "data.building"
+        },
+        {
+          "type": "kve",
+          "purpose": "UPDATE_ADMINISTRATION_OVERHEAD"
+        },
+        {
+          "type": "G3",
+          "purpose": "DEDUCT_WAREHOUSE_RESOURCES",
+          "payload": "{ db_letter, quality, delta: -amount }"
+        }
+      ],
+      "confidence": "verified_bundle_ast",
+      "notes": "Payload size: 1 increments building size by 1 level. Client expects resourcesConsumed to deduct warehouse materials."
+    },
+    {
+      "id": "building-downgrade-level",
+      "domain": "building",
+      "endpoint": "PATCH /api/v2/companies/buildings/me/:buildingId/",
+      "routerKey": "Wcr.api_v2_companies_buildings_get",
+      "routerOffset": 668993,
+      "callsiteOffset": 1635164,
+      "httpMethod": "PATCH",
+      "requestPayload": {
+        "size": -1
+      },
+      "responseShape": {
+        "money": "number (optional refund added to cash)",
+        "building": "Building object",
+        "resources": "Array<Resource> (materials returned to warehouse)"
+      },
+      "reduxDispatches": [
+        {
+          "type": "_H",
+          "purpose": "UPDATE_MONEY",
+          "payload": "data.money"
+        },
+        {
+          "type": "Dp",
+          "purpose": "UPDATE_SINGLE_BUILDING",
+          "payload": "data.building"
+        },
+        {
+          "type": "n6",
+          "purpose": "ADD_WAREHOUSE_RESOURCES",
+          "payload": "resource"
+        }
+      ],
+      "confidence": "verified_bundle_ast",
+      "notes": "Downgrade refund can return partial money and salvaged construction resources."
+    },
+    {
+      "id": "building-demolish",
+      "domain": "building",
+      "endpoint": "DELETE /api/v2/companies/buildings/me/:buildingId/",
+      "routerKey": "Wcr.api_v2_companies_buildings_get",
+      "routerOffset": 668993,
+      "callsiteOffset": 1637263,
+      "httpMethod": "DELETE",
+      "requestPayload": null,
+      "responseShape": {
+        "resources": "Array<Resource> (optional salvaged materials)"
+      },
+      "reduxDispatches": [
+        {
+          "type": "qge",
+          "purpose": "REMOVE_BUILDING_FROM_STATE",
+          "payload": "buildingId"
+        },
+        {
+          "type": "n6",
+          "purpose": "ADD_WAREHOUSE_RESOURCES",
+          "payload": "resource"
+        }
+      ],
+      "confidence": "verified_bundle_ast",
+      "notes": "Completely removes building from state and adds any scrap materials to warehouse."
+    },
+    {
+      "id": "production-queue-fetch",
+      "domain": "production",
+      "endpoint": "GET /api/v2/companies/buildings/:buildingId/queue/",
+      "routerKey": "Wcr.api_v2_companies_buildings_queue",
+      "routerOffset": 669154,
+      "callsiteOffset": 1634934,
+      "httpMethod": "GET",
+      "requestPayload": null,
+      "responseShape": {
+        "type": "Array<ProductionTask>",
+        "itemFields": {
+          "id": "number",
+          "kind": "number (resource kind)",
+          "amount": "number",
+          "duration": "number",
+          "cost": "number"
+        }
+      },
+      "reduxDispatches": [
+        {
+          "type": "q4t",
+          "purpose": "SET_FETCHING_QUEUE",
+          "payload": "buildingId"
+        },
+        {
+          "type": "Wge",
+          "purpose": "UPDATE_BUILDING_QUEUE",
+          "payload": "{ buildingId, queue }"
+        }
+      ],
+      "confidence": "verified_bundle_ast",
+      "notes": "Redux stores queues indexed by buildingId."
+    },
+    {
+      "id": "production-queue-start",
+      "domain": "production",
+      "endpoint": "POST /api/v2/companies/buildings/:buildingId/queue/",
+      "routerKey": "Wcr.api_v2_companies_buildings_queue",
+      "routerOffset": 669154,
+      "callsiteOffset": 4946108,
+      "httpMethod": "POST",
+      "requestPayload": {
+        "kind": "number (resource product kind)",
+        "amount": "number (quantity to produce)"
+      },
+      "responseShape": {
+        "type": "Array<ProductionTask> (updated queue list for this building)"
+      },
+      "reduxDispatches": [
+        {
+          "type": "updateQueue",
+          "purpose": "REPLACE_QUEUE",
+          "payload": "queueData"
+        }
+      ],
+      "confidence": "verified_bundle_ast",
+      "notes": "Post returns the updated queue list; input materials are decremented from warehouse via props.updateResource."
+    },
+    {
+      "id": "production-queue-cancel",
+      "domain": "production",
+      "endpoint": "DELETE /api/v2/companies/buildings/:buildingId/queue/:taskId/",
+      "routerKey": "Wcr.api_v2_companies_buildings_queue_get",
+      "routerOffset": 669232,
+      "callsiteOffset": 4946347,
+      "httpMethod": "DELETE",
+      "requestPayload": null,
+      "responseShape": {
+        "type": "Array<ProductionTask> (updated queue list after removal)"
+      },
+      "reduxDispatches": [
+        {
+          "type": "updateQueue",
+          "purpose": "UPDATE_QUEUE_STATE",
+          "payload": "queueData"
+        }
+      ],
+      "confidence": "verified_bundle_ast",
+      "notes": "Cancels a queued production task and returns the remaining queue."
+    },
+    {
+      "id": "production-sales-office-deliver",
+      "domain": "production",
+      "endpoint": "PUT /api/v2/companies/buildings/:buildingId/sales-orders/:orderId/",
+      "routerKey": "Wcr.api_v2_companies_buildings_sales_orders_get",
+      "routerOffset": 669623,
+      "callsiteOffset": 4948451,
+      "httpMethod": "PUT",
+      "requestPayload": {
+        "lowestQualityFirst": "boolean"
+      },
+      "responseShape": {
+        "money": "number (revenue gained)",
+        "resourceTransactions": "Array<Transaction>"
+      },
+      "reduxDispatches": [
+        {
+          "type": "addMoney",
+          "purpose": "CREDIT_CASH",
+          "payload": "data.money"
+        },
+        {
+          "type": "addResourceTransactions",
+          "purpose": "LOG_TRANSACTIONS"
+        }
+      ],
+      "confidence": "verified_bundle_ast",
+      "notes": "Fulfills retail sales office order contract and credits money."
+    },
+    {
+      "id": "market-fetch-orderbook",
+      "domain": "market",
+      "endpoint": "GET /api/v3/market/:realmId/:kind/",
+      "routerKey": "Wcr.api_market",
+      "routerOffset": 662474,
+      "callsiteOffset": 1391669,
+      "httpMethod": "GET",
+      "requestPayload": null,
+      "responseShape": {
+        "type": "Array<MarketOrder>",
+        "itemFields": {
+          "id": "number",
+          "price": "number",
+          "quantity": "number",
+          "quality": "number",
+          "seller": "CompanySummary object",
+          "posted": "string (datetime)"
+        }
+      },
+      "responseHeadersAccessed": [
+        "x-timestamp",
+        "x-request-ip"
+      ],
+      "reduxDispatches": [
+        {
+          "type": "FETCH_MARKET_DATA",
+          "payload": "kind"
+        },
+        {
+          "type": "UPDATE_MARKET_DATA",
+          "payload": "{ data, kind, timestamp, requestIp }"
+        },
+        {
+          "type": "FETCH_MARKET_DATA_ERROR",
+          "payload": "kind"
+        }
+      ],
+      "confidence": "verified_bundle_ast",
+      "notes": "When r is true, calls api_market_all (/api/market/all/:realmId/:kind/) instead."
+    },
+    {
+      "id": "market-post-sell-order",
+      "domain": "market",
+      "endpoint": "POST /api/v2/market-order/",
+      "routerKey": "Wcr.api_v2_market_order",
+      "routerOffset": 673176,
+      "callsiteOffset": 1359373,
+      "httpMethod": "POST",
+      "requestPayload": {
+        "resourceId": "number",
+        "kind": "number",
+        "price": "number",
+        "quality": "number",
+        "quantity": "number",
+        "contractTo": "number | null"
+      },
+      "responseShape": {
+        "contract": "Contract object (if direct contract) or sellOrder",
+        "sellOrder": "MarketOrder object (if posted to public exchange)",
+        "moneyDelta": "number (market posting fee deducted)"
+      },
+      "reduxDispatches": [
+        {
+          "type": "BPt",
+          "purpose": "ADD_CONTRACT_OR_ORDER"
+        },
+        {
+          "type": "G3",
+          "purpose": "DEDUCT_WAREHOUSE_RESOURCE",
+          "payload": "{ db_letter: kind, quality, delta: -quantity }"
+        },
+        {
+          "type": "G3",
+          "purpose": "DEDUCT_TRANSPORTATION",
+          "payload": "{ db_letter: TRANSPORTATION, quality: 0, delta: -transportUnits }"
+        }
+      ],
+      "confidence": "verified_bundle_ast",
+      "notes": "Posting on exchange or contract immediately decrements resource quantity and transportation units from warehouse."
+    },
+    {
+      "id": "market-cancel-order",
+      "domain": "market",
+      "endpoint": "DELETE /api/v2/market-order/:orderId/",
+      "routerKey": "Wcr.v2_market_order_cancel",
+      "routerOffset": 688482,
+      "callsiteOffset": 4753274,
+      "httpMethod": "DELETE",
+      "requestPayload": null,
+      "responseShape": {
+        "fees": "number (cancellation penalty fee or refund)"
+      },
+      "reduxDispatches": [
+        {
+          "type": "DEDUCT_MONEY_OR_FEE",
+          "payload": "-data.fees"
+        }
+      ],
+      "confidence": "verified_bundle_ast",
+      "notes": "Cancels active sell order and deducts/refunds fees."
+    },
+    {
+      "id": "market-take-buy",
+      "domain": "market",
+      "endpoint": "POST /api/v2/market-order/take/",
+      "routerKey": "Wcr.v2_market_take",
+      "routerOffset": 688537,
+      "callsiteOffset": 1352259,
+      "httpMethod": "POST",
+      "requestPayload": {
+        "resource": "number (kind)",
+        "quantity": "number",
+        "quality": "number",
+        "maxPrice": "number",
+        "money": "number"
+      },
+      "responseShape": {
+        "confidence": "tentative_static",
+        "notes": "Takes matching orders from exchange up to quantity and maxPrice."
+      },
+      "reduxDispatches": [],
+      "confidence": "verified_callsite_ast",
+      "notes": "Market take endpoint matches and executes trades against existing sell orders."
+    }
+  ]
+}

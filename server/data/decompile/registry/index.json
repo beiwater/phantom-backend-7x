@@ -81,6 +81,46 @@
       "features": [
         "error-response-message"
       ]
+    },
+    {
+      "file": "../official-contract-registry/full_api_registry.json",
+      "features": [
+        "official-frontend-api-registry-594",
+        "wcr-endpoints-index"
+      ]
+    },
+    {
+      "file": "../official-contract-registry/building_production_market_contracts.json",
+      "features": [
+        "building-contracts",
+        "production-queue-contracts",
+        "market-contracts"
+      ]
+    },
+    {
+      "file": "p0-finance-statements.json",
+      "features": [
+        "p0-finance-statements"
+      ]
+    },
+    {
+      "file": "p0-company-lookup-contract-history.json",
+      "features": [
+        "company-lookup",
+        "contract-history-detail"
+      ]
+    },
+    {
+      "file": "pa-action.json",
+      "features": [
+        "pa-action"
+      ]
+    },
+    {
+      "file": "simboosts-use-action.json",
+      "features": [
+        "simboosts-use-action"
+      ]
     }
   ]
 }

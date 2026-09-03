@@ -631,8 +631,11 @@ export async function handleSocialRoutes(
     sendJson(res, []);
     return true;
   }
-  if (pathname.startsWith('/api/') && pathname.includes('/simboosts-use/')) {
-    sendJson(res, []);
+  // The action endpoint has no verified request/response semantics yet.
+  // Return a real not-found response rather than a fake successful empty list.
+  const unsupportedSimboostActionMatch = pathname.match(/^\/api\/v2\/players\/simboosts-use\/([^/]+)\/?$/);
+  if (unsupportedSimboostActionMatch) {
+    sendJson(res, { error: 'SimBoost spend action contract unavailable' }, 404);
     return true;
   }
 

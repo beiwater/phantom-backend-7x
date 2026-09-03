@@ -44,6 +44,7 @@ export async function startRetailUseCase(
   input: StartRetailInput
 ): Promise<StartRetailResult> {
   const economy = getEconomyPhase(ctx.realmId);
+  const economyState = economy.state;
   return runInTransaction(async txCtx => {
     const building = buildingRepository.findById(input.buildingId);
     if (!building) {

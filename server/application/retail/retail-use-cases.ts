@@ -153,8 +153,19 @@ export interface CollectRetailResult {
   money: number;
   moneyBalance: number;
   resource: { kind: number; quality: number; units: number };
+  resourceTransactions: Array<{
+    id: number;
+    kind: number;
+    db_letter: number;
+    dbLetter: number;
+    quality: number;
+    amount: number;
+    delta: number;
+    cost: number;
+    datetime: string;
+    category: string;
+  }>;
 }
-
 export async function collectRetailOrderUseCase(ctx: GameContext, orderId: number): Promise<CollectRetailResult> {
   const order = retailRepository.findById(orderId);
   if (!order) {
@@ -173,8 +184,17 @@ export async function collectRetailOrderUseCase(ctx: GameContext, orderId: numbe
   const revenue = Math.round(order.units * effectivePrice * 100) / 100;
 
   return runInTransaction(async (tx: TransactionContext): Promise<CollectRetailResult> => {
-    // Atomic stock consumption — fails the whole fulfilment if stock moved.
-    warehouseRepository.consumeExact(ctx.companyId, order.resourceKind, order.quality, order.units);
+    // The frontend appends these entries to its resource-history cache.
+    // Keep the transaction's persisted warehouse cost and history metadata.
+    const consumed = warehouseRepository.consumeExact(
+      ctx.companyId,
+      order.resourceKind,
+      order.quality,
+      order.units
+    );
+    const consumedCost = consumed.reduce((total, transaction) => total + transaction.cost * transaction.amount, 0);
+    const transactionAmount = -order.units;
+    const transactionCost = consumedCost || order.cost;
 
     const moneyBalance = companyRepository.creditMoney(ctx.companyId, revenue);
     // Legacy parity: updateCompanyMoney recorded a generic 'g' (GAME) row;
@@ -211,8 +231,20 @@ export async function collectRetailOrderUseCase(ctx: GameContext, orderId: numbe
       resource: {
         kind: order.resourceKind,
         quality: order.quality,
-        units: -order.units
-      }
+        units: transactionAmount
+      },
+      resourceTransactions: [{
+        id: order.id,
+        kind: order.resourceKind,
+        db_letter: order.resourceKind,
+        dbLetter: order.resourceKind,
+        quality: order.quality,
+        amount: transactionAmount,
+        delta: transactionAmount,
+        cost: transactionCost,
+        datetime: virtualClock.nowIso(),
+        category: 's'
+      }]
     };
   }, { immediate: true });
 }

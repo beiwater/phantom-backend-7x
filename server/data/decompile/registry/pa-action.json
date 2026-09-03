@@ -1,0 +1,69 @@
+{
+  "feature": "pa-action",
+  "endpoint": "POST /api/v2/pa-action/:id/:action/",
+  "semantics": "The original client intercepts Personal Assistant reply links whose href contains /pa-action/. It splits the href on '/', passes segments 4 and 5 as the endpoint id and action, and invokes a POST with no request body. The thunk reads only response.data.done; when done is truthy it refreshes auth data, refreshes the authenticated company's messages, and marks the PA message as handled in Redux. The id/action values are dynamic link data rather than a client-side reward catalog. The only concrete special-case identifier visible in this path is trustpilot/0 (redirects to app reviews when supported); no generic reward, cost, resource delta, or action-to-message ownership semantics are established.",
+  "request": {
+    "method": "POST",
+    "body": null,
+    "pathParameters": {
+      "id": "string from PA href segment 4",
+      "action": "string from PA href segment 5"
+    }
+  },
+  "minimumResponseShape": {
+    "done": "boolean"
+  },
+  "actionRewardIdentifiers": {
+    "dynamic": true,
+    "observed": [
+      {
+        "id": "trustpilot",
+        "action": "0",
+        "meaning": "special client-side app-review redirect; not a game reward"
+      }
+    ],
+    "fairTestOnly": {
+      "id": "fair",
+      "action": "2",
+      "meaning": "Existing private-server test exercises a separate local fair exchange route; it does not establish generic PA reward semantics."
+    }
+  },
+  "evidence": [
+    {
+      "type": "bundle",
+      "path": "frontend-original/static/bundle/assets/index-cgzgptQ8.js",
+      "sourceOffset": 663313,
+      "symbol": "Wcr.api_pa_action"
+    },
+    {
+      "type": "bundle",
+      "path": "frontend-original/static/bundle/assets/index-cgzgptQ8.js",
+      "sourceOffset": 6584920,
+      "symbol": "FYt.interceptPAClick"
+    },
+    {
+      "type": "bundle",
+      "path": "frontend-original/static/bundle/assets/index-cgzgptQ8.js",
+      "sourceOffset": 1626382,
+      "symbol": "M4t Personal Assistant action thunk"
+    },
+    {
+      "type": "test",
+      "path": "tests/verify-p0-03-checkout-simboost.test.ts",
+      "sourceOffset": 226,
+      "symbol": "fair exchange smoke test"
+    }
+  ],
+  "currentBackend": {
+    "route": "server/routes/simboost-routes.ts fair subtype only",
+    "models": [
+      "companies.personal_assistant stores selected assistant kind",
+      "player_unlocked_pas stores purchased assistant kinds",
+      "achievements and company_achievements store achievement rewards"
+    ],
+    "genericPaAction": "unimplemented"
+  },
+  "missingPrerequisite": "A persisted PA/tutorial offer or action model is required that links an authenticated company's PA message to an allowed id/action and defines its preconditions, exact reward/resource deltas, completion state, and replay behavior. Existing personal_assistant selection, PA unlock purchases, tutorial constants, and achievement claims do not provide that mapping, so a generic reward mutation would be speculative.",
+  "confidence": "tentative",
+  "backendStatus": "unimplemented"
+}

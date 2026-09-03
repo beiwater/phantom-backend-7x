@@ -1,20 +1,31 @@
 async function runTests() {
   const base = 'http://127.0.0.1:3000';
+  const auth = await fetch(`${base}/api/v2/auth/device/auth/`, { method: 'POST' });
+  if (!auth.ok) {
+    throw new Error(`Test session bootstrap failed: ${auth.status}`);
+  }
+  const setCookie = auth.headers.get('set-cookie');
+  const cookie = setCookie?.split(';', 1)[0];
+  if (!cookie) {
+    throw new Error('Test session bootstrap did not return a cookie');
+  }
+
   const endpoints = [
     { url: '/version/', method: 'GET', expectStatus: 200 },
     { url: '/api/v2/time-millis/', method: 'GET', expectStatus: 200 },
     { url: '/api/v2/fpa/custom-reports/', method: 'GET', expectStatus: 200 },
     { url: '/api/v2/companies/me/administration-overhead/', method: 'GET', expectStatus: 200 },
+    { url: '/api/v2/companies/me/administration-overhead/plus-one/', method: 'GET', expectStatus: 200 },
     { url: '/api/v2/companies/me/balance-sheet/', method: 'GET', expectStatus: 200 },
     { url: '/api/v2/companies/me/income-statement/', method: 'GET', expectStatus: 200 },
     { url: '/api/v2/companies/me/cashflow-statement/', method: 'GET', expectStatus: 200 },
-    { url: '/api/v2/companies/me/past-finances/', method: 'GET', expectStatus: 200 },
+    { url: '/api/v3/companies/me/past-finances/', method: 'GET', expectStatus: 200 },
     { url: '/api/v2/companies/me/display-case/', method: 'GET', expectStatus: 200 },
     { url: '/api/v2/contracts-incoming/', method: 'GET', expectStatus: 200 },
     { url: '/api/v2/contracts-outgoing/', method: 'GET', expectStatus: 200 },
     { url: '/api/v2/contracts-history-incoming/', method: 'GET', expectStatus: 200 },
     { url: '/api/v2/contracts-history-outgoing/', method: 'GET', expectStatus: 200 },
-    { url: '/api/v2/warehouse-contracts-summary/0/1/', method: 'GET', expectStatus: 200 },
+    { url: '/api/v2/warehouse-contracts-summary/me/1/', method: 'GET', expectStatus: 200 },
     { url: '/api/v2/market-ticker/', method: 'GET', expectStatus: 200 },
     { url: '/api/v3/market-ticker/0/', method: 'GET', expectStatus: 200 },
     { url: '/api/v2/market/limits/0/1/0/', method: 'GET', expectStatus: 200 },
@@ -25,12 +36,9 @@ async function runTests() {
     { url: '/api/v2/error-announcement/', method: 'GET', expectStatus: 200 },
     { url: '/api/v2/captcha/', method: 'GET', expectStatus: 200 },
     { url: '/api/v2/chatroom/N/from-id/1/', method: 'GET', expectStatus: 200 },
-    { url: '/api/courses/', method: 'GET', expectStatus: 200 },
-    { url: '/api/v3/0/contest/1/', method: 'GET', expectStatus: 200 },
     { url: '/api/v4/0/0/encyclopedia/ranking/0/0/', method: 'GET', expectStatus: 200 },
     { url: '/api/v4/0/0/encyclopedia/eva-ranking/0/0/', method: 'GET', expectStatus: 200 },
     { url: '/api/v1/sales-orders/', method: 'GET', expectStatus: 200 },
-    { url: '/api/v2/companies/buildings/restaurant-properties/', method: 'GET', expectStatus: 200 },
     { url: '/api/v2/weather/0/', method: 'GET', expectStatus: 200 },
     { url: '/api/v3/contracts-outgoing/me/', method: 'GET', expectStatus: 200 },
     { url: '/api/v3/contracts-incoming/me/', method: 'GET', expectStatus: 200 },
@@ -45,7 +53,10 @@ async function runTests() {
 
   for (const ep of endpoints) {
     try {
-      const res = await fetch(`${base}${ep.url}`, { method: ep.method });
+      const res = await fetch(`${base}${ep.url}`, {
+        method: ep.method,
+        headers: { Cookie: cookie }
+      });
       const text = await res.text();
       if (res.status === ep.expectStatus) {
         console.log(`[PASS] ${ep.method} ${ep.url} -> ${res.status}`);

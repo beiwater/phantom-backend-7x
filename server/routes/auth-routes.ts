@@ -468,6 +468,41 @@ export async function handleAuthRoutes(
     return true;
   }
 
+  // Exact Wcr company lookup: the frontend supplies company id, realm id, and
+  // a name slug, then consumes only the canonical realm/name redirect target.
+  const companyLookupMatch = pathname.match(/^\/api\/v2\/company-lookup\/([^/]+)\/([^/]+)\/([^/]+)\/?$/);
+  if (companyLookupMatch && method === 'GET') {
+    const companyId = Number(companyLookupMatch[1]);
+    const realmId = Number(companyLookupMatch[2]);
+    if (!Number.isSafeInteger(companyId) || companyId <= 0 || !Number.isSafeInteger(realmId) || realmId < 0) {
+      sendJson(res, { error: 'Invalid company lookup parameters' }, 400);
+      return true;
+    }
+
+    let slug: string;
+    try {
+      slug = decodeURIComponent(companyLookupMatch[3]);
+    } catch {
+      sendJson(res, { error: 'Invalid company name' }, 400);
+      return true;
+    }
+
+    const company = authRepository.listCompaniesByRealm(realmId).find(candidate =>
+      candidate.company_id === companyId &&
+      candidate.name.replace(/[\/\\\s]/g, '-') === slug
+    );
+    if (!company) {
+      sendJson(res, { error: 'Company not found' }, 404);
+      return true;
+    }
+
+    sendJson(res, {
+      company: company.name,
+      realm_id: company.realm_id
+    });
+    return true;
+  }
+
   // Public company profile lookup: /api/v3/companies-by-company/:realm/:name/
   const companyByNameMatch = pathname.match(/^\/api\/v3\/companies-by-company\/(\d+)\/(.+?)(?:\/)?$/);
   if (companyByNameMatch && method === 'GET') {
@@ -775,6 +810,7 @@ export function registerAuthRoutes(registry: RouteRegistry = globalRouteRegistry
   register('POST', '/api/v1/realm-create-company/:realmId/');
   register('GET', '/api/v1/realm/:realmId/sync/');
   register('GET', '/api/v3/companies-by-company/:realmId/:name/');
+  register('GET', '/api/v2/company-lookup/:companyId/:realmId/:name/');
   register('GET', '/api/v2/companies/:companyId/');
   register('PATCH', '/api/v2/companies/:companyId/');
   register('GET', '/api/v3/companies/:companyId/');

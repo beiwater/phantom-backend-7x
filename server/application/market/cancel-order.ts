@@ -17,6 +17,7 @@ export interface CancelMarketOrderInput {
 }
 
 export interface CancelMarketOrderResult {
+  fees: number;
   sellOrder: {
     id: number;
     kind: number;
@@ -71,6 +72,9 @@ export async function cancelMarketOrder(ctx: GameContext, input: CancelMarketOrd
     const warehouse = warehouseRepository.findByCompanyAndResource(ctx.companyId, order.kind, order.quality);
 
     return {
+      // Cancellation does not mutate money; returning cumulative fill fees
+      // would make the client deduct them a second time.
+      fees: 0,
       sellOrder: {
         id: order.id,
         kind: order.kind,

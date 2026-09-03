@@ -662,12 +662,13 @@ export function registerBuildingRoutes(registry: RouteRegistry = globalRouteRegi
     auth: 'company',
     handler: async (_req, res, ctx, params, body: any) => {
       const buildingId = Number(params.id);
-      const result = await startProductionUseCase(ctx!, {
+      await startProductionUseCase(ctx!, {
         buildingId,
         kind: Number(body.kind),
         amount: Number(body.amount)
       });
-      sendJson(res, toSimCompaniesQueueDTO([result.queueItem])[0]);
+      const updatedQueue = await getProductionQueueUseCase(ctx!, buildingId);
+      sendJson(res, toSimCompaniesQueueDTO(updatedQueue));
     }
   });
 
@@ -678,8 +679,9 @@ export function registerBuildingRoutes(registry: RouteRegistry = globalRouteRegi
     handler: async (_req, res, ctx, params) => {
       const buildingId = Number(params.id);
       const queueId = Number(params.queueId);
-      const result = await cancelProductionUseCase(ctx!, { buildingId, queueId });
-      sendJson(res, toSimCompaniesCancelProductionDTO(result));
+      await cancelProductionUseCase(ctx!, { buildingId, queueId });
+      const updatedQueue = await getProductionQueueUseCase(ctx!, buildingId);
+      sendJson(res, toSimCompaniesQueueDTO(updatedQueue));
     }
   });
 

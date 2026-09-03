@@ -7,6 +7,22 @@
 import type { DatabaseSync } from 'node:sqlite';
 import { db } from '../db/connection.ts';
 
+export interface FinanceBalanceAdjustments {
+  /** Escrow held by active buy orders, excluded from companies.money. */
+  cashReservedForOrders: number;
+  /** Completed retail orders whose revenue is waiting for collection. */
+  accountsReceivable: number;
+  /** Input cost recorded on unresolved production queues still in progress. */
+  workInProcess: number;
+  /** Security deposits held by open, unfulfilled government bids. */
+  deposits: number;
+}
+
+function roundMoney(value: number): number {
+  return Math.round((Number(value) || 0) * 100) / 100;
+}
+
+
 export class FinanceRepository {
   private database: DatabaseSync;
 
@@ -20,6 +36,43 @@ export class FinanceRepository {
       'SELECT COALESCE(SUM(amount * cost_market), 0) AS total FROM warehouse WHERE company_id = ?'
     ).get(companyId) as { total: number | null };
     return Number(row?.total) || 0;
+  }
+  /**
+   * Read balance-sheet amounts that are held outside the company's cash and
+   * warehouse aggregates. Each amount is sourced from an active durable row;
+   * this query intentionally performs no settlement, expiry, or cleanup work.
+   */
+  balanceAdjustments(companyId: number, nowIso: string): FinanceBalanceAdjustments {
+    const reservedRow = this.database.prepare(`
+      SELECT COALESCE(SUM(quantity * price), 0) AS total
+      FROM market_orders
+      WHERE seller_id = ? AND active = 1 AND is_buy = 1 AND quantity > 0
+    `).get(companyId) as { total?: number } | undefined;
+
+    const receivableRow = this.database.prepare(`
+      SELECT COALESCE(SUM(units * unit_price), 0) AS total
+      FROM retail_orders
+      WHERE company_id = ? AND finished_at IS NOT NULL AND finished_at <= ?
+    `).get(companyId, nowIso) as { total?: number } | undefined;
+
+    const workInProcessRow = this.database.prepare(`
+      SELECT COALESCE(SUM(amount * cost), 0) AS total
+      FROM production_queues
+      WHERE company_id = ? AND resolved = 0 AND finishes_at > ?
+    `).get(companyId, nowIso) as { total?: number } | undefined;
+
+    const depositsRow = this.database.prepare(`
+      SELECT COALESCE(SUM(c.deposit_paid), 0) AS total
+      FROM government_bid_contractors c
+      WHERE c.company_id = ? AND c.fulfilled = 0 AND c.deposit_paid > 0
+    `).get(companyId) as { total?: number } | undefined;
+
+    return {
+      cashReservedForOrders: roundMoney(reservedRow?.total ?? 0),
+      accountsReceivable: roundMoney(receivableRow?.total ?? 0),
+      workInProcess: roundMoney(workInProcessRow?.total ?? 0),
+      deposits: roundMoney(depositsRow?.total ?? 0)
+    };
   }
 
   /** Replacement cost of the company's buildings (cost * size). */

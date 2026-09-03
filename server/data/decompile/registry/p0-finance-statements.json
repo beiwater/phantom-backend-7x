@@ -1,0 +1,142 @@
+{
+  "$schema": "decompile-evidence-v1",
+  "domain": "p0-finance-statements",
+  "sourceBundle": "frontend-original/static/bundle/assets/index-cgzgptQ8.js",
+  "contracts": [
+    {
+      "id": "balance-sheet",
+      "endpoint": "GET /api/v2/companies/:companyId/balance-sheet/",
+      "routerKey": "Wcr.api_v2_balance_sheet",
+      "routerOffset": 666732,
+      "responseFields": [
+        "date",
+        "cash",
+        "cashReservedForOrders",
+        "accountsReceivable",
+        "workInProcess",
+        "materials",
+        "research",
+        "finishedGoods",
+        "valuationAllowance",
+        "deposits",
+        "investmentInBonds",
+        "buildings",
+        "constructionInProgress",
+        "patents",
+        "bondsPayable",
+        "contributedCapital",
+        "retainedEarnings"
+      ],
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": {
+        "file": "server/routes/finance-routes.ts",
+        "symbol": "buildBalanceSheet"
+      },
+      "notes": "The backend keeps unsupported account classes explicit at zero and derives persisted balances from company, warehouse, loan, bond, order, retail, production, and bid state."
+    },
+    {
+      "id": "income-statement",
+      "endpoint": "GET /api/v2/companies/:companyId/income-statement/",
+      "routerKey": "Wcr.api_v2_income_statement",
+      "routerOffset": 672722,
+      "responseFields": [
+        "date",
+        "dateFrom",
+        "sales",
+        "cogs",
+        "freightOut",
+        "constructionCosts",
+        "marketFees",
+        "salariesCosts",
+        "trainingCosts",
+        "poachingCosts",
+        "gameIncome",
+        "executiveRoyalties",
+        "gainOnSale",
+        "patentConversion",
+        "bondDefaults",
+        "bondWriteoffs",
+        "accountingOverhead",
+        "bondInterestExpense",
+        "bondInterestIncome",
+        "donations",
+        "otherComprehensiveIncome",
+        "netIncome",
+        "economicValueAdded",
+        "cashAllExpenses"
+      ],
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": {
+        "file": "server/routes/finance-routes.ts",
+        "symbol": "incomeStatement"
+      },
+      "notes": "Amounts are sourced from the persisted cash ledger; components without a durable backend account are explicit zeroes."
+    },
+    {
+      "id": "cashflow-statement",
+      "endpoint": "GET /api/v2/companies/:companyId/cashflow-statement/",
+      "routerKey": "Wcr.api_v2_cashflow_statement",
+      "routerOffset": 667658,
+      "responseFields": [
+        "date",
+        "dateFrom",
+        "fromRetail",
+        "fromCustomers",
+        "fromExchange",
+        "fromInterest",
+        "fromPoaching",
+        "fromGame",
+        "fromEmployees",
+        "fromRoyalties",
+        "toGame",
+        "toSuppliers",
+        "toExchange",
+        "toEmployees",
+        "toExecutives",
+        "forInterest",
+        "forFees",
+        "forAccounting",
+        "investmentInBonds",
+        "bonds",
+        "gameIncome",
+        "cashAllIncome",
+        "cashAllExpenses"
+      ],
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": {
+        "file": "server/routes/finance-routes.ts",
+        "symbol": "cashflowStatement"
+      },
+      "notes": "The response uses the signed cash-ledger convention: income is positive and expenses are negative."
+    },
+    {
+      "id": "past-finances",
+      "endpoint": "GET /api/v3/companies/:companyId/past-finances/",
+      "routerKey": "Wcr.api_v3_companies_past_finances",
+      "routerOffset": 676370,
+      "responseFields": [
+        "total",
+        "currentAssets",
+        "cashAndReceivables",
+        "inventory",
+        "nonCurrentAssets",
+        "buildings",
+        "patents",
+        "investmentInBonds",
+        "deposits",
+        "liabilities",
+        "rank",
+        "date"
+      ],
+      "confidence": "verified_bundle_static",
+      "backendStatus": "implemented",
+      "backendImplementation": {
+        "file": "server/routes/finance-routes.ts",
+        "symbol": "snapshotsV3"
+      }
+    }
+  ]
+}

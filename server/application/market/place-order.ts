@@ -41,6 +41,7 @@ export interface PlacedSellOrderDTO {
 export interface PlaceMarketOrderResult {
   sellOrder: PlacedSellOrderDTO;
   money: number | null;
+  moneyDelta: number;
   resourceTransactions: Array<ResourceTransactionEntity & { dbLetter?: number; delta?: number; amount: number }>;
 }
 
@@ -129,6 +130,7 @@ export async function placeMarketOrder(ctx: GameContext, input: PlaceMarketOrder
     return {
       sellOrder: partial.sellOrder,
       money: company ? company.money : null,
+      moneyDelta: 0,
       resourceTransactions: partial.resourceTransactions
     };
   });
