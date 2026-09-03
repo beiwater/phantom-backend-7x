@@ -32,7 +32,13 @@ const farm = buildingRepository.findByCompany(companyId).find(building => buildi
 assert.ok(farm);
 const economy = getEconomyPhase(context.realmId);
 const result = await startProductionUseCase(context, { buildingId: farm!.id, kind: 3, amount: 100 });
-const expectedDuration = calculateProductionTime(3, 100, farm!.size, economy.productionModifier);
+const expectedDuration = calculateProductionTime(
+  3,
+  100,
+  farm!.size,
+  economy.productionModifier,
+  { economyState: economy.state }
+);
 assert.equal(result.queueItem.durationSeconds, expectedDuration);
 
 const started = toSimCompaniesStartProductionDTO(result);

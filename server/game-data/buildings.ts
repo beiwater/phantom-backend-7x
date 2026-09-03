@@ -17,6 +17,12 @@ export interface BuildingDef {
 }
 
 const buildingsPath = path.join(CONFIG.CONSTANTS_DIR, 'buildings.json');
+const corePath = path.join(CONFIG.CONSTANTS_DIR, 'core.json');
+const coreConstants = JSON.parse(fs.readFileSync(corePath, 'utf-8')) as {
+  AVERAGE_SALARY?: number;
+  SALARY_MID?: Record<string, number>;
+};
+
 export const CANONICAL_BUILDINGS: Record<string, BuildingDef> = JSON.parse(
   fs.readFileSync(buildingsPath, 'utf-8')
 );
@@ -131,19 +137,91 @@ export function getConstructionMaterials(sizeUnits: number): Array<{ kind: numbe
   return CONSTRUCTION_MATERIALS.map(m => ({ kind: m.kind, amount: m.perUnit * sizeUnits }));
 }
 
+export interface ProductionCalculationOptions {
+  /** Economic salary state: 0 = recession, 1 = normal, 2 = boom. */
+  economyState?: number;
+  /** Product quality; the official calculator applies this only to mining. */
+  quality?: number;
+  /** Active event speed modifier, expressed as a percentage. */
+  eventSpeedModifier?: number;
+  /** Recreation and accumulator bonuses, expressed as percentage points. */
+  recreationBonus?: number;
+  accumulatorBonus?: number;
+}
+
+const AVERAGE_SALARY = Number(coreConstants.AVERAGE_SALARY) || 345;
+const SALARY_MID: Record<number, number> = {
+  0: Number(coreConstants.SALARY_MID?.['0']) || 655,
+  1: Number(coreConstants.SALARY_MID?.['1']) || 700,
+  2: Number(coreConstants.SALARY_MID?.['2']) || 745
+};
+const MINING_RESOURCE_KINDS: Record<number, true> = {
+  10: true,
+  14: true,
+  15: true,
+  42: true,
+  44: true,
+  68: true,
+  74: true,
+  104: true,
+  105: true
+};
+
+function normalizedEconomyState(value: number | undefined): number {
+  const state = Number.isInteger(value) ? Number(value) : 1;
+  return state >= 0 && state <= 2 ? state : 1;
+}
+
+/**
+ * Calculate the official encyclopedia's per-hour production rate.
+ *
+ * `productionModifier` is the server's fractional modifier (0.1 = +10%).
+ * The remaining bonus options use the encyclopedia's percentage-point units.
+ */
+export function calculateProductionRate(
+  resourceKind: number,
+  buildingSize: number,
+  productionModifier = 0,
+  options: ProductionCalculationOptions = {}
+): number {
+  const res = getResourceDef(resourceKind);
+  if (!res || !res.producedPerHourRaw || res.producedPerHourRaw <= 0) return 0;
+
+  const salaryModifier = Number(
+    res.producedAt ? CANONICAL_BUILDINGS[res.producedAt]?.salaryModifier : 0
+  ) || 0;
+  const salaryMid = SALARY_MID[normalizedEconomyState(options.economyState)];
+  let rate = res.producedPerHourRaw * Math.pow(AVERAGE_SALARY / salaryMid, salaryModifier);
+
+  if (MINING_RESOURCE_KINDS[resourceKind]) {
+    rate *= Math.max(0, Number(options.quality ?? 100)) / 100;
+  }
+  rate *= 1 + (Number(options.eventSpeedModifier ?? 0) / 100);
+
+  const modifier = Math.max(-0.75, Math.min(3, Number(productionModifier) || 0));
+  const bonusPercent = modifier * 100
+    + Number(options.recreationBonus ?? 0)
+    + Number(options.accumulatorBonus ?? 0);
+  const bonusFactor = 1 / Math.max(0.25, 1 - bonusPercent / 100);
+  return buildingSize * rate * bonusFactor;
+}
+
 export function calculateProductionTime(
   resourceKind: number,
   amount: number,
   buildingSize: number,
-  productionModifier = 0
+  productionModifier = 0,
+  options: ProductionCalculationOptions = {}
 ): number {
-  const res = getResourceDef(resourceKind);
-  if (!res || !res.producedPerHourRaw || res.producedPerHourRaw <= 0) {
-    return 60;
-  }
-  const basePerHour = res.producedPerHourRaw * buildingSize;
-  const hoursNeeded = amount / basePerHour;
+  const ratePerHour = calculateProductionRate(
+    resourceKind,
+    buildingSize,
+    productionModifier,
+    options
+  );
+  if (!(ratePerHour > 0)) return 60;
+
+  const hoursNeeded = amount / ratePerHour;
   const baseSeconds = Math.max(5, Math.ceil(hoursNeeded * 3600));
-  const modifierFactor = Math.max(0.25, Math.min(4, 1 + productionModifier));
-  return Math.max(3, Math.round(baseSeconds / modifierFactor / (CONFIG.PRODUCTION_SPEED_MULTIPLIER || 1)));
+  return Math.max(3, Math.round(baseSeconds / (CONFIG.PRODUCTION_SPEED_MULTIPLIER || 1)));
 }

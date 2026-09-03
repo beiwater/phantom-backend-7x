@@ -48,6 +48,23 @@
         { "type": "dom_screenshot", "path": "server/data/decompile/fixtures/encyclopedia-apples.png", "observation": "Production calculator shows level 1, robots 0, production speed increase 0%, 202.19 units/hour" }
       ],
       "crossCheck": "For Apples at the screenshot's matching salary state, 250 * (345 / 700)^0.3 = 202.1884417437, displayed as 202.19. The other canonical salary states do not round to the observed value.",
+      "backendParity": {
+        "status": "verified",
+        "implementation": "server/game-data/buildings.ts:calculateProductionRate",
+        "inputs": {
+          "resourceKind": 3,
+          "buildingSize": 1,
+          "productionModifier": 0,
+          "economyState": 1,
+          "quality": 100,
+          "eventSpeedModifier": 0,
+          "recreationBonus": 0,
+          "accumulatorBonus": 0
+        },
+        "ratePerHour": 202.18844174373334,
+        "display": "202.19",
+        "test": "tests/verify-encyclopedia-formulas.test.ts"
+      },
       "unresolved": "The screenshot does not preserve a Network response for the active event array; zero event speed is established for this no-event fixture only."
     },
     {

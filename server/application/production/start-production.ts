@@ -126,7 +126,11 @@ export async function startProductionUseCase(
       input.kind,
       input.amount,
       building.size,
-      combinedProductionModifier
+      combinedProductionModifier,
+      {
+        economyState: economy.state,
+        quality: input.quality ?? 100
+      }
     );
     assertQueueDuration(
       companyRepository.findById(ctx.companyId)?.level ?? 0,

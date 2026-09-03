@@ -17,8 +17,7 @@ import {
   QueueDurationLimitError
 } from '../server/domain/leveling/level-rules.ts';
 import { DomainError } from '../server/errors/domain-error.ts';
-import { getResourceDef } from '../server/game-data/resources.ts';
-import { calculateProductionTime } from '../server/game-data/buildings.ts';
+import { calculateProductionRate, calculateProductionTime } from '../server/game-data/buildings.ts';
 import { calculateRetailDuration, getAuthoritativeRetailPrice } from '../server/game-data/retail.ts';
 
 const TEST_PORT = Number(process.env.PORT || '3880');
@@ -195,14 +194,27 @@ function headers(cookie: string): Record<string, string> {
 // ---------------------------------------------------------------------------
 // Duration math mirrors (identical functions/args the server use cases run).
 // ---------------------------------------------------------------------------
-const APPLES = 3; // kind 3: produced at farm 'P' (250/h), sold at grocery 'G', no ingredients
-const FARM_PER_HOUR = getResourceDef(APPLES)!.producedPerHourRaw!;
+const APPLES = 3; // kind 3: farm raw rate 250/h, normal-state rate is salary-adjusted
+const FARM_PER_HOUR = calculateProductionRate(APPLES, 1, 0, { economyState: 1 });
 
-/** Amount whose production duration equals `seconds` exactly, and amount+1 (first exceeding it). */
+/** Largest amount within a duration limit and the first amount over it. */
 function productionAmountsFor(seconds: number): { exact: number; over: number } {
-  const exact = Math.ceil((seconds / 3600) * FARM_PER_HOUR);
-  assert.equal(calculateProductionTime(APPLES, exact, 1), seconds, 'duration mirror must be exact');
-  return { exact, over: exact + 1 };
+  let low = 0;
+  let high = Math.max(1, Math.ceil((seconds / 3600) * FARM_PER_HOUR) + 1);
+  while (calculateProductionTime(APPLES, high, 1, 0, { economyState: 1 }) <= seconds) {
+    high *= 2;
+  }
+  while (low + 1 < high) {
+    const middle = Math.floor((low + high) / 2);
+    if (calculateProductionTime(APPLES, middle, 1, 0, { economyState: 1 }) <= seconds) {
+      low = middle;
+    } else {
+      high = middle;
+    }
+  }
+  assert.ok(calculateProductionTime(APPLES, low, 1, 0, { economyState: 1 }) <= seconds);
+  assert.ok(calculateProductionTime(APPLES, high, 1, 0, { economyState: 1 }) > seconds);
+  return { exact: low, over: high };
 }
 
 const RETAIL_PRICE = (() => {
@@ -327,16 +339,17 @@ async function runIssue99LevelingTest(): Promise<void> {
     const exact5 = productionAmountsFor(LIMITS.L5);
     const exact15 = productionAmountsFor(LIMITS.L15);
 
-    // L0: exactly 2h is allowed...
+    // L0: the largest amount within 2h is allowed...
     const farm0a = mkFarm(cL0, 'r1');
     let res = await fetch(`${BASE_URL}/api/v2/companies/buildings/${farm0a}/queue/`, {
       method: 'POST', headers: headers(cL0.cookie),
       body: JSON.stringify({ kind: APPLES, amount: exact0.exact })
     });
-    assert.equal(res.status, 200, `L0 production of exactly 7200s must be allowed: ${await res.text()}`);
-    assert.equal(calculateProductionTime(APPLES, exact0.exact, 1), LIMITS.L0);
+    assert.equal(res.status, 200, `L0 production at the 2h boundary must be allowed: ${await res.text()}`);
+    const duration0 = calculateProductionTime(APPLES, exact0.exact, 1, 0, { economyState: 1 });
+    assert.ok(duration0 <= LIMITS.L0);
     const q0 = db.prepare('SELECT duration_seconds FROM production_queues WHERE building_id = ?').get(farm0a) as { duration_seconds: number };
-    assert.equal(q0.duration_seconds, LIMITS.L0, 'queue row must persist the 7200s duration');
+    assert.equal(q0.duration_seconds, duration0, 'queue row must persist the calculated duration');
 
     // L0: one apple over 2h is rejected before any side effect.
     const farm0b = mkFarm(cL0, 'r2');
@@ -351,13 +364,13 @@ async function runIssue99LevelingTest(): Promise<void> {
     assert.equal(queueCount(db, farm0b), 0, 'rejected queue must not be created');
     assert.equal(busyUntilOf(db, farm0b), null, 'rejected start must leave the building idle');
 
-    // L5 band: 24h allowed, 24h+1 apple rejected.
+    // L5 band: the largest amount within 24h is allowed, next amount rejected.
     const farm8a = mkFarm(cL8, 'r1');
     res = await fetch(`${BASE_URL}/api/v2/companies/buildings/${farm8a}/queue/`, {
       method: 'POST', headers: headers(cL8.cookie),
       body: JSON.stringify({ kind: APPLES, amount: exact5.exact })
     });
-    assert.equal(res.status, 200, `L8 production of exactly 24h must be allowed: ${await res.text()}`);
+    assert.equal(res.status, 200, `L8 production at the 24h boundary must be allowed: ${await res.text()}`);
     const farm8b = mkFarm(cL8, 'r2');
     res = await fetch(`${BASE_URL}/api/v2/companies/buildings/${farm8b}/queue/`, {
       method: 'POST', headers: headers(cL8.cookie),
@@ -368,13 +381,13 @@ async function runIssue99LevelingTest(): Promise<void> {
     assert.equal(err.code, 'QUEUE_DURATION_LIMIT');
     assert.equal(queueCount(db, farm8b), 0, 'rejected 24h+ queue must not be created');
 
-    // L15 band: what L5 rejects fits, 48h+1 apple does not.
+    // L15 band: what exceeds L5 still fits, but the first amount over 48h does not.
     const farm20a = mkFarm(cL20, 'r1');
     res = await fetch(`${BASE_URL}/api/v2/companies/buildings/${farm20a}/queue/`, {
       method: 'POST', headers: headers(cL20.cookie),
-      body: JSON.stringify({ kind: APPLES, amount: exact5.over }) // 86415s: > L5 limit, <= L15 limit
+      body: JSON.stringify({ kind: APPLES, amount: exact5.over }) // first amount > 24h, <= 48h
     });
-    assert.equal(res.status, 200, 'L20 production of 86415s must be allowed (L15 band)');
+    assert.equal(res.status, 200, 'L20 production beyond 24h still fits the L15 band');
     const farm20b = mkFarm(cL20, 'r2');
     res = await fetch(`${BASE_URL}/api/v2/companies/buildings/${farm20b}/queue/`, {
       method: 'POST', headers: headers(cL20.cookie),

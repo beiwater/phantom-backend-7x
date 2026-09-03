@@ -12,6 +12,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { calculateProductionRate } from '../server/game-data/buildings.ts';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const resources = JSON.parse(fs.readFileSync(
@@ -130,6 +131,21 @@ const candidates = Object.keys(salaryMid).map(economyState => ({
 const matchingStates = candidates.filter(candidate => display2(candidate.rate) === screenshot.unitsAnHour);
 assert.deepEqual(matchingStates.map(candidate => candidate.economyState), ['1'], 'screenshot rate identifies normal salary state');
 const rate = matchingStates[0].rate;
+
+const backendRate = calculateProductionRate(
+  Number(apples.dbLetter),
+  screenshot.level,
+  screenshot.productionModifier,
+  {
+    economyState: Number(matchingStates[0].economyState),
+    quality: screenshot.quality,
+    eventSpeedModifier: screenshot.eventSpeedModifier,
+    recreationBonus: screenshot.recreationBonus,
+    accumulatorBonus: screenshot.accumulatorBonus
+  }
+);
+assert.equal(backendRate, rate, 'backend and encyclopedia formulas must receive the same inputs');
+assert.equal(display2(backendRate), screenshot.unitsAnHour);
 assert.equal(display2(rate), screenshot.unitsAnHour);
 assert.equal(displayPercent(100 * (1.031 - 1)), '3.1');
 
@@ -151,5 +167,5 @@ assert.equal(
   rate * 2
 );
 
-console.log('PASS encyclopedia production formula matches saved official DOM values (Apples)');
+console.log('PASS encyclopedia DOM formula equals backend production rate for Apples (202.19 units/hour)');
 console.log('SKIP retail/profit/reference-price numeric checks: no saved official retail-info/ticker Network fixture is paired with the DOM evidence.');
