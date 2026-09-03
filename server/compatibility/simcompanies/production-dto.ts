@@ -13,6 +13,11 @@ export interface SimCompaniesStartProductionDTO {
   message: string;
   money: number;
   building: SimCompaniesBuildingDTO;
+  queueItem: SimCompaniesQueueItemDTO;
+  id: number;
+  duration: number;
+  startedAt: string;
+  finishesAt: string;
   resourceTransactions: Array<{
     kind: number;
     db_letter: number;
@@ -28,10 +33,16 @@ export interface SimCompaniesStartProductionDTO {
 export function toSimCompaniesStartProductionDTO(
   result: StartProductionResult
 ): SimCompaniesStartProductionDTO {
+  const queueItem = toSimCompaniesQueueDTO([result.queueItem])[0];
   return {
     message: result.message ?? 'Production started successfully',
     money: 0,
     building: toSimCompaniesBuildingDTO(result.building),
+    queueItem,
+    id: queueItem.id,
+    duration: queueItem.duration,
+    startedAt: queueItem.started,
+    finishesAt: queueItem.finishes,
     resourceTransactions: result.resourceTransactions.map(tx => ({
       kind: tx.kind,
       db_letter: tx.kind,
@@ -44,6 +55,7 @@ export function toSimCompaniesStartProductionDTO(
     simboostsDelta: 0
   };
 }
+
 
 export interface SimCompaniesCancelProductionDTO {
   message: string;
