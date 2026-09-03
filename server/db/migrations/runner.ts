@@ -136,6 +136,7 @@ export const MIGRATIONS: MigrationDefinition[] = [
           units REAL,
           unit_price REAL,
           cost REAL,
+          revenue_credited INTEGER NOT NULL DEFAULT 0,
           finished_at TEXT,
           created_at TEXT
         );
@@ -1646,6 +1647,28 @@ export const MIGRATIONS: MigrationDefinition[] = [
       }
     }
   },
+  {
+    version: 25,
+    name: '025_retail_revenue_credit_marker',
+    up: (db: DatabaseSync) => {
+      const columns = new Set(
+        (db.prepare('PRAGMA table_info(retail_orders)').all() as Array<{ name: string }>)
+          .map(column => column.name)
+      );
+      if (columns.has('revenue_credited')) return;
+
+      db.exec('ALTER TABLE retail_orders ADD COLUMN revenue_credited INTEGER NOT NULL DEFAULT 0');
+      // Legacy /api/v1/busy sales credited revenue at order start and stored
+      // that revenue in cost; v2 fulfilment orders store their input cost.
+      db.exec(`
+        UPDATE retail_orders
+        SET revenue_credited = CASE
+          WHEN ABS(COALESCE(cost, 0) - COALESCE(units * unit_price, 0)) < 0.005 THEN 1
+          ELSE 0
+        END
+      `);
+    }
+  }
 ];
 
 export class MigrationRunner {

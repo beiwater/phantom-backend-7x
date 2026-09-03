@@ -52,7 +52,8 @@ export class FinanceRepository {
     const receivableRow = this.database.prepare(`
       SELECT COALESCE(SUM(units * unit_price), 0) AS total
       FROM retail_orders
-      WHERE company_id = ? AND finished_at IS NOT NULL AND finished_at <= ?
+      WHERE company_id = ? AND revenue_credited = 0
+        AND finished_at IS NOT NULL AND finished_at <= ?
     `).get(companyId, nowIso) as { total?: number } | undefined;
 
     const workInProcessRow = this.database.prepare(`

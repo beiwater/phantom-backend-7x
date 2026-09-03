@@ -152,6 +152,7 @@ export async function startRetailUseCase(
       units: input.amount,
       unitPrice,
       cost: revenue,
+      revenueCredited: true,
       finishedAt: finishesAt,
       createdAt: now,
       economyPhase: economy.state,

@@ -111,6 +111,12 @@ try {
       (building_id, company_id, resource_kind, quality, units, unit_price, cost, finished_at, created_at)
     VALUES (0, ?, 3, 0, 2, 40, 3, '2000-01-01T00:00:00.000Z', datetime('now'))
   `).run(companyId);
+  // Legacy /api/v1/busy sales credit cash at start; they are not receivables.
+  db.prepare(`
+    INSERT INTO retail_orders
+      (building_id, company_id, resource_kind, quality, units, unit_price, cost, revenue_credited, finished_at, created_at)
+    VALUES (0, ?, 3, 0, 1, 50, 50, 1, '2000-01-01T00:00:00.000Z', datetime('now'))
+  `).run(companyId);
   db.prepare(`
     INSERT INTO production_queues
       (building_id, company_id, kind, quality, cost, amount, duration_seconds, started_at, finishes_at, resolved)

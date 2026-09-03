@@ -14,6 +14,7 @@ export interface RetailOrderEntity {
   units: number;
   unitPrice: number;
   cost: number;
+  revenueCredited: boolean;
   finishedAt: string | null;
   createdAt: string;
   economyPhase: number;
@@ -30,6 +31,7 @@ export interface RetailOrderDbRow {
   units: number;
   unit_price: number;
   cost: number;
+  revenue_credited?: number | null;
   finished_at: string | null;
   created_at: string;
   economy_phase: number | null;
@@ -47,6 +49,7 @@ export function mapRetailOrderRow(row: RetailOrderDbRow): RetailOrderEntity {
     units: Number(row.units),
     unitPrice: Number(row.unit_price),
     cost: Number(row.cost),
+    revenueCredited: Number(row.revenue_credited) === 1,
     finishedAt: row.finished_at,
     createdAt: row.created_at,
     economyPhase: Number(row.economy_phase ?? 1),
@@ -68,6 +71,7 @@ export interface InsertRetailOrderInput {
   economyPhase?: number;
   economyPhaseStartedAt?: string | null;
   economySource?: string;
+  revenueCredited?: boolean;
 }
 
 export class RetailRepository {
@@ -103,9 +107,9 @@ export class RetailRepository {
   insert(input: InsertRetailOrderInput): RetailOrderEntity {
     const result = this.database.prepare(`
       INSERT INTO retail_orders
-        (building_id, company_id, resource_kind, quality, units, unit_price, cost, finished_at, created_at,
-         economy_phase, economy_phase_started_at, economy_source)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (building_id, company_id, resource_kind, quality, units, unit_price, cost, revenue_credited,
+         finished_at, created_at, economy_phase, economy_phase_started_at, economy_source)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       input.buildingId,
       input.companyId,
@@ -114,6 +118,7 @@ export class RetailRepository {
       input.units,
       input.unitPrice,
       input.cost,
+      input.revenueCredited ? 1 : 0,
       input.finishedAt,
       input.createdAt,
       input.economyPhase ?? 1,
