@@ -1,7 +1,7 @@
 import { db, seedDefaultDisplayCase } from '../db/database.ts';
 import { CONFIG } from '../config.ts';
 import { computeLevelInfo, getXpRequiredForLevel } from '../domain/leveling/level-rules.ts';
-import { seedDefaultExecutives } from './executives.ts';
+import { executiveRepository } from '../repositories/executive-repository.ts';
 import { getCompanyBoostSettings, getExchangedToday } from './simboost-settings.ts';
 import { recordCashLedger, refreshDailyFinanceSnapshot } from './cash-ledger.ts';
 import { companyRepository } from '../repositories/company-repository.ts';
@@ -66,33 +66,10 @@ export function updateCompanyMoney(companyId: number, delta: number, skipLedger:
 }
 
 export function updateCompanySimBoosts(companyId: number, delta: number): number {
-  if (!Number.isFinite(delta)) {
-    throw new Error('SimBoost delta must be finite');
-  }
-
-  const comp = getCompanyById(companyId);
-  if (!comp) {
-    throw new Error('Company not found');
-  }
-
-  const currentSB = Number(comp.simboosts);
-  if (!Number.isFinite(currentSB)) {
-    throw new Error('Company SimBoost balance is invalid');
-  }
-
-  const newSB = currentSB + delta;
-  if (!Number.isFinite(newSB)) {
-    throw new Error('SimBoost balance is invalid');
-  }
-  if (newSB < 0) {
-    throw new Error('Insufficient SimBoosts');
-  }
-
-  const result = db.prepare('UPDATE companies SET simboosts = ? WHERE company_id = ? OR id = ?').run(newSB, companyId, companyId);
-  if (result.changes < 1) {
-    throw new Error('Company not found');
-  }
-  return newSB;
+  // Issue #179: single authoritative implementation lives in
+  // CompanyRepository.updateSimBoosts — this wrapper keeps the game-layer
+  // call signature for legacy in-engine callers only.
+  return companyRepository.updateSimBoosts(companyId, delta);
 }
 
 export function createCompanyForPlayer(playerId: number, name: string, realmId: number = 0) {
@@ -109,7 +86,7 @@ export function createCompanyForPlayer(playerId: number, name: string, realmId: 
     VALUES (?, ?, ?, ?, ?, ?, 'BBB', 0, ?, '', 'old', 'Private Server Company', ?)
   `).run(companyId, playerId, name, initialMoney, initialSimboosts, initialLevel, realmId, now);
   seedDefaultDisplayCase(companyId);
-  seedDefaultExecutives(companyId);
+  executiveRepository.seedDefaults(companyId);
 
   // Seed default Farm and Grocery store
   db.prepare(`
@@ -224,7 +201,7 @@ export function resetCompany(companyId: number) {
       VALUES (?, '0', 'P', 1, 'Farm', 6900, 'production', ?)
     `).run(companyId, now);
     seedDefaultDisplayCase(companyId);
-    seedDefaultExecutives(companyId);
+    executiveRepository.seedDefaults(companyId);
     db.exec('COMMIT');
   } catch (err) {
     db.exec('ROLLBACK');

@@ -1,7 +1,8 @@
 import assert from 'node:assert';
 import { getLatestCertificates, getRarestCertificates, getCertificateDetail } from '../server/game/achievements.ts';
 import { getAuthData } from '../server/game/company.ts';
-import { formatExecutive, formatOffer, normalizePositionCode } from '../server/game/executives.ts';
+import { formatExecutive, formatOffer } from '../server/application/executives/executive-use-cases.ts';
+import { normalizePositionCode } from '../server/domain/executives.ts';
 import { companyRepository } from '../server/repositories/company-repository.ts';
 
 console.log('=== Verifying Issues #110-#121 Bug Fixes ===');

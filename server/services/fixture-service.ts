@@ -8,7 +8,7 @@ import { db } from '../db/database.ts';
 import { runInTransaction } from '../db/transaction.ts';
 import { hashPassword } from '../db/migrations/index.ts';
 import { createSession } from '../auth/session.ts';
-import { normalizePositionCode } from '../game/executives.ts';
+import { normalizePositionCode } from '../domain/executives.ts';
 
 export interface ScenarioBuildingInput {
   kind: string; // 'P', 'r', 'G', 'F', 'B', etc.

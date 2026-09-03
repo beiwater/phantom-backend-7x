@@ -3,12 +3,12 @@ import { db } from '../server/db/database.ts';
 import {
   formatExecutive,
   formatOffer,
-  seedDefaultExecutives,
   createPoachingOffer,
   getPoachingOffers,
   getCompanyExecutives,
   getExecutiveCandidates
-} from '../server/game/executives.ts';
+} from '../server/application/executives/executive-use-cases.ts';
+import { executiveRepository } from '../server/repositories/executive-repository.ts';
 import { FixtureService } from '../server/services/fixture-service.ts';
 
 console.log('=== Verifying Issue #144: Boardroom Candidate Genome Diversity & Safe Extended Dates ===');
@@ -22,7 +22,7 @@ const { companyId } = await FixtureService.applyScenario({
 
 // [1/4] Test genome diversity on candidates and executives
 console.log('[1/4] Testing genome diversity across executives and candidates...');
-seedDefaultExecutives(companyId);
+executiveRepository.seedDefaults(companyId);
 
 const executives = getCompanyExecutives(companyId);
 const candidates = getExecutiveCandidates(companyId);

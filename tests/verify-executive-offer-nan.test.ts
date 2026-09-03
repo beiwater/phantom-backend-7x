@@ -1,5 +1,5 @@
 import assert from 'node:assert';
-import { formatOffer, formatHostileOffer } from '../server/game/executives.ts';
+import { formatOffer, formatHostileOffer } from '../server/application/executives/executive-use-cases.ts';
 
 console.log('=== Verifying Executive Found & Standing Offer Timestamps (Issue #150 / #144) ===');
 

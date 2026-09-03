@@ -76,6 +76,19 @@ export class CompanyRepository {
     this.database = database;
   }
 
+  /**
+   * Legacy-compatible lookup: the original engine read companies by either
+   * the company_id column or the rowid (getCompanyById dual-column WHERE).
+   * The money/SimBoost primitives preserve that behavior.
+   */
+  private findByIdDual(companyId: number): CompanyEntity | null {
+    const row = this.database.prepare(
+      'SELECT * FROM companies WHERE company_id = ? OR id = ?'
+    ).get(companyId, companyId) as CompanyDbRow | undefined;
+
+    return row ? mapCompanyRow(row) : null;
+  }
+
   findById(companyId: number): CompanyEntity | null {
     const row = this.database.prepare(
       'SELECT * FROM companies WHERE company_id = ?'
@@ -132,7 +145,7 @@ export class CompanyRepository {
       throw new Error('Money delta must be finite');
     }
 
-    const comp = this.findById(companyId);
+    const comp = this.findByIdDual(companyId);
     if (!comp) {
       throw new Error('Company not found');
     }
@@ -159,6 +172,41 @@ export class CompanyRepository {
     }
     refreshDailyFinanceSnapshot(companyId);
     return newMoney;
+  }
+
+  /**
+   * The authoritative SimBoost mutation primitive (moved verbatim from
+   * game/company.ts during the #179 executives vertical migration): finite
+   * delta validation, dual-column lookup, exact error messages.
+   */
+  updateSimBoosts(companyId: number, delta: number): number {
+    if (!Number.isFinite(delta)) {
+      throw new Error('SimBoost delta must be finite');
+    }
+
+    const comp = this.findByIdDual(companyId);
+    if (!comp) {
+      throw new Error('Company not found');
+    }
+
+    const currentSB = Number(comp.simboosts);
+    if (!Number.isFinite(currentSB)) {
+      throw new Error('Company SimBoost balance is invalid');
+    }
+
+    const newSB = currentSB + delta;
+    if (!Number.isFinite(newSB)) {
+      throw new Error('SimBoost balance is invalid');
+    }
+    if (newSB < 0) {
+      throw new Error('Insufficient SimBoosts');
+    }
+
+    const result = this.database.prepare('UPDATE companies SET simboosts = ? WHERE company_id = ? OR id = ?').run(newSB, companyId, companyId);
+    if (result.changes < 1) {
+      throw new Error('Company not found');
+    }
+    return newSB;
   }
 
   /**
