@@ -280,6 +280,47 @@ export const executiveRepository = {
   findOfferForPoacher(offerId: number, poacherCompanyId: number): ExecutiveOfferRow | undefined {
     return db.prepare('SELECT * FROM executive_offers WHERE id = ? AND poacher_company_id = ?').get(offerId, poacherCompanyId) as unknown as ExecutiveOfferRow | undefined;
   },
+  findOpenOfferForTarget(
+    poacherCompanyId: number,
+    targetExecutiveId: number,
+    agency: number,
+    slotPosition: string,
+    skillPosition: string,
+    expectedSalary: number
+  ): ExecutiveOfferRow | undefined {
+    return db.prepare(`
+      SELECT * FROM executive_offers
+      WHERE poacher_company_id = ? AND target_executive_id = ?
+        AND agency = ? AND slot_position = ? AND skill_position = ?
+        AND expected_salary = ?
+        AND status IN ('f', 's', 'FOUND', 'STANDING')
+      ORDER BY id DESC
+      LIMIT 1
+    `).get(
+      poacherCompanyId,
+      targetExecutiveId,
+      agency,
+      slotPosition,
+      skillPosition,
+      expectedSalary
+    ) as unknown as ExecutiveOfferRow | undefined;
+  },
+
+  findOpenOfferForSearch(
+    poacherCompanyId: number,
+    agency: number,
+    slotPosition: string,
+    skillPosition: string
+  ): ExecutiveOfferRow | undefined {
+    return db.prepare(`
+      SELECT * FROM executive_offers
+      WHERE poacher_company_id = ? AND agency = ?
+        AND slot_position = ? AND skill_position = ?
+        AND status IN ('f', 's', 'FOUND', 'STANDING')
+      ORDER BY id DESC
+      LIMIT 1
+    `).get(poacherCompanyId, agency, slotPosition, skillPosition) as unknown as ExecutiveOfferRow | undefined;
+  },
 
   findOfferForTarget(offerId: number, targetCompanyId: number): ExecutiveOfferRow | undefined {
     return db.prepare('SELECT * FROM executive_offers WHERE id = ? AND target_company_id = ?').get(offerId, targetCompanyId) as unknown as ExecutiveOfferRow | undefined;

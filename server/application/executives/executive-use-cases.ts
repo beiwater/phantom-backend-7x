@@ -426,54 +426,95 @@ export async function createPoachingOffer(poacherCompanyId: number, input: Creat
   const multiplier = AGENCY_FEE_MULTIPLIERS[agencyTier] ?? 0;
   const slotPos = (input.slotPosition || 'coo').toLowerCase();
   const skillPos = (input.skillPosition || 'o').toLowerCase();
-
-  let targetExecutive: ExecutiveRow | undefined;
-  let targetCompanyId = input.targetCompanyId;
-
-  if (input.targetExecutiveId) {
-    targetExecutive = executiveRepository.findById(input.targetExecutiveId);
-    if (!targetExecutive) {
-      throw new Error('Target executive not found');
-    }
-    if (targetExecutive.company_id === poacherCompanyId) {
-      throw new Error('Cannot poach your own executive');
-    }
-    targetCompanyId = targetExecutive.company_id;
-  } else {
-    // Find an employed executive at another company matching slot/skill, or any other company's executive
-    const potentialTargets = executiveRepository.listRandomEmployedElsewhere(poacherCompanyId);
-
-    if (potentialTargets.length > 0) {
-      targetExecutive = potentialTargets[0];
-      targetCompanyId = targetExecutive.company_id;
-    } else {
-      // Create a poachable candidate executive in another company or global pool
-      const otherCompany = executiveRepository.findAnyOtherCompany(poacherCompanyId);
-      const foreignCompanyId = otherCompany ? otherCompany.company_id : 999999;
-      targetCompanyId = foreignCompanyId;
-
-      const baseSkill = agencyTier === AgencyTier.TOP_TALENT_AGENCY ? 20 :
-                         agencyTier === AgencyTier.GOOD_AGENCY ? 15 :
-                         agencyTier === AgencyTier.STAFFING_AGENCY ? 10 : 6;
-      const salaryByTier = agencyTier === AgencyTier.TOP_TALENT_AGENCY ? 1500 :
-                           agencyTier === AgencyTier.GOOD_AGENCY ? 800 :
-                           agencyTier === AgencyTier.STAFFING_AGENCY ? 500 : 300;
-
-      const nowIso = virtualClock.nowIso();
-      targetExecutive = executiveRepository.insertForeignTarget(foreignCompanyId, slotPos, baseSkill, salaryByTier, nowIso);
-    }
-  }
-
-  const expectedSalary = input.expectedSalary ?? Number(targetExecutive?.salary || 400);
-  const agencyFee = Math.round(expectedSalary * multiplier);
-
-  const poacherComp = companyRepository.findById(poacherCompanyId);
-  if (!poacherComp || poacherComp.money < agencyFee) {
-    throw new Error(`Insufficient funds for agency fee ($${agencyFee})`);
-  }
-
   return runInTransaction(async () => {
-    // Deduct agency fee
+    if (!input.targetExecutiveId) {
+      const existingSearch = executiveRepository.findOpenOfferForSearch(poacherCompanyId, agencyTier, slotPos, skillPos);
+      if (existingSearch) {
+        const existingExecutive = executiveRepository.findById(existingSearch.target_executive_id);
+        return {
+          ...formatOffer(existingSearch, existingExecutive || null),
+          idempotent: true
+        };
+      }
+    }
+
+
+    let targetExecutive: ExecutiveRow | undefined;
+    let targetCompanyId = input.targetCompanyId;
+
+    if (input.targetExecutiveId) {
+      targetExecutive = executiveRepository.findById(input.targetExecutiveId);
+      if (!targetExecutive) {
+        throw new Error('Target executive not found');
+      }
+
+      if (targetExecutive.company_id === poacherCompanyId) {
+        if (targetExecutive.status !== 'candidate') {
+          throw new Error('Candidate is no longer available');
+        }
+        targetCompanyId = poacherCompanyId;
+      } else {
+        if (targetExecutive.company_id === null) {
+          throw new Error('Target executive has no employer');
+        }
+        targetCompanyId = targetExecutive.company_id;
+      }
+    } else {
+      // Find an employed executive at another company matching slot/skill, or any other company's executive
+      const potentialTargets = executiveRepository.listRandomEmployedElsewhere(poacherCompanyId);
+
+      if (potentialTargets.length > 0) {
+        targetExecutive = potentialTargets[0];
+        targetCompanyId = targetExecutive.company_id as number;
+      } else {
+        // Create a poachable candidate executive in another company or global pool
+        const otherCompany = executiveRepository.findAnyOtherCompany(poacherCompanyId);
+        const foreignCompanyId = otherCompany ? otherCompany.company_id : 999999;
+        targetCompanyId = foreignCompanyId;
+
+        const baseSkill = agencyTier === AgencyTier.TOP_TALENT_AGENCY ? 20 :
+                          agencyTier === AgencyTier.GOOD_AGENCY ? 15 :
+                          agencyTier === AgencyTier.STAFFING_AGENCY ? 10 : 6;
+        const salaryByTier = agencyTier === AgencyTier.TOP_TALENT_AGENCY ? 1500 :
+                             agencyTier === AgencyTier.GOOD_AGENCY ? 800 :
+                             agencyTier === AgencyTier.STAFFING_AGENCY ? 500 : 300;
+
+        const nowIso = virtualClock.nowIso();
+        targetExecutive = executiveRepository.insertForeignTarget(foreignCompanyId, slotPos, baseSkill, salaryByTier, nowIso);
+      }
+    }
+
+    if (!targetExecutive || targetCompanyId === undefined || targetCompanyId === null) {
+      throw new Error('No eligible executive candidate found');
+    }
+
+    const expectedSalary = input.expectedSalary ?? (Number(targetExecutive.salary) || 400);
+
+    // A retried browser request must not create a second offer or charge a second fee.
+    const existingOffer = executiveRepository.findOpenOfferForTarget(
+      poacherCompanyId,
+      targetExecutive.id,
+      agencyTier,
+      slotPos,
+      skillPos,
+      expectedSalary
+    );
+    if (existingOffer) {
+      return {
+        ...formatOffer(existingOffer, targetExecutive),
+        idempotent: true
+      };
+    }
+
+    const agencyFee = Math.round(expectedSalary * multiplier);
+    const poacherComp = companyRepository.findById(poacherCompanyId);
+    if (!poacherComp) {
+      throw new Error('Company not found');
+    }
+    if (poacherComp.money < agencyFee) {
+      throw new Error(`Insufficient funds for agency fee ($${agencyFee})`);
+    }
+
     if (agencyFee > 0) {
       companyRepository.updateMoney(poacherCompanyId, -agencyFee);
     }
@@ -481,8 +522,8 @@ export async function createPoachingOffer(poacherCompanyId: number, input: Creat
     const now = virtualClock.nowIso();
     const offerRow = executiveRepository.insertOffer({
       poacherCompanyId,
-      targetCompanyId: targetCompanyId as number,
-      targetExecutiveId: targetExecutive!.id,
+      targetCompanyId,
+      targetExecutiveId: targetExecutive.id,
       slotPos,
       skillPos,
       agencyTier,
@@ -491,7 +532,7 @@ export async function createPoachingOffer(poacherCompanyId: number, input: Creat
       now
     });
 
-    return formatOffer(offerRow, targetExecutive!);
+    return formatOffer(offerRow, targetExecutive);
   }, { immediate: true });
 }
 
