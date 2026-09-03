@@ -1,5 +1,0 @@
---- a/frontend-original/static/bundle/assets/index-cgzgptQ8.js
-+++ b/frontend-original/static/bundle/assets/index-cgzgptQ8.js
-@@ -1467 +1467 @@
--warehouseHints:e.hints.hints[pt.CATEGORY_WAREHOUSE],inTutorial:e.user.levelInfo.inTutorial,simplifyUI:e.user.simplifyUI
-+warehouseHints:e.hints.hints[pt.CATEGORY_WAREHOUSE],inTutorial:e.user.levelInfo?e.user.levelInfo.inTutorial:!1,simplifyUI:e.user.simplifyUI

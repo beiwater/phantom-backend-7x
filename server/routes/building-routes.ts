@@ -43,6 +43,8 @@ import {
   getBuildingAbundance,
   prospectBuildingAbundance
 } from '../game/buildings.ts';
+import { computeLevelInfo } from '../domain/leveling/level-rules.ts';
+import { getCompanyById, getSupporterState } from '../game/company.ts';
 
 export function registerBuildingRoutes(registry: RouteRegistry = globalRouteRegistry): void {
   // 1. v1 Busy / Start Production endpoints
@@ -697,11 +699,20 @@ export function registerBuildingRoutes(registry: RouteRegistry = globalRouteRegi
       const finishedRetail = retailOrders.find(o => !o.finishedAt || new Date(o.finishedAt).getTime() <= Date.now());
       if (finishedRetail) {
         const retail = await collectRetailOrderUseCase(ctx!, finishedRetail.id);
+        const comp = getCompanyById(ctx!.companyId);
+        const supporter = comp ? getSupporterState(comp) : { supporterActive: false };
+        const extraBuildingSlots = (Number(comp?.extra_building_slots) || 0) + (supporter.supporterActive ? 1 : 0);
+        const levelInfo = computeLevelInfo({
+          level: comp?.level ?? 1,
+          experience: comp?.experience ?? 0,
+          rating: comp?.rating,
+          extra_building_slots: extraBuildingSlots
+        });
         sendJson(res, {
           moneyUpdate: retail.moneyBalance,
           collectedItem: null,
           building: buildingRepository.findById(requestedId),
-          levelInfo: null,
+          levelInfo,
           levelUp: false
         });
         return;

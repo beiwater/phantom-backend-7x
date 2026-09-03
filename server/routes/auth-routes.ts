@@ -461,6 +461,12 @@ export async function handleAuthRoutes(
     }
     return true;
   }
+  // Realm Sync
+  const realmSyncMatch = pathname.match(/^\/api\/v1\/realm\/(\d+)\/sync\/?$/);
+  if (realmSyncMatch && method === 'GET') {
+    sendJson(res, getAuthData(currentPlayerId, currentCompanyId));
+    return true;
+  }
 
   // Public company profile lookup: /api/v3/companies-by-company/:realm/:name/
   const companyByNameMatch = pathname.match(/^\/api\/v3\/companies-by-company\/(\d+)\/(.+?)(?:\/)?$/);
@@ -767,6 +773,7 @@ export function registerAuthRoutes(registry: RouteRegistry = globalRouteRegistry
   register('GET', '/api/v2/:scope/:realmId/tags/');
   register('POST', '/api/v1/realm/:realmId/switch/');
   register('POST', '/api/v1/realm-create-company/:realmId/');
+  register('GET', '/api/v1/realm/:realmId/sync/');
   register('GET', '/api/v3/companies-by-company/:realmId/:name/');
   register('GET', '/api/v2/companies/:companyId/');
   register('PATCH', '/api/v2/companies/:companyId/');

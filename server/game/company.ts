@@ -421,7 +421,7 @@ export function getAuthData(playerId?: number | null, targetCompanyId?: number |
   }
 
   if (!company || !player) {
-    return null;
+    return getAuthData(null, null);
   }
 
   // C-18: non-finite values serialize as JSON null (JSON.stringify(Infinity)
