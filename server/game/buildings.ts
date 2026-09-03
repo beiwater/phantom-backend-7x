@@ -1,4 +1,5 @@
 import { db } from '../db/database.ts';
+import { virtualClock } from '../core/virtual-clock.ts';
 import {
   CONSTANTS_BUILDINGS,
   CONSTRUCTION_MATERIALS,
@@ -46,7 +47,7 @@ function getProductionBusy(buildingId: number) {
   if (!queue) return null;
 
   const resource = getResourceDef(queue.kind);
-  const canFetch = new Date(queue.finishes_at).getTime() <= Date.now();
+  const canFetch = new Date(queue.finishes_at).getTime() <= virtualClock.nowMs();
 
   return {
     id: queue.id,
@@ -96,7 +97,7 @@ function getRetailBusy(buildingId: number) {
   if (!row) return null;
 
   const finishedAtMs = row.finished_at ? new Date(row.finished_at).getTime() : 0;
-  const canFetch = finishedAtMs > 0 && finishedAtMs <= Date.now();
+  const canFetch = finishedAtMs > 0 && finishedAtMs <= virtualClock.nowMs();
   const resource = getResourceDef(Number(row.resource_kind));
   const revenue = Math.round(Number(row.units) * Number(row.unit_price) * 100) / 100;
   const startedMs = new Date(row.created_at).getTime();
@@ -159,7 +160,7 @@ export function getBuildingMeta(kind: string) {
 export function formatBuilding(b: BuildingRow) {
   const meta = getBuildingMeta(b.kind);
   const busyUntilMs = b.busy_until ? new Date(b.busy_until).getTime() : 0;
-  const isConstructingOrUpgrading = busyUntilMs > Date.now();
+  const isConstructingOrUpgrading = busyUntilMs > virtualClock.nowMs();
 
   // Issue #142: prefer the production queue, then an active retail sale
   // (SELLING state), and only fall back to the EXPANDING object when the
@@ -193,7 +194,7 @@ export function formatBuilding(b: BuildingRow) {
     cost: b.cost || meta.cost || 6900,
     costUnits: 2,
     country: "AU",
-    created: b.created_at || new Date().toISOString(),
+    created: b.created_at || virtualClock.nowIso(),
     isUnderConstruction: isConstructingOrUpgrading,
     kind: b.kind,
     level: b.size || 1,
@@ -391,15 +392,15 @@ export function constructBuilding(companyId: number, kind: string, position: str
     if (pending.count > 0 || retailOrders.count > 0) {
       throw new Error('Position has active building work');
     }
-    if (existing.busy_until && new Date(existing.busy_until).getTime() > Date.now()) {
+    if (existing.busy_until && new Date(existing.busy_until).getTime() > virtualClock.nowMs()) {
       throw new Error('Building is still under construction or upgrade');
     }
   }
 
   const consumedMaterials: Array<{ db_letter: number; quality: number; amount: number }> = [];
   let newMoney = comp.money;
-  const now = new Date().toISOString();
-  const busyUntil = new Date(Date.now() + 10000).toISOString();
+  const now = virtualClock.nowIso();
+  const busyUntil = new Date(virtualClock.nowMs() + 10000).toISOString();
 
   db.exec('BEGIN');
   try {
@@ -452,7 +453,7 @@ export function upgradeBuilding(companyId: number, buildingId: number, sizeDelta
   if (!building || building.company_id !== companyId) {
     throw new Error('Building not found');
   }
-  if (building.busy_until && new Date(building.busy_until).getTime() > Date.now()) {
+  if (building.busy_until && new Date(building.busy_until).getTime() > virtualClock.nowMs()) {
     throw new Error('Building is still under construction or upgrade');
   }
 
@@ -471,7 +472,7 @@ export function upgradeBuilding(companyId: number, buildingId: number, sizeDelta
 
   const materials = validateConstructionMaterials(companyId, sizeDelta);
   const consumedMaterials: Array<{ db_letter: number; quality: number; amount: number }> = [];
-  const busyUntil = new Date(Date.now() + 10000).toISOString();
+  const busyUntil = new Date(virtualClock.nowMs() + 10000).toISOString();
   let newMoney = comp.money;
 
   db.exec('BEGIN');

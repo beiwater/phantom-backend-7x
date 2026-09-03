@@ -21,6 +21,7 @@ export interface RetailDurationOptions {
   price?: number;
   salesModifier?: number;
   buildingKind?: string;
+  economyState?: number;
 }
 
 export interface RetailPriceResult {
@@ -73,6 +74,14 @@ try {
   // fallback to runtime defaults
 }
 
+function economyModelFor(resourceKind: number, economyState = 1): EconomyModelState | undefined {
+  const state = Math.max(0, Math.min(2, Math.floor(Number(economyState) || 0)));
+  const resource = economyModels[String(resourceKind)];
+  if (state === 0) return resource?.state_0 || resource?.state_1;
+  if (state === 2) return resource?.state_2 || resource?.state_1 || resource?.state_0;
+  return resource?.state_1 || resource?.state_0;
+}
+
 export function getRetailProductsForBuilding(buildingKind: string): number[] {
   return RETAIL_PRODUCTS[buildingKind] || [];
 }
@@ -90,9 +99,10 @@ export function getAuthoritativeRetailPrice(
   resourceKind: number,
   quality = 0,
   requestedPrice?: number,
-  saturation = 0.5
+  saturation = 0.5,
+  economyState = 1
 ): RetailPriceResult {
-  const model = economyModels[String(resourceKind)]?.state_1 || economyModels[String(resourceKind)]?.state_0;
+  const model = economyModelFor(resourceKind, economyState);
   const prodCost = model?.modeledProductionCostPerUnit || 2.0;
   const storeWages = model?.modeledStoreWages || 150.0;
   const unitsPerHour = model?.modeledUnitsSoldAnHour || 100;
@@ -134,9 +144,10 @@ export function calculateOptimalRetailPrice(
   resourceKind: number,
   quality = 0,
   saturation = 0.5,
-  buildingKind?: string
+  buildingKind?: string,
+  economyState = 1
 ): number {
-  const model = economyModels[String(resourceKind)]?.state_1 || economyModels[String(resourceKind)]?.state_0;
+  const model = economyModelFor(resourceKind, economyState);
   const prodCost = model?.modeledProductionCostPerUnit || 2.0;
   const storeWages = model?.modeledStoreWages || 150.0;
   const unitsPerHour = model?.modeledUnitsSoldAnHour || 50;
@@ -172,14 +183,15 @@ export function calculateRetailDuration(
   const opts: RetailDurationOptions = typeof options === 'number'
     ? { quality: options }
     : (options || {});
-
   const quality = opts.quality ?? 0;
   const saturation = opts.saturation ?? 0.5;
   const price = opts.price;
   const salesModifier = opts.salesModifier ?? 0;
-  const buildingKind = opts.buildingKind;
 
-  const model = economyModels[String(resourceKind)]?.state_1 || economyModels[String(resourceKind)]?.state_0;
+  const buildingKind = opts.buildingKind;
+  const economyState = opts.economyState ?? 1;
+
+  const model = economyModelFor(resourceKind, economyState);
   if (!model) {
     const baseSpeed = 100 * Math.max(1, buildingSize);
     return Math.max(5, Math.ceil((units / baseSpeed) * 3600));
@@ -246,9 +258,10 @@ export function calculateRetailRevenue(
   units: number,
   requestedPrice?: number,
   quality = 0,
-  saturation = 0.5
+  saturation = 0.5,
+  economyState = 1
 ): RetailRevenueResult {
-  const pricing = getAuthoritativeRetailPrice(resourceKind, quality, requestedPrice, saturation);
+  const pricing = getAuthoritativeRetailPrice(resourceKind, quality, requestedPrice, saturation, economyState);
   const revenue = Math.round(units * pricing.unitPrice * 100) / 100;
   return {
     unitPrice: pricing.unitPrice,

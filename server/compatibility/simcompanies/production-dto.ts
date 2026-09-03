@@ -3,9 +3,10 @@ import type { CancelProductionResult } from '../../application/production/cancel
 import type { CollectProductionResult } from '../../application/production/collect-production.ts';
 import type { ProductionQueueEntity } from '../../repositories/production-repository.ts';
 import type { LevelInfoDTO } from '../../domain/leveling/level-rules.ts';
-import { getResourceDef } from '../../game-data/resources.ts';
+import { getResourceDef, getResourceName } from '../../game-data/resources.ts';
 import { db as database } from '../../db/database.ts';
 import { toSimCompaniesBuildingDTO } from './building-dto.ts';
+import { rocketKindForLaunchRequest } from '../../game/aerospace.ts';
 
 export interface SimCompaniesStartProductionDTO {
   message: string;
@@ -212,15 +213,25 @@ export interface SimCompaniesQueueItemDTO {
     quality: number;
     unitCost: number;
   } | null;
+  economyPhase: number;
+  economyPhaseStartedAt: string | null;
+  economySource: string;
+  productionModifier: number;
+  productionOutputMultiplier: number;
 }
 
 export function toSimCompaniesQueueDTO(
   items: ProductionQueueEntity[]
 ): SimCompaniesQueueItemDTO[] {
   return items.map(item => {
-    const res = getResourceDef(item.kind);
-    // P0-02: quality/cost always finite; legacy rows without a persisted
-    // cost basis get an on-the-fly fallback from current warehouse data.
+    const building = database.prepare('SELECT kind FROM buildings WHERE id = ?').get(item.buildingId) as { kind?: string } | undefined;
+    const launchRocketKind = building?.kind === 'l' && item.kind === 100
+      ? rocketKindForLaunchRequest(item.kind, Number(item.amount))
+      : null;
+    const displayKind = launchRocketKind ?? item.kind;
+    const res = getResourceDef(displayKind);
+    // Keep the persisted queue marker (kind 100 and its research cost) for
+    // compatibility; the nested resource is the actual rocket requirement.
     const quality = Math.max(0, Math.floor(finiteOr(item.quality, 0)));
     const unitCost = finiteOr(item.cost, computeFallbackUnitCost(item));
     return {
@@ -232,12 +243,17 @@ export function toSimCompaniesQueueDTO(
       started: item.startedAt,
       finishes: item.finishesAt,
       resource: res ? {
-        name: `Resource #${item.kind}`,
+        name: getResourceName(displayKind),
         image: res.image,
-        kind: item.kind,
+        kind: displayKind,
         quality,
         unitCost
-      } : null
+      } : null,
+      economyPhase: item.economyPhase,
+      economyPhaseStartedAt: item.economyPhaseStartedAt,
+      economySource: item.economySource,
+      productionModifier: item.productionModifier,
+      productionOutputMultiplier: item.productionOutputMultiplier
     };
   });
 }

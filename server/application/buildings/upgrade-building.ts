@@ -1,4 +1,5 @@
 import type { GameContext } from '../../context/game-context.ts';
+import { virtualClock } from '../../core/virtual-clock.ts';
 import { runInTransaction } from '../../db/transaction.ts';
 import { buildingRepository, type BuildingEntity } from '../../repositories/building-repository.ts';
 import { companyRepository } from '../../repositories/company-repository.ts';
@@ -41,7 +42,7 @@ export async function upgradeBuildingUseCase(
 
     // Issue #47: repeated upgrades during construction/upgrade busy must be a
     // 409 conflict, not a validation error (official busy contract).
-    assertNotBusyForConstructionWork(building.busyUntil);
+    assertNotBusyForConstructionWork(building.busyUntil, virtualClock.nowMs());
     // Issue #96: a robotized building cannot be upgraded or downgraded until
     // the robots are uninstalled (400 ROBOTICS_LOCKED).
     assertNotRoboticsLocked(building);
@@ -66,7 +67,7 @@ export async function upgradeBuildingUseCase(
 
     // 5. Update building size and busy state
     const newSize = building.size + sizeDelta;
-    const busyUntil = new Date(Date.now() + 10000).toISOString();
+    const busyUntil = new Date(virtualClock.nowMs() + 10000).toISOString();
 
     const updatedBuilding = buildingRepository.updateSize(building.id, ctx.companyId, newSize);
     buildingRepository.updateBusyUntil(building.id, ctx.companyId, busyUntil);

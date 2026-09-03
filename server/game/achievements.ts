@@ -1,4 +1,5 @@
 import { db } from '../db/database.ts';
+import { virtualClock } from '../core/virtual-clock.ts';
 import { updateCompanyMoney, updateCompanySimBoosts, getCompanyById } from './company.ts';
 import { getResourceDef } from './constants.ts';
 import { getNftAsset } from './collectibles.ts';
@@ -7,7 +8,14 @@ import { DomainError } from '../errors/domain-error.ts';
 // Issue #88: display case certificate placement verifies ownership against
 // the certificates table; importing the certificates domain ensures the table
 // exists (and is seeded) before any ownership check runs.
-import './certificates.ts';
+import {
+  getCertificates as getIssuedCertificates,
+  getLatestCertificates as getIssuedLatestCertificates,
+  getRarestCertificates as getIssuedRarestCertificates,
+  getCertificateDetail as getIssuedCertificateDetail,
+  getCompanyCertificates as getIssuedCompanyCertificates,
+  getCertificateCatalog as getIssuedCertificateCatalog
+} from './certificates.ts';
 
 // Issue #88: a display case slot can hold a production resource, a
 // certificate, an achievement, or a collectible (NFT). item_kind records
@@ -164,7 +172,7 @@ export function claimAchievement(companyId: number, achievementId: string) {
     throw new DomainError('Achievement criteria not met', 400, 'CRITERIA_NOT_MET');
   }
 
-  const now = new Date().toISOString();
+  const now = virtualClock.nowIso();
   const boostReward = ach.sim_boosts || 5;
   const cashReward = ach.reward || 5000;
 
@@ -450,103 +458,36 @@ export function removeDisplayCaseSlot(companyId: number, slot: number) {
 }
 
 export function getLatestCertificates(realmId: number) {
-  const rows = db.prepare(`
-    SELECT a.achievement_id, a.collected_at, a.company_id, c.name, c.logo, c.realm_id
-    FROM company_achievements a
-    JOIN companies c ON c.company_id = a.company_id
-    WHERE c.realm_id = ?
-    ORDER BY a.collected_at DESC
-    LIMIT 20
-  `).all(realmId) as Array<{
-    achievement_id: number | string;
-    collected_at: string;
-    company_id: number;
-    name: string;
-    logo?: string;
-    realm_id?: number;
-  }>;
-
-  let certId = 1;
-  return rows.map(r => ({
-    id: certId++,
-    kind: Number(r.achievement_id) || 1,
-    resourceKind: null,
-    yearStarted: r.collected_at ? new Date(r.collected_at).getFullYear() : 2026,
-    datetime: r.collected_at || new Date().toISOString(),
-    company: {
-      id: r.company_id,
-      company: r.name || `Company #${r.company_id}`,
-      logo: r.logo || '',
-      realmId: Number(r.realm_id) || 0
-    }
-  }));
+  return getIssuedLatestCertificates(realmId);
 }
 
 export function getRarestCertificates(realmId: number) {
-  const totalCompanies = (db.prepare('SELECT COUNT(*) as cnt FROM companies WHERE realm_id = ?').get(realmId) as { cnt: number } | undefined)?.cnt || 1;
-  const counts = db.prepare(`
-    SELECT a.achievement_id, COUNT(DISTINCT a.company_id) as holder_count
-    FROM company_achievements a
-    JOIN companies c ON c.company_id = a.company_id
-    WHERE c.realm_id = ?
-    GROUP BY a.achievement_id
-    ORDER BY holder_count ASC
-    LIMIT 20
-  `).all(realmId) as Array<{ achievement_id: number | string; holder_count: number }>;
-
-  if (counts.length === 0) {
-    // Default to known achievement kinds with 0% rarity when none claimed yet
-    return ALL_ACHIEVEMENTS.slice(0, 10).map(def => ({
-      realm: realmId,
-      kind: Number(def.id) || 1,
-      rarity: 0
-    }));
-  }
-
-  return counts.map(c => ({
-    realm: realmId,
-    kind: Number(c.achievement_id) || 1,
-    rarity: Math.round((c.holder_count / Math.max(1, totalCompanies)) * 1000) / 10
-  }));
+  return getIssuedRarestCertificates(realmId);
 }
 
-export function getCertificateDetail(realmId: number, kind: number, level: number, resourceKind?: string | null) {
-  const rows = db.prepare(`
-    SELECT a.achievement_id, a.collected_at, a.company_id, c.name, c.logo, c.realm_id
-    FROM company_achievements a
-    JOIN companies c ON c.company_id = a.company_id
-    WHERE c.realm_id = ? AND a.achievement_id = ?
-    ORDER BY a.collected_at ASC
-  `).all(realmId, kind) as Array<{
-    achievement_id: number | string;
-    collected_at: string;
-    company_id: number;
-    name: string;
-    logo?: string;
-    realm_id?: number;
-  }>;
-
-  const holders = rows.map(r => ({
-    id: r.company_id,
-    company: r.name || `Company #${r.company_id}`,
-    logo: r.logo || '',
-    realmId: Number(r.realm_id) || 0
-  }));
-
-  return {
-    certificate: {
-      kind,
-      level,
-      resourceKind: resourceKind && resourceKind !== '-' ? resourceKind : null
-    },
-    owner: holders[0] || null,
-    topHunters: [],
-    holders
-  };
+export function getCertificateDetail(
+  realmId: number,
+  kind: number,
+  certificateId: number | string,
+  resourceKind?: string | null
+) {
+  const detail = getIssuedCertificateDetail(realmId, kind, certificateId, resourceKind ?? '-');
+  if (detail || !/^\d+$/.test(String(certificateId)) || Number(certificateId) <= 0) {
+    return detail;
+  }
+  // Legacy callers used this numeric slot as a certificate level, not a row id.
+  return getIssuedCertificateDetail(realmId, kind, '-', resourceKind ?? '-');
 }
 
 export function getCertificates(realmId: number) {
-  return getLatestCertificates(realmId);
+  return getIssuedCertificates(realmId);
+}
+export function getCompanyCertificates(companyId: number) {
+  return getIssuedCompanyCertificates(companyId);
+}
+
+export function getCertificateCatalog() {
+  return getIssuedCertificateCatalog();
 }
 
 // ---------------------------------------------------------------------------

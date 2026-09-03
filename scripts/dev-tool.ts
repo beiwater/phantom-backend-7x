@@ -59,6 +59,23 @@ function parseArgs(args: string[]): Record<string, any> {
   }
   return result;
 }
+async function warpRunningServer(payload: Record<string, unknown>): Promise<Record<string, unknown>> {
+  const baseUrl = process.env.TIME_WARP_URL || process.env.BASE_URL || 'http://127.0.0.1:3000';
+  const response = await fetch(`${baseUrl.replace(/\/$/, '')}/api/v2/debug/time-warp/`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(process.env.ADMIN_PASSWORD ? { 'x-admin-password': process.env.ADMIN_PASSWORD } : {})
+    },
+    body: JSON.stringify(payload)
+  });
+  const body = await response.json() as Record<string, unknown>;
+  if (!response.ok) {
+    throw new Error(`Running server rejected time warp (${response.status}): ${String(body.error || 'unknown error')}`);
+  }
+  return body;
+}
+
 
 async function main() {
   const argv = parseArgs(process.argv.slice(2));
@@ -77,32 +94,39 @@ async function main() {
 
   if (command === 'warp') {
     console.log('=== Executing Time Warp ===');
-    let res;
+    const payload: Record<string, unknown> = { resolveCycles: true };
     if (argv.reset) {
-      res = virtualClock.reset();
-      console.log(`Clock reset to real time: ${res.newIso}`);
+      payload.reset = true;
     } else if (argv.iso) {
-      res = virtualClock.setTime(argv.iso);
-      console.log(`Clock set to: ${res.newIso} (offset: ${res.offsetHours}h)`);
+      payload.iso = String(argv.iso);
     } else {
-      const hours = Number(argv.hours || 0);
-      const days = Number(argv.days || 0);
-      const minutes = Number(argv.minutes || 0);
-      const seconds = Number(argv.seconds || 0);
-      res = virtualClock.advance({ hours, days, minutes, seconds });
-      console.log(`Advanced clock by: +${days}d +${hours}h +${minutes}m +${seconds}s`);
-      console.log(`Previous: ${res.previousIso}`);
-      console.log(`New Time: ${res.newIso} (total offset: ${res.offsetHours}h)`);
+      payload.hours = Number(argv.hours || 0);
+      payload.days = Number(argv.days || 0);
+      payload.minutes = Number(argv.minutes || 0);
+      payload.seconds = Number(argv.seconds || 0);
     }
 
-    console.log('Resolving overdue game cycles...');
-    const cycles = await virtualClock.resolveAllOverdue();
-    console.log(`- Constructions/Upgrades completed : ${cycles.completedConstructions}`);
-    console.log(`- Production batches completed     : ${cycles.completedProductions}`);
-    console.log(`- Retail orders completed          : ${cycles.completedRetailOrders}`);
-    console.log(`- Restaurant cycles resolved       : ${cycles.resolvedRestaurants}`);
-    console.log(`- Building auctions settled        : ${cycles.settledAuctions}`);
-    console.log('✅ Time warp and cycle resolution complete!');
+    let result: Record<string, unknown>;
+    try {
+      result = await warpRunningServer(payload);
+    } catch (error) {
+      throw new Error(
+        `Time warp requires the running server instance at ${process.env.TIME_WARP_URL || process.env.BASE_URL || 'http://127.0.0.1:3000'}: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
+
+    const clock = result.clock as Record<string, unknown> | undefined;
+    const resolved = result.resolvedCycles as Record<string, unknown> | null | undefined;
+    console.log(`Server virtual time: ${String(result.virtualNow || clock?.newIso || '')}`);
+    console.log(`Total offset: ${String(result.offsetHours ?? clock?.offsetHours ?? '')} hours`);
+    if (resolved) {
+      console.log(`- Constructions/Upgrades completed : ${String(resolved.completedConstructions ?? 0)}`);
+      console.log(`- Production batches completed     : ${String(resolved.completedProductions ?? 0)}`);
+      console.log(`- Retail orders completed          : ${String(resolved.completedRetailOrders ?? 0)}`);
+      console.log(`- Restaurant cycles resolved       : ${String(resolved.resolvedRestaurants ?? 0)}`);
+      console.log(`- Building auctions settled        : ${String(resolved.settledAuctions ?? 0)}`);
+    }
+    console.log('Time warp applied to the running server instance.');
     return;
   }
 

@@ -1,4 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
+import { RouteRegistry, globalRouteRegistry } from '../http/route-registry.ts';
 import { readJsonBody, sendJson, requireCapability } from './utils.ts';
 import {
   queueRocketLaunch,
@@ -139,3 +140,113 @@ export async function handleAerospaceRoutes(
 
   return false;
 }
+export function registerAerospaceRoutes(registry: RouteRegistry = globalRouteRegistry): void {
+  const bodyField = (body: unknown, field: string): unknown => {
+    if (!body || typeof body !== 'object' || !(field in body)) return undefined;
+    return Reflect.get(body, field);
+  };
+  const companyRequired = (ctx: { companyId: number } | null, res: ServerResponse): number | null => {
+    const companyId = ctx?.companyId ?? null;
+    if (!companyId) {
+      sendJson(res, { error: 'Unauthorized' }, 401);
+      return null;
+    }
+    return companyId;
+  };
+  registry
+    .register({
+      method: 'POST', pattern: '/api/v1/launch-pad/:buildingId/launch/', owner: 'aerospace',
+      handler: async (_req, res, ctx, params, body) => {
+        const companyId = companyRequired(ctx, res);
+        if (!companyId) return;
+        const rocketKind = Number(bodyField(body, 'rocketKind') ?? bodyField(body, 'kind') ?? bodyField(body, 'resource') ?? 0);
+        const quality = Number(bodyField(body, 'quality') ?? 0);
+        try {
+          sendJson(res, await queueRocketLaunch(companyId, Number(params.buildingId), rocketKind, quality), 200);
+        } catch (err: unknown) {
+          sendJson(res, { error: err instanceof Error ? err.message : String(err) }, 400);
+        }
+      }
+    })
+    .register({
+      method: 'DELETE', pattern: '/api/v1/launch-pad/:buildingId/launch/', owner: 'aerospace',
+      handler: async (req, res, ctx, params) => {
+        const companyId = companyRequired(ctx, res);
+        if (!companyId) return;
+        let launchId: number | undefined;
+        try {
+          const body = await readJsonBody(req);
+          const rawId = bodyField(body, 'launchId') ?? bodyField(body, 'id');
+          if (rawId) launchId = Number(rawId);
+        } catch {
+          // Body is optional on DELETE.
+        }
+        try {
+          sendJson(res, await cancelQueuedLaunch(companyId, Number(params.buildingId), launchId), 200);
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : String(err);
+          sendJson(res, { error: msg }, msg.toLowerCase().includes('not found') ? 404 : 400);
+        }
+      }
+    })
+    .register({
+      method: 'DELETE', pattern: '/api/v1/launch-pad/:buildingId/launch/:launchId/', owner: 'aerospace',
+      handler: async (_req, res, ctx, params) => {
+        const companyId = companyRequired(ctx, res);
+        if (!companyId) return;
+        try {
+          sendJson(res, await cancelQueuedLaunch(companyId, Number(params.buildingId), Number(params.launchId)), 200);
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : String(err);
+          sendJson(res, { error: msg }, msg.toLowerCase().includes('not found') ? 404 : 400);
+        }
+      }
+    })
+    .register({
+      method: 'GET', pattern: '/api/v2/launch-queue/', owner: 'aerospace',
+      handler: async (_req, res, ctx) => {
+        const companyId = companyRequired(ctx, res);
+        if (!companyId) return;
+        sendJson(res, getCompanyLaunchQueue(companyId), 200);
+      }
+    })
+    .register({
+      method: 'GET', pattern: '/api/v2/launch-queue/:buildingId/', owner: 'aerospace',
+      handler: async (_req, res, ctx, params) => {
+        const companyId = companyRequired(ctx, res);
+        if (!companyId) return;
+        sendJson(res, getCompanyLaunchQueue(companyId, Number(params.buildingId)), 200);
+      }
+    })
+    .register({
+      method: 'GET', pattern: '/api/v3/rocket-launches/:realmId/:companyId/', owner: 'aerospace',
+      handler: async (_req, res, ctx, params) => {
+        const realmId = Number(params.realmId);
+        const companyParam = params.companyId;
+        if (companyParam === 'me') {
+          const companyId = companyRequired(ctx, res);
+          if (!companyId) return;
+          sendJson(res, getRocketLaunchStats(realmId, companyId, true), 200);
+          return;
+        }
+        if (companyParam === 'all' || companyParam === '0') {
+          sendJson(res, getRocketLaunchStats(realmId, null, false), 200);
+          return;
+        }
+        const targetCompanyId = Number(companyParam);
+        if (Number.isFinite(targetCompanyId) && targetCompanyId > 0) {
+          sendJson(res, getRocketLaunchStats(realmId, targetCompanyId, ctx?.companyId !== null && targetCompanyId === ctx?.companyId), 200);
+          return;
+        }
+        sendJson(res, getRocketLaunchStats(realmId, null, false), 200);
+      }
+    })
+    .register({
+      method: 'GET', pattern: '/api/v1/aerospace-launches/', owner: 'aerospace',
+      handler: async (_req, res, ctx) => {
+        sendJson(res, getRocketLaunchStats(0, ctx?.companyId || null, false), 200);
+      }
+    });
+}
+
+registerAerospaceRoutes(globalRouteRegistry);

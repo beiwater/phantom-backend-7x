@@ -25,6 +25,7 @@
  */
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { readJsonBody, sendJson } from './utils.ts';
+import { RouteRegistry, globalRouteRegistry } from '../http/route-registry.ts';
 import { sendDomainError } from '../compatibility/simcompanies/response-helpers.ts';
 import { CapabilityError } from '../domain/leveling/level-rules.ts';
 import {
@@ -248,3 +249,205 @@ export async function handleBuildingAuctionRoutes(
 
   return false;
 }
+export function registerBuildingAuctionRoutes(registry: RouteRegistry = globalRouteRegistry): void {
+  const bodyField = (body: unknown, field: string): unknown => {
+    if (!body || typeof body !== 'object' || !(field in body)) return undefined;
+    return Reflect.get(body, field);
+  };
+  const currentCompany = (ctx: { companyId: number } | null): number | null => ctx?.companyId ?? null;
+
+  registry
+    .register({
+      method: 'GET',
+      pattern: '/api/v2/building-auctions/active-unlocks/',
+      owner: 'building-auctions',
+      handler: async (_req, res) => { sendJson(res, { activeUnlocks: getActiveUnlocks() }); }
+    })
+    .register({
+      method: 'GET',
+      pattern: '/api/v2/building-auctions/research-by-building/:buildingId/',
+      owner: 'building-auctions',
+      handler: async (_req, res, _ctx, params) => {
+        sendJson(res, { similarBuildingAuctions: getSimilarAuctionsByBuilding(Number(params.buildingId)) });
+      }
+    })
+    .register({
+      method: 'POST',
+      pattern: '/api/v2/building-auctions/research-by-auction/:auctionId/',
+      owner: 'building-auctions',
+      handler: async (_req, res, _ctx, params) => {
+        sendJson(res, { similarBuildingAuctions: getSimilarAuctionsByAuction(Number(params.auctionId)) });
+      }
+    })
+    .register({
+      method: 'GET',
+      pattern: '/api/v2/building-auctions/bids/:companyOrAuction/',
+      owner: 'building-auctions',
+      handler: async (_req, res, ctx, params) => {
+        const companyId = currentCompany(ctx);
+        const paramCompanyId = resolveCompanyIdParam(params.companyOrAuction, companyId);
+        if (!companyId || paramCompanyId === null) {
+          unauthorized(res);
+          return;
+        }
+        if (paramCompanyId !== companyId) {
+          forbidden(res, 'Sealed bids are only visible to the bidding company');
+          return;
+        }
+        sendJson(res, { bids: getMyBids(companyId) });
+      }
+    })
+    .register({
+      method: 'POST',
+      pattern: '/api/v2/building-auctions/bids/:companyOrAuction/',
+      owner: 'building-auctions',
+      handler: async (_req, res, ctx, params, body) => {
+        const companyId = currentCompany(ctx);
+        if (!companyId) {
+          unauthorized(res);
+          return;
+        }
+        const paramCompanyId = resolveCompanyIdParam(params.companyOrAuction, companyId);
+        const rawBuildingId = bodyField(body, 'buildingAuctionId');
+        const rawAmount = bodyField(body, 'amount');
+        const auctionId = rawBuildingId !== undefined ? Number(rawBuildingId) : Number(params.companyOrAuction);
+        if (rawBuildingId !== undefined && paramCompanyId !== null && paramCompanyId !== companyId) {
+          forbidden(res, 'Bids are placed for the authenticated company');
+          return;
+        }
+        if (!Number.isFinite(auctionId) || !Number.isFinite(Number(rawAmount))) {
+          sendJson(res, { error: 'buildingAuctionId and amount are required' }, 400);
+          return;
+        }
+        try {
+          sendJson(res, await placeBid(companyId, auctionId, Number(rawAmount)));
+        } catch (err: unknown) {
+          sendAuctionError(res, err);
+        }
+      }
+    })
+    .register({
+      method: 'DELETE',
+      pattern: '/api/v2/building-auctions/bids/:companyId/:bidId/',
+      owner: 'building-auctions',
+      handler: async (_req, res, ctx, params) => {
+        const companyId = currentCompany(ctx);
+        const paramCompanyId = resolveCompanyIdParam(params.companyId, companyId);
+        if (!companyId || paramCompanyId === null) {
+          unauthorized(res);
+          return;
+        }
+        if (paramCompanyId !== companyId) {
+          forbidden(res, 'Bids are withdrawn by the bidding company');
+          return;
+        }
+        try {
+          await withdrawBid(companyId, Number(params.bidId));
+          sendJson(res, { success: true });
+        } catch (err: unknown) {
+          sendAuctionError(res, err);
+        }
+      }
+    })
+    .register({
+      method: 'POST',
+      pattern: '/api/v2/building-auctions/:auctionId/promote/',
+      owner: 'building-auctions',
+      handler: async (_req, res, ctx, params) => {
+        const companyId = currentCompany(ctx);
+        if (!companyId) {
+          unauthorized(res);
+          return;
+        }
+        try {
+          sendJson(res, await promoteAuction(companyId, Number(params.auctionId)));
+        } catch (err: unknown) {
+          sendAuctionError(res, err);
+        }
+      }
+    })
+    .register({
+      method: 'GET',
+      pattern: '/api/v2/building-auctions/',
+      owner: 'building-auctions',
+      handler: async (_req, res) => {
+        await settleDueAuctions(virtualClock.nowMs());
+        sendJson(res, { buildingAuctions: getActiveAuctions() });
+      }
+    })
+    .register({
+      method: 'POST',
+      pattern: '/api/v2/building-auctions/',
+      owner: 'building-auctions',
+      handler: async (_req, res, ctx, _params, body) => {
+        const companyId = currentCompany(ctx);
+        if (!companyId) {
+          unauthorized(res);
+          return;
+        }
+        const rawBuildingId = bodyField(body, 'buildingId');
+        if (!Number.isFinite(Number(rawBuildingId))) {
+          sendJson(res, { error: 'buildingId is required' }, 400);
+          return;
+        }
+        try {
+          sendJson(res, await listBuildingForAuction(companyId, Number(rawBuildingId)));
+        } catch (err: unknown) {
+          sendAuctionError(res, err);
+        }
+      }
+    })
+    .register({
+      method: 'GET',
+      pattern: '/api/v2/building-auctions/:auctionId/',
+      owner: 'building-auctions',
+      handler: async (_req, res, _ctx, params) => {
+        const id = Number(params.auctionId);
+        await settleDueAuctions(virtualClock.nowMs());
+        const auction = getAuctionById(id);
+        const list = getActiveAuctions(id);
+        if (id === 0 || id === 1) {
+          sendJson(res, auction ? { ...auction, buildingAuctions: list } : { buildingAuctions: list });
+          return;
+        }
+        sendJson(res, auction || { buildingAuctions: list });
+      }
+    })
+    .register({
+      method: 'POST',
+      pattern: '/api/v2/building-auctions/:auctionId/',
+      owner: 'building-auctions',
+      handler: async (_req, res, ctx, _params, body) => {
+        const companyId = currentCompany(ctx);
+        if (!companyId) {
+          unauthorized(res);
+          return;
+        }
+        const rawBuildingId = bodyField(body, 'buildingId');
+        if (!Number.isFinite(Number(rawBuildingId))) {
+          sendJson(res, { error: 'buildingId is required' }, 400);
+          return;
+        }
+        try {
+          sendJson(res, await listBuildingForAuction(companyId, Number(rawBuildingId)));
+        } catch (err: unknown) {
+          sendAuctionError(res, err);
+        }
+      }
+    })
+    .register({
+      method: 'GET',
+      pattern: '/api/v2/companies/:companyId/building-auctions/',
+      owner: 'building-auctions',
+      handler: async (_req, res, ctx, params) => {
+        const companyId = resolveCompanyIdParam(params.companyId, currentCompany(ctx));
+        if (companyId === null) {
+          unauthorized(res);
+          return;
+        }
+        sendJson(res, { buildingAuctions: getCompanyAuctions(companyId) });
+      }
+    });
+}
+
+registerBuildingAuctionRoutes(globalRouteRegistry);

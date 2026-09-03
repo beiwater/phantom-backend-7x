@@ -5,7 +5,7 @@
  * No SQL, no business rules here.
  */
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { readJsonBody, sendJson } from './utils.ts';
+import { readJsonBody, sendJson, setPreparsedBody } from './utils.ts';
 import { createGameContext } from '../context/game-context.ts';
 import { buildingRepository } from '../repositories/building-repository.ts';
 import { retailRepository } from '../repositories/retail-repository.ts';
@@ -16,6 +16,7 @@ import {
   cancelRetailOrderUseCase,
   findSalesOfficeCustomerUseCase
 } from '../application/retail/retail-use-cases.ts';
+import { RouteRegistry, globalRouteRegistry, type HttpMethod } from '../http/route-registry.ts';
 
 export async function handleRetailRoutes(
   req: IncomingMessage,
@@ -178,3 +179,38 @@ export async function handleRetailRoutes(
 
   return false;
 }
+
+export function registerRetailRoutes(registry: RouteRegistry = globalRouteRegistry): void {
+  const register = (method: HttpMethod, pattern: string): void => {
+    registry.register({
+      method,
+      pattern,
+      owner: 'retail',
+      handler: async (req, res, ctx, _params, body) => {
+        if (method === 'POST' || method === 'PATCH' || method === 'PUT') {
+          setPreparsedBody(req, body);
+        }
+        const pathname = new URL(req.url || '/', 'http://localhost').pathname;
+        await handleRetailRoutes(req, res, pathname, method, ctx?.companyId ?? null);
+      }
+    });
+  };
+
+  register('GET', '/api/v1/sales-orders/');
+  register('POST', '/api/v1/sales-orders/');
+  register('GET', '/api/v2/sales-orders/');
+  register('POST', '/api/v2/sales-orders/');
+  register('GET', '/api/v1/sales-orders/:orderId/');
+  register('PUT', '/api/v1/sales-orders/:orderId/');
+  register('DELETE', '/api/v1/sales-orders/:orderId/');
+  register('GET', '/api/v2/sales-orders/:orderId/');
+  register('PUT', '/api/v2/sales-orders/:orderId/');
+  register('DELETE', '/api/v2/sales-orders/:orderId/');
+  register('GET', '/api/v2/companies/buildings/:buildingId/sales-orders/');
+  register('POST', '/api/v2/companies/buildings/:buildingId/sales-orders/');
+  register('GET', '/api/v2/companies/buildings/:buildingId/sales-orders/:orderId/');
+  register('PUT', '/api/v2/companies/buildings/:buildingId/sales-orders/:orderId/');
+  register('DELETE', '/api/v2/companies/buildings/:buildingId/sales-orders/:orderId/');
+}
+
+registerRetailRoutes(globalRouteRegistry);

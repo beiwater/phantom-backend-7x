@@ -1,4 +1,5 @@
 import { db } from '../db/database.ts';
+import { virtualClock } from '../core/virtual-clock.ts';
 import { CONSTANTS_RESOURCES, getResourceDef } from './constants.ts';
 
 // Deterministic pseudo-random number generator for consistent historical data
@@ -70,7 +71,7 @@ export function getResourceHistory(kind: number, days: number = 30, quality: num
   const targetBasePrice = Math.round(baseCost * 1.28 * qualityMultiplier * 100) / 100;
   
   const history: ResourceHistoryPoint[] = [];
-  const now = new Date();
+  const now = virtualClock.now();
   const rng = seededRandom(kind * 1000 + quality * 100);
 
   let currentPrice = targetBasePrice;
@@ -112,7 +113,7 @@ export function getResourceEncyclopediaDetail(
   const history = getResourceHistory(kind, 30, quality);
   const latestPoint = history[history.length - 1];
 
-  const now = new Date();
+  const now = virtualClock.now();
   const rng = seededRandom(kind * 777);
   const retailData: ResourceRetailDataPoint[] = [];
   for (let i = 30; i >= 0; i--) {
@@ -180,7 +181,7 @@ export function getResourceTransactions(_realmId: number, kind: number): Array<{
   const rng = seededRandom(kind * 555);
   const categories = ['EXCHANGE', 'CONTRACTS', 'RETAIL', 'PRODUCTION'];
   const transactions = [];
-  const now = Date.now();
+  const now = virtualClock.nowMs();
 
   for (let i = 0; i < 20; i++) {
     const timeOffset = i * 3600 * 1000 * (1 + rng() * 2);
@@ -241,7 +242,7 @@ export function getCompanyRankings(realmId: number, blobIndex: number = 0, varia
     warehouse_value: number;
   }>;
 
-  const now = Date.now();
+  const now = virtualClock.nowMs();
   const calculatedCompanies = dbCompanies.map(c => {
     const totalValue = Math.round((c.money + c.buildings_value + c.warehouse_value) * 100) / 100;
     const createdTime = c.created_at ? new Date(c.created_at).getTime() : now;
@@ -324,7 +325,7 @@ export function getResourcesRetailInfo(_realmId: number): Array<{
   retailData: ResourceRetailDataPoint[];
 }> {
   const result = [];
-  const now = new Date();
+  const now = virtualClock.now();
 
   for (const [k, def] of Object.entries(CONSTANTS_RESOURCES)) {
     const kind = Number(k);

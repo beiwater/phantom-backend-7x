@@ -8,10 +8,11 @@
  * 4. GET  /api/v2/debug/presets/    (List available fixture presets)
  */
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { readJsonBody, sendJson } from './utils.ts';
+import { readJsonBody, sendJson, setPreparsedBody } from './utils.ts';
 import { virtualClock } from '../core/virtual-clock.ts';
 import { FixtureService, type ScenarioInput } from '../services/fixture-service.ts';
 import { buildSessionCookie } from '../auth/session.ts';
+import { RouteRegistry, globalRouteRegistry, type HttpMethod } from '../http/route-registry.ts';
 
 export async function handleDebugRoutes(
   req: IncomingMessage,
@@ -191,3 +192,31 @@ export async function handleDebugRoutes(
 
   return false;
 }
+
+export function registerDebugRoutes(registry: RouteRegistry = globalRouteRegistry): void {
+  const register = (method: HttpMethod, pattern: string): void => {
+    registry.register({
+      method,
+      pattern,
+      owner: 'debug',
+      handler: async (req, res, ctx, _params, body) => {
+        if (method === 'POST' || method === 'PATCH' || method === 'PUT') {
+          setPreparsedBody(req, body);
+        }
+        const pathname = new URL(req.url || '/', 'http://localhost').pathname;
+        await handleDebugRoutes(req, res, pathname, method, ctx?.playerId ?? null, ctx?.companyId ?? null);
+      }
+    });
+  };
+
+  for (const prefix of ['/api/v2/debug', '/api/debug']) {
+    register('GET', `${prefix}/state/`);
+    register('GET', `${prefix}/presets/`);
+    register('GET', `${prefix}/market-mode/`);
+    register('POST', `${prefix}/market-mode/`);
+    register('POST', `${prefix}/time-warp/`);
+    register('POST', `${prefix}/fixture/`);
+  }
+}
+
+registerDebugRoutes(globalRouteRegistry);

@@ -1,4 +1,5 @@
 import type { GameContext } from '../../context/game-context.ts';
+import { virtualClock } from '../../core/virtual-clock.ts';
 import { runInTransaction } from '../../db/transaction.ts';
 import { buildingRepository, type BuildingEntity } from '../../repositories/building-repository.ts';
 import { warehouseRepository, type WarehouseEntity } from '../../repositories/warehouse-repository.ts';
@@ -48,7 +49,7 @@ export async function collectProductionUseCase(
       // Look by buildingId
       const activeByBuilding = productionRepository.findActiveByBuilding(input.buildingOrQueueId, ctx.companyId);
       // Find the earliest or latest finished
-      const now = Date.now();
+      const now = virtualClock.nowMs();
       const finishedItems = activeByBuilding.filter(item => Date.parse(item.finishesAt) <= now);
       if (finishedItems.length > 0) {
         targetItem = finishedItems[0];
@@ -68,7 +69,7 @@ export async function collectProductionUseCase(
     }
 
     const finishTime = Date.parse(targetItem.finishesAt);
-    if (!Number.isFinite(finishTime) || finishTime > Date.now()) {
+    if (!Number.isFinite(finishTime) || finishTime > virtualClock.nowMs()) {
       throw new ValidationError('Production has not finished yet');
     }
 
@@ -145,7 +146,7 @@ export async function collectProductionUseCase(
         quality: targetItem.quality,
         success: launchOutcome.success,
         patentsEarned: launchOutcome.patentsEarned,
-        launchedAt: new Date().toISOString()
+        launchedAt: virtualClock.nowIso()
       });
     }
     eventBus.publishCommitted(txCtx, 'ProductionCollected', {
@@ -157,7 +158,7 @@ export async function collectProductionUseCase(
       amount: targetItem.amount,
       experienceGained,
       level: levelAfter,
-      collectedAt: new Date().toISOString()
+      collectedAt: virtualClock.nowIso()
     });
 
     return {

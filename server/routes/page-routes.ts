@@ -1,5 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { sendJson } from './utils.ts';
+import { RouteRegistry, globalRouteRegistry } from '../http/route-registry.ts';
 import { companyRepository } from '../repositories/company-repository.ts';
 /**
  * P1-03: Static page / guide article content route.
@@ -209,3 +210,27 @@ export async function handlePageRoutes(
 
   return false;
 }
+
+export function registerPageRoutes(registry: RouteRegistry = globalRouteRegistry): void {
+  registry
+    .register({
+      method: 'GET',
+      pattern: '/admin-xSwwtH67Cr/',
+      owner: 'pages',
+      handler: async (req, res, ctx) => {
+        const pathname = new URL(req.url || '/', 'http://localhost').pathname;
+        await handlePageRoutes(req, res, pathname, 'GET', ctx?.playerId ?? null);
+      }
+    })
+    .register({
+      method: 'GET',
+      pattern: '/api/v3/pages/:locale/:slug/',
+      owner: 'pages',
+      handler: async (req, res, ctx) => {
+        const pathname = new URL(req.url || '/', 'http://localhost').pathname;
+        await handlePageRoutes(req, res, pathname, 'GET', ctx?.playerId ?? null);
+      }
+    });
+}
+
+registerPageRoutes(globalRouteRegistry);

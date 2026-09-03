@@ -1,5 +1,6 @@
 import { db } from '../db/database.ts';
 import { runInTransaction } from '../db/transaction.ts';
+import { virtualClock } from '../core/virtual-clock.ts';
 
 /**
  * Persisted per-company SimBoost settings.
@@ -62,7 +63,7 @@ export function getCompanyBoostSettings(companyId: number): CompanyBoostSettings
 }
 
 /** Exchanged-cash counter for the current UTC day (0 when the stored bucket is stale). */
-export function getExchangedToday(companyId: number, now: Date = new Date()): number {
+export function getExchangedToday(companyId: number, now: Date = virtualClock.now()): number {
   const settings = getCompanyBoostSettings(companyId);
   if (settings.exchangeDate !== exchangeDateBucket(now)) {
     return 0;
@@ -92,7 +93,7 @@ export function saveCompanyBoostModifiers(
  * Count `cash` dollars against the daily exchange limit inside the caller's
  * transaction. Stale buckets are reset atomically here.
  */
-export function recordExchange(companyId: number, cash: number, now: Date = new Date()): number {
+export function recordExchange(companyId: number, cash: number, now: Date = virtualClock.now()): number {
   ensureRow(companyId);
   const today = exchangeDateBucket(now);
   const result = db.prepare(`
@@ -111,7 +112,7 @@ export function recordExchange(companyId: number, cash: number, now: Date = new 
 export const DAILY_PURCHASE_LIMIT = 20;
 
 /** Purchases made today (UTC bucket); 0 when the stored bucket is stale. */
-export function getPurchasesToday(companyId: number, now: Date = new Date()): number {
+export function getPurchasesToday(companyId: number, now: Date = virtualClock.now()): number {
   const row = db.prepare(
     'SELECT purchases_today, purchase_date FROM company_boost_settings WHERE company_id = ?'
   ).get(companyId) as { purchases_today: number; purchase_date: string } | undefined;
@@ -125,7 +126,7 @@ export function getPurchasesToday(companyId: number, now: Date = new Date()): nu
  * Count one package purchase against the daily limit inside the caller's
  * transaction. Stale buckets are reset atomically here.
  */
-export function recordPurchase(companyId: number, now: Date = new Date()): number {
+export function recordPurchase(companyId: number, now: Date = virtualClock.now()): number {
   ensureRow(companyId);
   const today = exchangeDateBucket(now);
   const result = db.prepare(`
@@ -218,7 +219,7 @@ export interface FairExchangeResult {
  */
 export function exchangeMoneyForSimboosts(input: FairExchangeInput): FairExchangeResult {
   const { companyId, cash, getCompanyMoney, debitMoney, creditSimBoosts } = input;
-  const now = input.now ?? new Date();
+  const now = input.now ?? virtualClock.now();
 
   if (!Number.isFinite(cash) || cash <= 0) {
     throw new Error('Exchange amount must be a positive number');

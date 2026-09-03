@@ -1,5 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { readJsonBody, sendJson } from './utils.ts';
+import { readJsonBody, sendJson, setPreparsedBody } from './utils.ts';
 import {
   getRestaurantRatings,
   getRestaurantMenuGuide,
@@ -16,6 +16,7 @@ import {
   startRestaurantCycleUseCase,
   getRestaurantRunsQuery
 } from '../application/restaurant/restaurant-use-cases.ts';
+import { RouteRegistry, globalRouteRegistry, type HttpMethod } from '../http/route-registry.ts';
 
 // The use cases require an authenticated GameContext; the handler binds the
 // authenticated company id once past the auth gate below.
@@ -355,3 +356,38 @@ function parseLegacyMenu(
   }
   return menu;
 }
+
+export function registerRestaurantRoutes(registry: RouteRegistry = globalRouteRegistry): void {
+  const register = (method: HttpMethod, pattern: string): void => {
+    registry.register({
+      method,
+      pattern,
+      owner: 'restaurant',
+      handler: async (req, res, ctx, _params, body) => {
+        if (method === 'POST' || method === 'PATCH' || method === 'PUT') {
+          setPreparsedBody(req, body);
+        }
+        const pathname = new URL(req.url || '/', 'http://localhost').pathname;
+        await handleRestaurantRoutes(req, res, pathname, method, ctx?.companyId ?? null);
+      }
+    });
+  };
+
+  register('GET', '/api/v2/restaurant-menu/');
+  register('GET', '/api/v2/restaurants/');
+  register('GET', '/api/v2/companies/buildings/:buildingId/restaurant-properties/');
+  register('PUT', '/api/v2/companies/buildings/:buildingId/restaurant-properties/');
+  register('PATCH', '/api/v2/companies/buildings/:buildingId/restaurant-properties/');
+  register('POST', '/api/v2/companies/buildings/:buildingId/restaurant-properties/');
+  register('GET', '/api/v2/companies/buildings/:buildingId/restaurant-runs/');
+  register('POST', '/api/v2/companies/buildings/:buildingId/restaurant-runs/');
+  register('GET', '/api/v2/restaurants/:buildingId/');
+  register('PUT', '/api/v2/restaurants/:buildingId/');
+  register('PATCH', '/api/v2/restaurants/:buildingId/');
+  register('POST', '/api/v2/restaurants/:buildingId/');
+  register('GET', '/api/v2/restaurants/:buildingId/runs/');
+  register('POST', '/api/v2/restaurants/:buildingId/runs/');
+  register('GET', '/api/v2/restaurants/:buildingId/ratings/');
+}
+
+registerRestaurantRoutes(globalRouteRegistry);

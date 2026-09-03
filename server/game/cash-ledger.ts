@@ -20,6 +20,7 @@
  */
 import type { DatabaseSync } from 'node:sqlite';
 import { db } from '../db/database.ts';
+import { virtualClock } from '../core/virtual-clock.ts';
 
 export interface CashLedgerEntry {
   id: number;
@@ -62,7 +63,7 @@ export function recordCashLedger(entry: CashLedgerInsert): number {
   }
   const targetDb = entry.targetDb ?? db;
   const rounded = Math.round(entry.amount * 100) / 100;
-  const now = isoWithMicros(new Date());
+  const now = isoWithMicros(virtualClock.now());
   const detailsJson = entry.details ? JSON.stringify(entry.details) : '{}';
 
   const result = targetDb.prepare(`
@@ -194,8 +195,7 @@ export function sumNegative(rows: Array<{ amount: number }>): number {
 
 /** Read the ledger window (last 24h) backing the financial statements. */
 export function readStatementWindow(companyId: number): StatementWindow {
-  const now = new Date();
-  const from = new Date(now.getTime() - LEDGER_WINDOW_DAYS * 86400000);
+  const now = virtualClock.now();
   const rows = db.prepare(`
     SELECT amount, category FROM cash_ledger
     WHERE company_id = ? AND created_at >= ?
@@ -247,8 +247,7 @@ export function upsertDailyFinanceSnapshot(
   }
 ): void {
   const { companyId, date, ...rest } = snapshot;
-  const dayKey = utcDayKey(date ?? new Date());
-  const createdAt = isoWithMicros(date ?? new Date());
+  const createdAt = isoWithMicros(date ?? virtualClock.now());
   db.prepare(`
     INSERT INTO finance_daily_snapshots (
       company_id, snapshot_date, total, current_assets, non_current_assets,
@@ -306,7 +305,7 @@ export function getDailyFinanceSnapshots(companyId: number): FinanceSnapshotRow[
 
   // Backfill 30-day realistic financial history based on current company metrics and CSV reference patterns
   const v = readCompanySnapshotValues(companyId);
-  const now = new Date();
+  const now = virtualClock.now();
   const baseCash = Math.max(100000, Number(v.cash) || 100000);
   const baseBuildings = Math.max(17250, Number(v.buildings) || 17250);
   const baseInventory = Number(v.inventory) || 0;

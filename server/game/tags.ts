@@ -1,4 +1,5 @@
 import { db } from '../db/database.ts';
+import { virtualClock } from '../core/virtual-clock.ts';
 import { getCompanyById, type CompanyRow } from './company.ts';
 
 export interface CompanyTagDbRow {
@@ -38,8 +39,8 @@ db.exec(`
   const tagCount = db.prepare('SELECT COUNT(*) as count FROM company_tags').get() as { count: number };
   if (tagCount.count === 0) {
     const insertTag = db.prepare('INSERT INTO company_tags (company_id, resource_kind, kind, buy_sell, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?)');
-    const nowStr = new Date().toISOString();
-    const expStr = new Date(Date.now() + 30 * 86400000).toISOString();
+    const nowStr = virtualClock.nowIso();
+    const expStr = new Date(virtualClock.nowMs() + 30 * 86400000).toISOString();
     const firstComp = db.prepare('SELECT company_id FROM companies LIMIT 1').get() as { company_id: number } | undefined;
     const cid = firstComp ? firstComp.company_id : 4259175;
     insertTag.run(cid, 1, '1', 'b', nowStr, expStr);
@@ -68,8 +69,8 @@ export function addCompanyTag(companyId: number, kind: string, buySell: string) 
   const comp = findCompany(companyId);
   const actualId = comp ? comp.company_id : companyId;
   const resourceKind = parseInt(kind, 10) || 1;
-  const now = new Date().toISOString();
-  const expires = new Date(Date.now() + 30 * 86400000).toISOString();
+  const now = virtualClock.nowIso();
+  const expires = new Date(virtualClock.nowMs() + 30 * 86400000).toISOString();
 
   db.prepare('INSERT INTO company_tags (company_id, resource_kind, kind, buy_sell, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?)').run(
     actualId, resourceKind, kind, buySell, now, expires
@@ -154,7 +155,7 @@ export function lookupCompany(realmId: number, search: string | number) {
       logo: '',
       personal_assistant: 'old',
       note: '',
-      created_at: new Date().toISOString()
+      created_at: virtualClock.nowIso()
     };
   }
 

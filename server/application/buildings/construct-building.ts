@@ -1,4 +1,5 @@
 import type { GameContext } from '../../context/game-context.ts';
+import { virtualClock } from '../../core/virtual-clock.ts';
 import { runInTransaction } from '../../db/transaction.ts';
 import { buildingRepository, type BuildingEntity } from '../../repositories/building-repository.ts';
 import { productionRepository } from '../../repositories/production-repository.ts';
@@ -78,7 +79,7 @@ export async function constructBuildingUseCase(
       if (activeQueues.length > 0) {
         throw new ConflictError('Building has an active production order; cancel production first');
       }
-      assertNotBusyForConstructionWork(existingAtPos.busyUntil);
+      assertNotBusyForConstructionWork(existingAtPos.busyUntil, virtualClock.nowMs());
       // Demolish existing building at position
       buildingRepository.delete(existingAtPos.id, ctx.companyId);
     } else {
@@ -104,8 +105,8 @@ export async function constructBuildingUseCase(
     }
 
     // 4. Create building
-    const now = new Date().toISOString();
-    const busyUntil = new Date(Date.now() + 10000).toISOString();
+    const now = virtualClock.nowIso();
+    const busyUntil = new Date(virtualClock.nowMs() + 10000).toISOString();
 
     const abundance = initialAbundanceForKind(String(kind));
     const building = buildingRepository.create({

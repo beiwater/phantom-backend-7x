@@ -1,4 +1,5 @@
 import type { GameContext } from '../../context/game-context.ts';
+import { virtualClock } from '../../core/virtual-clock.ts';
 import { runInTransaction } from '../../db/transaction.ts';
 import { buildingRepository, type BuildingEntity } from '../../repositories/building-repository.ts';
 import { productionRepository, type ProductionQueueEntity } from '../../repositories/production-repository.ts';
@@ -55,7 +56,7 @@ export async function rushProductionUseCase(
     // 4. Finish immediately and DELIVER the output now (legacy semantics:
     // resolved=1, output added to warehouse, building freed — Issue #68:
     // inventory credit must be inside the same atomic transaction).
-    const nowIso = new Date().toISOString();
+    const nowIso = virtualClock.nowIso();
     const finishedItem = productionRepository.finishImmediately(queueItem.id, ctx.companyId, nowIso);
     if (!productionRepository.markResolved(queueItem.id, ctx.companyId)) {
       throw new ValidationError('Production queue is no longer active');

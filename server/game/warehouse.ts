@@ -1,4 +1,5 @@
 import { db } from '../db/database.ts';
+import { virtualClock } from '../core/virtual-clock.ts';
 
 export interface WarehouseRow {
   id: number;
@@ -46,7 +47,7 @@ export function getWarehouseResources(companyId: number) {
       material5: 0,
       market: Number.isFinite(Number(r.cost_market)) ? Number(r.cost_market) : 1.0
     },
-    datetime: r.updated_at || new Date().toISOString(),
+    datetime: r.updated_at || virtualClock.nowIso(),
     materials: ["", "", "", "", ""]
   }));
 }
@@ -84,7 +85,7 @@ export function consumeResourceExactWithTransactions(
   const row = getWarehouseItemExact(companyId, kind, quality);
   if (!row || Number(row.amount) < amount) return null;
 
-  const now = new Date().toISOString();
+  const now = virtualClock.nowIso();
   const newAmount = Number(row.amount) - amount;
   const result = db.prepare(`
     UPDATE warehouse
@@ -127,7 +128,7 @@ export function addResource(
   const existing = db.prepare(`
     SELECT * FROM warehouse WHERE company_id = ? AND kind = ? AND quality = ?
   `).get(companyId, kind, quality) as unknown as WarehouseRow | undefined;
-  const now = new Date().toISOString();
+  const now = virtualClock.nowIso();
   const incomingCost = cost.market !== undefined && cost.market !== null ? Number(cost.market) : 1;
   const incomingWorkers = cost.workers !== undefined && cost.workers !== null ? Number(cost.workers) : 0;
   const incomingAdmin = cost.admin !== undefined && cost.admin !== null ? Number(cost.admin) : 0;
@@ -226,7 +227,7 @@ export function consumeResourceWithTransactions(
   if (availableAmount < amount) return null;
 
   let remainingNeeded = amount;
-  const now = new Date().toISOString();
+  const now = virtualClock.nowIso();
   const transactions: ResourceTransaction[] = [];
 
   for (const row of rows) {

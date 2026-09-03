@@ -1,7 +1,8 @@
 import type { BuildingEntity } from '../../repositories/building-repository.ts';
+import { virtualClock } from '../../core/virtual-clock.ts';
 import { productionRepository } from '../../repositories/production-repository.ts';
 import { getBuildingMeta } from '../../game-data/buildings.ts';
-import { getResourceDef } from '../../game-data/resources.ts';
+import { getResourceDef, getResourceName } from '../../game-data/resources.ts';
 import { finiteOr, computeFallbackUnitCost } from './production-dto.ts';
 import { RECREATION_UPKEEP_DURATION_SECONDS } from '../../application/buildings/start-recreation-upkeep.ts';
 import {
@@ -11,6 +12,7 @@ import {
   requiredRobotCount,
   requiredRobotQuality
 } from '../../game/robotics.ts';
+import { rocketKindForLaunchRequest } from '../../game/aerospace.ts';
 import {
   getLegacyRestaurantProperties,
   getRestaurantBusy,
@@ -60,14 +62,19 @@ export function toSimCompaniesBuildingDTO(
 ): SimCompaniesBuildingDTO {
   const meta = getBuildingMeta(building.kind);
   const busyUntilMs = building.busyUntil ? new Date(building.busyUntil).getTime() : 0;
-  const isConstructingOrUpgrading = busyUntilMs > Date.now();
+  const isConstructingOrUpgrading = busyUntilMs > virtualClock.nowMs();
 
   let busyObj: Record<string, unknown> | null = null;
   const activeQueue = productionRepository.findLatestActiveByBuilding(building.id, building.companyId);
 
   if (activeQueue) {
-    const resource = getResourceDef(activeQueue.kind);
-    const canFetch = new Date(activeQueue.finishesAt).getTime() <= Date.now();
+    const launchRocketKind = building.kind === 'l' && activeQueue.kind === 100
+      ? rocketKindForLaunchRequest(activeQueue.kind, Number(activeQueue.amount))
+      : null;
+    const displayKind = launchRocketKind ?? activeQueue.kind;
+    const displayResource = getResourceDef(displayKind);
+    const displayAmount = launchRocketKind === null ? Number(activeQueue.amount) || 0 : 1;
+    const canFetch = new Date(activeQueue.finishesAt).getTime() <= virtualClock.nowMs();
     const isSales = building.category === 'sales';
     busyObj = {
       id: activeQueue.id,
@@ -78,17 +85,24 @@ export function toSimCompaniesBuildingDTO(
       canFetch: isSales ? false : canFetch,
       manualResolve: false,
       resource: {
-        kind: activeQueue.kind,
-        name: resource?.name || `Resource #${activeQueue.kind}`,
+        kind: displayKind,
+        name: getResourceName(displayKind),
         quality: Math.max(0, Math.floor(Number(activeQueue.quality) || 0)),
         unitCost: finiteOr(
           activeQueue.cost,
           computeFallbackUnitCost(activeQueue)
         ),
-        amount: Number(activeQueue.amount) || 0,
-        amountAvailableNow: isSales ? 0 : (canFetch ? Number(activeQueue.amount) || 0 : 0),
-        image: resource?.image || ''
-      }
+        amount: displayAmount,
+        amountAvailableNow: isSales || launchRocketKind !== null
+          ? 0
+          : (canFetch ? displayAmount : 0),
+        image: displayResource?.image || ''
+      },
+      economyPhase: activeQueue.economyPhase,
+      economyPhaseStartedAt: activeQueue.economyPhaseStartedAt,
+      economySource: activeQueue.economySource,
+      productionModifier: activeQueue.productionModifier,
+      productionOutputMultiplier: activeQueue.productionOutputMultiplier
     };
   } else if (building.kind === 'r') {
     resolveDueRestaurantRunsSync(building.id, building.companyId);

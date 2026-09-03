@@ -1,5 +1,6 @@
 import type { DatabaseSync } from 'node:sqlite';
 import { db } from '../db/connection.ts';
+import { virtualClock } from '../core/virtual-clock.ts';
 import { companyRepository } from './company-repository.ts';
 
 export interface BondRow {
@@ -145,7 +146,7 @@ export class BondRepository {
   seedBondMarketListings() {
     if (this.countUnsold() > 0) return;
 
-    const now = new Date().toISOString();
+    const now = virtualClock.nowIso();
     const seedBonds = [
       { seller: 999901, amount: 50000, rate: 0.005 },
       { seller: 999902, amount: 100000, rate: 0.0055 },

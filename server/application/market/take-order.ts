@@ -14,6 +14,7 @@ import { ValidationError, NotFoundError, SelfTradeProhibitedError } from '../../
 import { marketRepository, marketTradeRepository } from '../../repositories/market-repository.ts';
 import { warehouseRepository } from '../../repositories/warehouse-repository.ts';
 import { companyRepository } from '../../repositories/company-repository.ts';
+import { virtualClock } from '../../core/virtual-clock.ts';
 
 export interface TakeMarketOrderInput {
   resource: number;
@@ -161,7 +162,8 @@ export async function takeMarketOrder(ctx: GameContext, input: TakeMarketOrderIn
 
     // Issue #100: record every fill in the trade ledger backing the daily
     // VWAP reference prices.
-    const tradedAt = new Date().toISOString();
+    // VWAP reference prices.
+    const tradedAt = virtualClock.nowIso();
     for (const fill of fills) {
       marketTradeRepository.recordFill({
         kind: fill.kind,

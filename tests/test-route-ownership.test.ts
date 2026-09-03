@@ -1,3 +1,5 @@
+import type { IncomingMessage, ServerResponse } from 'node:http';
+import { EventEmitter } from 'node:events';
 import assert from 'node:assert';
 import {
   methodManifest,
@@ -71,6 +73,49 @@ function samplePathOf(pattern: string): string {
   return '/' + segments.map(s => (s.startsWith(':') ? '1' : s)).join('/') + '/';
 }
 
+async function testHistoricalRegistryOwnership(): Promise<void> {
+  const probes = [
+    { method: 'GET', path: '/api/v2/newspaper/sponsor-params/', owner: 'newspaper' },
+    { method: 'GET', path: '/api/v2/en/1/articles/top-by-reaction/5/', owner: 'newspaper' },
+    { method: 'GET', path: '/api/v2/newspaper/articles-by-author/1/', owner: 'social' },
+    { method: 'GET', path: '/api/v2/market/bonds/', owner: 'bonds' },
+    { method: 'GET', path: '/api/v2/building-auctions/active-unlocks/', owner: 'building-auctions' },
+    { method: 'GET', path: '/api/v2/resources/1/', owner: 'warehouse' },
+    { method: 'GET', path: '/api/v2/market-ticker/', owner: 'market' },
+    { method: 'GET', path: '/api/v2/constants/core/', owner: 'encyclopedia' },
+    { method: 'GET', path: '/api/v3/companies/auth-data/', owner: 'auth' },
+    { method: 'GET', path: '/api/v1/sales-orders/', owner: 'retail' },
+    { method: 'GET', path: '/api/v2/restaurants/', owner: 'restaurant' },
+    { method: 'GET', path: '/api/v2/payment-pricing/', owner: 'simboost' },
+    { method: 'GET', path: '/api/v2/debug/state/', owner: 'debug' },
+    { method: 'GET', path: '/api/v3/pages/zh-cn/economy-model/', owner: 'pages' }
+  ];
+  for (const probe of probes) {
+    assert.strictEqual(
+      globalRouteRegistry.getOwner(probe.path, probe.method),
+      probe.owner,
+      `registry owner for ${probe.method} ${probe.path}`
+    );
+    const req = new EventEmitter() as IncomingMessage;
+    Object.assign(req, {
+      url: probe.path,
+      method: probe.method,
+      headers: { 'content-length': '0' },
+      resume: () => req
+    });
+    const response = { code: null as number | null, body: '' };
+    const res = {
+      setHeader() {},
+      writeHead(code: number) { response.code = code; },
+      end(body?: unknown) { response.body = body === undefined ? '' : String(body); },
+      getHeader() { return undefined; }
+    } as unknown as ServerResponse;
+    const handled = await globalRouteRegistry.dispatch(req, res, probe.path, probe.method, null);
+    assert.strictEqual(handled, true, `registry must handle ${probe.method} ${probe.path}`);
+    assert.ok(response.code !== null, `registry must send a response for ${probe.path}`);
+  }
+}
+
 async function testRegistryVsLegacyPrecedence(): Promise<void> {
   // Registry dispatch runs BEFORE the legacy chain. A registry-owned path
   // must never be 405-blocked by a manifest entry that excludes its method
@@ -128,6 +173,8 @@ function samplePathOfRegex(pattern: RegExp): string {
 async function main(): Promise<void> {
   await testHistoricalOwnershipIsStable();
   console.log('PASS historical shadowing ownership stable under order permutation');
+  await testHistoricalRegistryOwnership();
+  console.log('PASS declarative registry claims historical shadowing endpoints');
   await testRegistryVsLegacyPrecedence();
   console.log('PASS registry routes are not preempted by the manifest');
   await testManifestBoundaries();

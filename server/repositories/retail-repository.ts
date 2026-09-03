@@ -16,6 +16,9 @@ export interface RetailOrderEntity {
   cost: number;
   finishedAt: string | null;
   createdAt: string;
+  economyPhase: number;
+  economyPhaseStartedAt: string | null;
+  economySource: string;
 }
 
 export interface RetailOrderDbRow {
@@ -29,6 +32,9 @@ export interface RetailOrderDbRow {
   cost: number;
   finished_at: string | null;
   created_at: string;
+  economy_phase: number | null;
+  economy_phase_started_at: string | null;
+  economy_source: string | null;
 }
 
 export function mapRetailOrderRow(row: RetailOrderDbRow): RetailOrderEntity {
@@ -42,7 +48,10 @@ export function mapRetailOrderRow(row: RetailOrderDbRow): RetailOrderEntity {
     unitPrice: Number(row.unit_price),
     cost: Number(row.cost),
     finishedAt: row.finished_at,
-    createdAt: row.created_at
+    createdAt: row.created_at,
+    economyPhase: Number(row.economy_phase ?? 1),
+    economyPhaseStartedAt: row.economy_phase_started_at,
+    economySource: row.economy_source || 'migration'
   };
 }
 
@@ -56,6 +65,9 @@ export interface InsertRetailOrderInput {
   cost: number;
   finishedAt: string;
   createdAt: string;
+  economyPhase?: number;
+  economyPhaseStartedAt?: string | null;
+  economySource?: string;
 }
 
 export class RetailRepository {
@@ -91,8 +103,9 @@ export class RetailRepository {
   insert(input: InsertRetailOrderInput): RetailOrderEntity {
     const result = this.database.prepare(`
       INSERT INTO retail_orders
-        (building_id, company_id, resource_kind, quality, units, unit_price, cost, finished_at, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (building_id, company_id, resource_kind, quality, units, unit_price, cost, finished_at, created_at,
+         economy_phase, economy_phase_started_at, economy_source)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       input.buildingId,
       input.companyId,
@@ -102,7 +115,10 @@ export class RetailRepository {
       input.unitPrice,
       input.cost,
       input.finishedAt,
-      input.createdAt
+      input.createdAt,
+      input.economyPhase ?? 1,
+      input.economyPhaseStartedAt ?? null,
+      input.economySource ?? 'scheduler'
     );
     const order = this.findById(Number(result.lastInsertRowid));
     if (!order) {

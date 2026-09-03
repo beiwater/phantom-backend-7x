@@ -6,6 +6,7 @@
  */
 import type { DatabaseSync } from 'node:sqlite';
 import { db } from '../db/connection.ts';
+import { virtualClock } from '../core/virtual-clock.ts';
 
 export interface RestaurantPropertyRowEntity {
   buildingId: number;
@@ -117,7 +118,7 @@ export class RestaurantRepository {
         entity.menuPrice,
         entity.rating,
         entity.occupancy,
-        new Date().toISOString(),
+        virtualClock.nowIso(),
         entity.professionalStaff ? 1 : 0,
         entity.lastCycleAt,
         entity.reconstructionStartedAt,
@@ -129,13 +130,13 @@ export class RestaurantRepository {
   touchLastCycle(buildingId: number, cycleStartIso: string): void {
     this.database
       .prepare('UPDATE restaurant_properties SET last_cycle_at = ?, updated_at = ? WHERE building_id = ?')
-      .run(cycleStartIso, new Date().toISOString(), buildingId);
+      .run(cycleStartIso, virtualClock.nowIso(), buildingId);
   }
 
   updateRatingOccupancy(buildingId: number, rating: number, occupancy: number): void {
     this.database
       .prepare('UPDATE restaurant_properties SET rating = ?, occupancy = ?, updated_at = ? WHERE building_id = ?')
-      .run(rating, occupancy, new Date().toISOString(), buildingId);
+      .run(rating, occupancy, virtualClock.nowIso(), buildingId);
   }
 
   getActiveRunRow(buildingId: number, companyId?: number | null): Record<string, unknown> | undefined {

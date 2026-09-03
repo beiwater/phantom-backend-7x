@@ -1,51 +1,30 @@
 import crypto from 'node:crypto';
+import { virtualClock } from '../core/virtual-clock.ts';
 import { db } from '../db/database.ts';
 import { getCompanyById, updateCompanyMoney } from './company.ts';
 import { consumeResourceExactWithTransactions, getWarehouseItemExact } from './warehouse.ts';
+import { governmentOrdersRepository } from '../repositories/government-orders-repository.ts';
+import { getResourceName } from '../game-data/resources.ts';
 
-// Initialize Government Orders tables
-db.exec(`
-  CREATE TABLE IF NOT EXISTS government_orders (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    realm_id INTEGER DEFAULT 0,
-    project_key TEXT,
-    agency TEXT,
-    estimated_base_value REAL,
-    days_to_fulfill INTEGER,
-    resource_multiplier_awarded REAL,
-    required_resources_json TEXT,
-    unit_compensation_price REAL DEFAULT 0,
-    start_date TEXT,
-    deadline TEXT,
-    created_at TEXT
-  );
-`);
-
-// Older databases may predate later columns; ALTER defensively (no-op if present).
-for (const [table, column, ddl] of [
-  ['government_orders', 'unit_compensation_price', 'ALTER TABLE government_orders ADD COLUMN unit_compensation_price REAL DEFAULT 0'],
-  ['government_orders', 'start_date', 'ALTER TABLE government_orders ADD COLUMN start_date TEXT'],
-  ['government_orders', 'deadline', 'ALTER TABLE government_orders ADD COLUMN deadline TEXT']
-] as const) {
-  const cols = (db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>).map(c => c.name);
-  if (!cols.includes(column)) db.exec(ddl);
-}
 
 export interface GovernmentRequiredResource {
   id: number;
   kind: number;
+  name: string;
   quality: number;
   amountBase: number;
+  amount?: number;
   targetAmount?: number;
   unitCompensationPrice?: number;
   unitPrice?: number;
 }
-
 export interface GovernmentOrderTemplate {
   id: number;
   realm: number;
   realmId?: number;
   projectKey: string;
+  name: string;
+  projectName: string;
   agency: string;
   estimatedBaseValue: number;
   daysToFulfill: number;
@@ -74,7 +53,7 @@ export interface GovernmentBidder {
     deleted: boolean;
   };
   allocatedShare?: number;
-  computedResourcesNeeded?: Record<string, { kind: number; amount: number; quality: number }>;
+  computedResourcesNeeded?: Record<string, { kind: number; name: string; amount: number; quality: number }>;
 }
 
 export interface GovernmentBidApplication {
@@ -92,127 +71,20 @@ export interface GovernmentBidApplication {
   contractors?: GovernmentBidder[];
 }
 
-// 7 Standard Government Procurement Projects matching formulas_government.md & prompt specifications
-const STANDARD_PROJECTS = [
-  {
-    key: 'FIRE_TRUCK_FLEET',
-    agency: 'FIRE_DEPARTMENT',
-    value: 260000,
-    days: 7,
-    unitCompensationPrice: 85.0,
-    resources: [
-      { id: 1, kind: 12, quality: 0, amountBase: 600, targetAmount: 600, unitCompensationPrice: 40.0, unitPrice: 40.0 }, // Diesel / Gasoline
-      { id: 2, kind: 48, quality: 1, amountBase: 180, targetAmount: 180, unitCompensationPrice: 200.0, unitPrice: 200.0 }, // Electric components
-      { id: 3, kind: 18, quality: 1, amountBase: 350, targetAmount: 350, unitCompensationPrice: 100.0, unitPrice: 100.0 }  // Steel / Aluminium
-    ]
-  },
-  {
-    key: 'SATELLITE_NETWORK',
-    agency: 'SPACE_EXPLORATION_AGENCY',
-    value: 720000,
-    days: 10,
-    unitCompensationPrice: 1250.0,
-    resources: [
-      { id: 4, kind: 80, quality: 2, amountBase: 25, targetAmount: 25, unitCompensationPrice: 8000.0, unitPrice: 8000.0 },   // Flight computer
-      { id: 5, kind: 85, quality: 1, amountBase: 15, targetAmount: 15, unitCompensationPrice: 12000.0, unitPrice: 12000.0 }, // Solid rocket
-      { id: 6, kind: 100, quality: 0, amountBase: 500, targetAmount: 500, unitCompensationPrice: 300.0, unitPrice: 300.0 }  // Aerospace Research
-    ]
-  },
-  {
-    key: 'BORDER_SECURITY_LOGISTICS',
-    agency: 'DEPARTMENT_OF_DEFENSE',
-    value: 550000,
-    days: 8,
-    unitCompensationPrice: 280.0,
-    resources: [
-      { id: 7, kind: 11, quality: 0, amountBase: 1500, targetAmount: 1500, unitCompensationPrice: 45.0, unitPrice: 45.0 },  // Petrol / Gasoline
-      { id: 8, kind: 80, quality: 2, amountBase: 20, targetAmount: 20, unitCompensationPrice: 8000.0, unitPrice: 8000.0 },   // Flight computer
-      { id: 9, kind: 100, quality: 0, amountBase: 400, targetAmount: 400, unitCompensationPrice: 300.0, unitPrice: 300.0 }  // Aerospace Research
-    ]
-  },
-  {
-    key: 'CLEAN_WATER_INITIATIVE',
-    agency: 'ENVIRONMENTAL_PROTECTION_AGENCY',
-    value: 310000,
-    days: 6,
-    unitCompensationPrice: 2.3,
-    resources: [
-      { id: 10, kind: 2, quality: 0, amountBase: 80000, targetAmount: 80000, unitCompensationPrice: 0.5, unitPrice: 0.5 },  // Water
-      { id: 11, kind: 1, quality: 0, amountBase: 50000, targetAmount: 50000, unitCompensationPrice: 0.3, unitPrice: 0.3 },  // Power
-      { id: 12, kind: 22, quality: 1, amountBase: 400, targetAmount: 400, unitCompensationPrice: 150.0, unitPrice: 150.0 }  // Batteries
-    ]
-  },
-  {
-    key: 'STRATEGIC_GRAIN_RESERVE',
-    agency: 'DEPARTMENT_OF_AGRICULTURE',
-    value: 210000,
-    days: 5,
-    unitCompensationPrice: 2.6,
-    resources: [
-      { id: 13, kind: 3, quality: 0, amountBase: 15000, targetAmount: 15000, unitCompensationPrice: 4.5, unitPrice: 4.5 },  // Apples
-      { id: 14, kind: 2, quality: 0, amountBase: 60000, targetAmount: 60000, unitCompensationPrice: 0.5, unitPrice: 0.5 },  // Water
-      { id: 15, kind: 66, quality: 0, amountBase: 5000, targetAmount: 5000, unitCompensationPrice: 8.0, unitPrice: 8.0 }   // Seeds
-    ]
-  },
-  {
-    key: 'GRID_REINFORCEMENT',
-    agency: 'ENERGY_DEPARTMENT',
-    value: 480000,
-    days: 7,
-    unitCompensationPrice: 4.0,
-    resources: [
-      { id: 16, kind: 1, quality: 0, amountBase: 100000, targetAmount: 100000, unitCompensationPrice: 0.3, unitPrice: 0.3 }, // Power
-      { id: 17, kind: 22, quality: 1, amountBase: 600, targetAmount: 600, unitCompensationPrice: 150.0, unitPrice: 150.0 }, // Batteries
-      { id: 18, kind: 18, quality: 1, amountBase: 500, targetAmount: 500, unitCompensationPrice: 100.0, unitPrice: 100.0 }  // Aluminium
-    ]
-  },
-  {
-    key: 'EMERGENCY_MEDICAL_SUPPLY',
-    agency: 'PUBLIC_HEALTH_DEPARTMENT',
-    value: 350000,
-    days: 5,
-    unitCompensationPrice: 7.2,
-    resources: [
-      { id: 19, kind: 2, quality: 1, amountBase: 40000, targetAmount: 40000, unitCompensationPrice: 0.8, unitPrice: 0.8 },  // Water
-      { id: 20, kind: 3, quality: 1, amountBase: 8000, targetAmount: 8000, unitCompensationPrice: 6.0, unitPrice: 6.0 },    // Apples
-      { id: 21, kind: 22, quality: 1, amountBase: 500, targetAmount: 500, unitCompensationPrice: 150.0, unitPrice: 150.0 }  // Batteries
-    ]
-  }
-];
 
-export function ensureSeededProjects(realmId: number = 0) {
-  const count = db.prepare('SELECT COUNT(*) as count FROM government_orders WHERE realm_id = ?').get(realmId) as { count: number };
-  if (count.count >= STANDARD_PROJECTS.length) return;
+export function ensureSeededProjects(realmId: number = 0): void {
+  governmentOrdersRepository.ensureSeededProjects(realmId);
+}
+function mapGovernmentResources(resources: GovernmentRequiredResource[]): GovernmentRequiredResource[] {
+  return resources.map(resource => ({
+    ...resource,
+    name: getResourceName(resource.kind),
+    amount: resource.targetAmount ?? resource.amountBase
+  }));
+}
 
-  const now = new Date();
-  const nowIso = now.toISOString();
-  const deadlineIso = new Date(now.getTime() + 5 * 24 * 60 * 60 * 1000).toISOString();
-
-  // If table exists with old projects count, clean up or insert missing
-  if (count.count > 0 && count.count < STANDARD_PROJECTS.length) {
-    db.prepare('DELETE FROM government_orders WHERE realm_id = ?').run(realmId);
-  }
-
-  for (const p of STANDARD_PROJECTS) {
-    db.prepare(`
-      INSERT INTO government_orders (
-        realm_id, project_key, agency, estimated_base_value, days_to_fulfill,
-        resource_multiplier_awarded, required_resources_json, unit_compensation_price,
-        start_date, deadline, created_at
-      ) VALUES (?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?)
-    `).run(
-      realmId,
-      p.key,
-      p.agency,
-      p.value,
-      p.days,
-      JSON.stringify(p.resources),
-      p.unitCompensationPrice,
-      nowIso,
-      deadlineIso,
-      nowIso
-    );
-  }
+function governmentProjectName(projectKey: string): string {
+  return governmentOrdersRepository.projectDefinition(projectKey)?.name || projectKey;
 }
 
 export function getGovernmentTier(companyId?: number | null): {
@@ -242,92 +114,63 @@ export function getGovernmentTier(companyId?: number | null): {
   };
 }
 
-export function getGovernmentOrders(realmId: number = 0): GovernmentOrderTemplate[] {
-  ensureSeededProjects(realmId);
-  const rows = db.prepare('SELECT * FROM government_orders WHERE realm_id = ?').all(realmId) as Array<{
-    id: number;
-    realm_id: number;
-    project_key: string;
-    agency: string;
-    estimated_base_value: number;
-    days_to_fulfill: number;
-    resource_multiplier_awarded: number | null;
-    required_resources_json: string;
-    unit_compensation_price?: number;
-    start_date?: string;
-    deadline?: string;
-    created_at: string;
-  }>;
+type GovernmentOrderDbRow = {
+  id: number;
+  realm_id: number;
+  project_key: string;
+  agency: string;
+  estimated_base_value: number;
+  days_to_fulfill: number;
+  resource_multiplier_awarded: number | null;
+  required_resources_json: string | null;
+  unit_compensation_price?: number;
+  start_date?: string | null;
+  deadline?: string | null;
+  created_at: string | null;
+};
 
-  return rows.map(r => {
-    let resources: GovernmentRequiredResource[] = [];
-    try {
-      resources = JSON.parse(r.required_resources_json || '[]');
-    } catch {
-      resources = [];
-    }
-    const created = r.created_at || new Date().toISOString();
-    const deadline = r.deadline || new Date(Date.parse(created) + 5 * 24 * 60 * 60 * 1000).toISOString();
-    return {
-      id: r.id,
-      realm: r.realm_id,
-      realmId: r.realm_id,
-      projectKey: r.project_key,
-      agency: r.agency,
-      estimatedBaseValue: r.estimated_base_value,
-      daysToFulfill: r.days_to_fulfill,
-      resourceMultiplierAwarded: r.resource_multiplier_awarded,
-      created,
-      startDate: r.start_date || created,
-      deadline,
-      unitCompensationPrice: r.unit_compensation_price || 0,
-      governmentorderrequiredresourceSet: resources
-    };
-  });
-}
-
-export function getGovernmentOrderById(id: number): GovernmentOrderTemplate | null {
-  const r = db.prepare('SELECT * FROM government_orders WHERE id = ?').get(id) as {
-    id: number;
-    realm_id: number;
-    project_key: string;
-    agency: string;
-    estimated_base_value: number;
-    days_to_fulfill: number;
-    resource_multiplier_awarded: number | null;
-    required_resources_json: string;
-    unit_compensation_price?: number;
-    start_date?: string;
-    deadline?: string;
-    created_at: string;
-  } | undefined;
-
-  if (!r) return null;
-
+function mapGovernmentOrderRow(row: GovernmentOrderDbRow): GovernmentOrderTemplate {
   let resources: GovernmentRequiredResource[] = [];
   try {
-    resources = JSON.parse(r.required_resources_json || '[]');
+    resources = JSON.parse(row.required_resources_json || '[]') as GovernmentRequiredResource[];
   } catch {
     resources = [];
   }
-  const created = r.created_at || new Date().toISOString();
-  const deadline = r.deadline || new Date(Date.parse(created) + 5 * 24 * 60 * 60 * 1000).toISOString();
-
+  const created = row.created_at || virtualClock.nowIso();
+  const startDate = row.start_date || created;
+  const daysToFulfill = Number(row.days_to_fulfill) || 0;
+  const deadline = row.deadline || new Date(
+    Date.parse(startDate) + daysToFulfill * 24 * 60 * 60 * 1000
+  ).toISOString();
+  const name = governmentProjectName(row.project_key);
   return {
-    id: r.id,
-    realm: r.realm_id,
-    realmId: r.realm_id,
-    projectKey: r.project_key,
-    agency: r.agency,
-    estimatedBaseValue: r.estimated_base_value,
-    daysToFulfill: r.days_to_fulfill,
-    resourceMultiplierAwarded: r.resource_multiplier_awarded,
+    id: row.id,
+    realm: row.realm_id,
+    realmId: row.realm_id,
+    projectKey: row.project_key,
+    name,
+    projectName: name,
+    agency: row.agency,
+    estimatedBaseValue: row.estimated_base_value,
+    daysToFulfill,
+    resourceMultiplierAwarded: row.resource_multiplier_awarded,
     created,
-    startDate: r.start_date || created,
+    startDate,
     deadline,
-    unitCompensationPrice: r.unit_compensation_price || 0,
-    governmentorderrequiredresourceSet: resources
+    unitCompensationPrice: row.unit_compensation_price || 0,
+    governmentorderrequiredresourceSet: mapGovernmentResources(resources)
   };
+}
+
+export function getGovernmentOrders(realmId: number = 0): GovernmentOrderTemplate[] {
+  ensureSeededProjects(realmId);
+  const rows = db.prepare('SELECT * FROM government_orders WHERE realm_id = ? ORDER BY id ASC').all(realmId) as GovernmentOrderDbRow[];
+  return rows.map(mapGovernmentOrderRow);
+}
+
+export function getGovernmentOrderById(id: number): GovernmentOrderTemplate | null {
+  const row = db.prepare('SELECT * FROM government_orders WHERE id = ?').get(id) as GovernmentOrderDbRow | undefined;
+  return row ? mapGovernmentOrderRow(row) : null;
 }
 
 interface GovernmentBidDbRow {
@@ -358,11 +201,9 @@ function computeBidAllocations(template: GovernmentOrderTemplate, maxContractors
   company_realm: number | null;
 }>): GovernmentBidder[] {
   const totalSlots = Math.max(3, maxContractors);
-  // Sort contractors by tier multiplier ascending
   const sorted = [...contractors].sort((a, b) => a.tier_multiplier - b.tier_multiplier);
   const highestMultiplier = sorted.length > 0 ? Math.max(...sorted.map(c => c.tier_multiplier)) : 1.0;
 
-  // Calculate sum of multipliers including placeholder pretend bidders for unfilled slots
   let sumMultipliers = 0;
   for (const c of sorted) {
     sumMultipliers += c.tier_multiplier;
@@ -373,14 +214,14 @@ function computeBidAllocations(template: GovernmentOrderTemplate, maxContractors
 
   return sorted.map(c => {
     const share = Math.round((c.tier_multiplier / sumMultipliers) * 10000) / 10000;
-    const computedResources: Record<string, { kind: number; amount: number; quality: number }> = {};
+    const computedResources: Record<string, { kind: number; name: string; amount: number; quality: number }> = {};
 
     for (const res of template.governmentorderrequiredresourceSet) {
-      // Proportional resource share calculation according to decompiled Rzi formula
       const computedMultiplicator = (c.tier_multiplier / sumMultipliers) * totalSlots;
       const amount = Math.max(1, Math.ceil(res.amountBase * computedMultiplicator));
       computedResources[String(res.kind)] = {
         kind: res.kind,
+        name: getResourceName(res.kind),
         amount,
         quality: res.quality
       };
@@ -497,12 +338,12 @@ export function createGovernmentBid(
 ): GovernmentBidApplication {
   ensureSeededProjects(realmId);
   const template = getGovernmentOrderById(data.templateId);
-  if (!template) {
-    throw new Error('Government order project template not found');
+  if (!template || template.realm !== realmId) {
+    throw new Error('Government order project template not found in this realm');
   }
 
   // Validate deadline
-  if (template.deadline && Date.now() > Date.parse(template.deadline)) {
+  if (template.deadline && virtualClock.nowMs() > Date.parse(template.deadline)) {
     throw new Error('Project bidding deadline has passed');
   }
 
@@ -535,7 +376,7 @@ export function createGovernmentBid(
   }
 
   const secret = `bid-${crypto.randomBytes(6).toString('hex')}`;
-  const now = new Date().toISOString();
+  const now = virtualClock.nowIso();
   const priceBreakdown = typeof data.resourcePriceBreakdown === 'string'
     ? data.resourcePriceBreakdown
     : JSON.stringify(data.resourcePriceBreakdown || {});
@@ -745,7 +586,7 @@ export function joinGovernmentBid(secret: string, companyId: number): Government
     if (deposit > 0) {
       updateCompanyMoney(companyId, -deposit);
     }
-    const now = new Date().toISOString();
+    const now = virtualClock.nowIso();
     db.prepare(`
       INSERT INTO government_bid_contractors (
         bid_secret, company_id, is_main, tier_index, tier_multiplier,
@@ -812,7 +653,7 @@ export function getBlockedCompanies(secret: string): { blockedCompanies: number[
 }
 
 export function blockCompany(secret: string, companyId: number): void {
-  const now = new Date().toISOString();
+  const now = virtualClock.nowIso();
   db.prepare(`
     INSERT OR IGNORE INTO government_bid_blocked_companies (bid_secret, company_id, blocked_at)
     VALUES (?, ?, ?)
@@ -877,6 +718,9 @@ export function fulfillGovernmentOrderContractor(
   if (!template) {
     throw new Error('Order template not found');
   }
+  if (template.deadline && virtualClock.nowMs() > Date.parse(template.deadline)) {
+    throw new Error('Project fulfillment deadline has passed');
+  }
 
   // Parse price breakdown
   let prices: Record<string, number> = {};
@@ -924,7 +768,7 @@ export function fulfillGovernmentOrderContractor(
       moneyDelta: totalPayout,
       money: newMoney,
       resourceTransactions,
-      lastTransactionId: Date.now(),
+      lastTransactionId: virtualClock.nowMs(),
       application: updatedBid
     };
   } catch (err) {

@@ -1,4 +1,5 @@
 import { db } from '../db/database.ts';
+import { virtualClock } from '../core/virtual-clock.ts';
 import { runInTransaction } from '../db/transaction.ts';
 import { getBuildingById, type BuildingDbRow } from './buildings.ts';
 import { buildingRepository } from '../repositories/building-repository.ts';
@@ -492,7 +493,7 @@ function getActiveRestaurantRunRow(buildingId: number, companyId?: number | null
 
 export function getRestaurantBusy(buildingId: number): Record<string, unknown> | null {
   const property = restaurantRepository.findReconstructionWindow(buildingId);
-  const now = Date.now();
+  const now = virtualClock.nowMs();
   if (property?.until && new Date(property.until).getTime() > now) {
     const started = property.startedAt || new Date(now).toISOString();
     const duration = Math.max(1, Math.round((new Date(property.until).getTime() - new Date(started).getTime()) / 1000));
@@ -686,7 +687,7 @@ function computeCurrentRating(companyId: number, input: {
 function canStartRestaurantCycle(buildingId: number, companyId: number): boolean {
   const building = getBuildingById(buildingId);
   if (!building || building.kind !== 'r' || building.company_id !== companyId) return false;
-  if (building.busy_until && new Date(building.busy_until).getTime() > Date.now()) return false;
+  if (building.busy_until && new Date(building.busy_until).getTime() > virtualClock.nowMs()) return false;
   const properties = getRestaurantProperties(buildingId, companyId);
   if (!properties.keepOpen) return false;
   if (getActiveRestaurantRunRow(buildingId, companyId)) return false;
@@ -705,10 +706,10 @@ interface StartCycleResult {
   moneyUpdate: number;
 }
 
-function startRestaurantCycleInTransaction(buildingId: number, companyId: number, startAt: Date = new Date()): StartCycleResult {
+function startRestaurantCycleInTransaction(buildingId: number, companyId: number, startAt: Date = virtualClock.now()): StartCycleResult {
   const building = getBuildingById(buildingId);
   if (!building || building.kind !== 'r' || building.company_id !== companyId) throw new Error('Restaurant not found');
-  if (building.busy_until && new Date(building.busy_until).getTime() > Date.now()) throw new Error('Restaurant is busy');
+  if (building.busy_until && new Date(building.busy_until).getTime() > virtualClock.nowMs()) throw new Error('Restaurant is busy');
   const properties = getRestaurantProperties(buildingId, companyId);
   if (!properties.keepOpen) throw new Error('Restaurant is closed and cannot start a new cycle');
   if (getActiveRestaurantRunRow(buildingId, companyId)) throw new Error('Restaurant already has an active cycle');
@@ -835,11 +836,11 @@ function settleRestaurantRunInTransaction(runId: number, now: Date): { run: Rest
   return { run: resolved, nextCycle, moneyUpdate: revenue };
 }
 
-export async function resolveRestaurantRun(runId: number, now: Date = new Date()): Promise<{ run: RestaurantRun; nextCycle: RestaurantRun | null; moneyUpdate: number }> {
+export async function resolveRestaurantRun(runId: number, now: Date = virtualClock.now()): Promise<{ run: RestaurantRun; nextCycle: RestaurantRun | null; moneyUpdate: number }> {
   return runInTransaction(() => settleRestaurantRunInTransaction(runId, now), { immediate: true });
 }
 
-export function resolveDueRestaurantRunsSync(buildingId?: number, companyId?: number | null, now: Date = new Date()): void {
+export function resolveDueRestaurantRunsSync(buildingId?: number, companyId?: number | null, now: Date = virtualClock.now()): void {
   runInTransaction(() => {
     for (const runId of restaurantRepository.listDueRunIds(now.toISOString(), buildingId, companyId)) {
       settleRestaurantRunInTransaction(runId, now);
@@ -847,7 +848,7 @@ export function resolveDueRestaurantRunsSync(buildingId?: number, companyId?: nu
   }, { immediate: true });
 }
 
-export async function resolveDueRestaurantRuns(buildingId?: number, companyId?: number | null, now: Date = new Date()): Promise<void> {
+export async function resolveDueRestaurantRuns(buildingId?: number, companyId?: number | null, now: Date = virtualClock.now()): Promise<void> {
   resolveDueRestaurantRunsSync(buildingId, companyId, now);
 }
 export async function getRestaurantRuns(buildingId: number, companyId?: number | null): Promise<RestaurantRun[]> {
@@ -896,18 +897,18 @@ export async function updateRestaurantProperties(
     const busy = getRestaurantBusy(buildingId);
     if (styleChanged && busy) throw new Error('Restaurant cannot change style while it is busy or operating');
     let moneyUpdate = 0;
-    let reconstructionStartedAt = current.reconstructionUntil && new Date(current.reconstructionUntil).getTime() > Date.now()
-      ? new Date(Date.now()).toISOString()
+    let reconstructionStartedAt = current.reconstructionUntil && new Date(current.reconstructionUntil).getTime() > virtualClock.nowMs()
+      ? virtualClock.nowIso()
       : null;
-    let reconstructionUntil = current.reconstructionUntil && new Date(current.reconstructionUntil).getTime() > Date.now()
+    let reconstructionUntil = current.reconstructionUntil && new Date(current.reconstructionUntil).getTime() > virtualClock.nowMs()
       ? current.reconstructionUntil
       : null;
     if (styleChanged) {
       const reconstructionCost = Math.ceil(RESTAURANT_COST_UNITS * 10 * AVERAGE_SALARY * building.size / 2);
       updateCompanyMoney(companyId, -reconstructionCost);
       moneyUpdate -= reconstructionCost;
-      reconstructionStartedAt = new Date().toISOString();
-      reconstructionUntil = new Date(Date.now() + building.size * RESTAURANT_RECONSTRUCTION_SECONDS * 1000).toISOString();
+      reconstructionStartedAt = virtualClock.nowIso();
+      reconstructionUntil = new Date(virtualClock.nowMs() + building.size * RESTAURANT_RECONSTRUCTION_SECONDS * 1000).toISOString();
       buildingRepository.updateBusyUntil(buildingId, companyId, reconstructionUntil);
     }
     const activeRun = getActiveRestaurantRunRow(buildingId, companyId);

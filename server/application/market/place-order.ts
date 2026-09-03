@@ -16,6 +16,7 @@ import { marketRepository } from '../../repositories/market-repository.ts';
 import { warehouseRepository } from '../../repositories/warehouse-repository.ts';
 import { companyRepository } from '../../repositories/company-repository.ts';
 import { getResourceDef } from '../../game-data/resources.ts';
+import { virtualClock } from '../../core/virtual-clock.ts';
 
 export interface PlaceMarketOrderInput {
   resourceId?: number;
@@ -97,7 +98,7 @@ export async function placeMarketOrder(ctx: GameContext, input: PlaceMarketOrder
       quality,
       quantity,
       price,
-      postedAt: new Date().toISOString(),
+      postedAt: virtualClock.nowIso(),
       costWorkers: item.costWorkers,
       costAdmin: item.costAdmin,
       costMaterial1: item.costMaterial1,

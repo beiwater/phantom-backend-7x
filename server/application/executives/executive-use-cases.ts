@@ -47,11 +47,10 @@ export function formatExecutive(e: ExecutiveRow) {
   const comm = Number(e.skill_communication) || 0;
   const avatar = e.avatar || 'images/avatars/male_01.png';
   const gen = generateDeterministicGenome(e.id || e.name, avatar, e.name);
-  const workStart = new Date(
-    new Date(validIsoOrNull(e.created_at) || Date.now() - 86400000).getTime() - virtualClock.getOffsetMs()
-  ).toISOString();
+  const createdAtMs = Date.parse(validIsoOrNull(e.created_at) || '') || (virtualClock.nowMs() - 86400000);
+  const workStart = new Date(createdAtMs).toISOString();
   const training = executiveRepository.findActiveTraining(e.id);
-  const daysActive = Math.max(0, Math.floor((Date.now() - new Date(workStart).getTime()) / 86400000));
+  const daysActive = Math.max(0, Math.floor((virtualClock.nowMs() - new Date(workStart).getTime()) / 86400000));
   return {
     id: e.id,
     name: e.name,
@@ -121,8 +120,8 @@ export function formatOffer(offer: ExecutiveOfferRow, exec: ExecutiveRow | null)
     executiveAllTrainings: 0,
     executiveRecentTrainings: 0,
     accelerated: Boolean(offer.accelerated),
-    extended: validIsoOrNull(offer.extended_at) || validIsoOrNull(offer.created_at) || new Date().toISOString(),
-    created: validIsoOrNull(offer.created_at) || new Date().toISOString(),
+    extended: validIsoOrNull(offer.extended_at) || validIsoOrNull(offer.created_at) || virtualClock.nowIso(),
+    created: validIsoOrNull(offer.created_at) || virtualClock.nowIso(),
     researchPoacher: offer.research_poacher ? JSON.parse(offer.research_poacher) : null
   };
 }
@@ -136,8 +135,8 @@ export function formatHostileOffer(offer: ExecutiveOfferRow, exec: ExecutiveRow 
     expectedSalary: Number(offer.expected_salary),
     salary: offer.salary !== null ? Number(offer.salary) : Number(offer.expected_salary),
     status: offer.status,
-    extended: validIsoOrNull(offer.extended_at) || validIsoOrNull(offer.created_at) || new Date().toISOString(),
-    created: validIsoOrNull(offer.created_at) || new Date().toISOString(),
+    extended: validIsoOrNull(offer.extended_at) || validIsoOrNull(offer.created_at) || virtualClock.nowIso(),
+    created: validIsoOrNull(offer.created_at) || virtualClock.nowIso(),
     companyId: offer.target_company_id,
     poacherCompanyId: offer.poacher_company_id,
     researchEmployer: offer.research_employer ? JSON.parse(offer.research_employer) : null
@@ -148,7 +147,7 @@ export function formatHostileOffer(offer: ExecutiveOfferRow, exec: ExecutiveRow 
 
 /** Apply skill gains for every training whose 27h window has elapsed. */
 function resolveCompletedTrainings(companyId: number) {
-  const cutoff = new Date(Date.now() - EXECUTIVE_TRAINING_WINDOW_S * 1000).toISOString();
+  const cutoff = new Date(virtualClock.nowMs() - EXECUTIVE_TRAINING_WINDOW_S * 1000).toISOString();
   const due = executiveRepository.listDueTrainings(companyId, cutoff);
   for (const row of due) {
     const applied = executiveRepository.applyTrainingSkillUp(row.executive_id);
@@ -173,7 +172,7 @@ export function getAcademyLevels(companyId: number): { active: number; slots: nu
   const academies = executiveRepository.listAcademies(companyId);
   let active = 0;
   let slots = 0;
-  const now = Date.now();
+  const now = virtualClock.nowMs();
   for (const a of academies) {
     const size = Number(a.size) || 1;
     const busy = a.busy_until ? new Date(a.busy_until).getTime() > now : false;
@@ -285,11 +284,11 @@ function updateExecutive(
     // marking the work history accelerated so the client-side window
     // (which excludes accelerated executives) closes.
     if (updates.rushSettle === true) {
-      const startMs = new Date(validIsoOrNull(exec.created_at) || Date.now()).getTime();
+      const startMs = new Date(validIsoOrNull(exec.created_at) || virtualClock.nowIso()).getTime();
       const settleEndMs = startMs + 3 * 3600000;
-      const alreadySettled = Boolean(exec.work_history_accelerated) || settleEndMs <= Date.now();
+      const alreadySettled = Boolean(exec.work_history_accelerated) || settleEndMs <= virtualClock.nowMs();
       if (!alreadySettled) {
-        const cost = Math.max(1, Math.ceil((settleEndMs - Date.now()) / 360000));
+        const cost = Math.max(1, Math.ceil((settleEndMs - virtualClock.nowMs()) / 360000));
         const comp = companyRepository.findById(companyId);
         if (!comp || Number(comp.simboosts) < cost) {
           throw new Error(`Not enough SimBoosts to rush settling in (requires ${cost})`);
@@ -329,7 +328,7 @@ function scheduleExecutiveTraining(companyId: number, executiveId: number) {
       throw new Error(`Not enough money for executive training ($${EXECUTIVE_TRAINING_MONEY_COST})`);
     }
 
-    const now = new Date();
+    const now = virtualClock.now();
     recordCashLedger({
       companyId,
       amount: -EXECUTIVE_TRAINING_MONEY_COST,
@@ -351,7 +350,7 @@ function rushExecutiveTraining(companyId: number, executiveId: number, trainingI
     if (!training) throw new Error('Training not found or already finished');
 
     const finishMs = new Date(training.datetime).getTime() + EXECUTIVE_TRAINING_WINDOW_S * 1000;
-    const cost = Math.max(1, Math.ceil((finishMs - Date.now()) / 360000));
+    const cost = Math.max(1, Math.ceil((finishMs - virtualClock.nowMs()) / 360000));
     const comp = companyRepository.findById(companyId);
     if (!comp || Number(comp.simboosts) < cost) {
       throw new Error(`Not enough SimBoosts to rush training (requires ${cost})`);
@@ -460,7 +459,7 @@ export async function createPoachingOffer(poacherCompanyId: number, input: Creat
                            agencyTier === AgencyTier.GOOD_AGENCY ? 800 :
                            agencyTier === AgencyTier.STAFFING_AGENCY ? 500 : 300;
 
-      const nowIso = new Date().toISOString();
+      const nowIso = virtualClock.nowIso();
       targetExecutive = executiveRepository.insertForeignTarget(foreignCompanyId, slotPos, baseSkill, salaryByTier, nowIso);
     }
   }
@@ -479,7 +478,7 @@ export async function createPoachingOffer(poacherCompanyId: number, input: Creat
       companyRepository.updateMoney(poacherCompanyId, -agencyFee);
     }
 
-    const now = new Date().toISOString();
+    const now = virtualClock.nowIso();
     const offerRow = executiveRepository.insertOffer({
       poacherCompanyId,
       targetCompanyId: targetCompanyId as number,
@@ -523,7 +522,7 @@ async function updatePoachingOffer(
     let salary = offer.salary;
     let extendedAt = offer.extended_at;
     let accelerated = offer.accelerated;
-    const now = new Date().toISOString();
+    const now = virtualClock.nowIso();
 
     if (payload.status) {
       nextStatus = normalizeOfferStatus(payload.status);
@@ -569,7 +568,7 @@ async function refreshPoachingOffer(poacherCompanyId: number, offerId: number) {
   if (!offer) throw new Error('Poaching offer not found');
 
   return runInTransaction(async () => {
-    const now = new Date().toISOString();
+    const now = virtualClock.nowIso();
     const updated = executiveRepository.refreshOffer(offerId, poacherCompanyId, now);
     const exec = executiveRepository.findById(updated.target_executive_id);
     return formatOffer(updated, exec || null);
@@ -603,7 +602,7 @@ async function researchEmployerByPoacher(poacherCompanyId: number, offerId: numb
     };
 
     const researchJson = JSON.stringify(researchData);
-    const now = new Date().toISOString();
+    const now = virtualClock.nowIso();
 
     const updatedOffer = executiveRepository.setResearchPoacher(offerId, researchJson, now);
 
@@ -651,7 +650,7 @@ async function researchPoacherByEmployer(targetCompanyId: number, offerId: numbe
     };
 
     const researchJson = JSON.stringify(researchData);
-    const now = new Date().toISOString();
+    const now = virtualClock.nowIso();
 
     const updatedOffer = executiveRepository.setResearchEmployer(offerId, researchJson, now);
 
@@ -676,7 +675,7 @@ async function counterHostileOffer(targetCompanyId: number, offerId: number, bod
   const isCounter = body.action === 'counter' || (body.salary !== undefined && !isAccept && !isDecline);
 
   return runInTransaction(async () => {
-    const now = new Date().toISOString();
+    const now = virtualClock.nowIso();
 
     if (isCounter && body.salary !== undefined) {
       if (!Number.isFinite(body.salary) || body.salary <= 0) {

@@ -20,6 +20,7 @@ import { companyRepository } from '../../repositories/company-repository.ts';
 import { warehouseRepository } from '../../repositories/warehouse-repository.ts';
 import { getResourceDef } from '../../game-data/resources.ts';
 import { recordCashLedger } from '../../game/cash-ledger.ts';
+import { virtualClock } from '../../core/virtual-clock.ts';
 
 const EXCHANGE_FEE_RATE = 0.04;
 
@@ -69,7 +70,7 @@ export async function placeBuyOrder(ctx: GameContext, input: PlaceBuyOrderInput)
       details: { resource: kind, amount: quantity, price, quality }
     });
 
-    const now = new Date().toISOString();
+    const now = virtualClock.nowIso();
     const orderId = marketTradeRepository.insertBuyOrder(ctx.companyId, kind, quality, quantity, price, now);
 
     tx.addAfterCommitHook(() => {
@@ -207,7 +208,7 @@ export async function sellToBids(ctx: GameContext, input: SellToBidInput): Promi
         details: { resource: kind, amount: takeAmount, fees: fee }
       });
 
-      const tradedAt = new Date().toISOString();
+      const tradedAt = virtualClock.nowIso();
       marketTradeRepository.recordFill({
         kind,
         quality,

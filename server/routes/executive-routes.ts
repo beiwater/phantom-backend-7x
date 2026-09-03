@@ -1,5 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { readJsonBody, sendJson, requireCapability } from './utils.ts';
+import { readJsonBody, sendJson, requireCapability, setPreparsedBody } from './utils.ts';
 import { createGameContext, type GameContext } from '../context/game-context.ts';
 import {
   getCompanyExecutivesQuery,
@@ -29,6 +29,7 @@ import {
   type CreatePoachingOfferInput,
   type CounterHostileOfferInput
 } from '../application/executives/executive-use-cases.ts';
+import { RouteRegistry, globalRouteRegistry, type HttpMethod } from '../http/route-registry.ts';
 
 // Executive commands require an authenticated company; build the context
 // once per request past the route-level ownership checks.
@@ -439,3 +440,54 @@ export async function handleExecutiveRoutes(
 
   return false;
 }
+
+export function registerExecutiveRoutes(registry: RouteRegistry = globalRouteRegistry): void {
+  const register = (method: HttpMethod, pattern: string): void => {
+    registry.register({
+      method,
+      pattern,
+      owner: 'executives',
+      handler: async (req, res, ctx, _params, body) => {
+        if (method === 'POST' || method === 'PATCH' || method === 'PUT') {
+          setPreparsedBody(req, body);
+        }
+        const pathname = new URL(req.url || '/', 'http://localhost').pathname;
+        await handleExecutiveRoutes(req, res, pathname, method, ctx?.companyId ?? null);
+      }
+    });
+  };
+
+  register('GET', '/api/v4/executives/');
+  register('GET', '/api/v3/companies/:companyId/executives/');
+  register('GET', '/api/v4/companies/:companyId/executives/');
+  register('GET', '/api/v3/executives/company/:companyId/executives/');
+  register('GET', '/api/v4/executives/company/:companyId/');
+  register('GET', '/api/v2/companies/executives/my-offers/');
+  register('POST', '/api/v2/companies/executives/my-offers/');
+  register('GET', '/api/v2/companies/executives/my-offers/:offerId/');
+  register('PATCH', '/api/v2/companies/executives/my-offers/:offerId/');
+  register('PUT', '/api/v2/companies/executives/my-offers/:offerId/');
+  register('POST', '/api/v2/companies/executives/my-offers/:offerId/');
+  register('DELETE', '/api/v2/companies/executives/my-offers/:offerId/');
+  register('POST', '/api/v3/companies/executives/hostile-offers/:offerId/counter/');
+  register('GET', '/api/v3/companies/executives/hostile-offers/');
+  register('GET', '/api/v3/companies/executives/hostile-offers/:offerId/');
+  register('PATCH', '/api/v3/companies/executives/hostile-offers/:offerId/');
+  register('PUT', '/api/v3/companies/executives/hostile-offers/:offerId/');
+  register('DELETE', '/api/v3/companies/executives/hostile-offers/:offerId/');
+  register('GET', '/api/v3/:scope/:realmId/former-executives/');
+  register('GET', '/api/v4/:scope/:realmId/former-executives/');
+  register('GET', '/api/v4/executives/candidates/');
+  register('POST', '/api/v4/executives/hire/');
+  register('POST', '/api/v4/executives/:executiveId/fire/');
+  register('POST', '/api/v4/executives/:executiveId/assign/');
+  register('POST', '/api/v4/executives/:executiveId/train/');
+  register('POST', '/api/v4/executives/:executiveId/trainings/');
+  register('PATCH', '/api/v4/executives/:executiveId/trainings/:trainingId/');
+  register('DELETE', '/api/v4/executives/:executiveId/trainings/:trainingId/');
+  register('GET', '/api/v4/executives/:executiveId/');
+  register('PATCH', '/api/v4/executives/:executiveId/');
+  register('DELETE', '/api/v4/executives/:executiveId/');
+}
+
+registerExecutiveRoutes(globalRouteRegistry);

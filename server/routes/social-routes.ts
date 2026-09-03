@@ -1,4 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
+import { RouteRegistry, globalRouteRegistry } from '../http/route-registry.ts';
 import { readJsonBody, sendJson } from './utils.ts';
 import { gameNotificationsRepository } from '../repositories/game-notifications-repository.ts';
 import { referralsRepository } from '../repositories/referrals-repository.ts';
@@ -788,3 +789,16 @@ export async function handleSocialRoutes(
 
   return false;
 }
+export function registerSocialRoutes(registry: RouteRegistry = globalRouteRegistry): void {
+  // Historical #83 stub: the endpoint is intentionally an empty public list.
+  // Registering it here prevents ownership from depending on the legacy
+  // newspaper/social handler order.
+  registry.register({
+    method: 'GET',
+    pattern: '/api/v2/newspaper/articles-by-author/:authorId/',
+    owner: 'social',
+    handler: async (_req, res) => { sendJson(res, []); }
+  });
+}
+
+registerSocialRoutes(globalRouteRegistry);

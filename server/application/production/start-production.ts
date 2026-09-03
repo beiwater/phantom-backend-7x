@@ -1,4 +1,5 @@
 import type { GameContext } from '../../context/game-context.ts';
+import { virtualClock } from '../../core/virtual-clock.ts';
 import { runInTransaction } from '../../db/transaction.ts';
 import { buildingRepository, type BuildingEntity } from '../../repositories/building-repository.ts';
 import { companyRepository } from '../../repositories/company-repository.ts';
@@ -11,7 +12,9 @@ import { assertQueueDuration } from '../../domain/leveling/level-rules.ts';
 import { calculateProductionTime } from '../../game-data/buildings.ts';
 import { isAbundanceExtractorKind, getBuildingAbundance, scaleExtractorOutput } from '../../game/buildings.ts';
 import { assertAllowedProduct } from '../../game/robotics.ts';
-import { queueRocketLaunch, rocketKindForLaunchAmount } from '../../game/aerospace.ts';
+import { queueRocketLaunch, rocketKindForLaunchRequest } from '../../game/aerospace.ts';
+import { getEconomyPhase } from '../scheduler/daily-jobs.ts';
+import { getCompanyBoostSettings } from '../../game/simboost-settings.ts';
 
 export interface StartProductionInput {
   buildingId: number;
@@ -32,6 +35,8 @@ export async function startProductionUseCase(
   ctx: GameContext,
   input: StartProductionInput
 ): Promise<StartProductionResult> {
+  const economy = getEconomyPhase(ctx.realmId);
+  const companyBoost = getCompanyBoostSettings(ctx.companyId);
   return runInTransaction(async txCtx => {
     // 1. Validate building ownership
     const building = buildingRepository.findById(input.buildingId);
@@ -42,23 +47,30 @@ export async function startProductionUseCase(
       throw new ForbiddenError('You do not own this building');
     }
 
-    // Issue #170: the original client models a launch-pad launch as a
-    // production order of Aerospace Research (kind 100) — 400 units picks a
-    // sub-orbital rocket, 2800 a BFR. Route it to the launch flow instead of
-    // the generic production pipeline, whose tier queue-duration limit would
-    // wrongly reject it (launches legitimately run up to 128h at level 1).
-    if (building.kind === 'l' && input.kind === 100) {
-      const rocketKind = rocketKindForLaunchAmount(input.amount);
+    // Launch-pad cards identify the actual rocket product. Keep accepting the
+    // legacy kind-100 payload only as an amount-based compatibility form.
+    if (building.kind === 'l' && (input.kind === 100 || input.kind === 91 || input.kind === 94)) {
+      const rocketKind = rocketKindForLaunchRequest(input.kind, input.amount);
       if (rocketKind === null) {
-        throw new ValidationError(`Invalid launch order amount: ${input.amount}. Expected 400 (Sub-Orbital Rocket) or 2800 (BFR)`);
+        throw new ValidationError(
+          input.kind === 100
+            ? `Invalid launch order amount: ${input.amount}. Expected 400 (Sub-Orbital Rocket) or 2800 (BFR)`
+            : `Invalid launch quantity for rocket resource #${input.kind}; expected amount 1`
+        );
       }
       // Construction/upgrade busy still applies; an active launch queue does
       // not — the original allows chaining launches up to LAUNCH_QUEUE_MAX.
-      if (building.busyUntil && new Date(building.busyUntil).getTime() > Date.now()
+      if (building.busyUntil && new Date(building.busyUntil).getTime() > virtualClock.nowMs()
         && productionRepository.findActiveByBuilding(building.id, ctx.companyId).length === 0) {
         throw new ConflictError('Building is still under construction or upgrade');
       }
-      const launch = await queueRocketLaunch(ctx.companyId, building.id, rocketKind, input.quality ?? 0);
+      const launch = await queueRocketLaunch(
+        ctx.companyId,
+        building.id,
+        rocketKind,
+        input.quality ?? 0,
+        { consumeResearch: input.kind === 100 }
+      );
       const refreshed = buildingRepository.findById(building.id);
       if (!refreshed) {
         throw new NotFoundError(`Building ${building.id} not found`);
@@ -85,7 +97,7 @@ export async function startProductionUseCase(
     // Issue #47: construction/upgrade busy (no queue rows at all) is also a
     // 409 conflict — a freshly constructed/upgraded building must finish its
     // busy window before it can start production.
-    if (building.busyUntil && new Date(building.busyUntil).getTime() > Date.now()) {
+    if (building.busyUntil && new Date(building.busyUntil).getTime() > virtualClock.nowMs()) {
       const activeQueues = productionRepository.findActiveByBuilding(building.id, ctx.companyId);
       if (activeQueues.length === 0) {
         throw new ConflictError('Building is still under construction or upgrade');
@@ -105,7 +117,17 @@ export async function startProductionUseCase(
     // (2h below L5, 24h below L15, 48h at L15+). Enforced BEFORE any
     // ingredients are consumed so the 400 QUEUE_DURATION_LIMIT rejection is
     // side-effect free.
-    const durationSeconds = calculateProductionTime(input.kind, input.amount, building.size);
+    const combinedProductionModifier = Math.max(
+      -0.75,
+      Math.min(3, economy.productionModifier + (companyBoost.productionModifier / 100))
+    );
+    const productionOutputMultiplier = Math.max(0.5, Math.min(1.5, 1 + economy.productionModifier));
+    const durationSeconds = calculateProductionTime(
+      input.kind,
+      input.amount,
+      building.size,
+      combinedProductionModifier
+    );
     assertQueueDuration(
       companyRepository.findById(ctx.companyId)?.level ?? 0,
       durationSeconds,
@@ -116,9 +138,10 @@ export async function startProductionUseCase(
     // outputAmount = round(baseAmount * abundance / 100). Ingredients and
     // duration stay based on the ordered base amount; only the delivered
     // output is scaled.
-    const outputAmount = isAbundanceExtractorKind(building.kind)
+    const baseOutputAmount = isAbundanceExtractorKind(building.kind)
       ? scaleExtractorOutput(input.amount, getBuildingAbundance(building.id)?.abundance ?? 100)
       : input.amount;
+    const outputAmount = Math.max(1, Math.round(baseOutputAmount * productionOutputMultiplier));
     // 3. Consume required ingredients atomically, tracking the weighted
     // average input quality and total cost basis (P0-02).
     const allTransactions: ResourceTransactionEntity[] = [];
@@ -147,7 +170,7 @@ export async function startProductionUseCase(
     // the tier limit before ingredients were consumed)
     const latestActive = productionRepository.findLatestActiveByBuilding(building.id, ctx.companyId);
 
-    const now = new Date();
+    const now = virtualClock.now();
     let startTime = now;
     if (latestActive) {
       const latestFinish = new Date(latestActive.finishesAt);
@@ -174,8 +197,6 @@ export async function startProductionUseCase(
       ? achievableQuality
       : Math.max(0, Math.floor(averageInputQuality));
 
-    // 6. Create queue item — cost basis is the total input cost per output
-    // unit, persisted so serialization never has to guess (P0-02).
     const queueItem = productionRepository.create({
       buildingId: building.id,
       companyId: ctx.companyId,
@@ -185,7 +206,12 @@ export async function startProductionUseCase(
       amount: outputAmount,
       durationSeconds,
       startedAt,
-      finishesAt
+      finishesAt,
+      economyPhase: economy.state,
+      economyPhaseStartedAt: economy.startAt,
+      economySource: economy.source,
+      productionModifier: combinedProductionModifier,
+      productionOutputMultiplier
     });
 
     // 7. Update building busy state
@@ -200,7 +226,10 @@ export async function startProductionUseCase(
       amount: outputAmount,
       quality: achievableQuality,
       startedAt,
-      finishesAt
+      finishesAt,
+      economyPhase: economy.state,
+      productionModifier: combinedProductionModifier,
+      productionOutputMultiplier
     });
 
     return {

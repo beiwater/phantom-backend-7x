@@ -131,7 +131,12 @@ export function getConstructionMaterials(sizeUnits: number): Array<{ kind: numbe
   return CONSTRUCTION_MATERIALS.map(m => ({ kind: m.kind, amount: m.perUnit * sizeUnits }));
 }
 
-export function calculateProductionTime(resourceKind: number, amount: number, buildingSize: number): number {
+export function calculateProductionTime(
+  resourceKind: number,
+  amount: number,
+  buildingSize: number,
+  productionModifier = 0
+): number {
   const res = getResourceDef(resourceKind);
   if (!res || !res.producedPerHourRaw || res.producedPerHourRaw <= 0) {
     return 60;
@@ -139,5 +144,6 @@ export function calculateProductionTime(resourceKind: number, amount: number, bu
   const basePerHour = res.producedPerHourRaw * buildingSize;
   const hoursNeeded = amount / basePerHour;
   const baseSeconds = Math.max(5, Math.ceil(hoursNeeded * 3600));
-  return Math.max(3, Math.round(baseSeconds / (CONFIG.PRODUCTION_SPEED_MULTIPLIER || 1)));
+  const modifierFactor = Math.max(0.25, Math.min(4, 1 + productionModifier));
+  return Math.max(3, Math.round(baseSeconds / modifierFactor / (CONFIG.PRODUCTION_SPEED_MULTIPLIER || 1)));
 }

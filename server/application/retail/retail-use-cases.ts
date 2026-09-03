@@ -6,6 +6,7 @@
  * Pure pricing/duration rules live in game-data/retail.ts (zero IO).
  */
 import type { GameContext } from '../../context/game-context.ts';
+import { virtualClock } from '../../core/virtual-clock.ts';
 import { runInTransaction, type TransactionContext } from '../../db/transaction.ts';
 import { recordCashLedger } from '../../game/cash-ledger.ts';
 import { eventBus } from '../../events/event-bus.ts';
@@ -19,6 +20,7 @@ import { retailRepository, type RetailOrderEntity } from '../../repositories/ret
 import { buildingRepository } from '../../repositories/building-repository.ts';
 import { warehouseRepository } from '../../repositories/warehouse-repository.ts';
 import { companyRepository } from '../../repositories/company-repository.ts';
+import { getEconomyPhase } from '../scheduler/daily-jobs.ts';
 
 // --- Compatibility DTO (original frontend shape) ----------------------------
 
@@ -96,7 +98,9 @@ export async function startRetailOrderUseCase(ctx: GameContext, input: StartReta
     throw new ValidationError('Invalid resource quality');
   }
 
-  const pricing = getAuthoritativeRetailPrice(resourceKind, requestedQuality, input.sellingPrice);
+  const economy = getEconomyPhase(ctx.realmId);
+  const economyState = economy.state;
+  const pricing = getAuthoritativeRetailPrice(resourceKind, requestedQuality, input.sellingPrice, 0.5, economyState);
   const sellingPrice = pricing.unitPrice;
 
   const units = input.units === undefined ? 1 : Number(input.units);
@@ -116,9 +120,9 @@ export async function startRetailOrderUseCase(ctx: GameContext, input: StartReta
   }
 
   const costTotal = Math.round(units * 1.5 * 100) / 100;
-  const createdAt = new Date().toISOString();
-  const durationSeconds = calculateRetailDuration(resourceKind, units, resolvedBuilding.size || 1);
-  const finishedAt = new Date(Date.now() + durationSeconds * 1000).toISOString();
+  const createdAt = virtualClock.nowIso();
+  const durationSeconds = calculateRetailDuration(resourceKind, units, resolvedBuilding.size || 1, { economyState });
+  const finishedAt = new Date(virtualClock.nowMs() + durationSeconds * 1000).toISOString();
 
   const order = retailRepository.insert({
     buildingId: resolvedBuilding.id,
@@ -128,6 +132,9 @@ export async function startRetailOrderUseCase(ctx: GameContext, input: StartReta
     units,
     unitPrice: sellingPrice,
     cost: costTotal,
+    economyPhase: economy.state,
+    economyPhaseStartedAt: economy.startAt,
+    economySource: economy.source,
     finishedAt,
     createdAt
   });
@@ -157,11 +164,11 @@ export async function collectRetailOrderUseCase(ctx: GameContext, orderId: numbe
     throw new NotFoundError('Order not found');
   }
 
-  if (order.finishedAt && new Date(order.finishedAt).getTime() > Date.now()) {
+  if (order.finishedAt && new Date(order.finishedAt).getTime() > virtualClock.nowMs()) {
     throw new ValidationError('Retail order is still in progress and cannot be fulfilled prematurely');
   }
 
-  const { maxPrice } = getAuthoritativeRetailPrice(order.resourceKind, order.quality);
+  const { maxPrice } = getAuthoritativeRetailPrice(order.resourceKind, order.quality, undefined, 0.5, getEconomyPhase(ctx.realmId).state);
   const effectivePrice = Math.min(order.unitPrice, maxPrice);
   const revenue = Math.round(order.units * effectivePrice * 100) / 100;
 
@@ -260,7 +267,7 @@ export async function findSalesOfficeCustomerUseCase(
   if (building.kind !== SALES_OFFICE_KIND) {
     throw new ValidationError('Building is not a Sales Office');
   }
-  if (building.busyUntil && new Date(building.busyUntil).getTime() > Date.now()) {
+  if (building.busyUntil && new Date(building.busyUntil).getTime() > virtualClock.nowMs()) {
     throw new ValidationError('Building is currently busy');
   }
 
@@ -276,10 +283,10 @@ export async function findSalesOfficeCustomerUseCase(
     }
   }
 
-  const { unitPrice } = getAuthoritativeRetailPrice(resourceKind, 0);
+  const { unitPrice } = getAuthoritativeRetailPrice(resourceKind, 0, undefined, 0.5, getEconomyPhase(ctx.realmId).state);
   const fee = CUSTOMER_SEARCH_FEE_PER_LEVEL * (building.size || 1);
-  const finishedAt = new Date(Date.now() + CUSTOMER_SEARCH_DURATION_SECONDS * 1000).toISOString();
-  const createdAt = new Date().toISOString();
+  const finishedAt = new Date(virtualClock.nowMs() + CUSTOMER_SEARCH_DURATION_SECONDS * 1000).toISOString();
+  const createdAt = virtualClock.nowIso();
 
   return runInTransaction(async (): Promise<FindSalesOfficeCustomerResult> => {
     // debitMoney fails the whole search when the balance cannot cover the fee.

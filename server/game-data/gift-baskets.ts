@@ -1,6 +1,7 @@
 import { db } from '../db/database.ts';
 import { runInTransaction } from '../db/transaction.ts';
 import { companyRepository } from '../repositories/company-repository.ts';
+import { virtualClock } from '../core/virtual-clock.ts';
 
 /** Official gift-basket catalog (frontend bundle CJr table). cost is the
  * money price; requirements are resource kind -> amount consumed on send. */
@@ -48,7 +49,7 @@ export function getDraft(companyId: number, year: number): Record<string, unknow
 
 export function saveDraft(companyId: number, year: number, draft: Record<string, unknown>): Record<string, unknown> {
   db.prepare('INSERT INTO gift_basket_drafts (company_id, year, draft_json, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT (company_id, year) DO UPDATE SET draft_json = excluded.draft_json, updated_at = excluded.updated_at')
-    .run(companyId, year, JSON.stringify(draft), new Date().toISOString());
+    .run(companyId, year, JSON.stringify(draft), virtualClock.nowIso());
   return getDraft(companyId, year);
 }
 
@@ -92,7 +93,7 @@ export async function sendBasket(companyId: number, year: number, input: {
       db.prepare('UPDATE warehouse SET amount = amount - ? WHERE company_id = ? AND kind = ? AND quality = 0').run(req.amount, companyId, req.kind);
     }
     const res = db.prepare('INSERT INTO gift_baskets (sender_company_id, recipient_company_id, kind, simboosts, quality, collectible_id, message, year, sent, created_at, sent_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)')
-      .run(companyId, input.recipientId, input.kind, input.simboosts, input.quality ?? null, input.collectibleId ?? null, input.message ?? null, year, new Date().toISOString(), new Date().toISOString());
+    .run(companyId, input.recipientId, input.kind, input.simboosts, input.quality ?? null, input.collectibleId ?? null, input.message ?? null, year, virtualClock.nowIso(), virtualClock.nowIso());
     lastTransactionId = Number(res.lastInsertRowid);
   });
 

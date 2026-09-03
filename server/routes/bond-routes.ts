@@ -1,5 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { readJsonBody, sendJson, requireCapability } from './utils.ts';
+import { RouteRegistry, globalRouteRegistry } from '../http/route-registry.ts';
 import {
   getBondsOwnedQuery,
   getBondsSoldQuery,
@@ -174,3 +175,169 @@ export async function handleBondRoutes(
 
   return false;
 }
+export function registerBondRoutes(registry: RouteRegistry = globalRouteRegistry): void {
+  const companyRequired = (ctx: GameContext | null, res: ServerResponse): number | null => {
+    const companyId = ctx?.companyId ?? null;
+    if (!companyId) {
+      sendJson(res, { error: 'Unauthorized' }, 401);
+      return null;
+    }
+    return companyId;
+  };
+  const bodyField = (body: unknown, field: string): unknown => {
+    if (!body || typeof body !== 'object' || !(field in body)) return undefined;
+    return Reflect.get(body, field);
+  };
+  const commandError = (err: unknown): { error: string } => ({
+    error: err instanceof Error ? err.message : String(err)
+  });
+
+  registry
+    .register({
+      method: 'GET',
+      pattern: '/api/v2/companies/:companyId/bonds/owned/',
+      owner: 'bonds',
+      handler: async (req, res, ctx, params) => {
+        const companyId = params.companyId === 'me' ? ctx?.companyId ?? null : Number(params.companyId);
+        if (!ctx?.companyId || !companyId || companyId !== ctx.companyId) {
+          sendJson(res, { error: 'Unauthorized' }, 401);
+          return;
+        }
+        sendJson(res, getBondsOwnedQuery(companyId));
+      }
+    })
+    .register({
+      method: 'GET',
+      pattern: '/api/v2/companies/:companyId/bonds/sold/',
+      owner: 'bonds',
+      handler: async (_req, res, ctx, params) => {
+        const companyId = params.companyId === 'me' ? ctx?.companyId ?? null : Number(params.companyId);
+        if (!ctx?.companyId || !companyId || companyId !== ctx.companyId) {
+          sendJson(res, { error: 'Unauthorized' }, 401);
+          return;
+        }
+        sendJson(res, getBondsSoldQuery(companyId));
+      }
+    })
+    .register({
+      method: 'GET',
+      pattern: '/api/bonds/',
+      owner: 'bonds',
+      handler: async (_req, res, ctx) => {
+        if (!companyRequired(ctx, res)) return;
+        sendJson(res, { amount: 0, interest: 0.5 });
+      }
+    })
+    .register({
+      method: 'PATCH',
+      pattern: '/api/bonds/',
+      owner: 'bonds',
+      handler: async (_req, res, ctx, _params, body) => {
+        if (!companyRequired(ctx, res)) return;
+        if (requireCapability(res, ctx!.companyId, 'bonds', 'issue bonds')) return;
+        try {
+          const result = await issueBondsCommand(ctx!, Number(bodyField(body, 'amount')), Number(bodyField(body, 'interest') ?? 0.005));
+          sendJson(res, result);
+        } catch (err: unknown) {
+          sendJson(res, commandError(err), 400);
+        }
+      }
+    })
+    .register({
+      method: 'GET',
+      pattern: '/api/v2/market/bonds/',
+      owner: 'bonds',
+      handler: async (_req, res) => { sendJson(res, getBondMarketListingsQuery()); }
+    })
+    .register({
+      method: 'GET',
+      pattern: '/api/bonds/rating/:rating/',
+      owner: 'bonds',
+      handler: async (_req, res) => { sendJson(res, getBondMarketListingsQuery()); }
+    })
+    .register({
+      method: 'GET',
+      pattern: '/api/bonds/:bondId/',
+      owner: 'bonds',
+      handler: async (_req, res, _ctx, params) => {
+        const bond = getBondMarketListingsQuery().find(item => item.id === Number(params.bondId));
+        if (!bond) {
+          sendJson(res, { error: 'Bond not found' }, 404);
+          return;
+        }
+        sendJson(res, bond);
+      }
+    })
+    .register({
+      method: 'PATCH',
+      pattern: '/api/bonds/:bondId/',
+      owner: 'bonds',
+      handler: async (_req, res, ctx, params) => {
+        if (!companyRequired(ctx, res)) return;
+        if (requireCapability(res, ctx!.companyId, 'bonds', 'buy bond')) return;
+        try {
+          sendJson(res, await buyBondsCommand(ctx!, Number(params.bondId)));
+        } catch (err: unknown) {
+          sendJson(res, commandError(err), 400);
+        }
+      }
+    })
+    .register({
+      method: 'PUT',
+      pattern: '/api/bonds/:bondId/',
+      owner: 'bonds',
+      handler: async (_req, res, ctx, params) => {
+        if (!companyRequired(ctx, res)) return;
+        if (requireCapability(res, ctx!.companyId, 'bonds', 'call bond')) return;
+        try {
+          sendJson(res, await callBondsCommand(ctx!, Number(params.bondId)));
+        } catch (err: unknown) {
+          sendJson(res, commandError(err), 400);
+        }
+      }
+    })
+    .register({
+      method: 'POST',
+      pattern: '/api/v2/bonds/sell/',
+      owner: 'bonds',
+      handler: async (_req, res, ctx, _params, body) => {
+        if (!companyRequired(ctx, res)) return;
+        if (requireCapability(res, ctx!.companyId, 'bonds', 'issue bonds')) return;
+        try {
+          sendJson(res, await issueBondsCommand(ctx!, Number(bodyField(body, 'amount')), Number(bodyField(body, 'interest') ?? 0.005)));
+        } catch (err: unknown) {
+          sendJson(res, commandError(err), 400);
+        }
+      }
+    })
+    .register({
+      method: 'POST',
+      pattern: '/api/v2/bonds/:bondId/buy/',
+      owner: 'bonds',
+      handler: async (_req, res, ctx, params) => {
+        if (!companyRequired(ctx, res)) return;
+        if (requireCapability(res, ctx!.companyId, 'bonds', 'buy bond')) return;
+        try {
+          sendJson(res, await buyBondsCommand(ctx!, Number(params.bondId)));
+        } catch (err: unknown) {
+          sendJson(res, commandError(err), 400);
+        }
+      }
+    })
+    .register({
+      method: 'POST',
+      pattern: '/api/v2/bonds/:bondId/call/',
+      owner: 'bonds',
+      handler: async (_req, res, ctx, params) => {
+        if (!companyRequired(ctx, res)) return;
+        if (requireCapability(res, ctx!.companyId, 'bonds', 'call bond')) return;
+        try {
+          sendJson(res, await callBondsCommand(ctx!, Number(params.bondId)));
+        } catch (err: unknown) {
+          sendJson(res, commandError(err), 400);
+        }
+      }
+    });
+}
+
+registerBondRoutes(globalRouteRegistry);

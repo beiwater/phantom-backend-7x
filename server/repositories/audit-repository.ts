@@ -6,6 +6,7 @@
  */
 import type { DatabaseSync } from 'node:sqlite';
 import { db } from '../db/connection.ts';
+import { virtualClock } from '../core/virtual-clock.ts';
 
 export interface AuditEntity {
   id: number;
@@ -92,7 +93,7 @@ export class AuditRepository {
     action: string;
     reason?: string;
   }): AuditEntity {
-    const now = new Date().toISOString();
+    const now = virtualClock.nowIso();
     const res = this.database
       .prepare(
         'INSERT INTO audits (actor_company_id, target_company_id, target_player_id, action, reason, created_at) VALUES (?, ?, ?, ?, ?, ?)'

@@ -36,6 +36,11 @@ export function requireCapability(
 }
 
 const MAX_REQUEST_BODY_BYTES = 1024 * 1024;
+const PREPARSED_BODY = Symbol('route-registry-preparsed-body');
+
+export function setPreparsedBody(req: IncomingMessage, body: unknown): void {
+  Reflect.set(req, PREPARSED_BODY, body);
+}
 
 export class RequestBodyError extends Error {
   readonly statusCode: number;
@@ -48,75 +53,73 @@ export class RequestBodyError extends Error {
 }
 
 export function readJsonBody<T>(req: IncomingMessage): Promise<T> {
-  const { promise, resolve, reject } = Promise.withResolvers<T>();
+  const preparsed = Reflect.get(req, PREPARSED_BODY);
+  if (preparsed !== undefined) return Promise.resolve(preparsed as T);
   const contentLength = Number(req.headers['content-length']);
-  if (Number.isFinite(contentLength) && contentLength > MAX_REQUEST_BODY_BYTES) {
-    req.resume();
-    reject(new RequestBodyError('Request body is too large', 413));
-    return promise;
-  }
-
-  let data = '';
-  let bytesRead = 0;
-  let settled = false;
-  const fail = (err: unknown) => {
-    if (settled) return;
-    settled = true;
-    reject(err);
-  };
-
-  req.on('data', chunk => {
-    if (settled) return;
-    const text = typeof chunk === 'string' ? chunk : chunk.toString();
-    bytesRead += Buffer.byteLength(text);
-    if (bytesRead > MAX_REQUEST_BODY_BYTES) {
-      fail(new RequestBodyError('Request body is too large', 413));
+  return new Promise<T>((resolve, reject) => {
+    if (Number.isFinite(contentLength) && contentLength > MAX_REQUEST_BODY_BYTES) {
       req.resume();
+      reject(new RequestBodyError('Request body is too large', 413));
       return;
     }
-    data += text;
-  });
-  req.on('end', () => {
-    if (settled) return;
-    try {
-      if (!data) {
-        settled = true;
-        resolve({} as T);
-        return;
-      }
-      const contentType = req.headers['content-type'] || '';
-      if (contentType.includes('application/x-www-form-urlencoded')) {
-        const params = new URLSearchParams(data);
-        const obj: Record<string, string> = {};
-        for (const [k, v] of params.entries()) {
-          obj[k] = v;
-        }
-        settled = true;
-        resolve(obj as unknown as T);
-        return;
-      }
 
+    let data = '';
+    let bytesRead = 0;
+    let settled = false;
+    const fail = (err: unknown) => {
+      if (settled) return;
+      settled = true;
+      reject(err);
+    };
+
+    req.on('data', chunk => {
+      if (settled) return;
+      const text = typeof chunk === 'string' ? chunk : chunk.toString();
+      bytesRead += Buffer.byteLength(text);
+      if (bytesRead > MAX_REQUEST_BODY_BYTES) {
+        fail(new RequestBodyError('Request body is too large', 413));
+        req.resume();
+        return;
+      }
+      data += text;
+    });
+    req.on('end', () => {
+      if (settled) return;
       try {
-        const parsed: unknown = JSON.parse(data);
-        // C-7: JSON `null` / scalar bodies (`null`, `42`, `"str"`) are not
-        // objects; handlers dereference fields on them. Reject with a 4xx
-        // RequestBodyError (mapped to err.statusCode in index.ts) instead of
-        // resolving null and crashing handlers into a 500.
-        if (parsed === null || typeof parsed !== 'object') {
-          fail(new RequestBodyError('Request body must be a JSON object', 400));
+        if (!data) {
+          settled = true;
+          resolve({} as T);
           return;
         }
-        settled = true;
-        resolve(parsed as T);
-      } catch {
-        fail(new RequestBodyError('Malformed JSON request body', 400));
+        const contentType = req.headers['content-type'] || '';
+        if (contentType.includes('application/x-www-form-urlencoded')) {
+          const params = new URLSearchParams(data);
+          const obj: Record<string, string> = {};
+          for (const [k, v] of params.entries()) {
+            obj[k] = v;
+          }
+          settled = true;
+          resolve(obj as unknown as T);
+          return;
+        }
+
+        try {
+          const parsed: unknown = JSON.parse(data);
+          if (parsed === null || typeof parsed !== 'object') {
+            fail(new RequestBodyError('Request body must be a JSON object', 400));
+            return;
+          }
+          settled = true;
+          resolve(parsed as T);
+        } catch {
+          fail(new RequestBodyError('Malformed JSON request body', 400));
+        }
+      } catch (err) {
+        fail(err);
       }
-    } catch (err) {
-      fail(err);
-    }
+    });
+    req.on('error', fail);
   });
-  req.on('error', fail);
-  return promise;
 }
 
 export function sendJson(

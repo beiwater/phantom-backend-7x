@@ -13,6 +13,7 @@ import { getWeather } from '../game-data/weather.ts';
 import { getCertificates } from '../game/achievements.ts';
 import { getGovernmentOrders, getGovernmentTier, getGovernmentBids } from '../game/government.ts';
 import { getCompanyRankings } from '../game/encyclopedia.ts';
+import { RouteRegistry, globalRouteRegistry } from '../http/route-registry.ts';
 
 export async function handleEncyclopediaRoutes(
   _req: IncomingMessage,
@@ -252,4 +253,199 @@ export async function handleEncyclopediaRoutes(
 
   return false;
 }
+
+function encyclopediaRetailInfo(): Array<{
+  quality: number | null;
+  dbLetter: number;
+  saturation: number;
+  averagePrice: number | null;
+  retailData: Array<{ date: string; saturation: number; averagePrice: number }>;
+}> {
+  const today = new Date().toISOString().split('T')[0];
+  const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+  const result = [];
+  for (const [kindValue, definition] of Object.entries(CONSTANTS_RESOURCES)) {
+    const kind = Number(kindValue);
+    const saturation = 0.5;
+    const averagePrice = 2.5;
+    result.push({
+      quality: null,
+      dbLetter: kind,
+      saturation,
+      averagePrice: definition.unitsSoldAnHour > 0 ? averagePrice : null,
+      retailData: [
+        { date: yesterday, saturation, averagePrice },
+        { date: today, saturation, averagePrice }
+      ]
+    });
+  }
+  return result;
+}
+
+function encyclopediaResourceDetail(kind: number, quality: number): Record<string, unknown> {
+  const definition = getResourceDef(kind);
+  const today = new Date().toISOString().split('T')[0];
+  const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+  return {
+    dbLetter: kind,
+    name: definition?.name || `Resource #${kind}`,
+    producedAt: definition?.producedAt || 'P',
+    producedFrom: definition?.producedFrom || {},
+    producedPerHourRaw: definition?.producedPerHourRaw || 200,
+    image: definition?.image || 'images/resources/apples.png',
+    transportation: definition?.transportation || 1,
+    isExchangeTradable: definition?.isExchangeTradable ?? true,
+    unitsSoldAnHour: definition?.unitsSoldAnHour || 0,
+    decay: definition?.decay || 0,
+    quality,
+    retailModel: { saturation: 0.5, averagePrice: 2.5 },
+    retailData: [
+      { date: yesterday, saturation: 0.5, averagePrice: 2.5 },
+      { date: today, saturation: 0.5, averagePrice: 2.5 }
+    ],
+    market: { price: 1.0 + quality, quality }
+  };
+}
+
+function encyclopediaQualityMap(companyId: number | null): Record<string, number> {
+  const result: Record<string, number> = {};
+  for (const kind of Object.keys(CONSTANTS_RESOURCES)) result[kind] = 0;
+  if (companyId) {
+    for (const [kind, quality] of warehouseRepository.getQualityMap(companyId)) {
+      if (kind in result) result[String(kind)] = quality;
+    }
+  }
+  return result;
+}
+
+function encyclopediaCertificates(): { latestCertificates: unknown[]; rarestCertificates: unknown[] } {
+  const all = getCertificates(0);
+  return {
+    latestCertificates: [...all].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 20),
+    rarestCertificates: [...all].sort((a, b) => a.rank - b.rank).slice(0, 20)
+  };
+}
+
+export function registerEncyclopediaRoutes(registry: RouteRegistry = globalRouteRegistry): void {
+  const modifiers = { resourceProductionModifiers: [], industryModifiers: [], realmModifiers: [] };
+  const resources = { resources: [{ kind: 1 }, { kind: 2 }, { kind: 3 }, { kind: 13 }, { kind: 66 }] };
+  registry
+    .register({ method: 'GET', pattern: '/api/v2/constants/core/', owner: 'encyclopedia', handler: async (_req, res) => { sendJson(res, CONSTANTS_CORE); } })
+    .register({ method: 'GET', pattern: '/api/v2/constants/buildings/', owner: 'encyclopedia', handler: async (_req, res) => { sendJson(res, CONSTANTS_BUILDINGS); } })
+    .register({ method: 'GET', pattern: '/api/v2/constants/resources/', owner: 'encyclopedia', handler: async (_req, res) => { sendJson(res, CONSTANTS_RESOURCES); } })
+    .register({
+      method: 'GET', pattern: '/api/v2/time-millis/', owner: 'encyclopedia',
+      handler: async (_req, res) => { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(String(Date.now())); }
+    })
+    .register({ method: 'GET', pattern: '/api/csrf/', owner: 'encyclopedia', handler: async (_req, res) => { sendJson(res, { csrfToken: 'local-csrf-token' }); } })
+    .register({
+      method: 'GET', pattern: '/api/v2/weather/:realmId/', owner: 'encyclopedia',
+      handler: async (_req, res, _ctx, params) => { sendJson(res, getWeather(Number(params.realmId))); }
+    })
+    .register({
+      method: 'GET', pattern: '/api/v2/:scope/:realmId/production-modifiers/', owner: 'encyclopedia',
+      handler: async (_req, res) => { sendJson(res, modifiers); }
+    })
+    .register({
+      method: 'GET', pattern: '/api/v2/:scope/:realmId/industry-modifiers/', owner: 'encyclopedia',
+      handler: async (_req, res) => { sendJson(res, modifiers); }
+    })
+    .register({
+      method: 'GET', pattern: '/api/v2/:scope/:realmId/realm-modifiers/', owner: 'encyclopedia',
+      handler: async (_req, res) => { sendJson(res, modifiers); }
+    })
+    .register({
+      method: 'GET', pattern: '/api/v2/:scope/:realmId/resources-retail-info/', owner: 'encyclopedia',
+      handler: async (_req, res) => { sendJson(res, encyclopediaRetailInfo()); }
+    })
+    .register({
+      method: 'GET', pattern: '/api/v4/:scope/:realmId/encyclopedia/resources/:kind/', owner: 'encyclopedia',
+      handler: async (_req, res, _ctx, params) => {
+        sendJson(res, encyclopediaResourceDetail(Number(params.kind), 0));
+      }
+    })
+    .register({
+      method: 'GET', pattern: '/api/v4/:scope/:realmId/encyclopedia/resources/:kind/:quality/', owner: 'encyclopedia',
+      handler: async (_req, res, _ctx, params) => {
+        sendJson(res, encyclopediaResourceDetail(Number(params.kind), Number(params.quality)));
+      }
+    })
+    .register({
+      method: 'GET', pattern: '/api/v2/:scope/:realmId/encyclopedia/existing-resource-quality/', owner: 'encyclopedia',
+      handler: async (_req, res, ctx) => { sendJson(res, encyclopediaQualityMap(ctx?.companyId ?? null)); }
+    })
+    .register({
+      method: 'GET', pattern: '/api/v4/encyclopedia/eva-ranking/:realmId/', owner: 'encyclopedia',
+      handler: async (_req, res, _ctx, params) => { sendJson(res, getCompanyRankings(Number(params.realmId), 0, 'eva')); }
+    })
+    .register({
+      method: 'GET', pattern: '/api/v4/encyclopedia/eva-ranking/:realmId/:blobIndex/', owner: 'encyclopedia',
+      handler: async (_req, res, _ctx, params) => { sendJson(res, getCompanyRankings(Number(params.realmId), Number(params.blobIndex), 'eva')); }
+    })
+    .register({
+      method: 'GET', pattern: '/api/v4/encyclopedia/ranking/:realmId/', owner: 'encyclopedia',
+      handler: async (_req, res, _ctx, params) => { sendJson(res, getCompanyRankings(Number(params.realmId), 0, 'cv')); }
+    })
+    .register({
+      method: 'GET', pattern: '/api/v4/encyclopedia/ranking/:realmId/:blobIndex/', owner: 'encyclopedia',
+      handler: async (_req, res, _ctx, params) => { sendJson(res, getCompanyRankings(Number(params.realmId), Number(params.blobIndex), 'cv')); }
+    })
+    .register({
+      method: 'GET', pattern: '/api/v4/:scope/:realmId/encyclopedia/ranking/:blobIndex/', owner: 'encyclopedia',
+      handler: async (_req, res, _ctx, params) => { sendJson(res, getCompanyRankings(Number(params.realmId), Number(params.blobIndex), 'cv')); }
+    })
+    .register({
+      method: 'GET', pattern: '/api/v4/:scope/:realmId/encyclopedia/eva-ranking/:blobIndex/', owner: 'encyclopedia',
+      handler: async (_req, res, _ctx, params) => { sendJson(res, getCompanyRankings(Number(params.realmId), Number(params.blobIndex), 'eva')); }
+    })
+    .register({
+      method: 'GET', pattern: '/api/v2/:scope/:realmId/encyclopedia/events/', owner: 'encyclopedia',
+      handler: async (_req, res) => { sendJson(res, { events: [] }); }
+    })
+    .register({
+      method: 'GET', pattern: '/api/v2/:scope/:realmId/encyclopedia/supporters/', owner: 'encyclopedia',
+      handler: async (_req, res) => { sendJson(res, { supporters: [] }); }
+    })
+    .register({
+      method: 'GET', pattern: '/api/v2/:scope/:realmId/certificates-explorer/latest/', owner: 'encyclopedia',
+      handler: async (_req, res) => { sendJson(res, { latestCertificates: encyclopediaCertificates().latestCertificates }); }
+    })
+    .register({
+      method: 'GET', pattern: '/api/v2/:scope/:realmId/certificates-explorer/rarest/', owner: 'encyclopedia',
+      handler: async (_req, res) => { sendJson(res, { rarestCertificates: encyclopediaCertificates().rarestCertificates }); }
+    })
+    .register({
+      method: 'GET', pattern: '/api/v2/:scope/:realmId/certificates-explorer/', owner: 'encyclopedia',
+      handler: async (_req, res) => { sendJson(res, encyclopediaCertificates()); }
+    })
+    .register({
+      method: 'GET', pattern: '/api/v2/:scope/:realmId/certificates/', owner: 'encyclopedia',
+      handler: async (_req, res) => { sendJson(res, getCertificates(0)); }
+    })
+    .register({
+      method: 'GET', pattern: '/api/v3/:scope/:realmId/government-orders/', owner: 'encyclopedia',
+      handler: async (_req, res, ctx) => {
+        sendJson(res, {
+          governmentOrders: getGovernmentOrders(0),
+          applications: getGovernmentBids(0),
+          tier: getGovernmentTier(ctx?.companyId ?? null).tierIndex
+        });
+      }
+    })
+    .register({
+      method: 'GET', pattern: '/api/v4/:scope/:realmId/stats/top/:stat/', owner: 'encyclopedia',
+      handler: async (_req, res) => {
+        const rows = companyRepository.listTopCompaniesByMoney(100);
+        sendJson(res, rows.map((row, index) => ({
+          id: row.companyId,
+          company: { id: row.companyId, company: row.name, logo: row.logo, realmId: row.realmId, deleted: false },
+          contest: { id: 1, name: 'Top Companies' },
+          value: row.money,
+          rank: index
+        })));
+      }
+    });
+}
+
+registerEncyclopediaRoutes(globalRouteRegistry);
 

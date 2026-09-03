@@ -19,6 +19,7 @@
  */
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { CONFIG } from '../config.ts';
+import { RouteRegistry, globalRouteRegistry } from '../http/route-registry.ts';
 import { readJsonBody, sendJson } from './utils.ts';
 import {
   buyCollectible,
@@ -168,3 +169,110 @@ export async function handleCollectibleRoutes(
 
   return false;
 }
+export function registerCollectibleRoutes(registry: RouteRegistry = globalRouteRegistry): void {
+  const bodyField = (body: unknown, field: string): unknown => {
+    if (!body || typeof body !== 'object' || !(field in body)) return undefined;
+    return Reflect.get(body, field);
+  };
+  registry
+    .register({
+      method: 'GET',
+      pattern: '/api/v2/market-collectibles-sbs/',
+      owner: 'collectibles',
+      handler: async (_req, res) => {
+        const purchasable = CONFIG.PAYMENTS_DISABLED ? 0 : 250;
+        sendJson(res, { simboosts: purchasable, available: purchasable, simBoostsAvailableForPurchase: purchasable });
+      }
+    })
+    .register({
+      method: 'GET',
+      pattern: '/api/v2/market-collectibles/',
+      owner: 'collectibles',
+      handler: async (_req, res) => { sendJson(res, listMarketCollectibles()); }
+    })
+    .register({
+      method: 'POST',
+      pattern: '/api/v2/market-collectibles/',
+      owner: 'collectibles',
+      handler: async (_req, res, ctx, _params, body) => {
+        try {
+          const companyId = requireCompany(ctx?.companyId ?? null);
+          const listing = listCollectibleForSale(companyId, Number(bodyField(body, 'collectibleId')), Number(bodyField(body, 'simboosts')));
+          sendJson(res, listing);
+        } catch (err: unknown) {
+          sendDomainError(res, err);
+        }
+      }
+    })
+    .register({
+      method: 'POST',
+      pattern: '/api/v2/market-collectibles/:listingId/buy/',
+      owner: 'collectibles',
+      handler: async (_req, res, ctx, params) => {
+        try {
+          sendJson(res, await buyCollectible(requireCompany(ctx?.companyId ?? null), Number(params.listingId)));
+        } catch (err: unknown) {
+          sendDomainError(res, err);
+        }
+      }
+    })
+    .register({
+      method: 'PATCH',
+      pattern: '/api/v2/market-collectibles/:listingId/',
+      owner: 'collectibles',
+      handler: async (_req, res, ctx, params, body) => {
+        try {
+          const rawListed = bodyField(body, 'listed');
+          const rawPrice = bodyField(body, 'priceSimboosts');
+          sendJson(res, updateCollectibleListing(requireCompany(ctx?.companyId ?? null), Number(params.listingId), {
+            listed: typeof rawListed === 'boolean' ? rawListed : undefined,
+            priceSimboosts: rawPrice === undefined ? undefined : Number(rawPrice)
+          }));
+        } catch (err: unknown) {
+          sendDomainError(res, err);
+        }
+      }
+    })
+    .register({
+      method: 'GET',
+      pattern: '/api/v2/nfts/assets/:assetId/',
+      owner: 'collectibles',
+      handler: async (req, res, _ctx, params) => {
+        const asset = getNftAsset(Number(params.assetId));
+        if (!asset) {
+          sendJson(res, { error: 'Collectible not found', code: 'NOT_FOUND' }, 404);
+          return;
+        }
+        const payload: Record<string, unknown> = {
+          id: asset.id, definitionId: asset.definitionId, name: asset.name, image: asset.image,
+          realm: asset.realm, rarity: asset.rarity, description: asset.description,
+          currentOwnerId: asset.currentOwnerId, mintedAt: asset.mintedAt
+        };
+        if (new URL(req.url || '/', 'http://localhost').searchParams.get('ipfs') === 'true') {
+          payload.ipfs = { description: asset.description };
+        }
+        sendJson(res, payload);
+      }
+    })
+    .register({
+      method: 'GET',
+      pattern: '/api/v2/nfts/assets/:assetId/trades/',
+      owner: 'collectibles',
+      handler: async (_req, res, _ctx, params) => {
+        const asset = getNftAsset(Number(params.assetId));
+        if (!asset) {
+          sendJson(res, { error: 'Collectible not found', code: 'NOT_FOUND' }, 404);
+          return;
+        }
+        sendJson(res, { trades: getAssetTrades(asset.id) });
+      }
+    })
+    .register({
+      method: 'GET',
+      pattern: '/api/v2/nfts/collectors/',
+      owner: 'collectibles',
+      handler: async (_req, res) => { sendJson(res, getNftCollectors()); }
+    });
+}
+
+registerCollectibleRoutes(globalRouteRegistry);

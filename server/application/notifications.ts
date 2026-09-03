@@ -6,6 +6,7 @@
  */
 import { eventBus } from '../events/event-bus.ts';
 import { gameNotificationsRepository } from '../repositories/game-notifications-repository.ts';
+import { virtualClock } from '../core/virtual-clock.ts';
 
 let wired = false;
 
@@ -14,7 +15,7 @@ export function wireGameNotifications(): void {
   wired = true;
 
   eventBus.subscribe('MarketTradeCompleted', p => {
-    const now = new Date().toISOString();
+    const now = virtualClock.nowIso();
     if (p.buyerCompanyId) {
       gameNotificationsRepository.insert(p.buyerCompanyId, 'market-buy', {
         kind: p.kind,
@@ -38,7 +39,7 @@ export function wireGameNotifications(): void {
         quality: p.quality,
         units: p.units,
         revenue: p.revenue
-      }, new Date().toISOString());
+      }, virtualClock.nowIso());
     }
   });
 
@@ -48,7 +49,7 @@ export function wireGameNotifications(): void {
         kind: p.kind,
         quantity: p.quantity,
         price: p.price
-      }, new Date().toISOString());
+      }, virtualClock.nowIso());
     }
   });
 
@@ -56,7 +57,7 @@ export function wireGameNotifications(): void {
     if (p.companyId) {
       gameNotificationsRepository.insert(p.companyId, 'market-order-cancelled', {
         orderId: p.orderId
-      }, new Date().toISOString());
+      }, virtualClock.nowIso());
     }
   });
 
@@ -65,13 +66,13 @@ export function wireGameNotifications(): void {
       kind: p.kind,
       quality: p.quality,
       amount: p.amount
-    }, new Date().toISOString());
+    }, virtualClock.nowIso());
   });
 
   eventBus.subscribe('BuildingConstructed', p => {
     gameNotificationsRepository.insert(p.companyId, 'building-constructed', {
       buildingId: p.buildingId,
       kind: p.kind
-    }, new Date().toISOString());
+    }, virtualClock.nowIso());
   });
 }

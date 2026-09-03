@@ -5,6 +5,7 @@
  * building free happen inside ONE transaction (Issue #68).
  */
 import type { GameContext } from '../../context/game-context.ts';
+import { virtualClock } from '../../core/virtual-clock.ts';
 import { runInTransaction } from '../../db/transaction.ts';
 import { buildingRepository, type BuildingEntity } from '../../repositories/building-repository.ts';
 import { companyRepository } from '../../repositories/company-repository.ts';
@@ -38,7 +39,7 @@ export async function rushBuildingConstructionUseCase(
     }
 
     const busyUntilMs = building.busyUntil ? new Date(building.busyUntil).getTime() : 0;
-    if (busyUntilMs <= Date.now()) {
+    if (busyUntilMs <= virtualClock.nowMs()) {
       throw new ValidationError('Building is not under construction or upgrade');
     }
 

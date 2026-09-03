@@ -24,6 +24,7 @@
  * tiers), so they exist at boot for fresh DATA_DIRs.
  */
 import { db } from '../db/database.ts';
+import { virtualClock } from '../core/virtual-clock.ts';
 import { runInTransaction } from '../db/transaction.ts';
 import { getCompanyById, updateCompanySimBoosts } from './company.ts';
 import {
@@ -269,7 +270,7 @@ export function listCollectibleForSale(
     throw new ConflictError('This collectible is already listed on the exchange');
   }
 
-  const now = new Date().toISOString();
+  const now = virtualClock.nowIso();
   const row = db.prepare(`
     INSERT INTO nft_listings (nft_id, seller_id, price_simboosts, status, created_at, updated_at)
     VALUES (?, ?, ?, 'active', ?, ?)
@@ -334,7 +335,7 @@ export function updateCollectibleListing(
     price = assertValidSimboostPrice(patch.priceSimboosts, 'priceSimboosts');
   }
 
-  const now = new Date().toISOString();
+    const now = virtualClock.nowIso();
   const updated = db.prepare(`
     UPDATE nft_listings SET status = ?, price_simboosts = ?, updated_at = ?
     WHERE id = ?
@@ -398,7 +399,7 @@ export function buyCollectible(buyerCompanyId: number, listingId: number): Colle
       }
     }
 
-    const now = new Date().toISOString();
+    const now = virtualClock.nowIso();
     db.prepare('UPDATE nft_assets SET current_owner_id = ? WHERE id = ?').run(buyerCompanyId, row.nft_id);
     const updatedListing = db.prepare(`
       UPDATE nft_listings SET status = 'sold', updated_at = ?

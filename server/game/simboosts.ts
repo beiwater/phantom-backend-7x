@@ -1,5 +1,6 @@
  import { db } from '../db/database.ts';
  import { runInTransaction } from '../db/transaction.ts';
+import { virtualClock } from '../core/virtual-clock.ts';
  import { getCompanyById, updateCompanyMoney, updateCompanySimBoosts } from './company.ts';
  import { getBuildingById, formatBuilding } from './buildings.ts';
  import { addResource } from './warehouse.ts';
@@ -115,7 +116,7 @@ const PURCHASE_IDEMPOTENCY_WINDOW_MS = 5000;
 const recentPurchases = new Map<string, { at: number; result: CompletedPurchase }>();
 
 
-export async function purchasePaymentPackage(companyId: number, sku: string, now: number = Date.now()) {
+export async function purchasePaymentPackage(companyId: number, sku: string, now: number = virtualClock.nowMs()) {
   const pkg = PAYMENT_PACKAGES.find(p => p.sku === sku);
   if (!pkg) {
     throw new Error('Package not found');

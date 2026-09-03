@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import type { IncomingMessage } from 'node:http';
 import { db } from '../db/database.ts';
 import { CONFIG } from '../config.ts';
+import { virtualClock } from '../core/virtual-clock.ts';
 
 export interface SessionRecord {
   session_token: string;
@@ -18,7 +19,7 @@ export const SESSION_CLEANUP_INTERVAL_MS = 60 * 60 * 1000;
 
 export function createSession(playerId: number, companyId: number): string {
   const token = 'sess_' + crypto.randomBytes(32).toString('hex');
-  const now = new Date();
+  const now = virtualClock.now();
   const expires = new Date(now.getTime() + SESSION_TTL_MS); // 30 days
 
   db.prepare(`
@@ -37,7 +38,7 @@ export function getSession(token: string): { playerId: number; companyId: number
 
   if (!row) return null;
   const expiresAt = Date.parse(row.expires_at);
-  if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
+  if (!Number.isFinite(expiresAt) || expiresAt <= virtualClock.nowMs()) {
     db.prepare('DELETE FROM sessions WHERE session_token = ?').run(token);
     return null;
   }
@@ -59,7 +60,7 @@ export function destroySession(token: string): void {
  */
 export function cleanupExpiredSessions(): number {
   const result = db.prepare('DELETE FROM sessions WHERE expires_at <= ?')
-    .run(new Date().toISOString());
+    .run(virtualClock.nowIso());
   return Number(result.changes);
 }
 

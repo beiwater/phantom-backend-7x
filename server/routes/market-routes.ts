@@ -7,7 +7,7 @@
  */
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { readJsonBody, sendJson } from './utils.ts';
-import { createGameContext } from '../context/game-context.ts';
+import { createGameContext, type GameContext } from '../context/game-context.ts';
 import { sendDomainError } from '../compatibility/simcompanies/response-helpers.ts';
 import { formatMarketOrder } from '../compatibility/simcompanies/market-dto.ts';
 import { placeBuyOrder, cancelBuyOrder, sellToBids, listOwnBuyOrders, listBidBook } from '../application/market/buy-orders.ts';
@@ -16,6 +16,7 @@ import { takeMarketOrder } from '../application/market/take-order.ts';
 import { cancelMarketOrder } from '../application/market/cancel-order.ts';
 import { marketRepository, marketTradeRepository } from '../repositories/market-repository.ts';
 import { getAllResourceDefs } from '../game-data/resources.ts';
+import { RouteRegistry, globalRouteRegistry } from '../http/route-registry.ts';
 
 // --- Read services (queries; pure reads, no mutation) -----------------------
 
@@ -284,3 +285,220 @@ export async function handleMarketRoutes(
 function getMarketReferencePrices() {
   return { referencePrices: marketTradeRepository.findDailyReferencePrices() };
 }
+
+function marketBody(body: unknown): Record<string, unknown> {
+  if (body && typeof body === 'object' && !Array.isArray(body)) {
+    return body as Record<string, unknown>;
+  }
+  return {};
+}
+
+function marketNumber(body: Record<string, unknown>, key: string): number | undefined {
+  const value = body[key];
+  if (value === undefined || value === null || value === '') return undefined;
+  return typeof value === 'number' ? value : Number(value);
+}
+
+export function registerMarketRoutes(registry: RouteRegistry = globalRouteRegistry): void {
+  const companyId = (ctx: GameContext | null, res: ServerResponse): number | null => {
+    if (!ctx?.companyId) {
+      sendJson(res, { error: 'Unauthorized' }, 401);
+      return null;
+    }
+    return ctx.companyId;
+  };
+
+  registry
+    .register({
+      method: 'GET', pattern: '/api/v2/market-ticker/', owner: 'market',
+      handler: async (_req, res, _ctx, params) => {
+        sendJson(res, getMarketTicker(Number(params.realmId ?? 0)));
+      }
+    })
+    .register({
+      method: 'GET', pattern: '/api/v3/market-ticker/', owner: 'market',
+      handler: async (_req, res, _ctx, params) => {
+        sendJson(res, getMarketTicker(Number(params.realmId ?? 0)));
+      }
+    })
+    .register({
+      method: 'GET', pattern: '/api/v2/market/limits/:realmId/:kind/:quality/', owner: 'market',
+      handler: async (_req, res, _ctx, params) => {
+        sendJson(res, { minPrice: 0.5, maxPrice: 5000, feePercentage: 0.04, resourceKind: Number(params.kind) });
+      }
+    })
+    .register({
+      method: 'GET', pattern: '/api/v3/market/buy/:realmId/:kind/', owner: 'market',
+      handler: async (_req, res, _ctx, params) => {
+        sendJson(res, marketRepository.findActiveSellOrdersForBook(Number(params.realmId), Number(params.kind)).map(formatMarketOrder));
+      }
+    })
+    .register({
+      method: 'GET', pattern: '/api/v3/market/:realmId/:kind/', owner: 'market',
+      handler: async (_req, res, _ctx, params) => {
+        sendJson(res, marketRepository.findActiveSellOrdersForBook(Number(params.realmId), Number(params.kind)).map(formatMarketOrder));
+      }
+    })
+    .register({
+      method: 'GET', pattern: '/api/v3/market/all/:realmId/:kind/', owner: 'market',
+      handler: async (_req, res, _ctx, params) => {
+        sendJson(res, marketRepository.findActiveSellOrdersForBook(Number(params.realmId), Number(params.kind)).map(formatMarketOrder));
+      }
+    })
+    .register({
+      method: 'GET', pattern: '/api/v2/companies/:companyId/market-orders/', owner: 'market',
+      handler: async (_req, res, ctx, params) => {
+        const requestedCompanyId = params.companyId === 'me' ? ctx?.companyId : Number(params.companyId);
+        if (!ctx?.companyId || !requestedCompanyId || requestedCompanyId !== ctx.companyId) {
+          sendJson(res, { error: 'Unauthorized' }, 401);
+          return;
+        }
+        sendJson(res, marketRepository.findActiveBySeller(ctx.companyId).map(formatMarketOrder));
+      }
+    })
+    .register({
+      method: 'GET', pattern: '/api/v2/companies/:companyId/market-buy-orders/', owner: 'market',
+      handler: async (_req, res, ctx, params) => {
+        const requestedCompanyId = params.companyId === 'me' ? ctx?.companyId : Number(params.companyId);
+        if (!ctx?.companyId || !requestedCompanyId || requestedCompanyId !== ctx.companyId) {
+          sendJson(res, { error: 'Unauthorized' }, 401);
+          return;
+        }
+        sendJson(res, {
+          buyOrders: listOwnBuyOrders(requestedCompanyId).map(order => ({
+            id: order.id, kind: order.kind, minQuality: order.quality, amount: order.quantity, price: order.price
+          }))
+        });
+      }
+    })
+    .register({
+      method: 'POST', pattern: '/api/v2/market-order/buy/', owner: 'market',
+      handler: async (_req, res, ctx, _params, body) => {
+        const id = companyId(ctx, res);
+        if (!id) return;
+        const input = marketBody(body);
+        try {
+          sendJson(res, await placeBuyOrder(ctx!, {
+            kind: Number(input.kind),
+            price: Number(input.price),
+            quantity: Number(input.quantity),
+            quality: marketNumber(input, 'quality')
+          }));
+        } catch (err: unknown) {
+          sendDomainError(res, err);
+        }
+      }
+    })
+    .register({
+      method: 'DELETE', pattern: '/api/v2/market-order/buy/:orderId/', owner: 'market',
+      handler: async (_req, res, ctx, params) => {
+        const id = companyId(ctx, res);
+        if (!id) return;
+        try {
+          sendJson(res, await cancelBuyOrder(ctx!, Number(params.orderId)));
+        } catch (err: unknown) {
+          sendDomainError(res, err);
+        }
+      }
+    })
+    .register({
+      method: 'POST', pattern: '/api/v2/market-order/sell-to-bid/', owner: 'market',
+      handler: async (_req, res, ctx, _params, body) => {
+        const id = companyId(ctx, res);
+        if (!id) return;
+        const input = marketBody(body);
+        try {
+          sendJson(res, await sellToBids(ctx!, {
+            resource: Number(input.resource),
+            quantity: Number(input.quantity),
+            quality: marketNumber(input, 'quality'),
+            minPrice: marketNumber(input, 'minPrice')
+          }));
+        } catch (err: unknown) {
+          sendDomainError(res, err);
+        }
+      }
+    })
+    .register({
+      method: 'GET', pattern: '/api/v3/market/bids/:realmId/:kind/:quality/', owner: 'market',
+      handler: async (_req, res, ctx, params) => {
+        sendJson(res, listBidBook(Number(params.kind), Number(params.quality), ctx?.companyId ?? null));
+      }
+    })
+    .register({
+      method: 'POST', pattern: '/api/v2/market-order/', owner: 'market',
+      handler: async (_req, res, ctx, _params, body) => {
+        const id = companyId(ctx, res);
+        if (!id) return;
+        const input = marketBody(body);
+        try {
+          sendJson(res, await placeMarketOrder(ctx!, {
+            resourceId: marketNumber(input, 'resourceId'),
+            kind: Number(input.kind),
+            price: Number(input.price),
+            quantity: Number(input.quantity),
+            quality: marketNumber(input, 'quality')
+          }));
+        } catch (err: unknown) {
+          sendDomainError(res, err);
+        }
+      }
+    })
+    .register({
+      method: 'POST', pattern: '/api/v2/market-order/take/', owner: 'market',
+      handler: async (_req, res, ctx, _params, body) => {
+        const id = companyId(ctx, res);
+        if (!id) return;
+        const input = marketBody(body);
+        try {
+          sendJson(res, await takeMarketOrder(ctx!, {
+            resource: Number(input.resource),
+            quantity: Number(input.quantity),
+            quality: marketNumber(input, 'quality'),
+            maxPrice: marketNumber(input, 'maxPrice'),
+            money: marketNumber(input, 'money')
+          }));
+        } catch (err: unknown) {
+          sendDomainError(res, err);
+        }
+      }
+    })
+    .register({
+      method: 'DELETE', pattern: '/api/v2/market-order/:orderId/', owner: 'market',
+      handler: async (_req, res, ctx, params) => {
+        const id = companyId(ctx, res);
+        if (!id) return;
+        try {
+          sendJson(res, await cancelMarketOrder(ctx!, { orderId: Number(params.orderId) }));
+        } catch (err: unknown) {
+          sendDomainError(res, err);
+        }
+      }
+    })
+    .register({
+      method: 'GET', pattern: '/api/v2/recent-resources/', owner: 'market',
+      handler: async (_req, res) => { sendJson(res, { resources: [{ kind: 1 }, { kind: 2 }, { kind: 3 }, { kind: 13 }, { kind: 66 }] }); }
+    })
+    .register({
+      method: 'GET', pattern: '/api/v3/recent-resources/', owner: 'market',
+      handler: async (_req, res) => { sendJson(res, { resources: [{ kind: 1 }, { kind: 2 }, { kind: 3 }, { kind: 13 }, { kind: 66 }] }); }
+    })
+    .register({
+      method: 'GET', pattern: '/api/v2/companies/:companyId/recent-resources/', owner: 'market',
+      handler: async (_req, res) => { sendJson(res, { resources: [{ kind: 1 }, { kind: 2 }, { kind: 3 }, { kind: 13 }, { kind: 66 }] }); }
+    })
+    .register({
+      method: 'GET', pattern: '/api/v3/companies/:companyId/recent-resources/', owner: 'market',
+      handler: async (_req, res) => { sendJson(res, { resources: [{ kind: 1 }, { kind: 2 }, { kind: 3 }, { kind: 13 }, { kind: 66 }] }); }
+    })
+    .register({
+      method: 'GET', pattern: '/api/v2/market/reference-prices/', owner: 'market',
+      handler: async (_req, res) => { sendJson(res, getMarketReferencePrices()); }
+    })
+    .register({
+      method: 'GET', pattern: '/api/v2/market/reference-prices/:realmId/', owner: 'market',
+      handler: async (_req, res) => { sendJson(res, getMarketReferencePrices()); }
+    });
+}
+
+registerMarketRoutes(globalRouteRegistry);

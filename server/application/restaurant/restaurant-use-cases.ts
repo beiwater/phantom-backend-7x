@@ -5,6 +5,7 @@
  * delegates the transactional work to the engine (single authoritative
  * implementation — engine internals migrate to repositories incrementally).
  */
+import { virtualClock } from '../../core/virtual-clock.ts';
 import type { GameContext } from '../../context/game-context.ts';
 import {
   getRestaurantProperties,
@@ -93,7 +94,7 @@ export async function updateRestaurantPropertiesUseCase(
       hasActiveRun: current.keepOpen ? current.keepOpen : false,
       busyUntilFuture: false,
       reconstructionFuture: Boolean(
-        current.reconstructionUntil && new Date(current.reconstructionUntil).getTime() > Date.now()
+        current.reconstructionUntil && new Date(current.reconstructionUntil).getTime() > virtualClock.nowMs()
       )
     });
     // The active-run bit is authoritative from the runs table, not the
@@ -105,7 +106,7 @@ export async function updateRestaurantPropertiesUseCase(
       hasActiveRun,
       busyUntilFuture: false,
       reconstructionFuture: Boolean(
-        current.reconstructionUntil && new Date(current.reconstructionUntil).getTime() > Date.now()
+        current.reconstructionUntil && new Date(current.reconstructionUntil).getTime() > virtualClock.nowMs()
       )
     });
     void state;

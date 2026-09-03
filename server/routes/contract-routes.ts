@@ -1,4 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
+import { RouteRegistry, globalRouteRegistry } from '../http/route-registry.ts';
 import { readJsonBody, sendJson, requireCapability } from './utils.ts';
 import {
   getIncomingContractsQuery,
@@ -180,3 +181,141 @@ export async function handleContractRoutes(
 
   return false;
 }
+export function registerContractRoutes(registry: RouteRegistry = globalRouteRegistry): void {
+  const bodyField = (body: unknown, field: string): unknown => {
+    if (!body || typeof body !== 'object' || !(field in body)) return undefined;
+    return Reflect.get(body, field);
+  };
+  const timestamp = (): Record<string, string> => ({ 'x-timestamp': new Date().toISOString() });
+  const companyRequired = (ctx: GameContext | null, res: ServerResponse): number | null => {
+    const companyId = ctx?.companyId ?? null;
+    if (!companyId) {
+      sendJson(res, { error: 'Unauthorized' }, 401);
+      return null;
+    }
+    return companyId;
+  };
+  const commandError = (err: unknown): { error: string } => ({
+    error: err instanceof Error ? err.message : String(err)
+  });
+  const listIncoming = (_req: IncomingMessage, res: ServerResponse, ctx: GameContext | null): void => {
+    const companyId = companyRequired(ctx, res);
+    if (companyId !== null) sendJson(res, getIncomingContractsQuery(companyId), 200, timestamp());
+  };
+  const listOutgoing = (_req: IncomingMessage, res: ServerResponse, ctx: GameContext | null): void => {
+    const companyId = companyRequired(ctx, res);
+    if (companyId !== null) sendJson(res, getOutgoingContractsQuery(companyId), 200, timestamp());
+  };
+  const listHistory = (_req: IncomingMessage, res: ServerResponse, ctx: GameContext | null, direction: 'incoming' | 'outgoing'): void => {
+    const companyId = companyRequired(ctx, res);
+    if (companyId !== null) sendJson(res, getContractHistoryQuery(companyId, direction), 200, timestamp());
+  };
+
+  registry
+    .register({ method: 'GET', pattern: '/api/v2/contracts-incoming/', owner: 'contracts', handler: async (req, res, ctx) => listIncoming(req, res, ctx) })
+    .register({ method: 'GET', pattern: '/api/v3/contracts-incoming/:companyId/', owner: 'contracts', handler: async (req, res, ctx) => listIncoming(req, res, ctx) })
+    .register({ method: 'GET', pattern: '/api/v3/contracts-incoming/:realm/:companyId/', owner: 'contracts', handler: async (req, res, ctx) => listIncoming(req, res, ctx) })
+    .register({ method: 'GET', pattern: '/api/v2/contracts-outgoing/', owner: 'contracts', handler: async (req, res, ctx) => listOutgoing(req, res, ctx) })
+    .register({ method: 'GET', pattern: '/api/v3/contracts-outgoing/:companyId/', owner: 'contracts', handler: async (req, res, ctx) => listOutgoing(req, res, ctx) })
+    .register({ method: 'GET', pattern: '/api/v3/contracts-outgoing/:realm/:companyId/', owner: 'contracts', handler: async (req, res, ctx) => listOutgoing(req, res, ctx) })
+    .register({ method: 'GET', pattern: '/api/v2/contracts-history-incoming/', owner: 'contracts', handler: async (_req, res, ctx) => listHistory(_req, res, ctx, 'incoming') })
+    .register({ method: 'GET', pattern: '/api/v2/contracts-history-outgoing/', owner: 'contracts', handler: async (_req, res, ctx) => listHistory(_req, res, ctx, 'outgoing') })
+    .register({ method: 'GET', pattern: '/api/v2/contracts-history-incoming/:companyId/', owner: 'contracts', handler: async (_req, res, ctx) => listHistory(_req, res, ctx, 'incoming') })
+    .register({ method: 'GET', pattern: '/api/v2/contracts-history-outgoing/:companyId/', owner: 'contracts', handler: async (_req, res, ctx) => listHistory(_req, res, ctx, 'outgoing') })
+    .register({
+      method: 'POST', pattern: '/api/v3/contracts/:recipient/', owner: 'contracts',
+      handler: async (_req, res, ctx, _params, body) => {
+        const companyId = companyRequired(ctx, res);
+        if (!companyId) return;
+        if (requireCapability(res, companyId, 'contracts', 'send contract')) return;
+        try {
+          sendJson(res, await sendContractCommand(ctx!, {
+            buyerCompanyId: Number(bodyField(body, 'recipient')),
+            resourceKind: Number(bodyField(body, 'kind')),
+            quality: Number(bodyField(body, 'quality') || 0),
+            amount: Number(bodyField(body, 'amount')),
+            price: Number(bodyField(body, 'price'))
+          }));
+        } catch (err: unknown) { sendJson(res, commandError(err), 400); }
+      }
+    })
+    .register({
+      method: 'POST', pattern: '/api/v2/contracts/', owner: 'contracts',
+      handler: async (_req, res, ctx, _params, body) => {
+        const companyId = companyRequired(ctx, res);
+        if (!companyId) return;
+        if (requireCapability(res, companyId, 'contracts', 'send contract')) return;
+        try {
+          sendJson(res, await sendContractCommand(ctx!, {
+            buyerCompanyId: Number(bodyField(body, 'recipient')),
+            resourceKind: Number(bodyField(body, 'kind')),
+            quality: Number(bodyField(body, 'quality') || 0),
+            amount: Number(bodyField(body, 'amount')),
+            price: Number(bodyField(body, 'price'))
+          }));
+        } catch (err: unknown) { sendJson(res, commandError(err), 400); }
+      }
+    })
+    .register({
+      method: 'POST', pattern: '/api/v3/contracts/:contractId/accept/', owner: 'contracts',
+      handler: async (_req, res, ctx, params) => {
+        const companyId = companyRequired(ctx, res);
+        if (!companyId) return;
+        if (requireCapability(res, companyId, 'contracts', 'accept contract')) return;
+        try { sendJson(res, await acceptContractCommand(ctx!, Number(params.contractId))); }
+        catch (err: unknown) { sendJson(res, commandError(err), 400); }
+      }
+    })
+    .register({
+      method: 'POST', pattern: '/api/v2/contracts/:contractId/accept/', owner: 'contracts',
+      handler: async (_req, res, ctx, params) => {
+        const companyId = companyRequired(ctx, res);
+        if (!companyId) return;
+        if (requireCapability(res, companyId, 'contracts', 'accept contract')) return;
+        try { sendJson(res, await acceptContractCommand(ctx!, Number(params.contractId))); }
+        catch (err: unknown) { sendJson(res, commandError(err), 400); }
+      }
+    })
+    .register({
+      method: 'POST', pattern: '/api/v3/contracts/:contractId/reject/', owner: 'contracts',
+      handler: async (_req, res, ctx, params) => {
+        const companyId = companyRequired(ctx, res);
+        if (!companyId) return;
+        if (requireCapability(res, companyId, 'contracts', 'reject contract')) return;
+        try { sendJson(res, await rejectContractCommand(ctx!, Number(params.contractId))); }
+        catch (err: unknown) { sendJson(res, commandError(err), 400); }
+      }
+    })
+    .register({
+      method: 'POST', pattern: '/api/v2/contracts/:contractId/reject/', owner: 'contracts',
+      handler: async (_req, res, ctx, params) => {
+        const companyId = companyRequired(ctx, res);
+        if (!companyId) return;
+        if (requireCapability(res, companyId, 'contracts', 'reject contract')) return;
+        try { sendJson(res, await rejectContractCommand(ctx!, Number(params.contractId))); }
+        catch (err: unknown) { sendJson(res, commandError(err), 400); }
+      }
+    })
+    .register({
+      method: 'DELETE', pattern: '/api/v3/contracts/:contractId/', owner: 'contracts',
+      handler: async (_req, res, ctx, params) => {
+        const companyId = companyRequired(ctx, res);
+        if (!companyId) return;
+        if (requireCapability(res, companyId, 'contracts', 'cancel contract')) return;
+        try { sendJson(res, await cancelContractCommand(ctx!, Number(params.contractId))); }
+        catch (err: unknown) { sendJson(res, commandError(err), 400); }
+      }
+    })
+    .register({
+      method: 'DELETE', pattern: '/api/v2/contracts/:contractId/', owner: 'contracts',
+      handler: async (_req, res, ctx, params) => {
+        const companyId = companyRequired(ctx, res);
+        if (!companyId) return;
+        if (requireCapability(res, companyId, 'contracts', 'cancel contract')) return;
+        try { sendJson(res, await cancelContractCommand(ctx!, Number(params.contractId))); }
+        catch (err: unknown) { sendJson(res, commandError(err), 400); }
+      }
+    });
+}
+
+registerContractRoutes(globalRouteRegistry);

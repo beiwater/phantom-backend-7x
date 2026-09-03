@@ -7,6 +7,7 @@
  * validations) belongs to application/executives/executive-use-cases.ts.
  */
 import { db } from '../db/connection.ts';
+import { virtualClock } from '../core/virtual-clock.ts';
 
 export interface ExecutiveRow {
   id: number;
@@ -379,7 +380,7 @@ export const executiveRepository = {
     const existingCount = (database.prepare('SELECT COUNT(*) as count FROM executives WHERE company_id = ?').get(companyId) as { count: number })?.count || 0;
     if (existingCount > 0) return;
 
-    const now = new Date().toISOString();
+    const now = virtualClock.nowIso();
     const defaults = [
       { name: 'Alexander Wright', avatar: 'images/avatars/male_01.png', pos: 'coo', mgmt: 12, acc: 4, sci: 3, comm: 6, sal: 450 },
       { name: 'Elena Rostova', avatar: 'images/avatars/female_01.png', pos: 'cfo', mgmt: 4, acc: 14, sci: 2, comm: 5, sal: 480 },

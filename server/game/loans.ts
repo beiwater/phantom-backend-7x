@@ -1,4 +1,5 @@
 import { db } from '../db/database.ts';
+import { virtualClock } from '../core/virtual-clock.ts';
 import { updateCompanyMoney, getCompanyById } from './company.ts';
 
 // Assumption: a company may hold active loan principal up to 2x its level * 50000
@@ -78,7 +79,7 @@ export function takeLoan(companyId: number, amount: number) {
     throw new Error(`Loan cap exceeded: active principal ${current} + ${amt} > cap ${cap}`);
   }
 
-  const now = new Date();
+  const now = virtualClock.now();
   const due = new Date(now.getTime() + LOAN_TERM_DAYS * 24 * 60 * 60 * 1000);
   db.prepare('BEGIN IMMEDIATE').run();
   try {
@@ -127,7 +128,7 @@ export function repayLoan(companyId: number, loanId: number, amount: number) {
 // a read helper. This keeps GET requests side-effect free.
 export function settleDueLoans(companyId?: number) {
   ensureTable();
-  const now = new Date().toISOString();
+  const now = virtualClock.nowIso();
   const rows = (companyId !== undefined
     ? db.prepare(
         `SELECT * FROM loans WHERE status = 'active' AND due_at IS NOT NULL AND due_at <= ? AND company_id = ?`

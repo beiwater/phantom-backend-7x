@@ -1458,7 +1458,194 @@ export const MIGRATIONS: MigrationDefinition[] = [
         }
       }
     }
-  }
+  },
+  {
+    version: 22,
+    name: '022_economy_phase_history',
+    up: (db: DatabaseSync) => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS economy_phase_history (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          realm_id INTEGER NOT NULL,
+          phase INTEGER NOT NULL CHECK (phase IN (0, 1, 2)),
+          start_at TEXT NOT NULL,
+          end_at TEXT,
+          source TEXT NOT NULL DEFAULT 'scheduler',
+          production_modifier REAL NOT NULL DEFAULT 0,
+          modifier_kind TEXT NOT NULL DEFAULT 'neutral',
+          modifier_seed INTEGER NOT NULL DEFAULT 0,
+          generated_at TEXT NOT NULL,
+          UNIQUE (realm_id, start_at)
+        );
+        CREATE INDEX IF NOT EXISTS idx_economy_phase_history_realm_start
+          ON economy_phase_history (realm_id, start_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_economy_phase_history_realm_phase
+          ON economy_phase_history (realm_id, phase);
+      `);
+      const historyColumns = new Set(
+        (db.prepare('PRAGMA table_info(economy_phase_history)').all() as Array<{ name: string }>)
+          .map(column => column.name)
+      );
+      const historyAdds: Record<string, string> = {
+        production_modifier: 'REAL NOT NULL DEFAULT 0',
+        modifier_kind: "TEXT NOT NULL DEFAULT 'neutral'",
+        modifier_seed: 'INTEGER NOT NULL DEFAULT 0'
+      };
+      for (const [column, ddl] of Object.entries(historyAdds)) {
+        if (!historyColumns.has(column)) {
+          db.exec(`ALTER TABLE economy_phase_history ADD COLUMN ${column} ${ddl}`);
+        }
+      }
+      const columns = new Set(
+        (db.prepare('PRAGMA table_info(economy_state)').all() as Array<{ name: string }>)
+          .map(column => column.name)
+      );
+      const additions: Record<string, string> = {
+        phase_started_at: 'TEXT',
+        phase_ends_at: 'TEXT',
+        source: "TEXT DEFAULT 'scheduler'"
+      };
+      for (const [column, ddl] of Object.entries(additions)) {
+        if (!columns.has(column)) {
+          db.exec(`ALTER TABLE economy_state ADD COLUMN ${column} ${ddl}`);
+        }
+      }
+      const now = new Date().toISOString();
+      db.prepare(`
+        INSERT OR IGNORE INTO economy_phase_history
+          (realm_id, phase, start_at, end_at, source, generated_at)
+        SELECT realm_id, state, COALESCE(phase_started_at, updated_at, ?), NULL,
+               COALESCE(source, 'migration'), ?
+        FROM economy_state
+      `).run(now, now);
+      db.prepare(`
+        UPDATE economy_state
+        SET phase_started_at = COALESCE(phase_started_at, updated_at, ?),
+            source = COALESCE(source, 'migration')
+      `).run(now);
+      const retailColumns = new Set(
+        (db.prepare('PRAGMA table_info(retail_orders)').all() as Array<{ name: string }>)
+          .map(column => column.name)
+      );
+      const retailAdds: Record<string, string> = {
+        economy_phase: 'INTEGER DEFAULT 1',
+        economy_phase_started_at: 'TEXT',
+        economy_source: "TEXT DEFAULT 'migration'"
+      };
+      for (const [column, ddl] of Object.entries(retailAdds)) {
+        if (!retailColumns.has(column)) {
+          db.exec(`ALTER TABLE retail_orders ADD COLUMN ${column} ${ddl}`);
+        }
+      }
+      const productionColumns = new Set(
+        (db.prepare('PRAGMA table_info(production_queues)').all() as Array<{ name: string }>)
+          .map(column => column.name)
+      );
+      const productionAdds: Record<string, string> = {
+        economy_phase: 'INTEGER DEFAULT 1',
+        economy_phase_started_at: 'TEXT',
+        economy_source: "TEXT DEFAULT 'migration'",
+        production_modifier: 'REAL DEFAULT 0',
+        production_output_multiplier: 'REAL DEFAULT 1'
+      };
+      for (const [column, ddl] of Object.entries(productionAdds)) {
+        if (!productionColumns.has(column)) {
+          db.exec(`ALTER TABLE production_queues ADD COLUMN ${column} ${ddl}`);
+        }
+      }
+    }
+  },
+  {
+    version: 23,
+    name: '023_certificate_catalog_and_awards',
+    up: (db: DatabaseSync) => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS certificate_kinds (
+          kind INTEGER PRIMARY KEY,
+          name TEXT NOT NULL,
+          description TEXT NOT NULL,
+          default_rarity REAL NOT NULL DEFAULT 0.05,
+          award_rule TEXT NOT NULL DEFAULT 'cycle',
+          period TEXT NOT NULL DEFAULT 'month',
+          resource_kind INTEGER
+        );
+        CREATE INDEX IF NOT EXISTS idx_certificates_realm_issued
+          ON certificates(realm_id, datetime DESC, id DESC);
+        CREATE INDEX IF NOT EXISTS idx_certificates_realm_kind
+          ON certificates(realm_id, kind, id DESC);
+      `);
+      const certificateColumns = new Set(
+        (db.prepare('PRAGMA table_info(certificates)').all() as Array<{ name: string }>)
+          .map(column => column.name)
+      );
+      const certificateAdds: Record<string, string> = {
+        quantity: 'REAL NOT NULL DEFAULT 0',
+        cycle_key: 'TEXT',
+        cycle_start_at: 'TEXT',
+        cycle_end_at: 'TEXT',
+        rank: 'INTEGER',
+        issued_at: 'TEXT'
+      };
+      for (const [column, ddl] of Object.entries(certificateAdds)) {
+        if (!certificateColumns.has(column)) {
+          db.exec(`ALTER TABLE certificates ADD COLUMN ${column} ${ddl}`);
+        }
+      }
+      const catalog: Array<[number, string, string, number, string, string, number | null]> = [
+        [1, 'All Achievements', 'Awarded for completing all available achievements.', 0.01, 'cycle', 'year', null],
+        [2, 'Cash Cow', 'Awarded to the company that paid the most taxes in a month.', 0.02, 'ranking', 'month', null],
+        [3, 'Contest Winner', 'Awarded to successful contest participants.', 0.03, 'contest', 'cycle', null],
+        [6, 'Dumpster Chef', 'Awarded to the restaurant that wasted the most food.', 0.04, 'ranking', 'month', null],
+        [7, 'Educator', 'Awarded to the company with the most executive training.', 0.03, 'ranking', 'month', null],
+        [9, 'Executive Pimp', 'Awarded to the company that earned the most royalties.', 0.04, 'ranking', 'month', null],
+        [10, 'Fastest Building', 'Awarded to the fastest growing company by building value.', 0.03, 'ranking', 'cycle', null],
+        [11, 'Fastest Employer', 'Awarded to the fastest growing employer.', 0.03, 'ranking', 'cycle', null],
+        [12, 'Fastest Value', 'Awarded to the fastest growing company by value.', 0.03, 'ranking', 'cycle', null],
+        [13, 'Highest EVA', 'Awarded to the company with the highest economic value added.', 0.04, 'ranking', 'month', null],
+        [14, 'Highest Patents', 'Awarded to the company with the highest patents value.', 0.04, 'ranking', 'month', null],
+        [15, 'Highest Share', 'Awarded to the company with the highest share price.', 0.04, 'ranking', 'month', null],
+        [16, 'Largest Building', 'Awarded to the largest company by building value.', 0.03, 'ranking', 'month', null],
+        [17, 'Largest Buyer', 'Awarded to the company spending most on resources.', 0.04, 'ranking', 'month', null],
+        [18, 'Largest Employer', 'Awarded to the largest employer.', 0.03, 'ranking', 'month', null],
+        [20, 'Largest Seller', 'Awarded to the company earning most from exchange sales.', 0.04, 'ranking', 'month', null],
+        [21, 'Largest Value', 'Awarded to the largest company by value.', 0.02, 'ranking', 'month', null],
+        [22, 'Loan Shark', 'Awarded to the company collecting the most bond interest.', 0.04, 'ranking', 'month', null],
+        [23, 'Mad Scientist', 'Awarded to the company producing the most research.', 0.04, 'ranking', 'month', 100],
+        [25, 'Overfeeder', 'Awarded to the restaurant that fed the most people.', 0.04, 'ranking', 'month', null],
+        [26, 'Procurement Parasite', 'Awarded to the company earning most government-order revenue.', 0.04, 'ranking', 'month', null],
+        [27, 'Producer', 'Awarded for producing the most units of a resource.', 0.03, 'production', 'month', null],
+        [28, 'Real Estate Mogul', 'Awarded for selling the most buildings at auction.', 0.04, 'ranking', 'month', null],
+        [29, 'King Midas', 'Awarded to the company with the most golden bars.', 0.005, 'ranking', 'month', 69],
+        [30, 'Reset', 'Awarded when resetting a company.', 0.02, 'reset', 'year', null],
+        [31, 'Simicheline Star', 'Awarded to the company with the best-rated restaurant.', 0.04, 'ranking', 'month', null],
+        [32, 'Supporter', 'Awarded for supporting the game.', 0.05, 'purchase', 'instant', null],
+        [33, 'Veteran', 'Awarded to long-standing companies.', 0.03, 'tenure', 'year', null],
+        [34, 'Wallet Wielder', 'Awarded for buying the highest-value buildings at auction.', 0.04, 'ranking', 'month', null],
+        [36, 'Elon Award', 'Awarded for the most rocket explosions in a month.', 0.012, 'ranking', 'month', null],
+        [39, 'Retailer of the Month', 'Awarded for selling the most units of a resource in retail.', 0.025, 'retail', 'month', null],
+        [41, 'Producer of the Year', 'Awarded for producing the most units of a non-research resource.', 0.018, 'production', 'year', null]
+      ];
+      const insertKind = db.prepare(`
+        INSERT OR IGNORE INTO certificate_kinds
+          (kind, name, description, default_rarity, award_rule, period, resource_kind)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `);
+      for (const row of catalog) insertKind.run(...row);
+    }
+  },
+  {
+    version: 24,
+    name: '024_launch_product_mapping',
+    up: (db: DatabaseSync) => {
+      const columns = new Set(
+        (db.prepare('PRAGMA table_info(production_queues)').all() as Array<{ name: string }>)
+          .map(column => column.name)
+      );
+      if (!columns.has('launch_consumes_research')) {
+        db.exec('ALTER TABLE production_queues ADD COLUMN launch_consumes_research INTEGER NOT NULL DEFAULT 1');
+      }
+    }
+  },
 ];
 
 export class MigrationRunner {

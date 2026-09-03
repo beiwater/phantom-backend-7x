@@ -1,5 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { readJsonBody, sendJson } from './utils.ts';
+import { readJsonBody, sendJson, setPreparsedBody } from './utils.ts';
 import { DomainError } from '../errors/domain-error.ts';
 import { getCompanyCollectibles } from '../game/collectibles.ts';
 import { getGovernmentOrders, getGovernmentTier } from '../game/government.ts';
@@ -13,7 +13,9 @@ import {
   getCertificates,
   getLatestCertificates,
   getRarestCertificates,
-  getCertificateDetail
+  getCertificateDetail,
+  getCompanyCertificates,
+  getCertificateCatalog
 } from '../game/achievements.ts';
 import {
   BASKET_KINDS,
@@ -27,6 +29,7 @@ import {
   sendBasket,
   updateOutgoingMessage
 } from '../game-data/gift-baskets.ts';
+import { RouteRegistry, globalRouteRegistry, type HttpMethod } from '../http/route-registry.ts';
 
 /** Issue #88: DomainError carries an authoritative status + machine code. */
 function sendDomainError(res: ServerResponse, err: unknown): void {
@@ -328,13 +331,29 @@ export async function handleAchievementRoutes(
 
   // 8. Certificates Explorer (Issue #113: strict schema with company objects & rarity)
   if (pathname.startsWith('/api/') && pathname.includes('/certificates-explorer/')) {
+    if (pathname.includes('/catalog/')) {
+      sendJson(res, { certificateKinds: getCertificateCatalog() });
+      return true;
+    }
     const detailMatch = pathname.match(/\/certificates-explorer\/(\d+)\/certificate\/([^/]+)\/([^/]+)\/([^/]+)\/?/);
     if (detailMatch) {
-      const realmId = Number(detailMatch[1]) || 0;
-      const kind = Number(detailMatch[2]) || 1;
-      const level = Number(detailMatch[3]) || 1;
+      const realmId = Number(detailMatch[1]);
+      const kind = Number(detailMatch[2]);
+      const certificateId = detailMatch[3];
       const resourceKind = detailMatch[4];
-      sendJson(res, getCertificateDetail(realmId, kind, level, resourceKind));
+      const detail = Number.isInteger(kind) ? getCertificateDetail(realmId, kind, certificateId, resourceKind) : null;
+      const requestedId = /^\d+$/.test(certificateId) ? Number(certificateId) : null;
+      let returnedId: number | null = null;
+      if (detail && typeof detail === 'object') {
+        const certificate = Reflect.get(detail, 'certificate');
+        if (certificate && typeof certificate === 'object') {
+          const id = Reflect.get(certificate, 'id');
+          returnedId = typeof id === 'number' ? id : null;
+        }
+      }
+      const exactId = requestedId === null || returnedId === requestedId;
+      const validDetail = detail && exactId ? detail : null;
+      sendJson(res, validDetail || { error: 'Certificate not found' }, validDetail ? 200 : 404);
       return true;
     }
     const realmMatch = pathname.match(/\/certificates-explorer\/(\d+)/);
@@ -351,6 +370,18 @@ export async function handleAchievementRoutes(
       latestCertificates: getLatestCertificates(realmId),
       rarestCertificates: getRarestCertificates(realmId)
     });
+    return true;
+  }
+  const companyCertificatesMatch = pathname.match(/^\/api\/v[23]\/companies\/(\d+|me)\/certificates\/?$/);
+  if (companyCertificatesMatch) {
+    const requestedCompanyId = companyCertificatesMatch[1] === 'me'
+      ? currentCompanyId
+      : Number(companyCertificatesMatch[1]);
+    if (!currentCompanyId || !requestedCompanyId || requestedCompanyId !== currentCompanyId) {
+      sendJson(res, { error: 'Unauthorized' }, 401);
+      return true;
+    }
+    sendJson(res, getCompanyCertificates(requestedCompanyId));
     return true;
   }
   if (pathname.startsWith('/api/') && pathname.includes('/certificates/')) {
@@ -382,5 +413,61 @@ export async function handleAchievementRoutes(
     sendJson(res, { pas: [] });
     return true;
   }
+
   return false;
 }
+export function registerAchievementRoutes(registry: RouteRegistry = globalRouteRegistry): void {
+  const register = (method: HttpMethod, pattern: string): void => {
+    registry.register({
+      method,
+      pattern,
+      owner: 'achievements',
+      handler: async (req, res, ctx, _params, body) => {
+        if (method === 'POST' || method === 'PATCH' || method === 'PUT') {
+          setPreparsedBody(req, body);
+        }
+        const pathname = new URL(req.url || '/', 'http://localhost').pathname;
+        await handleAchievementRoutes(req, res, pathname, method, ctx?.companyId ?? null);
+      }
+    });
+  };
+
+  register('DELETE', '/api/v2/no-cache/companies/achievements/:achievementId/');
+  register('DELETE', '/api/v2/companies/achievements/:achievementId/');
+  register('GET', '/api/v2/no-cache/companies/:companyId/achievements/');
+  register('GET', '/api/v2/companies/:companyId/achievements/');
+  register('GET', '/api/v2/companies/:companyId/achievements/sync-3rd-party/');
+  register('POST', '/api/v2/companies/:companyId/achievements/sync-3rd-party/');
+  register('GET', '/api/v1/gift-baskets/:companyId/draft/');
+  register('PATCH', '/api/v1/gift-baskets/:companyId/draft/');
+  register('GET', '/api/v2/gift-baskets/:companyId/outgoing/:year/');
+  register('POST', '/api/v2/gift-baskets/:companyId/outgoing/:year/');
+  register('GET', '/api/v2/gift-baskets/:companyId/outgoing/:year/:basketId/');
+  register('PATCH', '/api/v2/gift-baskets/:companyId/outgoing/:year/:basketId/');
+  register('DELETE', '/api/v2/gift-baskets/:companyId/outgoing/:year/:basketId/');
+  register('GET', '/api/v2/gift-baskets/:companyId/received/:year/');
+  register('GET', '/api/v2/gift-baskets/:companyId/received/:year/:basketId/');
+  register('PATCH', '/api/v2/gift-baskets/:companyId/received/:year/:basketId/');
+  register('DELETE', '/api/v2/gift-baskets/:companyId/received/:year/:basketId/');
+  register('GET', '/api/v1/gift-baskets/');
+  register('GET', '/api/v2/companies/:companyId/display-case/');
+  register('POST', '/api/v2/companies/:companyId/display-case/');
+  register('DELETE', '/api/v2/companies/:companyId/display-case/:slot/');
+  register('GET', '/api/v3/companies/:companyId/collectibles/');
+  register('GET', '/api/v2/certificates-explorer/:realmId/latest/');
+  register('GET', '/api/v2/certificates-explorer/:realmId/rarest/');
+  register('GET', '/api/v2/certificates-explorer/:realmId/certificate/:kind/:level/:resourceKind/');
+  register('GET', '/api/v2/companies/:companyId/certificates/');
+  register('GET', '/api/v3/companies/:companyId/certificates/');
+  register('GET', '/api/v2/certificates-explorer/:realmId/catalog/');
+  register('GET', '/api/v3/certificates-explorer/:realmId/latest/');
+  register('GET', '/api/v3/certificates-explorer/:realmId/rarest/');
+  register('GET', '/api/v3/certificates-explorer/:realmId/catalog/');
+  register('GET', '/api/v3/certificates-explorer/:realmId/certificate/:kind/:level/:resourceKind/');
+  register('GET', '/api/v2/government-orders/');
+  register('GET', '/api/v2/:scope/:realmId/government-orders/');
+  register('GET', '/api/v2/:scope/:realmId/gift-baskets/');
+  register('GET', '/api/v2/:scope/:realmId/unlocked-pas/');
+}
+
+registerAchievementRoutes(globalRouteRegistry);

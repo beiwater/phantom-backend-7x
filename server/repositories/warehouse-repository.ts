@@ -1,5 +1,6 @@
 import type { DatabaseSync } from 'node:sqlite';
 import { db } from '../db/connection.ts';
+import { virtualClock } from '../core/virtual-clock.ts';
 import { InsufficientInventoryError } from '../errors/domain-error.ts';
 
 export interface WarehouseEntity {
@@ -270,7 +271,7 @@ export class WarehouseRepository {
   debitBatch(batchId: number, amount: number): void {
     this.database
       .prepare('UPDATE warehouse SET amount = amount - ?, updated_at = ? WHERE id = ? AND amount >= ?')
-      .run(amount, new Date().toISOString(), batchId, amount);
+      .run(amount, virtualClock.nowIso(), batchId, amount);
   }
 
   addResource(
@@ -284,7 +285,7 @@ export class WarehouseRepository {
       throw new Error(`addResource amount must be positive: ${amount}`);
     }
 
-    const now = new Date().toISOString();
+    const now = virtualClock.nowIso();
     const existing = this.database.prepare(
       'SELECT * FROM warehouse WHERE company_id = ? AND kind = ? AND quality = ?'
     ).get(companyId, kind, quality) as WarehouseDbRow | undefined;
@@ -367,7 +368,7 @@ export class WarehouseRepository {
     }
 
     const newAmount = item.amount - amount;
-    const now = new Date().toISOString();
+    const now = virtualClock.nowIso();
 
     this.database.prepare(`
       UPDATE warehouse
@@ -411,7 +412,7 @@ export class WarehouseRepository {
 
     let remaining = amount;
     const transactions: ResourceTransactionEntity[] = [];
-    const now = new Date().toISOString();
+    const now = virtualClock.nowIso();
 
     for (const row of rows) {
       if (remaining <= 0) break;

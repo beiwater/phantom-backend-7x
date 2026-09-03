@@ -6,6 +6,7 @@
  * signed mutation shared with the legacy engine (generic 'g' ledger row +
  * daily snapshot refresh, matching the old updateCompanyMoney defaults).
  */
+import { virtualClock } from '../../core/virtual-clock.ts';
 import type { GameContext } from '../../context/game-context.ts';
 import { runInTransaction } from '../../db/transaction.ts';
 import { contractRepository, type ContractRow } from '../../repositories/contract-repository.ts';
@@ -108,7 +109,7 @@ export async function sendContractUseCase(ctx: GameContext, input: SendContractI
       throw new Error('Not enough resources in warehouse to send contract');
     }
 
-    const now = new Date().toISOString();
+    const now = virtualClock.nowIso();
     const contractId = contractRepository.insertPending(senderCompanyId, recipientCompanyId, kind, quality, amount, price, now);
 
     const row = contractRepository.findPendingById(contractId);

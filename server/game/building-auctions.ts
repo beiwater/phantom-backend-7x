@@ -35,6 +35,7 @@
  *     through the same queue.
  */
 import { db } from '../db/database.ts';
+import { virtualClock } from '../core/virtual-clock.ts';
 import { runInTransaction } from '../db/transaction.ts';
 import {
   getBuildingById,
@@ -158,7 +159,7 @@ export interface BidDTO {
 // --- Helpers ----------------------------------------------------------------
 
 function nowIso(): string {
-  return new Date().toISOString();
+  return virtualClock.nowIso();
 }
 
 function round2(value: number): number {
@@ -323,7 +324,7 @@ export async function listBuildingForAuction(companyId: number, buildingId: numb
   }
 
   // 2. The building must be idle ("Building cannot be busy").
-  if (building.busy_until && new Date(building.busy_until).getTime() > Date.now()) {
+  if (building.busy_until && new Date(building.busy_until).getTime() > virtualClock.nowMs()) {
     throw new ConflictError('Building cannot be busy');
   }
 
@@ -377,7 +378,7 @@ export async function listBuildingForAuction(companyId: number, buildingId: numb
     }
 
     const startedAt = nowIso();
-    const closesAt = new Date(Date.now() + AUCTION_DURATION_HOURS * 3600 * 1000).toISOString();
+    const closesAt = new Date(virtualClock.nowMs() + AUCTION_DURATION_HOURS * 3600 * 1000).toISOString();
     const result = db.prepare(`
       INSERT INTO building_auctions (
         building_id, building_kind, building_size, building_cost, building_name,
@@ -455,7 +456,7 @@ export async function placeBid(companyId: number, auctionId: number, amount: num
   if (!auction || auction.status !== 'active') {
     throw new NotFoundError(`Auction ${auctionId} not found or already closed`);
   }
-  if (new Date(auction.closes_at).getTime() <= Date.now()) {
+  if (new Date(auction.closes_at).getTime() <= virtualClock.nowMs()) {
     throw new ConflictError('Auction has closed');
   }
   if (auction.seller_id === companyId) {
@@ -520,7 +521,7 @@ export function withdrawBid(companyId: number, bidId: number): void {
       throw new NotFoundError(`Bid ${bidId} not found`);
     }
     const auction = getAuctionRow(bid.auction_id);
-    if (!auction || auction.status !== 'active' || new Date(auction.closes_at).getTime() <= Date.now()) {
+    if (!auction || auction.status !== 'active' || new Date(auction.closes_at).getTime() <= virtualClock.nowMs()) {
       throw new ConflictError('Auction has closed; bids can no longer be withdrawn');
     }
     updateCompanyMoney(companyId, Number(bid.escrowed)); // refund the escrow
@@ -587,7 +588,7 @@ function requeueBuildingFor(auction: AuctionRow, ownerId: number): number {
  * transaction, so concurrent callers re-check before mutating. Runs on auction
  * mutation paths and from the scheduler — never implicitly on GETs.
  */
-export async function settleDueAuctions(now: number = Date.now()): Promise<SettlementResult[]> {
+export async function settleDueAuctions(now: number = virtualClock.nowMs()): Promise<SettlementResult[]> {
   const due = db.prepare(
     "SELECT id FROM building_auctions WHERE status = 'active' AND closes_at <= ?"
   ).all(new Date(now).toISOString()) as Array<{ id: number }>;

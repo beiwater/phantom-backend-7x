@@ -23,6 +23,8 @@ export interface RouteDefinition<TBody = unknown> {
   method: HttpMethod;
   pattern: string;
   auth?: AuthRequirement;
+  /** Migrating module name (#178 coverage gate attributes routes to owners). */
+  owner?: string;
   handler: RouteHandler<TBody>;
 }
 
@@ -33,6 +35,7 @@ interface CompiledRoute {
   paramNames: string[];
   specificity: number;
   auth: AuthRequirement;
+  owner: string;
   handler: RouteHandler<any>;
 }
 
@@ -84,6 +87,7 @@ export class RouteRegistry {
       paramNames,
       specificity,
       auth: route.auth || 'none',
+      owner: route.owner || 'unattributed',
       handler: route.handler
     });
 
@@ -172,12 +176,20 @@ export class RouteRegistry {
     return true;
   }
 
-  getRegisteredRoutes(): Array<{ method: string; pattern: string; auth: string }> {
+  getRegisteredRoutes(): Array<{ method: string; pattern: string; auth: string; owner: string }> {
     return this.routes.map(r => ({
       method: r.method,
       pattern: r.pattern,
-      auth: r.auth
+      auth: r.auth,
+      owner: r.owner
     }));
+  }
+
+  /** Resolve the declarative owner for a concrete method/path (#178 tests). */
+  getOwner(pathname: string, method: string): string | null {
+    const normalizedPath = pathname.endsWith('/') ? pathname : `${pathname}/`;
+    const route = this.routes.find(r => r.method === method && r.regex.test(normalizedPath));
+    return route?.owner ?? null;
   }
 
   /**

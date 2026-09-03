@@ -1,4 +1,5 @@
 import { db } from '../db/database.ts';
+import { virtualClock } from '../core/virtual-clock.ts';
 import { getCompanyById, updateCompanySimBoosts, type CompanyRow } from './company.ts';
 import { DomainError, NotFoundError, UnauthorizedError } from '../errors/domain-error.ts';
 
@@ -84,7 +85,7 @@ export function getSponsorTierForSlot(position: number): SponsorTier {
 }
 
 // Publishing schedule (§2): every Thursday 16:00 UTC (ZFn.nextThursday()).
-export function nextPublishDate(now: Date = new Date()): Date {
+export function nextPublishDate(now: Date = virtualClock.now()): Date {
   const next = new Date(now);
   next.setUTCHours(16, 0, 0, 0);
   next.setUTCDate(next.getUTCDate() - next.getUTCDay() + 4);
@@ -142,7 +143,7 @@ const ARCHIVE_ISSUE_COUNT = 12;
   const countRow = db.prepare('SELECT COUNT(*) as count FROM newspaper_issues').get() as { count: number };
   if (countRow.count > 0) return;
 
-  const now = new Date();
+  const now = virtualClock.now();
   const insertIssue = db.prepare('INSERT INTO newspaper_issues (issue_id, realm_id, published, created_at) VALUES (?, ?, ?, ?)');
 
   // Draft bookable issue (ads appear only on unpublished issues, §3).
@@ -277,7 +278,7 @@ export function getCurrentBookableIssue(realmId: number = 0): NewspaperIssueDbRo
     const maxRow = db.prepare('SELECT MAX(issue_id) AS maxIssue FROM newspaper_issues WHERE realm_id = ?').get(realmId) as { maxIssue: number | null };
     const nextIssueId = (maxRow.maxIssue ?? 0) + 1;
     const inserted = db.prepare('INSERT INTO newspaper_issues (issue_id, realm_id, published, created_at) VALUES (?, ?, NULL, ?)').run(
-      nextIssueId, realmId, new Date().toISOString()
+      nextIssueId, realmId, virtualClock.nowIso()
     );
     db.exec('COMMIT');
     return db.prepare('SELECT * FROM newspaper_issues WHERE id = ?').get(Number(inserted.lastInsertRowid)) as NewspaperIssueDbRow;
@@ -384,7 +385,7 @@ export function createArticle(newspaperId: number, type: string = '1', authorCom
   `).run(
     newspaperId, realmId, '新专栏文章', type === 'free column article' ? 'CUSTOM' : 'MARKET_VIEW',
     '文章正文第一段...', '文章正文第二段...', '文章正文第三段...', comp?.company_id || authorCompanyId || 999901, authorName,
-    position, '{}', 0, '[]', 0, new Date().toISOString()
+    position, '{}', 0, '[]', 0, virtualClock.nowIso()
   );
   return getArticleById(Number(res.lastInsertRowid));
 }
@@ -535,7 +536,7 @@ export function addArticleReaction(articleId: number, companyId: number, reactio
       updateCompanySimBoosts(actualCompanyId, -REWARD_COST);
       updateCompanySimBoosts(article.author_company_id, REWARD_COST);
       db.prepare('INSERT INTO newspaper_reactions (newspaper_id, article_id, company_id, reaction, created_at) VALUES (?, ?, ?, ?, ?)').run(
-        article.newspaper_id, articleId, actualCompanyId, reaction, new Date().toISOString()
+        article.newspaper_id, articleId, actualCompanyId, reaction, virtualClock.nowIso()
       );
       const { reactions, count } = bumpReactionCounters(articleId, article.reactions_json, reaction, +1);
       db.exec('COMMIT');
@@ -555,7 +556,7 @@ export function addArticleReaction(articleId: number, companyId: number, reactio
   db.exec('BEGIN IMMEDIATE');
   try {
     db.prepare('INSERT INTO newspaper_reactions (newspaper_id, article_id, company_id, reaction, created_at) VALUES (?, ?, ?, ?, ?)').run(
-      article.newspaper_id, articleId, actualCompanyId, reaction, new Date().toISOString()
+      article.newspaper_id, articleId, actualCompanyId, reaction, virtualClock.nowIso()
     );
     const { reactions, count } = bumpReactionCounters(articleId, article.reactions_json, reaction, +1);
     db.exec('COMMIT');
@@ -688,7 +689,7 @@ export function buyNewspaperSponsor(newspaperId: number, position: number, compa
     }
     const remaining = updateCompanySimBoosts(comp.company_id, -price);
     db.prepare('INSERT INTO newspaper_sponsors (newspaper_id, position, company_id, company_name, text, logo, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)').run(
-      newspaperId, position, comp.company_id, comp.name, adText, comp.logo || '', new Date().toISOString()
+      newspaperId, position, comp.company_id, comp.name, adText, comp.logo || '', virtualClock.nowIso()
     );
     db.exec('COMMIT');
     return { position, tier, companyName: comp.name, companyId: comp.company_id, text: adText, logo: comp.logo || '', price, simBoostsRemaining: remaining };

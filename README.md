@@ -102,6 +102,24 @@ Issue #57 and the `.omp/` project workflow configuration.
 - Decompile reference data lives in `server/data/decompile/` and
   `server/game-data/` and is the canonical source for formulas.
 
+## Virtual Time
+
+- Time-gated business logic reads `server/core/virtual-clock.ts`; production,
+  construction, launches, retail, contracts, restaurants, auctions, and
+  government orders therefore observe the same virtual timestamp as
+  `/api/v2/time-millis/`.
+- The offset is process-wide and intentionally shared by all realms served by
+  that process. Separate service instances have separate offsets; target the
+  intended instance with `TIME_WARP_URL` (or `BASE_URL`).
+- `scripts/dev-tool.ts warp` calls the running instance's
+  `POST /api/v2/debug/time-warp/`; it never mutates a different process's
+  in-memory clock. A restart resets the offset unless `CLOCK_OFFSET_MS` is
+  supplied during startup.
+- The landscape/map layout is static data. It does not change after a time
+  warp; completion, queue, deadline, and settlement APIs are the authoritative
+  observable state.
+
+
 ## API Endpoints
 
 All core REST endpoints implemented across compatibility route handlers:

@@ -1,4 +1,5 @@
 import type { GameContext } from '../../context/game-context.ts';
+import { virtualClock } from '../../core/virtual-clock.ts';
 import { runInTransaction } from '../../db/transaction.ts';
 import { buildingRepository, type BuildingEntity } from '../../repositories/building-repository.ts';
 import { productionRepository, type ProductionQueueEntity } from '../../repositories/production-repository.ts';
@@ -50,7 +51,7 @@ export async function cancelProductionUseCase(
     // Refund the rocket + research instead of generic ingredients; finished
     // launches must be collected (order/take) so the outcome logs exactly once.
     const isLaunch = building.kind === 'l' && queueItem.kind === 100;
-    if (isLaunch && Date.parse(queueItem.finishesAt) <= Date.now()) {
+    if (isLaunch && Date.parse(queueItem.finishesAt) <= virtualClock.nowMs()) {
       throw new ValidationError('Launch has already finished and must be collected');
     }
     const launchRefunds = isLaunch

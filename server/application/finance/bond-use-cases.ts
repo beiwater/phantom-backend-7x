@@ -6,6 +6,7 @@
  * rules). Persistence lives in BondRepository; money moves through the
  * authoritative CompanyRepository.updateMoney primitive.
  */
+import { virtualClock } from '../../core/virtual-clock.ts';
 import type { GameContext } from '../../context/game-context.ts';
 import { runInTransaction } from '../../db/transaction.ts';
 import { bondRepository, type BondRow } from '../../repositories/bond-repository.ts';
@@ -45,8 +46,8 @@ export function issueBondsUseCase(ctx: GameContext, amount: number, interestRate
     throw new Error('Bond interest rate must be between 0 and 1');
   }
 
-  const now = new Date().toISOString();
-  const maturityDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+  const now = virtualClock.nowIso();
+  const maturityDate = new Date(virtualClock.nowMs() + 30 * 24 * 60 * 60 * 1000).toISOString();
   return runInTransaction(async () => {
     const row = bondRepository.insertBond(ctx.companyId, interestRate, amount, now, maturityDate);
     return {
@@ -95,7 +96,7 @@ export function callBondsUseCase(ctx: GameContext, bondId: number) {
     if (!bond || bond.status !== 'active' || bond.seller_company_id !== ctx.companyId) {
       throw new Error('Bond not found');
     }
-    if (bond.maturity_date && bond.maturity_date <= new Date().toISOString()) {
+    if (bond.maturity_date && bond.maturity_date <= virtualClock.nowIso()) {
       throw new Error('Bond has matured and can no longer be called early');
     }
 
@@ -132,7 +133,7 @@ export function callBondsUseCase(ctx: GameContext, bondId: number) {
  * back without blocking the remaining bonds.
  */
 export async function settleMaturedBondsUseCase(): Promise<void> {
-  const now = new Date().toISOString();
+  const now = virtualClock.nowIso();
   const due = bondRepository.listMaturedUnsettled(now);
   if (due.length === 0) return;
   for (const b of due) {

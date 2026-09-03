@@ -1,4 +1,5 @@
 import { db } from '../db/database.ts';
+import { virtualClock } from '../core/virtual-clock.ts';
 
 // Repository for the wave-2 social surfaces. Application modules under
 // application/social/ orchestrate through these methods only.
@@ -48,7 +49,7 @@ export class SocialRepository {
 
   insertUnlockedHq(companyId: number, idx: number): void {
     this.database.prepare('INSERT INTO player_unlocked_hqs (company_id, idx, created_at) VALUES (?, ?, ?)')
-      .run(companyId, idx, new Date().toISOString());
+      .run(companyId, idx, virtualClock.nowIso());
   }
 
   listUnlockedPas(companyId: number): Array<{ kind: string }> {
@@ -61,7 +62,7 @@ export class SocialRepository {
 
   insertUnlockedPa(companyId: number, kind: string): void {
     this.database.prepare('INSERT INTO player_unlocked_pas (company_id, kind, created_at) VALUES (?, ?, ?)')
-      .run(companyId, kind, new Date().toISOString());
+      .run(companyId, kind, virtualClock.nowIso());
   }
 
   upsertCompanySetting(companyId: number, key: string, value: string): void {
@@ -97,7 +98,7 @@ export class SocialRepository {
   recordSimboostSpend(companyId: number, action: string, spend: number): void {
     if (spend <= 0) return;
     this.database.prepare('INSERT INTO simboost_use_history (company_id, action, spend_simboosts, datetime) VALUES (?, ?, ?, ?)')
-      .run(companyId, this.normalizeSimboostAction(action), -spend, new Date().toISOString());
+      .run(companyId, this.normalizeSimboostAction(action), -spend, virtualClock.nowIso());
   }
 
   listSimboostUse(companyId: number): Array<{ id: number; spendSimBoosts: number; action: string; datetime: string }> {
@@ -122,7 +123,7 @@ export class SocialRepository {
 
   linkBuildingFollower(buildingId: number, followerBuildingId: number): void {
     this.database.prepare('INSERT OR IGNORE INTO building_followers (building_id, follower_building_id, created_at) VALUES (?, ?, ?)')
-      .run(buildingId, followerBuildingId, new Date().toISOString());
+      .run(buildingId, followerBuildingId, virtualClock.nowIso());
   }
 
   unlinkBuildingFollower(buildingId: number, followerBuildingId: number): void {
@@ -169,7 +170,7 @@ export class SocialRepository {
 
   upsertPollVote(pollId: number, questionId: number, choice: number, companyId: number): void {
     this.database.prepare('INSERT INTO poll_votes (poll_id, question_id, choice, company_id, created_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT (poll_id, question_id, company_id) DO UPDATE SET choice = excluded.choice, created_at = excluded.created_at')
-      .run(pollId, questionId, choice, companyId, new Date().toISOString());
+      .run(pollId, questionId, choice, companyId, virtualClock.nowIso());
   }
 
   // --- Contests -----------------------------------------------------------
@@ -213,7 +214,7 @@ export class SocialRepository {
 
   insertAttemptIfAbsent(challengeId: number, companyId: number, companyName: string, logo: string | null, realmId: number): void {
     this.database.prepare('INSERT INTO challenge_attempts (challenge_id, company_id, company_name, company_logo, company_realm_id, started) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT (challenge_id, company_id) DO NOTHING')
-      .run(challengeId, companyId, companyName, logo, realmId, new Date().toISOString());
+      .run(challengeId, companyId, companyName, logo, realmId, virtualClock.nowIso());
   }
 
   restartAttempt(challengeId: number, companyId: number): void {
@@ -221,7 +222,7 @@ export class SocialRepository {
       .get(challengeId, companyId) as { best_goal_duration_s: number | null } | undefined;
     this.database.prepare('DELETE FROM challenge_attempts WHERE challenge_id = ? AND company_id = ?').run(challengeId, companyId);
     this.database.prepare('INSERT INTO challenge_attempts (challenge_id, company_id, started, best_goal_duration_s) VALUES (?, ?, ?, ?)')
-      .run(challengeId, companyId, new Date().toISOString(), existing?.best_goal_duration_s ?? null);
+      .run(challengeId, companyId, virtualClock.nowIso(), existing?.best_goal_duration_s ?? null);
   }
 
   listAttempts(challengeId: number): PollRow[] {
@@ -253,12 +254,12 @@ export class SocialRepository {
 
   insertCourse(teacherCompanyId: number | null, teacher: string, name: string, start: string | null): void {
     this.database.prepare('INSERT INTO courses (teacher_company_id, teacher_name, name, start, created_at) VALUES (?, ?, ?, ?, ?)')
-      .run(teacherCompanyId, teacher, name, start, new Date().toISOString());
+      .run(teacherCompanyId, teacher, name, start, virtualClock.nowIso());
   }
 
   setCourseStarted(courseId: number, started: boolean): void {
     this.database.prepare('UPDATE courses SET started = ?, start = COALESCE(start, ?) WHERE id = ?')
-      .run(started ? 1 : 0, new Date().toISOString(), courseId);
+      .run(started ? 1 : 0, virtualClock.nowIso(), courseId);
   }
 
   updateCourseFields(courseId: number, maxStudents?: number, studentsPaying?: boolean, publicChatroomsDisabled?: boolean, html?: string): void {
@@ -278,7 +279,7 @@ export class SocialRepository {
 
   addCourseStudentIfAbsent(courseId: number, companyId: number, companyName: string, logo: string | null, realmId: number): void {
     this.database.prepare('INSERT INTO course_students (course_id, company_id, company_name, company_logo, company_realm_id, joined_at) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT (course_id, company_id) DO NOTHING')
-      .run(courseId, companyId, companyName, logo, realmId, new Date().toISOString());
+      .run(courseId, companyId, companyName, logo, realmId, virtualClock.nowIso());
     this.database.prepare('UPDATE courses SET indicated_students = indicated_students + 1 WHERE id = ?').run(courseId);
   }
 

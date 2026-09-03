@@ -9,7 +9,7 @@ import { globalRouteRegistry } from './http/route-registry.ts';
 import './events/subscribers.ts';
 import './routes/building-routes.ts';
 import { handleAuthRoutes } from './routes/auth-routes.ts';
-import { handleBuildingRoutes } from './routes/building-routes.ts';
+// Building routes self-register with the declarative registry.
 import { handleWarehouseRoutes } from './routes/warehouse-routes.ts';
 import { handleMarketRoutes } from './routes/market-routes.ts';
 import { handleEncyclopediaRoutes } from './routes/encyclopedia-routes.ts';
@@ -32,7 +32,8 @@ import { handleCollectibleRoutes } from './routes/collectible-routes.ts';
 import { handleNewspaperRoutes } from './routes/newspaper-routes.ts';
 import { virtualClock } from './core/virtual-clock.ts';
 import { handleDebugRoutes } from './routes/debug-routes.ts';
-import { handleHealthRoutes } from './routes/health-routes.ts';
+import './routes/health-routes.ts';
+import './routes/economy-routes.ts';
 import { logger } from './core/logger.ts';
 
 // Issue #178: all route modules have self-registered by import; surface any
@@ -136,10 +137,7 @@ export async function handleRequest(req: IncomingMessage, res: ServerResponse) {
     }
     return;
   }
-  // Health checks & observability probes (Issue #146)
-  if (handleHealthRoutes(req, res, pathname, method)) {
-    return;
-  }
+  // Health endpoints self-register in the declarative registry.
 
   // System version and time endpoints
   if (pathname === '/version/' && method === 'GET') {
@@ -147,7 +145,7 @@ export async function handleRequest(req: IncomingMessage, res: ServerResponse) {
     res.end('dd7ff2122fa75facbc8862ed32ddd282df300a6b\n');
     return;
   }
-  if ((pathname === '/api/v2/time-millis/' || pathname === '/api/time/') && method === 'GET') {
+  if (pathname === '/api/time/' && method === 'GET') {
     sendJson(res, virtualClock.nowMs());
     return;
   }
@@ -243,10 +241,6 @@ const legacyHandlerFactories: LegacyHandlerSpec[] = [
   {
     name: 'newspaper',
     make: (p, m, d) => (req, res) => handleNewspaperRoutes(req, res, p, m, d.currentPlayerId, d.currentCompanyId)
-  },
-  {
-    name: 'buildings',
-    make: (p, m, d) => (req, res) => handleBuildingRoutes(req, res, p, m, d.currentCompanyId)
   },
   {
     name: 'retail',

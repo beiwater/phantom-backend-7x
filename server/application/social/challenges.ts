@@ -1,5 +1,6 @@
 import { runInTransaction } from '../../db/transaction.ts';
 import { socialRepository, type PollRow } from '../../repositories/social-repository.ts';
+import { virtualClock } from '../../core/virtual-clock.ts';
 
 export interface ChallengeView {
   challenge: {
@@ -18,7 +19,7 @@ export interface ChallengeView {
 }
 
 export function getActiveChallenge(): PollRow | undefined {
-  return socialRepository.getActiveChallenge(new Date().toISOString());
+  return socialRepository.getActiveChallenge(virtualClock.nowIso());
 }
 
 function challengeDto(challenge: PollRow) {
@@ -54,7 +55,7 @@ export function getCurrentChallengeState(companyId: number): ChallengeView {
     challenge: challengeDto(challenge),
     attempt: {
       goalProgress: { goal: progress },
-      durationS: (Date.now() - Date.parse(started)) / 1000,
+      durationS: (virtualClock.nowMs() - Date.parse(started)) / 1000,
       started,
       goalCompletedAt: (attempt.goal_completed_at as string | null) ?? null
     }

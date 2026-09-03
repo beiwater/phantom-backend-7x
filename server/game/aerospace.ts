@@ -1,4 +1,5 @@
 import { db } from '../db/database.ts';
+import { virtualClock } from '../core/virtual-clock.ts';
 import { getResourceDef } from './constants.ts';
 import { updateCompanyMoney } from './company.ts';
 import {
@@ -23,6 +24,15 @@ export function rocketKindForLaunchAmount(amount: number): number | null {
     if (config.researchCost === amount) return config.kind;
   }
   return null;
+}
+/**
+ * Resolve the resource selected by a launch-pad card to its rocket product.
+ * The generic busy endpoint historically submitted kind 100 with the
+ * research-cost amount; the launch-specific UI submits the product kind.
+ */
+export function rocketKindForLaunchRequest(resourceKind: number, amount: number): number | null {
+  if (ROCKET_CONFIGS[resourceKind] && amount === 1) return resourceKind;
+  return resourceKind === 100 ? rocketKindForLaunchAmount(amount) : null;
 }
 
 export interface RocketLaunchOutcome {
@@ -50,7 +60,7 @@ export function resolveRocketLaunch(
   db.prepare(`
     INSERT INTO rocket_launches (company_id, realm_id, building_id, rocket_kind, quality, success, launched_at)
     VALUES (?, ?, ?, ?, ?, ?, ?)
-  `).run(companyId, realmId, buildingId, rocketKind, quality, success ? 1 : 0, new Date().toISOString());
+  `).run(companyId, realmId, buildingId, rocketKind, quality, success ? 1 : 0, virtualClock.nowIso());
 
   const patents = success ? (rocketKind === 94 ? 28 : 4) : 0;
   return {
@@ -176,14 +186,20 @@ export function calculateLaunchDurationSeconds(level: number, productionModifier
 /**
  * Queue a rocket launch on a Launch Pad building.
  * Validates building ownership, Launch Pad type, building level,
- * queue limit (30 max), and required rocket + research inventory.
+ * queue limit (30 max), and required rocket inventory. Legacy kind-100
+ * requests may also opt into the historical research-point debit.
  * Consumes resources immediately from warehouse and persists queued launch.
  */
+export interface QueueRocketLaunchOptions {
+  consumeResearch?: boolean;
+}
+
 export async function queueRocketLaunch(
   companyId: number,
   buildingId: number,
   rocketKind: number,
-  quality: number = 0
+  quality: number = 0,
+  options: QueueRocketLaunchOptions = {}
 ): Promise<QueuedLaunchItem & { queueItem: ProductionQueueEntity; transactions: Array<{ kind: number; quality: number; amount: number }> }> {
   // 1. Fetch building and validate
   const building = db.prepare('SELECT * FROM buildings WHERE id = ?').get(buildingId) as DbBuildingRow | undefined;
@@ -221,11 +237,13 @@ export async function queueRocketLaunch(
   if (!rocketStock || Number(rocketStock.amount) < 1) {
     throw new Error(`Insufficient rocket inventory in warehouse (resource #${rocketKind} Q${safeQuality})`);
   }
-
-  const researchStock = getWarehouseItemExact(companyId, 100, 0);
-  if (!researchStock || Number(researchStock.amount) < config.researchCost) {
-    const available = Number(researchStock?.amount || 0);
-    throw new Error(`Insufficient Aerospace Research (resource #100). Required: ${config.researchCost}, available: ${available}`);
+  const consumeResearch = options.consumeResearch !== false;
+  if (consumeResearch) {
+    const researchStock = getWarehouseItemExact(companyId, 100, 0);
+    if (!researchStock || Number(researchStock.amount) < config.researchCost) {
+      const available = Number(researchStock?.amount || 0);
+      throw new Error(`Insufficient Aerospace Research (resource #100). Required: ${config.researchCost}, available: ${available}`);
+    }
   }
 
   // 6. Compute launch duration and queue chaining. Launch orders live in
@@ -238,7 +256,7 @@ export async function queueRocketLaunch(
   const prodMod = boostSettings?.productionModifier || 0;
   const durationSeconds = calculateLaunchDurationSeconds(buildingLevel, prodMod);
 
-  const nowMs = Date.now();
+  const nowMs = virtualClock.nowMs();
   let startMs = nowMs;
   const lastActive = productionRepository.findLatestActiveByBuilding(buildingId, companyId);
   if (lastActive && new Date(lastActive.finishesAt).getTime() > nowMs) {
@@ -250,15 +268,16 @@ export async function queueRocketLaunch(
 
   // 7. Atomic transaction
   return runInTransaction(() => {
-    // Consume rocket item from warehouse
     const consumedRocket = consumeResourceExactWithTransactions(companyId, rocketKind, safeQuality, 1);
     if (!consumedRocket) {
       throw new Error(`Failed to consume rocket resource #${rocketKind} Q${safeQuality}`);
     }
 
-    // Consume aerospace research points from warehouse
-    const consumedResearch = consumeResourceExactWithTransactions(companyId, 100, 0, config.researchCost);
-    if (!consumedResearch) {
+    // Legacy kind-100 launches debit research; product-kind launches do not.
+    const consumedResearch = consumeResearch
+      ? consumeResourceExactWithTransactions(companyId, 100, 0, config.researchCost)
+      : [];
+    if (consumeResearch && consumedResearch.length === 0) {
       throw new Error(`Failed to consume ${config.researchCost} Aerospace Research (resource #100)`);
     }
 
@@ -272,7 +291,8 @@ export async function queueRocketLaunch(
       amount: config.researchCost,
       durationSeconds,
       startedAt,
-      finishesAt
+      finishesAt,
+      launchConsumesResearch: consumeResearch
     });
 
     // Update building busy_until if needed
@@ -333,11 +353,11 @@ export async function cancelQueuedLaunch(
   // 2. Find the target launch order (an unresolved kind-100 production_queues
   // row on this pad). Finished-but-uncollected launches are not cancellable —
   // they must be collected (order/take) so the outcome is logged exactly once.
-  let targetLaunch: { id: number; rocketKind: number; quality: number; researchCost: number } | undefined;
+  let targetLaunch: { id: number; rocketKind: number; quality: number; researchCost: number; consumeResearch: boolean } | undefined;
   const loadRow = (row: ProductionQueueEntity) => {
     // A finished launch resolves via collect (order/take), never via cancel —
     // refunding after the dice roll would be a double-claim exploit.
-    if (new Date(row.finishesAt).getTime() <= Date.now()) return;
+    if (new Date(row.finishesAt).getTime() <= virtualClock.nowMs()) return;
     const rocketKind = rocketKindForLaunchAmount(Number(row.amount));
     if (rocketKind === null) return;
     const config = ROCKET_CONFIGS[rocketKind];
@@ -345,7 +365,8 @@ export async function cancelQueuedLaunch(
       id: row.id,
       rocketKind,
       quality: Number(row.quality) || 0,
-      researchCost: config?.researchCost ?? Number(row.amount)
+      researchCost: config?.researchCost ?? Number(row.amount),
+      consumeResearch: row.launchConsumesResearch
     };
   };
   if (launchId !== undefined && launchId !== null) {
@@ -375,12 +396,13 @@ export async function cancelQueuedLaunch(
     // Refund rocket to warehouse
     addResource(companyId, targetLaunch.rocketKind, targetLaunch.quality, 1);
 
-    // Refund research units to warehouse
-    addResource(companyId, 100, 0, targetLaunch.researchCost);
+    if (targetLaunch.consumeResearch) {
+      addResource(companyId, 100, 0, targetLaunch.researchCost);
+    }
 
     // Re-chain remaining launch/production orders on this pad
     const remaining = productionRepository.findActiveByBuilding(buildingId, companyId);
-    const nowMs = Date.now();
+    const nowMs = virtualClock.nowMs();
     let currentStartMs = nowMs;
     for (const item of remaining) {
       const durationMs = Number(item.durationSeconds) * 1000;
@@ -410,7 +432,7 @@ export async function cancelQueuedLaunch(
         rocketKind: targetLaunch.rocketKind,
         quality: targetLaunch.quality,
         amount: 1,
-        researchPoints: targetLaunch.researchCost
+        researchPoints: targetLaunch.consumeResearch ? targetLaunch.researchCost : 0
       }
     };
   }, { immediate: true });
@@ -533,7 +555,7 @@ export function launchRocket(
   const isCrash = Math.random() < failureProb;
   const success = !isCrash;
 
-  const now = new Date().toISOString();
+  const now = virtualClock.nowIso();
   db.prepare(`
     INSERT INTO rocket_launches (company_id, realm_id, building_id, rocket_kind, quality, success, launched_at)
     VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -610,7 +632,7 @@ export function generateNewSalesOrder(
   }
 
   const payout = Math.round(totalBaseCost * 1.45 * 100) / 100;
-  const now = new Date();
+  const now = virtualClock.now();
   const expires = new Date(now.getTime() + 47 * 3600 * 1000); // 47 hours expiration
 
   const insertRes = db.prepare(`

@@ -6,10 +6,6 @@
  * - Synchronizes with /api/v2/time-millis/ and domain queries
  * - Resolves overdue cycles (construction, production, retail, restaurant, auctions)
  */
-import { db } from '../db/database.ts';
-import { runInTransaction } from '../db/transaction.ts';
-import { settleDueAuctions } from '../game/building-auctions.ts';
-import { resolveDueRestaurantRunsSync } from '../game/restaurant.ts';
 
 export class VirtualClock {
   private static instance: VirtualClock;
@@ -120,6 +116,9 @@ export class VirtualClock {
     resolvedRestaurants: number;
     settledAuctions: number;
   }> {
+    const { db } = await import('../db/database.ts');
+    const { settleDueAuctions } = await import('../game/building-auctions.ts');
+    const { resolveDueRestaurantRunsSync } = await import('../game/restaurant.ts');
     const nowTimestamp = this.nowMs();
     const nowString = this.nowIso();
 

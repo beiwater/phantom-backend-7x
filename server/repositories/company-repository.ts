@@ -1,4 +1,5 @@
 import type { DatabaseSync } from 'node:sqlite';
+import { virtualClock } from '../core/virtual-clock.ts';
 import { db } from '../db/connection.ts';
 import { InsufficientFundsError, NotFoundError } from '../errors/domain-error.ts';
 import { getXpRequiredForLevel } from '../domain/leveling/level-rules.ts';
@@ -410,7 +411,7 @@ export class CompanyRepository {
              SUM(CASE WHEN busy_until IS NOT NULL AND busy_until > ? THEN 1 ELSE 0 END) AS busy_banks,
              SUM(CASE WHEN position IS NULL OR position = '' THEN 1 ELSE 0 END) AS unplaced_banks
       FROM buildings WHERE company_id = ? AND kind = 'n'
-    `).get(new Date().toISOString(), companyId) as { bank_size?: number; busy_banks?: number; unplaced_banks?: number } | undefined;
+    `).get(virtualClock.nowIso(), companyId) as { bank_size?: number; busy_banks?: number; unplaced_banks?: number } | undefined;
     const bankSize = Number(bank?.bank_size) || 0;
     const bankContributing = bankSize > 0 && Number(bank?.busy_banks) === 0 && Number(bank?.unplaced_banks) === 0;
     const cfo = this.database.prepare(`

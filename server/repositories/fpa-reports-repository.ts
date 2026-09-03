@@ -4,6 +4,7 @@
  */
 import type { DatabaseSync } from 'node:sqlite';
 import { db } from '../db/connection.ts';
+import { virtualClock } from '../core/virtual-clock.ts';
 
 export interface CustomReportEntity {
   id: number;
@@ -51,7 +52,7 @@ export class FpaReportsRepository {
   }
 
   create(companyId: number, name: string, category: string, config: Record<string, unknown>): CustomReportEntity {
-    const now = new Date().toISOString();
+    const now = virtualClock.nowIso();
     const res = this.database
       .prepare(
         'INSERT INTO fpa_custom_reports (company_id, name, category, config_json, created_at) VALUES (?, ?, ?, ?, ?)'

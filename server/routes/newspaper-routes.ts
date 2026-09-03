@@ -1,4 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
+import { RouteRegistry, globalRouteRegistry } from '../http/route-registry.ts';
 import { readJsonBody, sendJson } from './utils.ts';
 import { sendDomainError } from '../compatibility/simcompanies/response-helpers.ts';
 import {
@@ -218,3 +219,239 @@ export async function handleNewspaperRoutes(
     return true;
   }
 }
+export function registerNewspaperRoutes(registry: RouteRegistry = globalRouteRegistry): void {
+  const companyRequired = (ctx: { companyId: number } | null, res: ServerResponse): number | null => {
+    const companyId = ctx?.companyId ?? null;
+    if (!companyId) {
+      sendJson(res, { error: 'Authentication required', code: 'UNAUTHORIZED' }, 401);
+      return null;
+    }
+    return companyId;
+  };
+  const bodyField = (body: unknown, field: string): unknown => {
+    if (!body || typeof body !== 'object' || !(field in body)) return undefined;
+    return Reflect.get(body, field);
+  };
+  const textFromBody = (body: unknown): string | undefined => {
+    const text = bodyField(body, 'text');
+    return typeof text === 'string' ? text : undefined;
+  };
+
+  registry
+    .register({
+      method: 'GET',
+      pattern: '/api/v2/newspaper/sponsor-params/',
+      owner: 'newspaper',
+      handler: async (_req, res) => { sendJson(res, getSponsorParams()); }
+    })
+    .register({
+      method: 'GET',
+      pattern: '/api/v3/newspaper/:newspaperId/sponsor/',
+      owner: 'newspaper',
+      handler: async (_req, res, _ctx, params) => {
+        sendJson(res, getSponsorListForNewspaper(Number(params.newspaperId)));
+      }
+    })
+    .register({
+      method: 'GET',
+      pattern: '/api/v2/newspaper/:realmName/:realmId/sponsor/',
+      owner: 'newspaper',
+      handler: async (_req, res, _ctx, params) => {
+        const realmId = Number(params.realmId);
+        const issue = getCurrentBookableIssue(realmId);
+        sendJson(res, {
+          newspaperId: issue.id,
+          issueId: issue.issue_id,
+          realmId,
+          published: issue.published,
+          ...getSponsorsForNewspaper(issue.id)
+        });
+      }
+    })
+    .register({
+      method: 'POST',
+      pattern: '/api/v2/newspaper/:realmName/:realmId/sponsor/:slot/',
+      owner: 'newspaper',
+      handler: async (_req, res, ctx, params, body) => {
+        const companyId = companyRequired(ctx, res);
+        if (!companyId) return;
+        const issue = getCurrentBookableIssue(Number(params.realmId));
+        const text = textFromBody(body);
+        const booked = buyNewspaperSponsor(issue.id, Number(params.slot), companyId, text);
+        sendJson(res, {
+          ...booked,
+          newspaperId: issue.id,
+          issueId: issue.issue_id,
+          realmId: Number(params.realmId)
+        });
+      }
+    })
+    .register({
+      method: 'POST',
+      pattern: '/api/v2/newspaper/:issueId/sponsor/:slot/',
+      owner: 'newspaper',
+      handler: async (_req, res, ctx, params, body) => {
+        const companyId = companyRequired(ctx, res);
+        if (!companyId) return;
+        const issueRowId = resolveNewspaperIssueId(Number(params.issueId));
+        if (issueRowId === null) {
+          sendJson(res, { error: 'Newspaper issue not found', code: 'NOT_FOUND' }, 404);
+          return;
+        }
+        const text = textFromBody(body);
+        sendJson(res, buyNewspaperSponsor(issueRowId, Number(params.slot), companyId, text));
+      }
+    })
+    .register({
+      method: 'PATCH',
+      pattern: '/api/v2/newspaper/:issueId/sponsor/:slot/',
+      owner: 'newspaper',
+      handler: async (_req, res, ctx, params, body) => {
+        const companyId = companyRequired(ctx, res);
+        if (!companyId) return;
+        const issueRowId = resolveNewspaperIssueId(Number(params.issueId));
+        if (issueRowId === null) {
+          sendJson(res, { error: 'Newspaper issue not found', code: 'NOT_FOUND' }, 404);
+          return;
+        }
+        const text = String(textFromBody(body) ?? '');
+        sendJson(res, updateNewspaperSponsorText(issueRowId, Number(params.slot), companyId, text));
+      }
+    })
+    .register({
+      method: 'GET',
+      pattern: '/api/v2/newspaper/:issueId/sponsor/:slot/',
+      owner: 'newspaper',
+      handler: async (_req, res, ctx, params) => {
+        const companyId = companyRequired(ctx, res);
+        if (!companyId) return;
+        const issueRowId = resolveNewspaperIssueId(Number(params.issueId));
+        if (issueRowId === null) {
+          sendJson(res, { error: 'Newspaper issue not found', code: 'NOT_FOUND' }, 404);
+          return;
+        }
+        sendJson(res, { newspaperId: issueRowId, ...getSponsorsForNewspaper(issueRowId) });
+      }
+    })
+    .register({
+      method: 'POST',
+      pattern: '/api/v2/articles/:articleId/reactions/',
+      owner: 'newspaper',
+      handler: async (req, res, ctx, params, body) => {
+        const companyId = companyRequired(ctx, res);
+        if (!companyId) return;
+        const queryType = new URL(req.url || '/', 'http://localhost').searchParams.get('type');
+        const type = String(bodyField(body, 'type') ?? queryType ?? 'THUMBS_UP').toUpperCase();
+        if (!REACTION_TYPES.has(type)) {
+          sendJson(res, { error: `Unknown reaction type: ${type}`, code: 'UNKNOWN_REACTION' }, 400);
+          return;
+        }
+        sendJson(res, addArticleReaction(Number(params.articleId), companyId, type));
+      }
+    })
+    .register({
+      method: 'DELETE',
+      pattern: '/api/v2/articles/:articleId/reactions/',
+      owner: 'newspaper',
+      handler: async (req, res, ctx, params, body) => {
+        const companyId = companyRequired(ctx, res);
+        if (!companyId) return;
+        const queryType = new URL(req.url || '/', 'http://localhost').searchParams.get('type');
+        const type = String(bodyField(body, 'type') ?? queryType ?? 'THUMBS_UP').toUpperCase();
+        if (!REACTION_TYPES.has(type)) {
+          sendJson(res, { error: `Unknown reaction type: ${type}`, code: 'UNKNOWN_REACTION' }, 400);
+          return;
+        }
+        sendJson(res, removeArticleReaction(Number(params.articleId), companyId, type));
+      }
+    })
+    .register({
+      method: 'PATCH',
+      pattern: '/api/v1/article/:articleId/reaction/:type/',
+      owner: 'newspaper',
+      handler: async (_req, res, ctx, params) => {
+        const companyId = companyRequired(ctx, res);
+        if (!companyId) return;
+        const type = String(params.type).toUpperCase();
+        if (!REACTION_TYPES.has(type)) {
+          sendJson(res, { error: `Unknown reaction type: ${type}`, code: 'UNKNOWN_REACTION' }, 400);
+          return;
+        }
+        sendJson(res, addArticleReaction(Number(params.articleId), companyId, type));
+      }
+    })
+    .register({
+      method: 'DELETE',
+      pattern: '/api/v1/article/:articleId/reaction/:type/',
+      owner: 'newspaper',
+      handler: async (_req, res, ctx, params) => {
+        const companyId = companyRequired(ctx, res);
+        if (!companyId) return;
+        const type = String(params.type).toUpperCase();
+        if (!REACTION_TYPES.has(type)) {
+          sendJson(res, { error: `Unknown reaction type: ${type}`, code: 'UNKNOWN_REACTION' }, 400);
+          return;
+        }
+        sendJson(res, removeArticleReaction(Number(params.articleId), companyId, type));
+      }
+    })
+    .register({
+      method: 'GET',
+      pattern: '/api/v1/newspaper/:issueId/reaction/',
+      owner: 'newspaper',
+      handler: async (_req, res, ctx, params) => {
+        const companyId = ctx?.companyId ?? null;
+        if (!companyId) {
+          sendJson(res, []);
+          return;
+        }
+        sendJson(res, getCompanyReactionsForNewspaper(Number(params.issueId), companyId));
+      }
+    })
+    .register({
+      method: 'GET',
+      pattern: '/api/v2/:scope/:realmId/articles/top-by-reaction/:metric/',
+      owner: 'newspaper',
+      handler: async (_req, res, _ctx, params) => {
+        sendJson(res, getTopArticlesByReaction(Number(params.realmId), params.metric.toUpperCase(), TOP_ARTICLES_LIMIT));
+      }
+    })
+    .register({
+      method: 'GET',
+      pattern: '/api/v3/newspaper/:newspaperId/article/:articleId/',
+      owner: 'newspaper',
+      handler: async (_req, res, _ctx, params) => {
+        const article = getArticleById(Number(params.articleId));
+        if (!article) {
+          sendJson(res, { error: 'Article not found', code: 'NOT_FOUND' }, 404);
+          return;
+        }
+        sendJson(res, article);
+      }
+    })
+    .register({
+      method: 'GET',
+      pattern: '/api/v3/:scope/:realmId/newspaper/',
+      owner: 'newspaper',
+      handler: async (req, res, _ctx, params) => {
+        const belowIdRaw = new URL(req.url || '/', 'http://localhost').searchParams.get('below_id');
+        const belowId = belowIdRaw !== null && !isNaN(Number(belowIdRaw)) ? Number(belowIdRaw) : undefined;
+        sendJson(res, getNewspaperIssues(Number(params.realmId), belowId, 20));
+      }
+    })
+    .register({
+      method: 'GET',
+      pattern: '/api/v3/:scope/:realmId/newspaper/:issueId/',
+      owner: 'newspaper',
+      handler: async (_req, res, _ctx, params) => {
+        const issue = getNewspaperIssue(Number(params.issueId), Number(params.realmId));
+        if (!issue) {
+          sendJson(res, { error: 'Newspaper issue not found', code: 'NOT_FOUND' }, 404);
+          return;
+        }
+        sendJson(res, issue);
+      }
+    });
+}
+
+registerNewspaperRoutes(globalRouteRegistry);

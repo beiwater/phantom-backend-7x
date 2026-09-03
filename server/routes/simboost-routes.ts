@@ -1,12 +1,12 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { CONFIG } from '../config.ts';
-import { readJsonBody, sendJson } from './utils.ts';
+import { readJsonBody, sendJson, setPreparsedBody } from './utils.ts';
+import { RouteRegistry, globalRouteRegistry, type HttpMethod } from '../http/route-registry.ts';
 import {
   getPaymentPackagesList,
   getPaymentPricingInfo,
   getPlayerBonusesList,
   canPurchasePaymentPackage,
-  purchasePaymentPackage,
   exchangeCashForSimboosts,
   realignProductionSalesBonus,
   getCompanyBonusModifiers,
@@ -544,3 +544,53 @@ export async function handleSimboostRoutes(
 
   return false;
 }
+
+export function registerSimboostRoutes(registry: RouteRegistry = globalRouteRegistry): void {
+  const register = (method: HttpMethod, pattern: string): void => {
+    registry.register({
+      method,
+      pattern,
+      owner: 'simboost',
+      handler: async (req, res, ctx, _params, body) => {
+        if (method === 'POST' || method === 'PATCH' || method === 'PUT') {
+          setPreparsedBody(req, body);
+        }
+        const pathname = new URL(req.url || '/', 'http://localhost').pathname;
+        await handleSimboostRoutes(req, res, pathname, method, ctx?.playerId ?? null, ctx?.companyId ?? null);
+      }
+    });
+  };
+
+  register('GET', '/api/v4/payment-packages/:type/');
+  register('GET', '/api/v2/payment-pricing/');
+  register('GET', '/api/v2/players/bonuses/');
+  register('GET', '/api/v2/player-bonuses/');
+  register('POST', '/api/v2/companies/me/bonus/');
+  register('POST', '/api/v2/no-cache/companies/level-bonus/:companyId/');
+  register('POST', '/api/v2/unlock/');
+  register('POST', '/api/v2/companies/me/building-slots/');
+  register('POST', '/api/v2/companies/me/slots/');
+  register('GET', '/api/v2/payment/can-purchase/:sku/');
+  register('POST', '/api/v2/payment/');
+  register('POST', '/api/v2/payment-stripe/');
+  register('POST', '/api/v2/payment-stripe/sync');
+  register('POST', '/api/v2/payment-crypto/tron/');
+  register('PATCH', '/api/v2/payment-crypto/tron/:driver/:invoiceId/');
+  register('POST', '/api/v2/google/purchase/');
+  register('POST', '/api/v2/pa-action/fair/:offer/');
+  register('POST', '/api/v2/simboosts/exchange/');
+  register('POST', '/api/v2/companies/me/simboosts/exchange/');
+  register('POST', '/api/v2/exchange/');
+  register('PATCH', '/api/v2/companies/me/display-case/');
+  register('PATCH', '/api/v2/companies/:companyId/display-case/');
+  register('PATCH', '/api/v2/companies/me/executive-slots/');
+  register('POST', '/api/v2/companies/me/executive-slots/');
+  register('PATCH', '/api/v1/companies/me/executive-slots/');
+  register('POST', '/api/v1/companies/me/executive-slots/');
+  register('POST', '/api/v2/companies/me/tags/');
+  register('POST', '/api/v2/companies/buildings/:buildingId/rush/');
+  register('POST', '/api/v2/companies/buildings/:buildingId/queue/:queueId/rush/');
+  register('POST', '/api/v2/companies/buildings/:buildingId/construction-rush/');
+}
+
+registerSimboostRoutes(globalRouteRegistry);

@@ -1,5 +1,6 @@
 import type { DatabaseSync } from 'node:sqlite';
 import { db } from '../db/connection.ts';
+import { virtualClock } from '../core/virtual-clock.ts';
 import { NotFoundError } from '../errors/domain-error.ts';
 
 export interface ProductionQueueEntity {
@@ -9,10 +10,17 @@ export interface ProductionQueueEntity {
   kind: number;
   quality: number;
   cost: number | null;
+  amount: number;
   durationSeconds: number;
   startedAt: string;
   finishesAt: string;
   resolved: boolean;
+  economyPhase: number;
+  economyPhaseStartedAt: string | null;
+  economySource: string;
+  productionModifier: number;
+  productionOutputMultiplier: number;
+  launchConsumesResearch: boolean;
 }
 
 export interface ProductionQueueDbRow {
@@ -23,9 +31,15 @@ export interface ProductionQueueDbRow {
   quality: number;
   cost: number | null;
   amount: number;
+  duration_seconds: number;
   started_at: string;
   finishes_at: string;
   resolved: number;
+  economy_phase: number | null;
+  economy_phase_started_at: string | null;
+  economy_source: string | null;
+  production_modifier: number | null;
+  launch_consumes_research: number | null;
 }
 
 function mapQueueRow(row: ProductionQueueDbRow): ProductionQueueEntity {
@@ -40,7 +54,12 @@ function mapQueueRow(row: ProductionQueueDbRow): ProductionQueueEntity {
     durationSeconds: row.duration_seconds,
     startedAt: row.started_at,
     finishesAt: row.finishes_at,
-    resolved: Boolean(row.resolved)
+    resolved: Boolean(row.resolved),
+    economyPhase: Number(row.economy_phase ?? 1),
+    economyPhaseStartedAt: row.economy_phase_started_at,
+    economySource: row.economy_source || 'migration',
+    productionModifier: Number(row.production_modifier ?? 0),
+    launchConsumesResearch: Boolean(row.launch_consumes_research ?? 1),
   };
 }
 
@@ -91,7 +110,7 @@ export class ProductionRepository {
     return rows.map(mapQueueRow);
   }
 
-  findFinishedUnresolved(companyId: number, asOfDate: string = new Date().toISOString()): ProductionQueueEntity[] {
+  findFinishedUnresolved(companyId: number, asOfDate: string = virtualClock.nowIso()): ProductionQueueEntity[] {
     const rows = this.database.prepare(`
       SELECT * FROM production_queues
       WHERE company_id = ? AND resolved = 0 AND finishes_at <= ?
@@ -108,12 +127,23 @@ export class ProductionRepository {
     quality: number;
     cost?: number | null;
     amount: number;
+    durationSeconds: number;
+    startedAt: string;
+    finishesAt: string;
+    economyPhase?: number;
+    economyPhaseStartedAt?: string | null;
+    economySource?: string;
+    productionModifier?: number;
+    productionOutputMultiplier?: number;
+    launchConsumesResearch?: boolean;
   }): ProductionQueueEntity {
     const result = this.database.prepare(`
       INSERT INTO production_queues (
-        building_id, company_id, kind, quality, cost, amount, duration_seconds, started_at, finishes_at, resolved
+        building_id, company_id, kind, quality, cost, amount, duration_seconds, started_at, finishes_at, resolved,
+        economy_phase, economy_phase_started_at, economy_source, production_modifier, production_output_multiplier,
+        launch_consumes_research
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?)
       RETURNING *
     `).get(
       data.buildingId,
@@ -124,7 +154,13 @@ export class ProductionRepository {
       data.amount,
       data.durationSeconds,
       data.startedAt,
-      data.finishesAt
+      data.finishesAt,
+      data.economyPhase ?? 1,
+      data.economyPhaseStartedAt ?? null,
+      data.economySource ?? 'scheduler',
+      data.productionModifier ?? 0,
+      data.productionOutputMultiplier ?? 1,
+      data.launchConsumesResearch === false ? 0 : 1
     ) as ProductionQueueDbRow;
 
     return mapQueueRow(result);
@@ -153,7 +189,7 @@ export class ProductionRepository {
     return result.changes === 1;
   }
 
-  finishImmediately(queueId: number, companyId: number, nowIso: string = new Date().toISOString()): ProductionQueueEntity {
+  finishImmediately(queueId: number, companyId: number, nowIso: string = virtualClock.nowIso()): ProductionQueueEntity {
     const result = this.database.prepare(`
       UPDATE production_queues
       SET finishes_at = ?

@@ -1,5 +1,6 @@
 import { runInTransaction } from '../../db/transaction.ts';
 import { socialRepository, type PollRow } from '../../repositories/social-repository.ts';
+import { virtualClock } from '../../core/virtual-clock.ts';
 
 // --- Polls ------------------------------------------------------------------
 
@@ -26,7 +27,7 @@ export interface PollView {
 }
 
 export function getActivePoll(realmId: number): PollRow | undefined {
-  return socialRepository.getActivePoll(realmId, new Date().toISOString());
+  return socialRepository.getActivePoll(realmId, virtualClock.nowIso());
 }
 
 export function getPollById(pollId: number): PollRow | undefined {

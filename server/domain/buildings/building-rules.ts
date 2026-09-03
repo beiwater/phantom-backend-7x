@@ -7,6 +7,7 @@ import {
   CANONICAL_BUILDINGS
 } from '../../game-data/buildings.ts';
 import { ValidationError, ConflictError, BondCollateralViolationError } from '../../errors/domain-error.ts';
+ 
 
 export interface ConstructionCostEstimate {
   cost: number;
@@ -56,8 +57,11 @@ export function validateConstructionPosition(
  * protected even with an empty queue. Active recreation upkeep (category 'u',
  * P1-09) legitimately occupies busy_until and is exempted by its callers.
  */
-export function assertNotBusyForConstructionWork(busyUntil: string | null | undefined): void {
-  if (busyUntil && new Date(busyUntil).getTime() > Date.now()) {
+export function assertNotBusyForConstructionWork(
+  busyUntil: string | null | undefined,
+  nowMs: number
+): void {
+  if (busyUntil && new Date(busyUntil).getTime() > nowMs) {
     throw new ConflictError('Building is busy with construction or upgrade; wait for completion or rush it');
   }
 }

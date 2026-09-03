@@ -60,6 +60,11 @@ BACKEND_TESTS=(
   tests/verify-issues-110-121.test.ts
   tests/verify-market-pricing-modes.test.ts
   tests/verify-p1-03-research-guide.test.ts
+  tests/verify-issue-183-production-economy.test.ts
+  tests/verify-issue-184-government-content.test.ts
+  tests/verify-issue-185-economy.test.ts
+  tests/verify-issue-197-launchpad-mapping.test.ts
+  tests/verify-issue-182-certificates.test.ts
   tests/verify-production-process.test.ts
   tests/verify-security-hardening.test.ts
   tests/verify-warehouse-statistics.test.ts

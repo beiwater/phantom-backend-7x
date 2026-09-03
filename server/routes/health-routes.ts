@@ -7,6 +7,7 @@
  * - GET /health/       or /api/health/       (Combined health overview)
  */
 import type { IncomingMessage, ServerResponse } from 'node:http';
+import { RouteRegistry, globalRouteRegistry } from '../http/route-registry.ts';
 import { sendJson } from './utils.ts';
 import { HealthService } from '../services/health-service.ts';
 
@@ -54,3 +55,68 @@ export function handleHealthRoutes(
     return true;
   }
 }
+export function registerHealthRoutes(registry: RouteRegistry = globalRouteRegistry): void {
+  registry
+    .register({
+      method: 'GET',
+      pattern: '/health/',
+      owner: 'health',
+      handler: async (_req, res) => {
+        try {
+          sendJson(res, HealthService.checkReadiness());
+        } catch (err: unknown) {
+          sendJson(res, { status: 'unhealthy', error: err instanceof Error ? err.message : String(err) }, 503);
+        }
+      }
+    })
+    .register({
+      method: 'GET',
+      pattern: '/api/health/',
+      owner: 'health',
+      handler: async (_req, res) => {
+        try {
+          sendJson(res, HealthService.checkReadiness());
+        } catch (err: unknown) {
+          sendJson(res, { status: 'unhealthy', error: err instanceof Error ? err.message : String(err) }, 503);
+        }
+      }
+    })
+    .register({
+      method: 'GET',
+      pattern: '/health/live/',
+      owner: 'health',
+      handler: async (_req, res) => { sendJson(res, HealthService.checkLiveness()); }
+    })
+    .register({
+      method: 'GET',
+      pattern: '/api/health/live/',
+      owner: 'health',
+      handler: async (_req, res) => { sendJson(res, HealthService.checkLiveness()); }
+    })
+    .register({
+      method: 'GET',
+      pattern: '/health/ready/',
+      owner: 'health',
+      handler: async (_req, res) => {
+        try {
+          sendJson(res, HealthService.checkReadiness());
+        } catch (err: unknown) {
+          sendJson(res, { status: 'unhealthy', error: err instanceof Error ? err.message : String(err) }, 503);
+        }
+      }
+    })
+    .register({
+      method: 'GET',
+      pattern: '/api/health/ready/',
+      owner: 'health',
+      handler: async (_req, res) => {
+        try {
+          sendJson(res, HealthService.checkReadiness());
+        } catch (err: unknown) {
+          sendJson(res, { status: 'unhealthy', error: err instanceof Error ? err.message : String(err) }, 503);
+        }
+      }
+    });
+}
+
+registerHealthRoutes(globalRouteRegistry);

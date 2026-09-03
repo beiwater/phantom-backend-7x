@@ -1,4 +1,5 @@
 import { db, seedDefaultDisplayCase } from '../db/database.ts';
+import { virtualClock } from '../core/virtual-clock.ts';
 import { CONFIG } from '../config.ts';
 import { computeLevelInfo, getXpRequiredForLevel } from '../domain/leveling/level-rules.ts';
 import { executiveRepository } from '../repositories/executive-repository.ts';
@@ -6,6 +7,7 @@ import { getCompanyBoostSettings, getExchangedToday } from './simboost-settings.
 import { recordCashLedger, refreshDailyFinanceSnapshot } from './cash-ledger.ts';
 import { companyRepository } from '../repositories/company-repository.ts';
 import { runInTransaction } from '../db/transaction.ts';
+import { getEconomyPhase } from '../application/scheduler/daily-jobs.ts';
 
 export interface CompanyRow {
   id: number;
@@ -74,7 +76,7 @@ export function updateCompanySimBoosts(companyId: number, delta: number): number
 
 export function createCompanyForPlayer(playerId: number, name: string, realmId: number = 0) {
   const companyId = Math.floor(4000000 + Math.random() * 6000000);
-  const now = new Date().toISOString();
+  const now = virtualClock.nowIso();
   const initialMoney = CONFIG.INITIAL_MONEY || 100000;
   const initialSimboosts = CONFIG.INITIAL_SIMBOOSTS || 250;
   const initialLevel = typeof CONFIG.INITIAL_LEVEL === 'number' ? CONFIG.INITIAL_LEVEL : 0;
@@ -188,7 +190,7 @@ export function resetCompany(companyId: number) {
     db.prepare('DELETE FROM warehouse WHERE company_id = ?').run(companyId);
     db.prepare('DELETE FROM display_case WHERE company_id = ?').run(companyId);
 
-    const now = new Date().toISOString();
+    const now = virtualClock.nowIso();
     const updated = db.prepare(`
       UPDATE companies
       SET money = ?, level = 1, experience = 0, created_at = ?
@@ -278,7 +280,7 @@ function parseSupporterUntil(raw: unknown): { iso: string | null; ms: number } {
  */
 export function getSupporterState(
   company: CompanyRow | null | undefined,
-  now: number = Date.now()
+  now: number = virtualClock.nowMs()
 ): SupporterState {
   const certificates = Math.max(0, Math.floor(Number(company?.supporter_certificates) || 0));
   const until = parseSupporterUntil(company?.supporter_until);
@@ -297,7 +299,7 @@ export function getSupporterState(
  * the supporter package"). Renewals stack on an unexpired term so buying
  * early never loses days; after expiry the term restarts from `now`.
  */
-export async function activateSupporter(companyId: number, now: number = Date.now()): Promise<SupporterState> {
+export async function activateSupporter(companyId: number, now: number = virtualClock.nowMs()): Promise<SupporterState> {
   return runInTransaction(async () => {
     const comp = getCompanyById(companyId);
     if (!comp) {
@@ -397,7 +399,7 @@ export function getAuthData(playerId?: number | null, targetCompanyId?: number |
         sale: "",
         simboostsSalePromotion: null,
         contest: null,
-        economyState: 1
+        economyState: getEconomyPhase(0).state
       },
       cookieConsent: {},
       preferences: {
@@ -515,7 +517,7 @@ export function getAuthData(playerId?: number | null, targetCompanyId?: number |
       sale: "",
       simboostsSalePromotion: null,
       contest: null,
-      economyState: 1
+      economyState: getEconomyPhase(company.realm_id || 0).state
     },
     cookieConsent: {},
     preferences: {

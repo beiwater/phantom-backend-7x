@@ -1,4 +1,5 @@
 import type { GameContext } from '../../context/game-context.ts';
+import { virtualClock } from '../../core/virtual-clock.ts';
 import { runInTransaction } from '../../db/transaction.ts';
 import { buildingRepository, type BuildingEntity } from '../../repositories/building-repository.ts';
 import { companyRepository } from '../../repositories/company-repository.ts';
@@ -62,7 +63,7 @@ export async function startRecreationUpkeepUseCase(
     // Idempotency guard: an active (or construction/upgrade) busy period must
     // not be silently double-charged on repeat POSTs.
     const busyUntilMs = building.busyUntil ? new Date(building.busyUntil).getTime() : 0;
-    if (busyUntilMs > Date.now()) {
+    if (busyUntilMs > virtualClock.nowMs()) {
       throw new ConflictError('Building is already busy — upkeep is already running');
     }
 
@@ -75,7 +76,7 @@ export async function startRecreationUpkeepUseCase(
     const simboostsRemaining = companyRepository.debitSimboosts(ctx.companyId, cost);
     recordSimboostSpend(ctx.companyId, 'RECREATION_UPKEEP', cost);
 
-    const busyUntil = new Date(Date.now() + RECREATION_UPKEEP_DURATION_SECONDS * 1000).toISOString();
+    const busyUntil = new Date(virtualClock.nowMs() + RECREATION_UPKEEP_DURATION_SECONDS * 1000).toISOString();
     const updated = buildingRepository.updateUpkeep(buildingId, ctx.companyId, busyUntil, true);
 
     // Post-commit side effect only; the economic mutation above is already

@@ -1,4 +1,5 @@
 import type { GameContext } from '../../context/game-context.ts';
+import { virtualClock } from '../../core/virtual-clock.ts';
 import { runInTransaction } from '../../db/transaction.ts';
 import { buildingRepository, type BuildingEntity } from '../../repositories/building-repository.ts';
 import { companyRepository } from '../../repositories/company-repository.ts';
@@ -13,6 +14,7 @@ import {
   getAuthoritativeRetailPrice,
   calculateRetailDuration
 } from '../../game-data/retail.ts';
+import { getEconomyPhase } from '../scheduler/daily-jobs.ts';
 
 export interface StartRetailInput {
   buildingId: number;
@@ -41,6 +43,7 @@ export async function startRetailUseCase(
   ctx: GameContext,
   input: StartRetailInput
 ): Promise<StartRetailResult> {
+  const economy = getEconomyPhase(ctx.realmId);
   return runInTransaction(async txCtx => {
     const building = buildingRepository.findById(input.buildingId);
     if (!building) {
@@ -54,7 +57,7 @@ export async function startRetailUseCase(
         `Resource ${input.kind} cannot be produced in building type '${building.kind}'`
       );
     }
-    if (building.busyUntil && new Date(building.busyUntil).getTime() > Date.now()) {
+    if (building.busyUntil && new Date(building.busyUntil).getTime() > virtualClock.nowMs()) {
       throw new ValidationError('Building is busy with an active sales order');
     }
 
@@ -78,7 +81,7 @@ export async function startRetailUseCase(
 
     // Price is clamped to the authoritative maximum; the widget always sends
     // its modeled price, the server remains the pricing authority.
-    const { maxPrice } = getAuthoritativeRetailPrice(input.kind, quality);
+    const { maxPrice } = getAuthoritativeRetailPrice(input.kind, quality, undefined, 0.5, economy.state);
     const unitPrice = Math.min(Math.max(input.price, 0), maxPrice);
 
     // Issue #99: the sale's busy-window duration must fit the company tier
@@ -88,7 +91,8 @@ export async function startRetailUseCase(
     const durationSeconds = calculateRetailDuration(input.kind, input.amount, building.size || 1, {
       quality,
       price: unitPrice,
-      buildingKind: building.kind
+      buildingKind: building.kind,
+      economyState
     });
     assertQueueDuration(
       companyRepository.findById(ctx.companyId)?.level ?? 0,
@@ -133,8 +137,8 @@ export async function startRetailUseCase(
     // 3. Occupy the building's busy window for the sale duration and persist in retail_orders
     // (durationSeconds was computed and validated against the tier limit
     // before stock was consumed)
-    const now = new Date().toISOString();
-    const finishesAt = new Date(Date.now() + durationSeconds * 1000).toISOString();
+    const now = virtualClock.nowIso();
+    const finishesAt = new Date(virtualClock.nowMs() + durationSeconds * 1000).toISOString();
     const updatedBuilding = buildingRepository.updateBusyUntil(building.id, ctx.companyId, finishesAt);
 
     // Track in retail_orders table (NOT active production_queues to prevent
@@ -148,7 +152,10 @@ export async function startRetailUseCase(
       unitPrice,
       cost: revenue,
       finishedAt: finishesAt,
-      createdAt: now
+      createdAt: now,
+      economyPhase: economy.state,
+      economyPhaseStartedAt: economy.startAt,
+      economySource: economy.source
     });
     // 4. Award leveling XP (1s retail = 1 XP per building size unit)
     const xpEarned = Math.max(1, Math.round(durationSeconds * (building.size || 1)));

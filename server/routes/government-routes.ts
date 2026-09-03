@@ -1,4 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
+import { RouteRegistry, globalRouteRegistry } from '../http/route-registry.ts';
 import { sendJson, readJsonBody } from './utils.ts';
 import {
   getGovernmentOrders,
@@ -304,3 +305,268 @@ export async function handleGovernmentRoutes(
 
   return false;
 }
+export function registerGovernmentRoutes(registry: RouteRegistry = globalRouteRegistry): void {
+  const bodyField = (body: unknown, field: string): unknown => {
+    if (!body || typeof body !== 'object' || !(field in body)) return undefined;
+    return Reflect.get(body, field);
+  };
+  const companyRequired = (ctx: { companyId: number } | null, res: ServerResponse): number | null => {
+    const companyId = ctx?.companyId ?? null;
+    if (!companyId) {
+      sendJson(res, { error: 'Unauthorized' }, 401);
+      return null;
+    }
+    return companyId;
+  };
+  const commandError = (err: unknown): { error: string } => ({
+    error: err instanceof Error ? err.message : 'Unknown error'
+  });
+  const companyIdFromContext = (ctx: { companyId: number } | null): number | null => ctx?.companyId ?? null;
+  const contextRealm = (ctx: { realmId: number } | null): number => ctx?.realmId ?? 0;
+  const sendProject = (res: ServerResponse, projectId: number): void => {
+    const project = getGovernmentOrderById(projectId);
+    const orders = project ? getGovernmentOrders(project.realm) : [];
+    sendJson(
+      res,
+      project
+        ? { ...project, governmentOrders: orders, orders }
+        : { error: 'Government order project not found' },
+      project ? 200 : 404
+    );
+  };
+  const sendOrderList = (res: ServerResponse, realmId: number): void => {
+    const orders = getGovernmentOrders(realmId);
+    sendJson(res, { governmentOrders: orders, orders });
+  };
+
+  registry
+    .register({
+      method: 'GET', pattern: '/api/v3/government-orders/tier/', owner: 'government',
+      handler: async (_req, res, ctx) => { sendJson(res, getGovernmentTier(companyIdFromContext(ctx))); }
+    })
+    .register({
+      method: 'GET', pattern: '/api/v3/government-orders/company/:companyId/bids/', owner: 'government',
+      handler: async (_req, res, _ctx, params) => { sendJson(res, getCompanyGovernmentBids(Number(params.companyId))); }
+    })
+    .register({
+      method: 'GET', pattern: '/api/v3/government-orders/company/:companyId/', owner: 'government',
+      handler: async (_req, res, _ctx, params) => { sendJson(res, getCompanyGovernmentApplications(Number(params.companyId))); }
+    })
+    .register({
+      method: 'DELETE', pattern: '/api/v3/government-orders/bids/:secret/blocked-companies/:companyId/', owner: 'government',
+      handler: async (_req, res, _ctx, params) => {
+        unblockCompany(params.secret, Number(params.companyId));
+        sendJson(res, { success: true });
+      }
+    })
+    .register({
+      method: 'GET', pattern: '/api/v3/government-orders/bids/:secret/blocked-companies/', owner: 'government',
+      handler: async (_req, res, _ctx, params) => { sendJson(res, getBlockedCompanies(params.secret)); }
+    })
+    .register({
+      method: 'POST', pattern: '/api/v3/government-orders/bids/:secret/blocked-companies/', owner: 'government',
+      handler: async (_req, res, _ctx, params, body) => {
+        try {
+          blockCompany(params.secret, Number(bodyField(body, 'companyId')));
+          sendJson(res, { success: true, ...getBlockedCompanies(params.secret) });
+        } catch (err: unknown) { sendJson(res, commandError(err), 400); }
+      }
+    })
+    .register({
+      method: 'PATCH', pattern: '/api/v3/government-orders/bids/:secret/contractors/:contractorId/', owner: 'government',
+      handler: async (_req, res, ctx, params) => {
+        const companyId = companyRequired(ctx, res);
+        if (!companyId) return;
+        try { sendJson(res, fulfillGovernmentOrderContractor(params.secret, companyId, Number(params.contractorId))); }
+        catch (err: unknown) { sendJson(res, commandError(err), 400); }
+      }
+    })
+    .register({
+      method: 'DELETE', pattern: '/api/v3/government-orders/bids/:secret/contractors/:contractorId/', owner: 'government',
+      handler: async (_req, res, ctx, params) => {
+        const companyId = companyRequired(ctx, res);
+        if (!companyId) return;
+        try { sendJson(res, leaveOrRemoveContractor(params.secret, companyId, Number(params.contractorId))); }
+        catch (err: unknown) { sendJson(res, commandError(err), 400); }
+      }
+    })
+    .register({
+      method: 'GET', pattern: '/api/v3/government-orders/bids/:secret/contractors/', owner: 'government',
+      handler: async (_req, res, _ctx, params) => {
+        const bid = getGovernmentBidByIdOrSecret(params.secret);
+        sendJson(res, bid ? bid.governmentorderbidderSet : { error: 'Bid not found' }, bid ? 200 : 404);
+      }
+    })
+    .register({
+      method: 'POST', pattern: '/api/v3/government-orders/bids/:secret/contractors/', owner: 'government',
+      handler: async (_req, res, ctx, params) => {
+        const companyId = companyRequired(ctx, res);
+        if (!companyId) return;
+        const bid = getGovernmentBidByIdOrSecret(params.secret);
+        if (!bid) {
+          sendJson(res, { error: 'Bid not found' }, 404);
+          return;
+        }
+        try { sendJson(res, joinGovernmentBid(params.secret, companyId)); }
+        catch (err: unknown) { sendJson(res, commandError(err), 400); }
+      }
+    })
+    .register({
+      method: 'GET', pattern: '/api/v3/government-orders/bids/:secret/', owner: 'government',
+      handler: async (_req, res, _ctx, params) => {
+        const bid = getGovernmentBidByIdOrSecret(params.secret);
+        sendJson(res, bid || { error: 'Bid not found' }, bid ? 200 : 404);
+      }
+    })
+    .register({
+      method: 'PATCH', pattern: '/api/v3/government-orders/bids/:secret/', owner: 'government',
+      handler: async (_req, res, ctx, params, body) => {
+        const companyId = companyRequired(ctx, res);
+        if (!companyId) return;
+        try {
+          sendJson(res, updateGovernmentBid(params.secret, companyId, {
+            maxContractorCount: bodyField(body, 'maxContractorCount') as number | undefined,
+            isPublic: bodyField(body, 'isPublic') as boolean | undefined,
+            minimumRequiredTierIndex: bodyField(body, 'minimumRequiredTierIndex') as number | undefined,
+            resourcePriceBreakdown: bodyField(body, 'resourcePriceBreakdown') as Record<string, number> | string | undefined,
+            note: bodyField(body, 'note') as string | undefined
+          }));
+        } catch (err: unknown) { sendJson(res, commandError(err), 400); }
+      }
+    })
+    .register({
+      method: 'DELETE', pattern: '/api/v3/government-orders/bids/:secret/', owner: 'government',
+      handler: async (_req, res, ctx, params) => {
+        const companyId = companyRequired(ctx, res);
+        if (!companyId) return;
+        try { deleteGovernmentBid(params.secret, companyId); sendJson(res, { success: true }); }
+        catch (err: unknown) { sendJson(res, commandError(err), 400); }
+      }
+    })
+    .register({
+      method: 'GET', pattern: '/api/v3/government-orders/bids/', owner: 'government',
+      handler: async (_req, res, ctx) => {
+        const realm = contextRealm(ctx);
+        sendJson(res, { applications: getGovernmentBids(realm), governmentOrders: getGovernmentOrders(realm) });
+      }
+    })
+    .register({
+      method: 'POST', pattern: '/api/v3/government-orders/bids/', owner: 'government',
+      handler: async (_req, res, ctx, _params, body) => {
+        const companyId = companyRequired(ctx, res);
+        if (!companyId) return;
+        try {
+          const realm = contextRealm(ctx);
+          const templateId = Number(bodyField(body, 'templateId') ?? bodyField(body, 'orderId') ?? bodyField(body, 'template_id') ?? 1);
+          const bid = createGovernmentBid(companyId, realm, {
+            templateId,
+            maxContractorCount: bodyField(body, 'maxContractorCount') as number | undefined,
+            contractors: bodyField(body, 'contractors') as number[] | Array<{ companyId: number }> | undefined,
+            isPublic: bodyField(body, 'isPublic') as boolean | undefined,
+            minimumRequiredTierIndex: bodyField(body, 'minimumRequiredTierIndex') as number | undefined,
+            resourcePriceBreakdown: bodyField(body, 'resourcePriceBreakdown') as Record<string, number> | string | undefined,
+            note: bodyField(body, 'note') as string | undefined
+          });
+          sendJson(res, bid, 201);
+        } catch (err: unknown) { sendJson(res, commandError(err), 400); }
+      }
+    })
+    .register({
+      method: 'GET', pattern: '/api/v3/government-orders/realm/:realmId/bids/', owner: 'government',
+      handler: async (_req, res, _ctx, params) => {
+        const realmId = Number(params.realmId);
+        sendJson(res, { applications: getGovernmentBids(realmId), governmentOrders: getGovernmentOrders(realmId) });
+      }
+    })
+    .register({
+      method: 'POST', pattern: '/api/v3/government-orders/realm/:realmId/bids/', owner: 'government',
+      handler: async (_req, res, ctx, params, body) => {
+        const companyId = companyRequired(ctx, res);
+        if (!companyId) return;
+        try {
+          const realmId = Number(params.realmId);
+          const templateId = Number(bodyField(body, 'templateId') ?? bodyField(body, 'orderId') ?? bodyField(body, 'template_id') ?? (realmId > 0 ? realmId : 1));
+          sendJson(res, createGovernmentBid(companyId, realmId, {
+            templateId,
+            maxContractorCount: bodyField(body, 'maxContractorCount') as number | undefined,
+            contractors: bodyField(body, 'contractors') as number[] | Array<{ companyId: number }> | undefined,
+            isPublic: bodyField(body, 'isPublic') as boolean | undefined,
+            minimumRequiredTierIndex: bodyField(body, 'minimumRequiredTierIndex') as number | undefined,
+            resourcePriceBreakdown: bodyField(body, 'resourcePriceBreakdown') as Record<string, number> | string | undefined,
+            note: bodyField(body, 'note') as string | undefined
+          }), 201);
+        } catch (err: unknown) { sendJson(res, commandError(err), 400); }
+      }
+    })
+    .register({
+      method: 'GET', pattern: '/api/v3/government-orders/', owner: 'government',
+      handler: async (_req, res, ctx) => {
+        sendOrderList(res, contextRealm(ctx));
+      }
+    })
+    .register({
+      method: 'GET', pattern: '/api/v3/government-orders/projects/:projectId/', owner: 'government',
+      handler: async (_req, res, _ctx, params) => { sendProject(res, Number(params.projectId)); }
+    })
+    .register({
+      method: 'GET', pattern: '/api/v3/realms/:realmId/government-orders/', owner: 'government',
+      handler: async (_req, res, _ctx, params) => {
+        sendOrderList(res, Number(params.realmId));
+      }
+    })
+    .register({
+      method: 'GET', pattern: '/api/v3/government-orders/realm/:realmId/', owner: 'government',
+      handler: async (_req, res, _ctx, params) => {
+        const idOrRealm = Number(params.realmId);
+        const template = getGovernmentOrderById(idOrRealm);
+        if (template) {
+          const orders = getGovernmentOrders(template.realm);
+          sendJson(res, { ...template, governmentOrders: orders, orders });
+          return;
+        }
+        sendOrderList(res, idOrRealm);
+      }
+    })
+    .register({
+      method: 'GET', pattern: '/api/v3/government-orders/:realmId/', owner: 'government',
+      handler: async (_req, res, _ctx, params) => {
+        sendOrderList(res, Number(params.realmId));
+      }
+    })
+    .register({
+      method: 'GET', pattern: '/api/v1/government-orders/', owner: 'government',
+      handler: async (_req, res, ctx) => {
+        sendOrderList(res, contextRealm(ctx));
+      }
+    })
+    .register({
+      method: 'GET', pattern: '/api/v1/realms/:realmId/government-orders/', owner: 'government',
+      handler: async (_req, res, _ctx, params) => {
+        sendOrderList(res, Number(params.realmId));
+      }
+    })
+    .register({
+      method: 'GET', pattern: '/api/v1/:scope/:realmId/government-orders/', owner: 'government',
+      handler: async (_req, res, _ctx, params) => {
+        sendOrderList(res, Number(params.realmId));
+      }
+    })
+    .register({
+      method: 'GET', pattern: '/api/v1/government-orders/realm/:realmId/', owner: 'government',
+      handler: async (_req, res, _ctx, params) => {
+        sendOrderList(res, Number(params.realmId));
+      }
+    })
+    .register({
+      method: 'GET', pattern: '/api/v1/government-orders/projects/:projectId/', owner: 'government',
+      handler: async (_req, res, _ctx, params) => { sendProject(res, Number(params.projectId)); }
+    })
+    .register({
+      method: 'GET', pattern: '/api/v1/government-orders/:realmId/', owner: 'government',
+      handler: async (_req, res, _ctx, params) => {
+        sendOrderList(res, Number(params.realmId));
+      }
+    });
+}
+
+registerGovernmentRoutes(globalRouteRegistry);
