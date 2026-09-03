@@ -24,3 +24,4 @@ INV-PRODUCTION-INPUT-CHECK: Starting production must fail if required input mate
 INV-AUTH-OWNERSHIP: Operations on company buildings, warehouse, orders, and executives must belong to the authenticated user session.
 INV-SESSION-EXPIRATION: Expired sessions must be rejected with 401 Unauthorized.
 INV-PERSISTENCE-AFTER-REFRESH: All committed game mutations must persist unchanged across browser refreshes and server reboots.
+I-23: application-layer vertical migrations MUST sweep every consumer of the moved symbol (including scheduler jobs whose repository reads have no suite coverage) - verified by scratch-DB behavior test, not by suite alone. [evidence: findActiveHeld silently dropped in 2a06613, restored in eef7629]

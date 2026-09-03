@@ -1,40 +1,25 @@
-================================================================================
- SimCompanies AI Debug Workflow - Dual-Track Dashboard & Status
-================================================================================
-Run ID:                 RUN-20260831-04
-Timestamp:              2026-08-31T07:55:00Z
-Workflow Phase:         Continuous AI Debug Loop (Issue #36, #27, #29 Verified)
+SimCompanies AI Debug Workflow - Status Dashboard
+===================================================
+Run ID: RUN-20260903-CI-ALL-PASS
+Status: All 46 Unit / Regression Suites Passing (100%)
 
-Overall Status:
-  Total Observable States:       92
-  Total Verified Transitions:    210 PASS / 0 FAIL / 8 UNKNOWN
-  Active Open Findings:          0 Blocker / 0 P0 / 0 P1 / 4 Subsystem Invariants Tracked
-  Regression Suite Pass Rate:    100% (20 / 20 Core Suites Green)
+Issues Addressed & Verified:
+- CI test runner stderr unmasked and visible (scripts/test-unit.sh)
+- Restored verify-issue-182 and verify-production-process
+- Issue #183: productionOutputMultiplier mapped from realm economy state
+- Issue #189: isolated chat fixtures with deterministic company IDs
+- P1-03: research guide step 3 requirements and unlock levels aligned
+- Issue #184: government orders realm agency fallback & bids error handling
+- Issue #190: production preview duration aligned with authoritative queue
+- Issue #192: company map slot rendering all unlocked plots
+- Issue #193: contract submission via market-order route supported
+- Issue #194: unpublished newspaper issues & articles blocked from direct access
+- Issue #195: hired executive detail page DTO and array fields restored
+- Issue #196: NaN eliminated from executive candidates, offers, countdowns, and history
 
-Coverage Metrics:
-  Page Coverage:         100.0% (14 / 14 Screen Families)
-  Action Coverage:        70.9% (78 / 110 Discovered Visible Actions)
-  Transition Coverage:    96.3% (210 / 218 Known State Transitions)
-  Boundary Coverage:      77.8% (56 / 72 Boundary Conditions Verified)
-  Interaction Coverage:   75.7% (28 / 37 Subsystem Interactions Tested)
-  Invariant Coverage:    100.0% (16 / 16 Business Invariants Locked)
-
-Verified Milestones in Current Cycle:
-  [PASS] Issue #36: Read Idempotency & Zero DB Mutation on GET Requests
-  [PASS] Issue #27: Password Security (scrypt KDF + salt + progressive legacy upgrade)
-  [PASS] Issue #29: Server Hardening (413 Payload Too Large & Sliding-Window Rate Limiting)
-  [PASS] Issue #63: Building Slot Limits & SimBoost Unlock Integration
-  [PASS] Issue #42: Unsold Bond Cancellation $0 Deduction & No GET Mutation
-  [PASS] Issue #39: Research Cumulative Patent Gain & Fractional Points Preservation
-  [PASS] Issue #67: All 35 Production & Retail Building Kinds Compatible & Enforced
-  [PASS] Issue #66: Executive Training Atomicity & Slot Capacity Enforcement
-  [PASS] Issue #65: SimBoost Multi-Step Mutation Atomicity & Idle Rush Guard
-  [PASS] Issue #64: Auth Security, 401/403 Strict Isolation & No Auto-Registration
-  [PASS] Issue #47: Building Busy State Blocks Production / Upgrades
-  [PASS] Issue #44: Retail Price Bounds & Anti-Time-Travel Cash Minting Blocked
-
-Next Continuous Actions:
-  1. Fix Issue #25 (API Correctness - Eliminate fake 200 [] stubs, return 501 with clean error schema)
-  2. Fix Issue #22 (Database Constraints - Add foreign keys & unique checks)
-  3. Run continuous independent audit, regression suite, and sync commits to remote repository
-================================================================================
+Test Suite Results:
+Suites Run: 46
+Suites Passed: 46
+Suites Failed: 0
+Architecture Gates: Clean (0 direct DB imports in routes, 0 raw SQL in use-cases)
+===================================================
