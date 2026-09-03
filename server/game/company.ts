@@ -4,6 +4,7 @@ import { computeLevelInfo, getXpRequiredForLevel } from '../domain/leveling/leve
 import { seedDefaultExecutives } from './executives.ts';
 import { getCompanyBoostSettings, getExchangedToday } from './simboost-settings.ts';
 import { recordCashLedger, refreshDailyFinanceSnapshot } from './cash-ledger.ts';
+import { companyRepository } from '../repositories/company-repository.ts';
 import { runInTransaction } from '../db/transaction.ts';
 
 export interface CompanyRow {
@@ -58,37 +59,10 @@ export function getCompanyById(companyId: number): CompanyRow | null {
 }
 
 export function updateCompanyMoney(companyId: number, delta: number, skipLedger: boolean = false): number {
-  if (!Number.isFinite(delta)) {
-    throw new Error('Money delta must be finite');
-  }
-
-  const comp = getCompanyById(companyId);
-  if (!comp) {
-    throw new Error('Company not found');
-  }
-
-  const currentMoney = Number(comp.money);
-  if (!Number.isFinite(currentMoney)) {
-    throw new Error('Company balance is invalid');
-  }
-
-  const newMoney = Math.round((currentMoney + delta) * 100) / 100;
-  if (!Number.isFinite(newMoney)) {
-    throw new Error('Money balance is invalid');
-  }
-  if (newMoney < 0) {
-    throw new Error('Insufficient funds');
-  }
-
-  const result = db.prepare('UPDATE companies SET money = ? WHERE company_id = ? OR id = ?').run(newMoney, companyId, companyId);
-  if (result.changes < 1) {
-    throw new Error('Company not found');
-  }
-  if (!skipLedger) {
-    recordCashLedger({ companyId, amount: delta, category: 'g', description: 'Company money change', descriptionKey: '' });
-  }
-  refreshDailyFinanceSnapshot(companyId);
-  return newMoney;
+  // Issue #179: single authoritative implementation lives in
+  // CompanyRepository.updateMoney — this wrapper keeps the game-layer
+  // call signature for legacy in-engine callers only.
+  return companyRepository.updateMoney(companyId, delta, { skipLedger });
 }
 
 export function updateCompanySimBoosts(companyId: number, delta: number): number {

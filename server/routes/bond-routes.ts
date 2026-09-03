@@ -59,7 +59,7 @@ export async function handleBondRoutes(
       if (requireCapability(res, currentCompanyId, 'bonds', 'issue bonds')) return true;
       const body = await readJsonBody<{ amount?: number; interest?: number }>(req);
       try {
-        const result = issueBondsCommand(bondCtx(), Number(body.amount), Number(body.interest ?? 0.005));
+        const result = await issueBondsCommand(bondCtx(), Number(body.amount), Number(body.interest ?? 0.005));
         sendJson(res, result);
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -97,9 +97,9 @@ export async function handleBondRoutes(
       const capErr = method === 'PATCH' ? 'buy bond' : 'call bond';
       if (requireCapability(res, currentCompanyId, 'bonds', capErr)) return true;
       try {
-        const result = method === 'PATCH'
+        const result = await (method === 'PATCH'
           ? buyBondsCommand(bondCtx(), bondId)
-          : callBondsCommand(bondCtx(), bondId);
+          : callBondsCommand(bondCtx(), bondId));
         sendJson(res, result);
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);

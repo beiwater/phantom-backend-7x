@@ -100,7 +100,7 @@ export async function handleContractRoutes(
     }>(req);
 
     try {
-      const contract = sendContractCommand(contractCtx(), {
+      const contract = await sendContractCommand(contractCtx(), {
         buyerCompanyId: Number(body.recipient),
         resourceKind: Number(body.kind),
         quality: Number(body.quality || 0),
@@ -127,7 +127,7 @@ export async function handleContractRoutes(
     if (requireCapability(res, currentCompanyId, 'contracts', 'accept contract')) return true;
     const contractId = Number(acceptMatch[1]);
     try {
-      const result = acceptContractCommand(contractCtx(), contractId);
+      const result = await acceptContractCommand(contractCtx(), contractId);
       sendJson(res, result);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -148,7 +148,7 @@ export async function handleContractRoutes(
     if (requireCapability(res, currentCompanyId, 'contracts', 'reject contract')) return true;
     const contractId = Number(rejectMatch[1]);
     try {
-      const result = rejectContractCommand(contractCtx(), contractId);
+      const result = await rejectContractCommand(contractCtx(), contractId);
       sendJson(res, result);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -169,7 +169,7 @@ export async function handleContractRoutes(
     if (requireCapability(res, currentCompanyId, 'contracts', 'cancel contract')) return true;
     const contractId = Number(cancelMatch[1]);
     try {
-      const result = cancelContractCommand(contractCtx(), contractId);
+      const result = await cancelContractCommand(contractCtx(), contractId);
       sendJson(res, result);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);

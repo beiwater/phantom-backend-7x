@@ -99,10 +99,8 @@ function testArchitectureGates() {
   ];
   const applicationGameMutationAllowlist = new Map<string, string[]>([
     // #179 remaining vertical migrations:
-    ['finance/finance-use-cases.ts', ['game/bonds.ts', 'game/contracts.ts']],
     ['executives/executive-use-cases.ts', ['game/executives.ts']],
-    ['scheduler/daily-jobs.ts', ['game/company.ts', 'game/government.ts']],
-    ['buildings/demolish-building.ts', ['game/bonds.ts']]
+    ['scheduler/daily-jobs.ts', ['game/company.ts', 'game/government.ts']]
   ]);
 
   const gameMutationDebt: Array<{ file: string; modules: string[]; allowlisted: boolean }> = [];

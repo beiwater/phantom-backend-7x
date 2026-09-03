@@ -1,59 +1,52 @@
 /**
  * Corporate finance application layer (Issue #105 Phase 7 / Issue #104 Stage 6).
- * Command/query facade for bond lifecycle (issue/buy/call + settlement) and
- * contract lifecycle (send/accept/reject/cancel). Economic semantics are
- * preserved as-is from the verified engine (Strangler rule: architecture
- * migration does not rewrite economy rules).
+ *
+ * Issue #179: the bond and contract lifecycle engines are no longer facade
+ * forwards into the legacy game layer. The authoritative implementations now
+ * live in application/finance/bond-use-cases.ts and
+ * application/finance/contract-use-cases.ts, on top of
+ * repositories/bond-repository.ts and repositories/contract-repository.ts.
+ * This module stays as the finance aggregation surface the routes import.
  */
 import type { GameContext } from '../../context/game-context.ts';
 import {
-  getBondsOwned,
-  getBondsSold,
-  getBondMarketListings,
-  issueBonds,
-  buyBonds,
-  callBonds
-} from '../../game/bonds.ts';
+  getBondsOwnedQuery,
+  getBondsSoldQuery,
+  getBondMarketListingsQuery,
+  issueBondsUseCase,
+  buyBondsUseCase,
+  callBondsUseCase
+} from './bond-use-cases.ts';
 import {
   getIncomingContracts,
   getOutgoingContracts,
   getContractHistory,
   getWarehouseContractsSummary,
-  sendContract,
-  acceptContract,
-  rejectContract,
-  cancelContract
-} from '../../game/contracts.ts';
+  sendContractUseCase,
+  acceptContractUseCase,
+  rejectContractUseCase,
+  cancelContractUseCase
+} from './contract-use-cases.ts';
 
 // --- Bond queries ------------------------------------------------------------
 
-export function getBondsOwnedQuery(companyId: number) {
-  return getBondsOwned(companyId);
-}
+export { getBondsOwnedQuery, getBondsSoldQuery, getBondMarketListingsQuery };
 
-export function getBondsSoldQuery(companyId: number) {
-  return getBondsSold(companyId);
-}
-
-export function getBondMarketListingsQuery() {
-  return getBondMarketListings();
-}
-
-// --- Bond commands ------------------------------------------------------------
+// --- Bond commands -----------------------------------------------------------
 
 export function issueBondsCommand(ctx: GameContext, amount: number, interestRate: number = 0.005) {
-  return issueBonds(ctx.companyId, amount, interestRate);
+  return issueBondsUseCase(ctx, amount, interestRate);
 }
 
 export function buyBondsCommand(ctx: GameContext, bondId: number) {
-  return buyBonds(ctx.companyId, bondId);
+  return buyBondsUseCase(ctx, bondId);
 }
 
 export function callBondsCommand(ctx: GameContext, bondId: number) {
-  return callBonds(ctx.companyId, bondId);
+  return callBondsUseCase(ctx, bondId);
 }
 
-// --- Contract queries ----------------------------------------------------------
+// --- Contract queries --------------------------------------------------------
 
 export function getIncomingContractsQuery(companyId: number) {
   return getIncomingContracts(companyId);
@@ -71,23 +64,23 @@ export function getWarehouseContractsSummaryQuery(companyId: number) {
   return getWarehouseContractsSummary(companyId);
 }
 
-// --- Contract commands ---------------------------------------------------------
+// --- Contract commands -------------------------------------------------------
 
 export function sendContractCommand(
   ctx: GameContext,
   input: { buyerCompanyId: number; resourceKind: number; quality: number; amount: number; price: number }
 ) {
-  return sendContract(ctx.companyId, input.buyerCompanyId, input.resourceKind, input.quality, input.amount, input.price);
+  return sendContractUseCase(ctx, input);
 }
 
 export function acceptContractCommand(ctx: GameContext, contractId: number) {
-  return acceptContract(ctx.companyId, contractId);
+  return acceptContractUseCase(ctx, contractId);
 }
 
 export function rejectContractCommand(ctx: GameContext, contractId: number) {
-  return rejectContract(ctx.companyId, contractId);
+  return rejectContractUseCase(ctx, contractId);
 }
 
 export function cancelContractCommand(ctx: GameContext, contractId: number) {
-  return cancelContract(ctx.companyId, contractId);
+  return cancelContractUseCase(ctx, contractId);
 }

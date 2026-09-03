@@ -7,7 +7,7 @@ import { eventBus } from '../../events/event-bus.ts';
 import { estimateDemolitionRefund, assertBondCollateralFloor } from '../../domain/buildings/building-rules.ts';
 import { NotFoundError, ForbiddenError, ConflictError } from '../../errors/domain-error.ts';
 import { productionRepository } from '../../repositories/production-repository.ts';
-import { getOutstandingSoldBondLiability } from '../../game/bonds.ts';
+import { getOutstandingSoldBondLiability } from '../finance/bond-use-cases.ts';
 
 export interface DemolishBuildingResult {
   demolishedBuilding: BuildingEntity;

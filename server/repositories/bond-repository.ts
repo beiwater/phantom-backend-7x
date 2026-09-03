@@ -1,41 +1,24 @@
-/**
- * Bond repository (Issue #105 hardening).
- * Owns all bond-table SQL: reads for interest settlement, status writes,
- * and the listing/market queries used by the bond use cases. Knows nothing
- * about frontend DTOs.
- */
 import type { DatabaseSync } from 'node:sqlite';
 import { db } from '../db/connection.ts';
+import { companyRepository } from './company-repository.ts';
 
-export interface BondRowEntity {
+export interface BondRow {
   id: number;
-  sellerCompanyId: number | null;
-  buyerCompanyId: number | null;
-  amount: number;
-  interestRate: number;
-  status: string;
-}
-
-interface BondDbRow {
-  id: number;
-  seller_company_id: number | null;
+  seller_company_id: number;
   buyer_company_id: number | null;
-  amount: number;
   interest_rate: number;
+  amount: number;
   status: string;
+  created_at: string;
+  maturity_date: string | null;
+  settled: number;
 }
 
-function mapBondRow(row: BondDbRow): BondRowEntity {
-  return {
-    id: row.id,
-    sellerCompanyId: row.seller_company_id === null ? null : Number(row.seller_company_id),
-    buyerCompanyId: row.buyer_company_id === null ? null : Number(row.buyer_company_id),
-    amount: Number(row.amount),
-    interestRate: Number(row.interest_rate),
-    status: row.status
-  };
-}
-
+/**
+ * Bond persistence + DTO mapping (Issue #179: moved verbatim from
+ * game/bonds.ts). Every statement is preserved exactly — the Strangler rule:
+ * architecture migration does not rewrite economy rules.
+ */
 export class BondRepository {
   private database: DatabaseSync;
 
@@ -43,30 +26,143 @@ export class BondRepository {
     this.database = database;
   }
 
-  /** Bonds actually held by a buyer (only these accrue interest). */
-  findActiveHeld(): BondRowEntity[] {
-    const rows = this.database.prepare(`
-      SELECT id, seller_company_id, buyer_company_id, amount, interest_rate, status
-      FROM bonds
-      WHERE status = 'active' AND buyer_company_id IS NOT NULL
-    `).all() as BondDbRow[];
-    return rows.map(mapBondRow);
+  findById(bondId: number): BondRow | undefined {
+    return this.database.prepare('SELECT * FROM bonds WHERE id = ?').get(bondId) as BondRow | undefined;
   }
 
-  markDefaulted(bondId: number): void {
-    this.database.prepare(`UPDATE bonds SET status = 'defaulted' WHERE id = ?`).run(bondId);
+  listOwnedRows(companyId: number): BondRow[] {
+    return this.database.prepare(`
+      SELECT * FROM bonds
+      WHERE buyer_company_id = ? AND status = 'active'
+      ORDER BY id DESC
+    `).all(companyId) as BondRow[];
+  }
+
+  listSoldRows(companyId: number): BondRow[] {
+    return this.database.prepare(`
+      SELECT * FROM bonds
+      WHERE seller_company_id = ? AND status = 'active'
+      ORDER BY id DESC
+    `).all(companyId) as BondRow[];
+  }
+
+  listMarketRows(): BondRow[] {
+    return this.database.prepare(`
+      SELECT * FROM bonds
+      WHERE buyer_company_id IS NULL AND status = 'active'
+      ORDER BY interest_rate DESC LIMIT 50
+    `).all() as BondRow[];
+  }
+
+  listMaturedUnsettled(now: string): BondRow[] {
+    return this.database.prepare(`
+      SELECT * FROM bonds
+      WHERE status = 'active' AND buyer_company_id IS NOT NULL AND settled = 0
+        AND maturity_date IS NOT NULL AND maturity_date <= ?
+    `).all(now) as BondRow[];
+  }
+
+  /** Insert a player-issued offering; returns the freshly persisted row. */
+  insertBond(sellerCompanyId: number, interestRate: number, amount: number, createdAt: string, maturityDate: string): BondRow {
+    const res = this.database.prepare(`
+      INSERT INTO bonds (seller_company_id, buyer_company_id, interest_rate, amount, status, created_at, maturity_date)
+      VALUES (?, NULL, ?, ?, 'active', ?, ?)
+    `).run(sellerCompanyId, interestRate, amount, createdAt, maturityDate);
+
+    const bondId = Number(res.lastInsertRowid);
+    return this.database.prepare('SELECT * FROM bonds WHERE id = ?').get(bondId) as BondRow;
+  }
+
+  /** Compare-and-set claim of an unsold offering for a buyer; returns affected rows. */
+  claimForBuyer(buyerCompanyId: number, bondId: number): number {
+    const res = this.database.prepare(`
+      UPDATE bonds SET buyer_company_id = ?
+      WHERE id = ? AND status = 'active' AND buyer_company_id IS NULL
+    `).run(buyerCompanyId, bondId);
+    return res.changes;
+  }
+
+  /** Compare-and-set early call by the issuing seller; returns affected rows. */
+  markCalled(bondId: number, sellerCompanyId: number): number {
+    const res = this.database.prepare(`
+      UPDATE bonds SET status = 'called'
+      WHERE id = ? AND seller_company_id = ? AND status = 'active'
+    `).run(bondId, sellerCompanyId);
+    return res.changes;
+  }
+
+  markSettled(bondId: number, status: string): void {
+    this.database.prepare('UPDATE bonds SET settled = 1, status = ? WHERE id = ?').run(status, bondId);
+  }
+
+  countUnsold(): number {
+    const row = this.database.prepare(`
+      SELECT COUNT(*) AS count FROM bonds
+      WHERE buyer_company_id IS NULL AND status = 'active'
+    `).get() as { count?: number } | undefined;
+    return Number(row?.count) || 0;
+  }
+
+  insertNpcListing(sellerCompanyId: number, interestRate: number, amount: number, createdAt: string): void {
+    this.database.prepare(`
+      INSERT INTO bonds (seller_company_id, buyer_company_id, interest_rate, amount, status, created_at)
+      VALUES (?, NULL, ?, ?, 'active', ?)
+    `).run(sellerCompanyId, interestRate, amount, createdAt);
   }
 
   /**
-   * Company cash snapshot for settlement loops (id, money only — the
-   * settlement job credits/debits via the company repository).
+   * Issue #94: total face value of bonds this company has issued AND that are
+   * currently held by buyers — the outstanding bond liability backing the
+   * building-collateral requirement. Each bond unit has a $5,000 face value
+   * (`go`, chunk_zjr.js). Unsold offerings (buyer_company_id IS NULL) are not a
+   * liability yet.
    */
-  listCompanyCash(): Array<{ companyId: number; money: number }> {
-    const rows = this.database.prepare('SELECT company_id, money FROM companies').all() as Array<{
-      company_id: number;
-      money: number;
-    }>;
-    return rows.map(r => ({ companyId: Number(r.company_id), money: Number(r.money) }));
+  outstandingSoldLiability(companyId: number): number {
+    const row = this.database.prepare(`
+      SELECT COALESCE(SUM(amount), 0) AS units
+      FROM bonds
+      WHERE seller_company_id = ? AND buyer_company_id IS NOT NULL AND status = 'active'
+    `).get(companyId) as { units?: number | null } | undefined;
+    return Number(row?.units ?? 0) * 5000;
+  }
+
+  seedBondMarketListings() {
+    if (this.countUnsold() > 0) return;
+
+    const now = new Date().toISOString();
+    const seedBonds = [
+      { seller: 999901, amount: 50000, rate: 0.005 },
+      { seller: 999902, amount: 100000, rate: 0.0055 },
+      { seller: 999903, amount: 25000, rate: 0.0045 }
+    ];
+    for (const bond of seedBonds) {
+      this.insertNpcListing(bond.seller, bond.rate, bond.amount, now);
+    }
+  }
+
+  formatBond(b: BondRow) {
+    const seller = companyRepository.findById(b.seller_company_id);
+    const buyer = b.buyer_company_id ? companyRepository.findById(b.buyer_company_id) : null;
+
+    return {
+      id: b.id,
+      seller: {
+        id: b.seller_company_id,
+        company: seller?.name || `Company #${b.seller_company_id}`,
+        rating: seller?.rating || 'BBB',
+        logo: seller?.logo || ''
+      },
+      buyer: buyer ? {
+        id: buyer.companyId,
+        company: buyer.name,
+        logo: buyer.logo || ''
+      } : null,
+      interest: b.interest_rate,
+      amount: b.amount,
+      status: b.status,
+      created: b.created_at,
+      dailyInterest: Math.round(b.amount * b.interest_rate * 100) / 100
+    };
   }
 }
 

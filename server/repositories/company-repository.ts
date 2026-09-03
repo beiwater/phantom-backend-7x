@@ -2,6 +2,7 @@ import type { DatabaseSync } from 'node:sqlite';
 import { db } from '../db/connection.ts';
 import { InsufficientFundsError, NotFoundError } from '../errors/domain-error.ts';
 import { getXpRequiredForLevel } from '../domain/leveling/level-rules.ts';
+import { recordCashLedger, refreshDailyFinanceSnapshot } from '../game/cash-ledger.ts';
 
 export interface CompanyEntity {
   id: number;
@@ -117,6 +118,47 @@ export class CompanyRepository {
       void this.payoutReferralLevelRewards(companyId, before, level);
     }
     return { level, experience };
+  }
+
+  /**
+   * The authoritative signed money mutation (Issue #179: moved verbatim from
+   * game/company.ts so there is exactly one implementation). Delta may be
+   * positive or negative; validates balance invariants, records a generic
+   * 'g' cash-ledger row unless skipped, and refreshes the daily snapshot.
+   */
+  updateMoney(companyId: number, delta: number, options: { skipLedger?: boolean } = {}): number {
+    const skipLedger = options.skipLedger ?? false;
+    if (!Number.isFinite(delta)) {
+      throw new Error('Money delta must be finite');
+    }
+
+    const comp = this.findById(companyId);
+    if (!comp) {
+      throw new Error('Company not found');
+    }
+
+    const currentMoney = Number(comp.money);
+    if (!Number.isFinite(currentMoney)) {
+      throw new Error('Company balance is invalid');
+    }
+
+    const newMoney = Math.round((currentMoney + delta) * 100) / 100;
+    if (!Number.isFinite(newMoney)) {
+      throw new Error('Money balance is invalid');
+    }
+    if (newMoney < 0) {
+      throw new Error('Insufficient funds');
+    }
+
+    const result = this.database.prepare('UPDATE companies SET money = ? WHERE company_id = ? OR id = ?').run(newMoney, companyId, companyId);
+    if (result.changes < 1) {
+      throw new Error('Company not found');
+    }
+    if (!skipLedger) {
+      recordCashLedger({ companyId, amount: delta, category: 'g', description: 'Company money change', descriptionKey: '' });
+    }
+    refreshDailyFinanceSnapshot(companyId);
+    return newMoney;
   }
 
   /**
