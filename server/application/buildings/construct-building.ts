@@ -15,7 +15,6 @@ import {
 import { getTierForLevel } from '../../domain/leveling/level-rules.ts';
 import { getBuildingMeta } from '../../game-data/buildings.ts';
 import { ConflictError, ValidationError, NotFoundError } from '../../errors/domain-error.ts';
-import { addCompanyExperience } from '../../game/company.ts';
 import { initialAbundanceForKind } from '../../game/buildings.ts';
 
 export interface ConstructBuildingInput {
@@ -121,7 +120,7 @@ export async function constructBuildingUseCase(
       abundance: abundance.abundance,
       originalAbundance: abundance.originalAbundance
     });
-    addCompanyExperience(ctx.companyId, 20);
+    companyRepository.addExperience(ctx.companyId, 20);
 
     buildingRepository.updateBusyUntil(building.id, ctx.companyId, busyUntil);
     const finalizedBuilding = { ...building, busyUntil };

@@ -6,7 +6,6 @@ import { productionRepository, type ProductionQueueEntity } from '../../reposito
 import { companyRepository } from '../../repositories/company-repository.ts';
 import { eventBus } from '../../events/event-bus.ts';
 import { NotFoundError, ValidationError, ConflictError } from '../../errors/domain-error.ts';
-import { addCompanyExperience } from '../../game/company.ts';
 import { computeLevelInfo, type LevelInfoDTO } from '../../domain/leveling/level-rules.ts';
 import { applyAbundanceCycleDecay } from '../../game/buildings.ts';
 import { rocketKindForLaunchAmount, resolveRocketLaunch, type RocketLaunchOutcome } from '../../game/aerospace.ts';
@@ -125,7 +124,7 @@ export async function collectProductionUseCase(
     // Flat reward per completed production order; server-side rule is
     // deliberately simple because the official XP curve is not exposed.
     const experienceGained = 10;
-    addCompanyExperience(ctx.companyId, experienceGained);
+    companyRepository.addExperience(ctx.companyId, experienceGained);
     const companyAfter = companyRepository.findById(ctx.companyId);
     const levelAfter = companyAfter?.level ?? levelBefore;
 

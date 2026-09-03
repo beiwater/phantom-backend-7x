@@ -83,6 +83,54 @@ function testArchitectureGates() {
     );
   }
 
+  // --- Application -> game mutation gate (Issue #179) ----------------------
+  // Application use cases must own orchestration, not forward to the legacy
+  // game/* authoritative mutation engines (Strangler Fig must advance, not
+  // fossilize). Importing these modules from application/ is forbidden
+  // except for files on this migration allowlist, which MUST ONLY SHRINK.
+  // Pure game/* calculation helpers (e.g. game/constants.ts resource defs)
+  // are NOT restricted by this gate.
+  const FORBIDDEN_GAME_MUTATION_MODULES = [
+    'game/bonds.ts',
+    'game/contracts.ts',
+    'game/executives.ts',
+    'game/company.ts',
+    'game/government.ts'
+  ];
+  const applicationGameMutationAllowlist = new Map<string, string[]>([
+    // #179 remaining vertical migrations:
+    ['finance/finance-use-cases.ts', ['game/bonds.ts', 'game/contracts.ts']],
+    ['executives/executive-use-cases.ts', ['game/executives.ts']],
+    ['scheduler/daily-jobs.ts', ['game/company.ts', 'game/government.ts']],
+    ['buildings/demolish-building.ts', ['game/bonds.ts']]
+  ]);
+
+  const gameMutationDebt: Array<{ file: string; modules: string[]; allowlisted: boolean }> = [];
+  for (const entry of fs.readdirSync(appDir, { recursive: true })) {
+    const rel = String(entry);
+    if (!rel.endsWith('.ts')) continue;
+    const content = fs.readFileSync(path.join(appDir, rel), 'utf-8');
+    const imported = FORBIDDEN_GAME_MUTATION_MODULES.filter(module =>
+      new RegExp(`from\\s+['"].*/${module.replace('game/', 'game/')}['"]`).test(content) ||
+      content.includes(`from '../../${module}'`) ||
+      content.includes(`from '../${module}'`)
+    );
+    if (imported.length === 0) continue;
+    const allowed = applicationGameMutationAllowlist.get(rel) ?? [];
+    const illegal = imported.filter(m => !allowed.includes(m));
+    gameMutationDebt.push({ file: rel, modules: imported, allowlisted: illegal.length === 0 });
+    assert(
+      illegal.length === 0,
+      `Architecture Violation: application/${rel} imports forbidden game mutation module(s): ${illegal.join(', ')} — orchestrate via repositories/use cases instead (Issue #179)`
+    );
+    const unlisted = allowed.filter(m => !imported.includes(m));
+    assert(
+      unlisted.length === 0,
+      `Architecture Gate: application/${rel} no longer imports ${unlisted.join(', ')} — shrink its allowlist entry (allowlist MUST ONLY SHRINK)`
+    );
+  }
+  console.log(`- Application files still forwarding to game mutations: ${gameMutationDebt.length} (${gameMutationDebt.map(d => d.file).join(', ')})`);
+
   console.log(`Verified ${routeFiles.length} route files:`);
   console.log(`- Migrated routes without direct DB imports: ${routeFiles.length - directDbImporters.length}`);
   console.log(`- Remaining legacy routes on migration allowlist: ${directDbImporters.length} (${directDbImporters.join(', ')})`);

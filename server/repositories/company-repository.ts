@@ -1,6 +1,7 @@
 import type { DatabaseSync } from 'node:sqlite';
 import { db } from '../db/connection.ts';
 import { InsufficientFundsError, NotFoundError } from '../errors/domain-error.ts';
+import { getXpRequiredForLevel } from '../domain/leveling/level-rules.ts';
 
 export interface CompanyEntity {
   id: number;
@@ -91,6 +92,34 @@ export class CompanyRepository {
   }
 
   /**
+   * Accrue experience and apply level-ups (Issue #179: the leveling state
+   * machine lives with persistence, not in the legacy game engine).
+   * Mirrors the original game/company.ts implementation exactly, including
+   * the level-60 cap and referral tier rewards.
+   */
+  addExperience(companyId: number, xpGain: number): { level: number; experience: number } | undefined {
+    if (!xpGain || xpGain <= 0) return undefined;
+    const comp = this.findById(companyId);
+    if (!comp) return undefined;
+    let level = Number(comp.level || 0);
+    let experience = Number(comp.experience || 0) + xpGain;
+    let xpNeeded = getXpRequiredForLevel(level);
+
+    while (experience >= xpNeeded && level < 60) {
+      experience -= xpNeeded;
+      level += 1;
+      xpNeeded = getXpRequiredForLevel(level);
+    }
+
+    const before = Number(comp.level || 0);
+    this.database.prepare('UPDATE companies SET level = ?, experience = ? WHERE company_id = ?').run(level, experience, companyId);
+    if (level > before) {
+      void this.payoutReferralLevelRewards(companyId, before, level);
+    }
+    return { level, experience };
+  }
+
+  /**
    * Atomically credit money to a company.
    */
   creditMoney(companyId: number, amount: number): number {
@@ -141,6 +170,28 @@ export class CompanyRepository {
       throw new InsufficientFundsError(`Insufficient cash balance: needed $${amount.toFixed(2)}, currently have $${company.money.toFixed(2)}`);
     }
     return result.money;
+  }
+
+  /**
+   * Referral tier rewards (data/referral.json): the referrer earns SimBoosts
+   * when a referred company reaches level 5/10/15. Referrals repository is
+   * imported lazily to avoid a module cycle; failures never break the
+   * level-up path.
+   */
+  private async payoutReferralLevelRewards(companyId: number, oldLevel: number, newLevel: number): Promise<void> {
+    const { referralsRepository, REFERRAL_LEVEL_TIERS } = await import('./referrals-repository.ts');
+    const referrerCompanyId = referralsRepository.findReferrerOf(companyId);
+    if (!referrerCompanyId) return;
+    const company = this.findById(referrerCompanyId);
+    if (!company) return;
+    for (const tier of REFERRAL_LEVEL_TIERS) {
+      if (newLevel >= tier.level && oldLevel < tier.level) {
+        const rewarded = referralsRepository.markTierPaidAndReward(referrerCompanyId, tier.level, tier.reward);
+        if (rewarded) {
+          this.creditSimboosts(referrerCompanyId, tier.reward);
+        }
+      }
+    }
   }
 
   /**

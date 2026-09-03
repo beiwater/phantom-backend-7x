@@ -3,11 +3,9 @@ import { runInTransaction } from '../../db/transaction.ts';
 import { buildingRepository, type BuildingEntity } from '../../repositories/building-repository.ts';
 import { companyRepository } from '../../repositories/company-repository.ts';
 import { NotFoundError, ForbiddenError, ValidationError } from '../../errors/domain-error.ts';
-import { updateCompanyMoney } from '../../game/company.ts';
 import { recordCashLedger, refreshDailyFinanceSnapshot } from '../../game/cash-ledger.ts';
 import { getResourceDef } from '../../game-data/resources.ts';
 import { assertQueueDuration } from '../../domain/leveling/level-rules.ts';
-import { addCompanyExperience } from '../../game/company.ts';
 import { getWarehouseItemExact, consumeResourceExactWithTransactions } from '../../game/warehouse.ts';
 import { retailRepository } from '../../repositories/retail-repository.ts';
 import {
@@ -111,7 +109,7 @@ export async function startRetailUseCase(
 
     // 2. Credit the revenue and write the cash_ledger row in the same transaction (skip generic fallback)
     const revenue = Math.round(input.amount * unitPrice * 100) / 100;
-    const newMoney = updateCompanyMoney(ctx.companyId, revenue, true);
+    const newMoney = companyRepository.creditMoney(ctx.companyId, revenue);
     const resDef = getResourceDef(input.kind);
     const resName = resDef?.name || `Resource #${input.kind}`;
     recordCashLedger({
@@ -154,7 +152,7 @@ export async function startRetailUseCase(
     });
     // 4. Award leveling XP (1s retail = 1 XP per building size unit)
     const xpEarned = Math.max(1, Math.round(durationSeconds * (building.size || 1)));
-    addCompanyExperience(ctx.companyId, xpEarned);
+    companyRepository.addExperience(ctx.companyId, xpEarned);
 
     return {
       building: updatedBuilding,
