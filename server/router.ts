@@ -35,21 +35,31 @@ import { handleDebugRoutes } from './routes/debug-routes.ts';
 import { handleHealthRoutes } from './routes/health-routes.ts';
 import { logger } from './core/logger.ts';
 
-const methodManifest: Array<{ pattern: RegExp; methods: string[] }> = [
-  { pattern: /^\/api\/time\/$/, methods: ['GET'] },
-  { pattern: /^\/api\/v2\/auth\/email\/(?:auth|connect|reset)\/$/, methods: ['POST'] },
-  { pattern: /^\/api\/v2\/auth\/device\/(?:auth|connect)\/$/, methods: ['POST'] },
-  { pattern: /^\/api\/v2\/companies\/me\/buildings\/$/, methods: ['GET', 'POST'] },
-  { pattern: /^\/api\/v2\/market-order\/(?:take\/)?$/, methods: ['POST'] },
-  { pattern: /^\/api\/v4\/executives\/$/, methods: ['GET'] },
-  { pattern: /^\/api\/v4\/executives\/candidates\/$/, methods: ['GET'] },
-  { pattern: /^\/api\/v4\/executives\/hire\/$/, methods: ['POST'] },
-  { pattern: /^\/api\/v2\/market\/bonds\/$/, methods: ['GET'] },
-  { pattern: /^\/api\/v2\/bonds\/sell\/$/, methods: ['POST'] },
-  { pattern: /^\/api\/v2\/bonds\/\d+\/buy\/$/, methods: ['POST'] },
-  { pattern: /^\/api\/v2\/bonds\/\d+\/call\/$/, methods: ['POST'] },
-  { pattern: /^\/api\/v3\/companies\/auth-data\/$/, methods: ['GET'] },
-  { pattern: /^\/api\/v2\/constants\/resources\/$/, methods: ['GET'] }
+// Issue #178: all route modules have self-registered by import; surface any
+// ambiguous ownership loudly at startup. Existing overlaps resolve
+// deterministically via specificity and are locked by the ownership test.
+globalRouteRegistry.reportOverlaps();
+
+// Issue #178: the manifest is the explicit exception ledger for endpoints
+// NOT yet owned by the declarative registry (server/http/route-registry.ts).
+// It provides 405/Allow for legacy paths only and must never conflict with a
+// registry-owned route — tests/test-route-ownership.test.ts enforces that
+// boundary. New API routes must register in the registry, not here.
+export const methodManifest: Array<{ pattern: RegExp; methods: string[]; owner: string }> = [
+  { pattern: /^\/api\/time\/$/, methods: ['GET'], owner: 'legacy:time' },
+  { pattern: /^\/api\/v2\/auth\/email\/(?:auth|connect|reset)\/$/, methods: ['POST'], owner: 'legacy:auth' },
+  { pattern: /^\/api\/v2\/auth\/device\/(?:auth|connect)\/$/, methods: ['POST'], owner: 'legacy:auth' },
+  { pattern: /^\/api\/v2\/companies\/me\/buildings\/$/, methods: ['GET', 'POST'], owner: 'legacy:buildings' },
+  { pattern: /^\/api\/v2\/market-order\/(?:take\/)?$/, methods: ['POST'], owner: 'legacy:market' },
+  { pattern: /^\/api\/v4\/executives\/$/, methods: ['GET'], owner: 'legacy:executives' },
+  { pattern: /^\/api\/v4\/executives\/candidates\/$/, methods: ['GET'], owner: 'legacy:executives' },
+  { pattern: /^\/api\/v4\/executives\/hire\/$/, methods: ['POST'], owner: 'legacy:executives' },
+  { pattern: /^\/api\/v2\/market\/bonds\/$/, methods: ['GET'], owner: 'legacy:bonds' },
+  { pattern: /^\/api\/v2\/bonds\/sell\/$/, methods: ['POST'], owner: 'legacy:bonds' },
+  { pattern: /^\/api\/v2\/bonds\/\d+\/buy\/$/, methods: ['POST'], owner: 'legacy:bonds' },
+  { pattern: /^\/api\/v2\/bonds\/\d+\/call\/$/, methods: ['POST'], owner: 'legacy:bonds' },
+  { pattern: /^\/api\/v3\/companies\/auth-data\/$/, methods: ['GET'], owner: 'legacy:auth' },
+  { pattern: /^\/api\/v2\/constants\/resources\/$/, methods: ['GET'], owner: 'legacy:encyclopedia' }
 ];
 
 export async function handleRequest(req: IncomingMessage, res: ServerResponse) {
@@ -157,86 +167,14 @@ export async function handleRequest(req: IncomingMessage, res: ServerResponse) {
   if (await handleDebugRoutes(req, res, pathname, method, currentPlayerId, currentCompanyId)) {
     return;
   }
-  // 4. Dispatch to Legacy Route Handlers
-  if (await handleAuthRoutes(req, res, pathname, method, sessionToken, currentPlayerId, currentCompanyId)) {
-    return;
-  }
-  if (await handleSimboostRoutes(req, res, pathname, method, currentPlayerId, currentCompanyId)) {
-    return;
-  }
-  // Issue #83: newspaper routes must dispatch BEFORE the legacy social
-  // handler, whose hardcoded sponsor-params / top-by-reaction stubs would
-  // otherwise shadow the real newspaper endpoints.
-  if (await handleNewspaperRoutes(req, res, pathname, method, currentPlayerId, currentCompanyId)) {
-    return;
-  }
-  if (await handleBuildingRoutes(req, res, pathname, method, currentCompanyId)) {
-    return;
-  }
-  if (await handleRetailRoutes(req, res, pathname, method, currentCompanyId)) {
-    return;
-  }
-  if (await handleRestaurantRoutes(req, res, pathname, method, currentCompanyId)) {
-    return;
-  }
-  if (await handleWarehouseRoutes(req, res, pathname, method, currentCompanyId)) {
-    return;
-  }
-  if (await handleMarketRoutes(req, res, pathname, method, currentCompanyId)) {
-    return;
-  }
-  if (await handleGovernmentRoutes(req, res, pathname, method, currentCompanyId)) {
-    return;
-  }
-  if (await handleEncyclopediaRoutes(req, res, pathname, method, currentCompanyId)) {
-    return;
-  }
-  if (await handleSocialRoutes(req, res, pathname, method, currentCompanyId)) {
-    return;
-  }
-  // Bond routes must dispatch BEFORE finance routes: finance's '/bonds/' stub would otherwise shadow every real bond endpoint (issue #42)
-  if (await handleBondRoutes(req, res, pathname, method, currentCompanyId)) {
-    return;
-  }
-  if (await handleFinanceRoutes(req, res, pathname, method, currentCompanyId)) {
-    return;
-  }
-  if (await handleContractRoutes(req, res, pathname, method, currentCompanyId)) {
-    return;
-  }
-  if (await handleExecutiveRoutes(req, res, pathname, method, currentCompanyId)) {
-    return;
-  }
-  if (await handleResearchRoutes(req, res, pathname, method, currentCompanyId)) {
-    return;
-  }
-  if (await handleAerospaceRoutes(req, res, pathname, method, currentCompanyId)) {
-    return;
-  }
-  // Issue #95: building auctions must dispatch BEFORE the legacy achievement
-  // handler (which previously stubbed every /building-auctions path).
-  if (await handleBuildingAuctionRoutes(req, res, pathname, method, currentCompanyId)) {
-    return;
-  }
-  if (await handlePageRoutes(req, res, pathname, method, currentPlayerId)) {
-    return;
-  }
-  if (await handleAchievementRoutes(req, res, pathname, method, currentCompanyId)) {
-    return;
-  }
-  if (await handleAuditRoutes(req, res, pathname, method, currentPlayerId, currentCompanyId)) {
+  // 4. Dispatch to Legacy Route Handlers. The chain order is a single named
+  // constant (see runLegacyChain below); tests/test-route-ownership.test.ts
+  // permutes it and asserts endpoint ownership does not move (#178).
+  if (await runLegacyChain(req, res, pathname, method, { sessionToken, currentPlayerId, currentCompanyId })) {
     return;
   }
 
-  // Issue #82: collectible exchange (NFT) — market list, listing management,
-  // SimBoost purchases, provenance and collectors. Owns every
-  // /api/v2/market-collectibles* and /api/v2/nfts/* path (the market-routes
-  // stubs for those paths were removed with this feature).
-  if (await handleCollectibleRoutes(req, res, pathname, method, currentCompanyId)) {
-    return;
-  }
-
-  // 4. Fallback for unhandled API requests
+  // 5. Fallback for unhandled API requests
   if (pathname.startsWith('/api/')) {
     console.warn(`[API Not Found] ${method} ${pathname}`);
     return sendJson(res, {
@@ -266,4 +204,211 @@ export async function handleRequest(req: IncomingMessage, res: ServerResponse) {
 
   res.writeHead(404, { 'Content-Type': 'text/plain' });
   res.end('Not Found');
+}
+
+// ---------------------------------------------------------------------------
+// Legacy handler chain (#178)
+//
+// The historical shadowing constraints (newspaper-before-social #83,
+// bond-before-finance #42, auction-before-achievement #95) are encoded here
+// as ONE canonical named order. tests/test-route-ownership.test.ts permutes
+// the order and asserts endpoint ownership is stable: a future handler broad
+// enough to capture a neighbour's endpoint fails the test instead of
+// silently changing live behavior.
+
+interface LegacyDeps {
+  sessionToken: string | null;
+  currentPlayerId: number | null;
+  currentCompanyId: number | null;
+}
+
+interface LegacyHandlerSpec {
+  name: string;
+  make: (
+    pathname: string,
+    method: string,
+    deps: LegacyDeps
+  ) => (req: IncomingMessage, res: ServerResponse) => Promise<boolean>;
+}
+
+const legacyHandlerFactories: LegacyHandlerSpec[] = [
+  {
+    name: 'auth',
+    make: (p, m, d) => (req, res) => handleAuthRoutes(req, res, p, m, d.sessionToken, d.currentPlayerId, d.currentCompanyId)
+  },
+  {
+    name: 'simboost',
+    make: (p, m, d) => (req, res) => handleSimboostRoutes(req, res, p, m, d.currentPlayerId, d.currentCompanyId)
+  },
+  {
+    name: 'newspaper',
+    make: (p, m, d) => (req, res) => handleNewspaperRoutes(req, res, p, m, d.currentPlayerId, d.currentCompanyId)
+  },
+  {
+    name: 'buildings',
+    make: (p, m, d) => (req, res) => handleBuildingRoutes(req, res, p, m, d.currentCompanyId)
+  },
+  {
+    name: 'retail',
+    make: (p, m, d) => (req, res) => handleRetailRoutes(req, res, p, m, d.currentCompanyId)
+  },
+  {
+    name: 'restaurant',
+    make: (p, m, d) => (req, res) => handleRestaurantRoutes(req, res, p, m, d.currentCompanyId)
+  },
+  {
+    name: 'warehouse',
+    make: (p, m, d) => (req, res) => handleWarehouseRoutes(req, res, p, m, d.currentCompanyId)
+  },
+  {
+    name: 'market',
+    make: (p, m, d) => (req, res) => handleMarketRoutes(req, res, p, m, d.currentCompanyId)
+  },
+  {
+    name: 'government',
+    make: (p, m, d) => (req, res) => handleGovernmentRoutes(req, res, p, m, d.currentCompanyId)
+  },
+  {
+    name: 'encyclopedia',
+    make: (p, m, d) => (req, res) => handleEncyclopediaRoutes(req, res, p, m, d.currentCompanyId)
+  },
+  {
+    name: 'social',
+    make: (p, m, d) => (req, res) => handleSocialRoutes(req, res, p, m, d.currentCompanyId)
+  },
+  {
+    name: 'bonds',
+    make: (p, m, d) => (req, res) => handleBondRoutes(req, res, p, m, d.currentCompanyId)
+  },
+  {
+    name: 'finance',
+    make: (p, m, d) => (req, res) => handleFinanceRoutes(req, res, p, m, d.currentCompanyId)
+  },
+  {
+    name: 'contracts',
+    make: (p, m, d) => (req, res) => handleContractRoutes(req, res, p, m, d.currentCompanyId)
+  },
+  {
+    name: 'executives',
+    make: (p, m, d) => (req, res) => handleExecutiveRoutes(req, res, p, m, d.currentCompanyId)
+  },
+  {
+    name: 'research',
+    make: (p, m, d) => (req, res) => handleResearchRoutes(req, res, p, m, d.currentCompanyId)
+  },
+  {
+    name: 'aerospace',
+    make: (p, m, d) => (req, res) => handleAerospaceRoutes(req, res, p, m, d.currentCompanyId)
+  },
+  {
+    name: 'building-auctions',
+    make: (p, m, d) => (req, res) => handleBuildingAuctionRoutes(req, res, p, m, d.currentCompanyId)
+  },
+  {
+    name: 'pages',
+    make: (p, m, d) => (req, res) => handlePageRoutes(req, res, p, m, d.currentPlayerId)
+  },
+  {
+    name: 'achievements',
+    make: (p, m, d) => (req, res) => handleAchievementRoutes(req, res, p, m, d.currentCompanyId)
+  },
+  {
+    name: 'audit',
+    make: (p, m, d) => (req, res) => handleAuditRoutes(req, res, p, m, d.currentPlayerId, d.currentCompanyId)
+  },
+  {
+    name: 'collectibles',
+    make: (p, m, d) => (req, res) => handleCollectibleRoutes(req, res, p, m, d.currentCompanyId)
+  }
+];
+
+const CANONICAL_LEGACY_ORDER: string[] = legacyHandlerFactories.map(h => h.name);
+let legacyOrderForTests: string[] | null = null;
+
+export function getCanonicalLegacyOrder(): string[] {
+  return [...CANONICAL_LEGACY_ORDER];
+}
+
+/** Test hook: pin the legacy chain to a custom order (ownership tests). */
+export function setLegacyHandlerOrderForTests(names: string[] | null): void {
+  legacyOrderForTests = names;
+}
+
+async function runLegacyChain(
+  req: IncomingMessage,
+  res: ServerResponse,
+  pathname: string,
+  method: string,
+  deps: LegacyDeps
+): Promise<boolean> {
+  const order = legacyOrderForTests ?? CANONICAL_LEGACY_ORDER;
+  const byName = new Map(legacyHandlerFactories.map(h => [h.name, h]));
+  for (const name of order) {
+    const spec = byName.get(name);
+    if (!spec) throw new Error(`Unknown legacy handler: ${name}`);
+    if (await spec.make(pathname, method, deps)(req, res)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/** Minimal response surface the ownership probe needs to observe. */
+interface ProbeResponseLike {
+  statusCode: number | null;
+  writeHead(code: number, headers?: Record<string, string>): unknown;
+  end(body?: unknown): unknown;
+  setHeader(name: string, value: string): unknown;
+}
+
+/**
+ * Test helper: which legacy handler claims (method, pathname) under the given
+ * chain order? Runs the real handlers against a probe request/response with
+ * a null session, so auth-guarded endpoints claim as 401 — deterministic and
+ * side-effect free for ownership purposes.
+ */
+export async function resolveLegacyOwnerForTests(
+  pathname: string,
+  method: string,
+  names: string[] | null = null
+): Promise<{ owner: string | null; status: number | null }> {
+  const { EventEmitter } = await import('node:events');
+  const req = new EventEmitter() as IncomingMessage;
+  Object.assign(req, {
+    url: pathname,
+    method,
+    headers: { 'content-length': '0' } as Record<string, string>,
+    resume: () => req
+  });
+  queueMicrotask(() => req.emit('end'));
+
+  const probe: ProbeResponseLike = {
+    statusCode: null,
+    writeHead(code) {
+      probe.statusCode = code;
+      return probe;
+    },
+    end() {
+      return probe;
+    },
+    setHeader() {
+      return probe;
+    },
+    getHeader() {
+      return undefined;
+    }
+  };
+  const res = probe as unknown as ServerResponse; // structural probe, handlers only use this surface
+
+  const order = names ?? CANONICAL_LEGACY_ORDER;
+  const byName = new Map(legacyHandlerFactories.map(h => [h.name, h]));
+  const deps: LegacyDeps = { sessionToken: null, currentPlayerId: null, currentCompanyId: null };
+  for (const name of order) {
+    const spec = byName.get(name);
+    if (!spec) throw new Error(`Unknown legacy handler: ${name}`);
+    if (await spec.make(pathname, method, deps)(req, res)) {
+      return { owner: name, status: probe.statusCode };
+    }
+  }
+  return { owner: null, status: null };
 }

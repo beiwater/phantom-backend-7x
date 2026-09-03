@@ -175,9 +175,70 @@ export class RouteRegistry {
     }));
   }
 
+  /**
+   * Detects registered routes whose patterns can both match the same
+   * concrete path (e.g. /users/me/ vs /users/:id/) for at least one shared
+   * HTTP method (#178). Ambiguous ownership must be explicit: either the
+   * patterns are disjoint or the registration is rejected at startup.
+   */
+  findOverlaps(): Array<{ a: { method: string; pattern: string }; b: { method: string; pattern: string } }> {
+    const overlaps: Array<{ a: { method: string; pattern: string }; b: { method: string; pattern: string } }> = [];
+    for (let i = 0; i < this.routes.length; i++) {
+      for (let j = i + 1; j < this.routes.length; j++) {
+        const r1 = this.routes[i];
+        const r2 = this.routes[j];
+        if (r1.method !== r2.method) continue;
+        if (patternsCanOverlap(r1, r2)) {
+          overlaps.push({
+            a: { method: r1.method, pattern: r1.pattern },
+            b: { method: r2.method, pattern: r2.pattern }
+          });
+        }
+      }
+    }
+    return overlaps;
+  }
+
+  /**
+   * Startup report for ambiguous ownership (#178). Existing registrations
+   * resolve deterministically via specificity ordering, so overlaps are
+   * surfaced loudly (log) instead of failing boot; the ownership test locks
+   * the historical resolutions. New registrations must not add overlaps.
+   */
+  reportOverlaps(): void {
+    const overlaps = this.findOverlaps();
+    if (overlaps.length > 0) {
+      const detail = overlaps
+        .map(o => `${o.a.method} ${o.a.pattern} <-> ${o.b.pattern}`)
+        .join('; ');
+      console.warn(`[RouteRegistry] ${overlaps.length} overlapping route pair(s) resolve by specificity: ${detail}`);
+    }
+  }
   clear(): void {
     this.routes = [];
   }
 }
 
 export const globalRouteRegistry = new RouteRegistry();
+
+/**
+ * Structural check: can two compiled route patterns match the same concrete
+ * path? Segment-wise unification — a parameter segment (:name) unifies with
+ * anything; two literal segments unify only when equal. Patterns have equal
+ * arity requirement (anchored regex), so length must match.
+ */
+function patternsCanOverlap(a: CompiledRoute, b: CompiledRoute): boolean {
+  const segsA = a.pattern.endsWith('/') ? a.pattern : `${a.pattern}/`;
+  const segsB = b.pattern.endsWith('/') ? b.pattern : `${b.pattern}/`;
+  const partsA = segsA.split('/').filter(Boolean);
+  const partsB = segsB.split('/').filter(Boolean);
+  if (partsA.length !== partsB.length) return false;
+  for (let i = 0; i < partsA.length; i++) {
+    const pa = partsA[i];
+    const pb = partsB[i];
+    const isParamA = pa.startsWith(':');
+    const isParamB = pb.startsWith(':');
+    if (!isParamA && !isParamB && pa !== pb) return false;
+  }
+  return true;
+}
