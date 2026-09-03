@@ -297,7 +297,9 @@ export async function handleFinanceRoutes(
   if (cashflowRecentMatch) {
     const companyId = authorizeRequestedCompany();
     if (companyId === null) return true;
-    const entries = getRecentCashLedger(companyId, 30);
+    // #168: probe one row past the page size so the client knows when the
+    // whole journal has been pulled (no endless "(there is more)" hint).
+    const entries = getRecentCashLedger(companyId, 31);
     const comp = getCompanyById(companyId);
     const data = entries.map(e => ({
       id: e.id,
@@ -309,8 +311,8 @@ export async function handleFinanceRoutes(
       details: safeParseDetails(e.details)
     }));
     sendJson(res, {
-      data,
-      oldestPulled: false,
+      data: data.slice(0, 30),
+      oldestPulled: entries.length <= 30,
       money: comp ? Math.round((Number(comp.money) || 0) * 100) / 100 : 0
     });
     return true;

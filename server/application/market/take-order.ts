@@ -94,6 +94,29 @@ export async function takeMarketOrder(ctx: GameContext, input: TakeMarketOrderIn
       if (order.sellerId !== 999900) {
         fillFee = computeExchangeFee(takeAmount, order.price);
         companyRepository.creditMoney(order.sellerId, cost - fillFee);
+        // Issue #68: every money mutation gets a ledger row. The seller's
+        // proceeds and the exchange fee are separate localized rows.
+        recordCashLedger({
+          companyId: order.sellerId,
+          amount: cost - fillFee,
+          category: 'm',
+          description: `Sold ${takeAmount} units of resource #${resourceKind} on market`,
+          descriptionKey: `marketfilled-${resourceKind}`,
+          details: {
+            resource: resourceKind,
+            amount: takeAmount,
+            price: order.price,
+            quality: order.quality
+          }
+        });
+        recordCashLedger({
+          companyId: order.sellerId,
+          amount: -fillFee,
+          category: 'f',
+          description: `Market fees selling ${takeAmount} units of resource #${resourceKind}`,
+          descriptionKey: `fees-${resourceKind}`,
+          details: { resource: resourceKind, amount: takeAmount, fees: fillFee }
+        });
         marketRepository.addFees(order.id, fillFee);
       }
 
@@ -123,8 +146,13 @@ export async function takeMarketOrder(ctx: GameContext, input: TakeMarketOrderIn
       companyId: ctx.companyId,
       amount: -totalCost,
       category: 'm',
-      description: `Market purchase of ${totalBought} units of resource #${resourceKind}`,
-      descriptionKey: `market-${resourceKind}`
+      description: `Bought ${totalBought} units of resource #${resourceKind} on market`,
+      descriptionKey: `marketbuy-${resourceKind}`,
+      details: {
+        resource: resourceKind,
+        amount: totalBought,
+        price: Math.round((totalCost / totalBought) * 100) / 100
+      }
     });
 
     for (const fill of fills) {

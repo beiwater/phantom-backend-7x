@@ -65,7 +65,8 @@ export async function placeBuyOrder(ctx: GameContext, input: PlaceBuyOrderInput)
       amount: -escrow,
       category: 'm',
       description: `Buy order escrow: ${quantity} units of resource #${kind}`,
-      descriptionKey: `market-buy-${kind}`
+      descriptionKey: `buyorder-${kind}-${quantity}-${quality}`,
+      details: { resource: kind, amount: quantity, price, quality }
     });
 
     const now = new Date().toISOString();
@@ -107,9 +108,9 @@ export async function cancelBuyOrder(ctx: GameContext, orderId: number): Promise
     recordCashLedger({
       companyId: ctx.companyId,
       amount: refund,
-      category: 'm',
       description: `Buy order cancelled: refund of resource #${order.kind} bid`,
-      descriptionKey: `market-buy-cancel-${order.kind}`
+      descriptionKey: `cancelbuyorder-${order.kind}-${order.quantity}-${order.quality}`,
+      details: { resource: order.kind, amount: order.quantity, price: order.price, quality: order.quality }
     });
     tx.addAfterCommitHook(() => {
       eventBus.emit('MarketOrderCancelled', {
@@ -184,14 +185,26 @@ export async function sellToBids(ctx: GameContext, input: SellToBidInput): Promi
       // Deliver goods to the bidder (default warehouse bucket).
       warehouseRepository.addResource(bid.buyerId, kind, quality, takeAmount, { market: bid.price });
 
-      // Escrow was taken at placement; pay it to the seller minus the fee.
-      companyRepository.creditMoney(ctx.companyId, Math.round((proceeds - fee) * 100) / 100);
+      // Escrow was taken at placement; pay it to the seller. Proceeds and
+      // the exchange fee are separate localized rows (Issue #68: one ledger
+      // row per money mutation; #168: client-localized description keys).
+      const net = Math.round((proceeds - fee) * 100) / 100;
+      companyRepository.creditMoney(ctx.companyId, net);
       recordCashLedger({
         companyId: ctx.companyId,
-        amount: Math.round((proceeds - fee) * 100) / 100,
+        amount: net,
         category: 'm',
         description: `Sold ${takeAmount} units of resource #${kind} to bid #${bid.id}`,
-        descriptionKey: `market-sell-to-bid-${kind}`
+        descriptionKey: `marketfilled-${kind}`,
+        details: { resource: kind, amount: takeAmount, price: bid.price, quality }
+      });
+      recordCashLedger({
+        companyId: ctx.companyId,
+        amount: -fee,
+        category: 'f',
+        description: `Market fees selling ${takeAmount} units of resource #${kind}`,
+        descriptionKey: `fees-${kind}`,
+        details: { resource: kind, amount: takeAmount, fees: fee }
       });
 
       const tradedAt = new Date().toISOString();

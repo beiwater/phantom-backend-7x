@@ -543,7 +543,7 @@ export function scheduleExecutiveTraining(companyId: number, executiveId: number
       amount: -EXECUTIVE_TRAINING_MONEY_COST,
       category: 'h',
       description: 'Executive training',
-      descriptionKey: '1-training',
+      descriptionKey: `et-${exec.name}`,
       details: { executiveId, name: exec.name }
     });
     updateCompanyMoney(companyId, -EXECUTIVE_TRAINING_MONEY_COST, true);
@@ -660,7 +660,7 @@ export function trainExecutive(companyId: number, executiveId: number) {
       amount: -trainingCost,
       category: 'h',
       description: 'Executive training',
-      descriptionKey: '1-training',
+      descriptionKey: `et-${exec.name}`,
       details: { executiveId, name: exec.name }
     });
     updateCompanyMoney(companyId, -trainingCost, true);

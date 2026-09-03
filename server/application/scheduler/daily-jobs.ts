@@ -54,7 +54,7 @@ export function chargeDailyBondInterest(): void {
           amount: -paid,
           category: 'i',
           description: 'Bond interest payment',
-          descriptionKey: 'bondInterestPayment',
+          descriptionKey: '1-bondinterest',
           details: { bondId: bond.id }
         });
         updateCompanyMoney(issuerId as number, -paid, true);
@@ -63,7 +63,7 @@ export function chargeDailyBondInterest(): void {
           amount: paid,
           category: 'i',
           description: 'Bond interest collected',
-          descriptionKey: 'bondInterestCollected',
+          descriptionKey: '1-bondyield',
           details: { bondId: bond.id }
         });
         updateCompanyMoney(holderId, paid, true);
@@ -77,7 +77,7 @@ export function chargeDailyBondInterest(): void {
         amount: interest,
         category: 'i',
         description: 'Bond interest collected',
-        descriptionKey: 'bondInterestCollected',
+        descriptionKey: '1-bondyield',
         details: { bondId: bond.id }
       });
       updateCompanyMoney(holderId, interest, true);
@@ -136,7 +136,7 @@ export function chargeDailyAccountingOverhead(): void {
       amount: -paid,
       category: 'a',
       description: 'Daily accounting overhead',
-      descriptionKey: 'accountingOverhead',
+      descriptionKey: '1-accounting',
       details
     });
     updateCompanyMoney(companyId, -paid, true);
@@ -164,7 +164,7 @@ export function debitExecutiveSalaries(): void {
       amount: -paid,
       category: 'e',
       description: 'Executive daily salaries',
-      descriptionKey: 'executiveSalaries'
+      descriptionKey: '1-salaries'
     });
     updateCompanyMoney(companyId, -paid, true);
   }

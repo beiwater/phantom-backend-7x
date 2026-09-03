@@ -289,7 +289,7 @@ export async function findSalesOfficeCustomerUseCase(
       amount: -fee,
       category: 't', // CONTRACT
       description: 'Customer search',
-      descriptionKey: 'sales-contract-search'
+      descriptionKey: '1-sosearch'
     });
     const order = retailRepository.insert({
       buildingId: building.id,
