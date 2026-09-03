@@ -145,7 +145,7 @@ export function toSimCompaniesBuildingDTO(
     cost: building.cost || meta.cost || 6900,
     costUnits: 2,
     country: 'AU',
-    created: building.createdAt || new Date().toISOString(),
+    created: building.createdAt || virtualClock.nowIso(),
     isUnderConstruction: isConstructingOrUpgrading,
     kind: building.kind,
     level: building.size || 1,

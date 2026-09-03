@@ -64,6 +64,7 @@ BACKEND_TESTS=(
   tests/verify-issue-184-government-content.test.ts
   tests/verify-issue-185-economy.test.ts
   tests/verify-issue-197-launchpad-mapping.test.ts
+  tests/verify-issue-186-time-warp-consistency.test.ts
   tests/verify-issue-182-certificates.test.ts
   tests/verify-production-process.test.ts
   tests/verify-security-hardening.test.ts

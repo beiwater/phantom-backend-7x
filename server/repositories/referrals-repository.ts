@@ -5,6 +5,7 @@
  * - referred company gets a one-time $2,000 cash bonus at registration use
  */
 import type { DatabaseSync } from 'node:sqlite';
+import { virtualClock } from '../core/virtual-clock.ts';
 import { db } from '../db/connection.ts';
 
 export const REFERRAL_LEVEL_TIERS: Array<{ level: number; reward: number }> = [
@@ -28,7 +29,7 @@ export class ReferralsRepository {
       .prepare(
         'INSERT OR IGNORE INTO referrals (referrer_company_id, referred_company_id, code, created_at) VALUES (?, ?, ?, ?)'
       )
-      .run(referrerCompanyId, referredCompanyId, code, new Date().toISOString());
+      .run(referrerCompanyId, referredCompanyId, code, virtualClock.nowIso());
     return Number(res.changes) > 0;
   }
 

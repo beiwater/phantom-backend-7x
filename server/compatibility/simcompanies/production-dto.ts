@@ -7,6 +7,7 @@ import { getResourceDef, getResourceName } from '../../game-data/resources.ts';
 import { db as database } from '../../db/database.ts';
 import { toSimCompaniesBuildingDTO } from './building-dto.ts';
 import { rocketKindForLaunchRequest } from '../../game/aerospace.ts';
+import { virtualClock } from '../../core/virtual-clock.ts';
 
 export interface SimCompaniesStartProductionDTO {
   message: string;
@@ -104,7 +105,7 @@ export function toSimCompaniesCollectProductionDTO(
       money: result.currentMoney,
       moneyUpdate: {
         money: result.currentMoney,
-        id: Date.now()
+        id: virtualClock.nowMs()
       },
       achievements: [],
       levelInfo: result.levelInfo,
@@ -125,7 +126,7 @@ export function toSimCompaniesCollectProductionDTO(
     money: result.currentMoney,
     moneyUpdate: {
       money: result.currentMoney,
-      id: Date.now()
+      id: virtualClock.nowMs()
     },
     achievements: [],
     // P1-05: the original frontend updates the HUD level/XP bar from this
