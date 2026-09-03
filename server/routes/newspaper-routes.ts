@@ -19,6 +19,7 @@ import {
   getTopArticlesByReaction,
   TOP_ARTICLES_LIMIT
 } from '../game/newspaper.ts';
+import { companyRepository } from '../repositories/company-repository.ts';
 
 const REACTION_TYPES = new Set(['THUMBS_UP', 'REWARD']);
 
@@ -183,9 +184,11 @@ export async function handleNewspaperRoutes(
     }
 
     // 9. Single article fetch (§1: api_v3_article_get).
-    const v3ArticleMatch = pathname.match(/^\/api\/v3\/newspaper\/(\d+)\/article\/(\d+)\/$/);
+    const v3ArticleMatch = pathname.match(/^\/api\/v3\/newspaper\/(?:\d+\/article|articles)\/(\d+)\/?$/);
     if (v3ArticleMatch && method === 'GET') {
-      const article = getArticleById(Number(v3ArticleMatch[2]));
+      const isCallerAdmin = _currentPlayerId ? companyRepository.isPlayerAdmin(_currentPlayerId) : false;
+      const articleId = Number(v3ArticleMatch[1]);
+      const article = getArticleById(articleId, isCallerAdmin);
       if (!article) {
         sendJson(res, { error: 'Article not found', code: 'NOT_FOUND' }, 404);
         return true;
@@ -204,9 +207,10 @@ export async function handleNewspaperRoutes(
     }
     const v3IssueMatch = pathname.match(/^\/api\/v3\/[^/]+\/(\d+)\/newspaper\/(\d+)\/$/);
     if (v3IssueMatch && method === 'GET') {
-      const issue = getNewspaperIssue(Number(v3IssueMatch[2]), Number(v3IssueMatch[1]));
+      const isCallerAdmin = _currentPlayerId ? companyRepository.isPlayerAdmin(_currentPlayerId) : false;
+      const issue = getNewspaperIssue(Number(v3IssueMatch[2]), Number(v3IssueMatch[1]), isCallerAdmin);
       if (!issue) {
-        sendJson(res, { error: 'Newspaper issue not found', code: 'NOT_FOUND' }, 404);
+        sendJson(res, { error: 'Newspaper issue not found or not published', code: 'NOT_FOUND' }, 404);
         return true;
       }
       sendJson(res, issue);
@@ -418,10 +422,25 @@ export function registerNewspaperRoutes(registry: RouteRegistry = globalRouteReg
     })
     .register({
       method: 'GET',
+      pattern: '/api/v3/newspaper/articles/:articleId/',
+      owner: 'newspaper',
+      handler: async (_req, res, ctx, params) => {
+        const isCallerAdmin = ctx?.playerId ? companyRepository.isPlayerAdmin(ctx.playerId) : false;
+        const article = getArticleById(Number(params.articleId), isCallerAdmin);
+        if (!article) {
+          sendJson(res, { error: 'Article not found', code: 'NOT_FOUND' }, 404);
+          return;
+        }
+        sendJson(res, article);
+      }
+    })
+    .register({
+      method: 'GET',
       pattern: '/api/v3/newspaper/:newspaperId/article/:articleId/',
       owner: 'newspaper',
-      handler: async (_req, res, _ctx, params) => {
-        const article = getArticleById(Number(params.articleId));
+      handler: async (_req, res, ctx, params) => {
+        const isCallerAdmin = ctx?.playerId ? companyRepository.isPlayerAdmin(ctx.playerId) : false;
+        const article = getArticleById(Number(params.articleId), isCallerAdmin);
         if (!article) {
           sendJson(res, { error: 'Article not found', code: 'NOT_FOUND' }, 404);
           return;
@@ -443,10 +462,11 @@ export function registerNewspaperRoutes(registry: RouteRegistry = globalRouteReg
       method: 'GET',
       pattern: '/api/v3/:scope/:realmId/newspaper/:issueId/',
       owner: 'newspaper',
-      handler: async (_req, res, _ctx, params) => {
-        const issue = getNewspaperIssue(Number(params.issueId), Number(params.realmId));
+      handler: async (_req, res, ctx, params) => {
+        const isCallerAdmin = ctx?.playerId ? companyRepository.isPlayerAdmin(ctx.playerId) : false;
+        const issue = getNewspaperIssue(Number(params.issueId), Number(params.realmId), isCallerAdmin);
         if (!issue) {
-          sendJson(res, { error: 'Newspaper issue not found', code: 'NOT_FOUND' }, 404);
+          sendJson(res, { error: 'Newspaper issue not found or not published', code: 'NOT_FOUND' }, 404);
           return;
         }
         sendJson(res, issue);

@@ -289,8 +289,11 @@ export function getCurrentBookableIssue(realmId: number = 0): NewspaperIssueDbRo
 }
 
 // 3. Issue & Article Functions
-export function getNewspaperIssues(realmId: number = 0, belowId?: number, limit: number = 20) {
+export function getNewspaperIssues(realmId: number = 0, belowId?: number, limit: number = 20, allowUnpublished: boolean = false) {
   let query = 'SELECT * FROM newspaper_issues WHERE realm_id = ?';
+  if (!allowUnpublished) {
+    query += ' AND published IS NOT NULL';
+  }
   const params: (number | string)[] = [realmId];
   if (belowId !== undefined && !isNaN(belowId)) {
     query += ' AND issue_id < ?';
@@ -298,7 +301,6 @@ export function getNewspaperIssues(realmId: number = 0, belowId?: number, limit:
   }
   query += ' ORDER BY issue_id DESC LIMIT ?';
   params.push(limit);
-
   const issues = db.prepare(query).all(...params) as NewspaperIssueDbRow[];
   return issues.map((iss) => ({
     id: iss.id,
@@ -309,16 +311,18 @@ export function getNewspaperIssues(realmId: number = 0, belowId?: number, limit:
   }));
 }
 
-export function getNewspaperIssue(issueId: number, realmId: number = 0) {
-  let issue = db.prepare('SELECT * FROM newspaper_issues WHERE issue_id = ? AND realm_id = ?').get(issueId, realmId) as NewspaperIssueDbRow | undefined;
-  if (!issue) issue = db.prepare('SELECT * FROM newspaper_issues WHERE issue_id = ?').get(issueId) as NewspaperIssueDbRow | undefined;
-  if (!issue) issue = db.prepare('SELECT * FROM newspaper_issues ORDER BY issue_id DESC LIMIT 1').get() as NewspaperIssueDbRow | undefined;
-  return issue ? formatNewspaperIssue(issue) : null;
+export function getNewspaperIssue(issueId: number, realmId: number = 0, allowUnpublished: boolean = false) {
+  const issue = db.prepare('SELECT * FROM newspaper_issues WHERE issue_id = ? AND realm_id = ?').get(issueId, realmId) as NewspaperIssueDbRow | undefined;
+  if (!issue) return null;
+  if (!allowUnpublished && !issue.published) return null;
+  return formatNewspaperIssue(issue);
 }
 
-export function getNewspaperIssueById(newspaperId: number) {
+export function getNewspaperIssueById(newspaperId: number, allowUnpublished: boolean = false) {
   const issue = db.prepare('SELECT * FROM newspaper_issues WHERE id = ?').get(newspaperId) as NewspaperIssueDbRow | undefined;
-  return issue ? formatNewspaperIssue(issue) : null;
+  if (!issue) return null;
+  if (!allowUnpublished && !issue.published) return null;
+  return formatNewspaperIssue(issue);
 }
 
 function formatNewspaperIssue(issue: NewspaperIssueDbRow) {
@@ -363,10 +367,11 @@ function formatArticleRow(r: NewspaperArticleDbRow, issue?: NewspaperIssueDbRow)
   };
 }
 
-export function getArticleById(articleId: number) {
+export function getArticleById(articleId: number, allowUnpublished: boolean = false) {
   const r = db.prepare('SELECT * FROM newspaper_articles WHERE id = ?').get(articleId) as NewspaperArticleDbRow | undefined;
   if (!r) return null;
   const issue = db.prepare('SELECT * FROM newspaper_issues WHERE id = ?').get(r.newspaper_id) as NewspaperIssueDbRow | undefined;
+  if (!allowUnpublished && (!issue || !issue.published)) return null;
   return formatArticleRow(r, issue);
 }
 
