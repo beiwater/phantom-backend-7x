@@ -6,6 +6,7 @@ import { referralsRepository } from '../repositories/referrals-repository.ts';
 import { socialRepository } from '../repositories/social-repository.ts';
 import { getCompanyById } from '../game/company.ts';
 import { checkRateLimit } from '../security/rate-limiter.ts';
+import { virtualClock } from '../core/virtual-clock.ts';
 import { getArticlesBySubstring, getNewspaperIssue, getNewspaperIssues, getTopArticlesByReaction } from '../game/newspaper.ts';
 import { NotPurchasableError, listSimboostUse, listUnlockedHqs, listUnlockedPas, selectPa, unlockHq, unlockPa } from '../application/social/unlockables.ts';
 import { getActivePoll, getContestView, getPollById, getPollView, votePoll } from '../application/social/polls.ts';
@@ -53,7 +54,7 @@ function loadChatroomSubscriptions(companyId: number): Array<ChatroomSubscriptio
       unsubscribed = [];
     }
   }
-  const stamp = new Date().toISOString();
+  const stamp = virtualClock.nowIso();
   return DEFAULT_CHATROOMS.map(entry => {
     const withStamp: ChatroomSubscriptionEntry = { ...entry, datetime: stamp };
     return unsubscribed.includes(entry.db_letter) ? { ...withStamp, notSubscribed: true } : withStamp;
@@ -144,7 +145,7 @@ export async function handleSocialRoutes(
       const flags = rest[category] ?? {};
       const column = category === 'emailNotifications' ? 'email_json'
         : category === 'popupNotifications' ? 'popup_json' : 'push_json';
-      socialRepository.upsertNotificationPreferences(currentCompanyId, column, JSON.stringify(flags), new Date().toISOString());
+      socialRepository.upsertNotificationPreferences(currentCompanyId, column, JSON.stringify(flags), virtualClock.nowIso());
       sendJson(res, loadRow());
       return true;
     }
@@ -337,7 +338,7 @@ export async function handleSocialRoutes(
       return true;
     }
 
-    const now = new Date().toISOString();
+    const now = virtualClock.nowIso();
     const messageId = socialRepository.insertChatMessage(room, comp.company_id, comp.name, text, now);
 
     sendJson(res, {
@@ -446,7 +447,7 @@ export async function handleSocialRoutes(
     if (method === 'POST') {
       const body = await readJsonBody<{ note?: string }>(req);
       const noteText = String(body?.note ?? '').slice(0, 4000);
-      const now = new Date().toISOString();
+      const now = virtualClock.nowIso();
       if (noteText === '') {
         socialRepository.deleteCompanyNote(currentCompanyId, aboutCompanyId);
         sendJson(res, { note: '' });
