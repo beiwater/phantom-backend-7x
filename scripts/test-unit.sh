@@ -78,6 +78,7 @@ BACKEND_TESTS=(
   tests/verify-issue-189-chat-ordering.test.ts
   tests/verify-issue-190-production-duration.test.ts
   tests/verify-issue-192-company-map-slots.test.ts
+  tests/verify-issue-193-contract-submission.test.ts
   tests/verify-security-hardening.test.ts
   tests/verify-warehouse-statistics.test.ts
 )

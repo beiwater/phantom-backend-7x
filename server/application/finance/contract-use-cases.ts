@@ -27,6 +27,7 @@ export function formatContract(c: ContractRow) {
     kind: c.kind,
     quality: c.quality,
     amount: c.amount,
+    quantity: c.amount,
     price: c.price,
     total: Math.round(c.amount * c.price * 100) / 100,
     created: c.created_at,

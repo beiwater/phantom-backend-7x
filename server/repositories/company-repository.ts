@@ -105,6 +105,13 @@ export class CompanyRepository {
 
     return row ? mapCompanyRow(row) : null;
   }
+  findByName(name: string): CompanyEntity | null {
+    const row = this.database.prepare(
+      'SELECT * FROM companies WHERE name = ? COLLATE NOCASE ORDER BY id ASC LIMIT 1'
+    ).get(name) as CompanyDbRow | undefined;
+
+    return row ? mapCompanyRow(row) : null;
+  }
 
   /**
    * Accrue experience and apply level-ups (Issue #179: the leveling state

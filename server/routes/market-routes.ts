@@ -15,6 +15,9 @@ import { placeMarketOrder } from '../application/market/place-order.ts';
 import { takeMarketOrder } from '../application/market/take-order.ts';
 import { cancelMarketOrder } from '../application/market/cancel-order.ts';
 import { marketRepository, marketTradeRepository } from '../repositories/market-repository.ts';
+import { sendContractCommand } from '../application/finance/finance-use-cases.ts';
+import { companyRepository } from '../repositories/company-repository.ts';
+import { NotFoundError } from '../errors/domain-error.ts';
 import { getAllResourceDefs } from '../game-data/resources.ts';
 import { RouteRegistry, globalRouteRegistry } from '../http/route-registry.ts';
 
@@ -216,9 +219,36 @@ export async function handleMarketRoutes(
         sendJson(res, { error: 'Unauthorized' }, 401);
         return true;
       }
-      const body = await readJsonBody<{ resourceId?: number; kind: number; price: number; quantity: number; quality?: number }>(req);
+      const body = await readJsonBody<{
+        resourceId?: number;
+        kind: number;
+        price: number;
+        quantity?: number;
+        amount?: number;
+        quality?: number;
+        contractTo?: string | number;
+      }>(req);
       try {
         const ctx = createGameContext(currentCompanyId, currentCompanyId, 0);
+        if (body?.contractTo !== undefined && body?.contractTo !== null && String(body.contractTo).trim() !== '') {
+          const target = String(body.contractTo).trim();
+          let recipient = companyRepository.findByName(target);
+          if (!recipient && /^\d+$/.test(target)) {
+            recipient = companyRepository.findById(Number(target));
+          }
+          if (!recipient) {
+            throw new NotFoundError('Recipient company not found');
+          }
+          const contract = await sendContractCommand(ctx, {
+            buyerCompanyId: recipient.companyId,
+            resourceKind: Number(body.kind),
+            quality: Number(body.quality || 0),
+            amount: Number(body.quantity ?? body.amount),
+            price: Number(body.price)
+          });
+          sendJson(res, { contract });
+          return true;
+        }
         const result = await placeMarketOrder(ctx, body);
         sendJson(res, result);
       } catch (err: unknown) {
@@ -432,6 +462,27 @@ export function registerMarketRoutes(registry: RouteRegistry = globalRouteRegist
         if (!id) return;
         const input = marketBody(body);
         try {
+          const record = body && typeof body === 'object' ? (body as Record<string, unknown>) : null;
+          const rawContractTo = record?.contractTo;
+          if (rawContractTo !== undefined && rawContractTo !== null && String(rawContractTo).trim() !== '') {
+            const target = String(rawContractTo).trim();
+            let recipient = companyRepository.findByName(target);
+            if (!recipient && /^\d+$/.test(target)) {
+              recipient = companyRepository.findById(Number(target));
+            }
+            if (!recipient) {
+              throw new NotFoundError('Recipient company not found');
+            }
+            const contract = await sendContractCommand(ctx!, {
+              buyerCompanyId: recipient.companyId,
+              resourceKind: Number(input.kind),
+              quality: Number(input.quality || 0),
+              amount: Number(input.quantity ?? input.amount),
+              price: Number(input.price)
+            });
+            sendJson(res, { contract });
+            return;
+          }
           sendJson(res, await placeMarketOrder(ctx!, {
             resourceId: marketNumber(input, 'resourceId'),
             kind: Number(input.kind),
