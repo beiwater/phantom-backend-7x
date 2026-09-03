@@ -35,8 +35,19 @@
     {
       "file": "finance-accounting-lift.json",
       "features": [
-        "accounting-lift",
+        "accounting-lift"
+      ]
+    },
+    {
+      "file": "administration-overhead.json",
+      "features": [
         "administration-overhead"
+      ]
+    },
+    {
+      "file": "market-recent-resources.json",
+      "features": [
+        "market-recent-resources"
       ]
     },
     {

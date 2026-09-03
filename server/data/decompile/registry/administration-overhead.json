@@ -1,0 +1,16 @@
+{
+  "feature": "administration-overhead",
+  "semantics": "GET /api/v2/companies/:companyId/administration-overhead/ and /plus-one/ return a raw numeric multiplier (e.g. 1.05 for 5% overhead, 1.0 for 0% overhead), NOT a JSON object. The Redux action e_ stores response.data directly in user.administrationOverhead. Consumed as a multiplier in encyclopedia (ncn component: (v-1)*100 where v=Yd(overhead, cooSkill)), building detail wage calculations (Yd(overhead, cooSkill)), and marginal executive cost (moreAdmins: (plusOne - 1) * (pts + 100) - (current - 1) * pts). Returning an object causes (object - 1) -> NaN across the entire UI.",
+  "endpoints": [
+    "GET /api/v2/companies/:companyId/administration-overhead/",
+    "GET /api/v2/companies/:companyId/administration-overhead/plus-one/"
+  ],
+  "responseShape": "number (raw numeric multiplier, e.g. 1.035)",
+  "evidence": [
+    { "type": "bundle", "path": "frontend-original/static/bundle/assets/index-cgzgptQ8.js", "symbol": "api_v2_companies_administration_overhead:()=>'/api/v2/companies/me/administration-overhead/', e_=(e=!1)=>(t,r)=>za(t,L().api_v2_companies_administration_overhead(),_Rt,wRt,({data:i})=>{t({type:kve,payload:i})}), case kve: return {administrationOverhead: t.payload}" },
+    { "type": "bundle", "path": "frontend-original/static/bundle/assets/index-cgzgptQ8.js", "symbol": "ncn component tk row: (v-1)*100 with v=Yd(l, De) where l=user.administrationOverhead" },
+    { "type": "test", "path": "tests/e2e/private-server-flow.spec.ts", "test": "player can explore encyclopedia, newspaper, and financial overview without errors" }
+  ],
+  "implementedIn": "server/routes/auth-routes.ts handleAuthRoutes and registerAuthRoutes",
+  "confidence": "verified"
+}

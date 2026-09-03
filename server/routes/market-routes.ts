@@ -543,6 +543,14 @@ export function registerMarketRoutes(registry: RouteRegistry = globalRouteRegist
       handler: async (_req, res) => { sendJson(res, { resources: [{ kind: 1 }, { kind: 2 }, { kind: 3 }, { kind: 13 }, { kind: 66 }] }); }
     })
     .register({
+      method: 'GET', pattern: '/api/v2/market/recent-resources/:realmId/', owner: 'market',
+      handler: async (_req, res) => { sendJson(res, { resources: [{ kind: 1 }, { kind: 2 }, { kind: 3 }, { kind: 13 }, { kind: 66 }] }); }
+    })
+    .register({
+      method: 'GET', pattern: '/api/v3/market/recent-resources/:realmId/', owner: 'market',
+      handler: async (_req, res) => { sendJson(res, { resources: [{ kind: 1 }, { kind: 2 }, { kind: 3 }, { kind: 13 }, { kind: 66 }] }); }
+    })
+    .register({
       method: 'GET', pattern: '/api/v2/market/reference-prices/', owner: 'market',
       handler: async (_req, res) => { sendJson(res, getMarketReferencePrices()); }
     })

@@ -1,0 +1,19 @@
+{
+  "feature": "market-recent-resources",
+  "semantics": "GET /api/v3/market/recent-resources/:realmId/ returns { resources: Array<{ kind: number }> }. The exchange quick-access bar in the original client calls Dpr(realmId) = GET /api/v3/market/recent-resources/${realmId}/ and iterates data.resources. If shadowed by /api/v3/market/:realmId/:kind/ (which returns an array of market orders []), data.resources is undefined and accessing data.resources.some() throws an unhandled TypeError: Cannot read properties of undefined (reading 'some').",
+  "endpoints": [
+    "GET /api/v3/market/recent-resources/:realmId/",
+    "GET /api/v2/market/recent-resources/:realmId/"
+  ],
+  "responseShape": {
+    "resources": [
+      { "kind": "number" }
+    ]
+  },
+  "evidence": [
+    { "type": "bundle", "path": "frontend-original/static/bundle/assets/index-cgzgptQ8.js", "symbol": "api_market_recent_resources:e=>`/api/v3/market/recent-resources/${e}/`, Dpr(e)=oe().get(L().api_market_recent_resources(e)), Dpr(n).then(({data:p})=>{const f=p.resources; qWt().forEach(g=>{f.some(m=>m.kind===g)||f.push({kind:g})})})" },
+    { "type": "test", "path": "tests/e2e/private-server-flow.spec.ts", "test": "real player core loop keeps UI and persisted state coherent" }
+  ],
+  "implementedIn": "server/routes/market-routes.ts registerMarketRoutes",
+  "confidence": "verified"
+}

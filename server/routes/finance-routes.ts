@@ -94,30 +94,6 @@ export async function handleFinanceRoutes(
     return true;
   }
 
-  // 2. Administration Overhead: /api/v2/companies/:id/administration-overhead/
-  const adminOverheadMatch = pathname.match(/^\/api\/v2\/companies\/(\d+|me)\/administration-overhead\/$/);
-  if (adminOverheadMatch) {
-    const companyId = authorizeRequestedCompany();
-    if (companyId === null) return true;
-    const bldCount = financeRepository.buildingCount(companyId);
-    const recreationBonus = financeRepository.recreationBonus(companyId, new Date().toISOString());
-    // #155: expose the CFO + bank accounting lift so the accounting surfaces
-    // can show the computation base alongside the overhead.
-    const lift = companyRepository.getAccountingLift(companyId);
-    const overhead = Math.max(0, (bldCount - 1) * 0.035);
-    sendJson(res, {
-      administrationOverhead: overhead,
-      recreationBonus,
-      workers: bldCount * 100,
-      adminCostDaily: Math.round(overhead * 1000),
-      bankLevel: lift.bankSize,
-      bankContributing: lift.bankContributing,
-      executiveLift: lift.executiveLift,
-      bankLift: lift.bankLift,
-      accountingExemptThreshold: lift.exemptThreshold
-    });
-    return true;
-  }
 
   const loanTakeMatch = pathname.match(/^\/api\/v2\/companies\/(\d+|me)\/loans\/$/);
   const loanRepayMatch = pathname.match(/^\/api\/v2\/companies\/(\d+|me)\/loans\/(\d+)\/repay\/$/);
@@ -510,23 +486,6 @@ export function registerFinanceRoutes(registry: RouteRegistry = globalRouteRegis
           return;
         }
         sendJson(res, { success: true });
-      }
-    })
-    .register({
-      method: 'GET', pattern: '/api/v2/companies/:companyId/administration-overhead/', owner: 'finance',
-      handler: async (_req, res, ctx, params) => {
-        const companyId = authorize(ctx, params, res);
-        if (companyId === null) return;
-        const bldCount = financeRepository.buildingCount(companyId);
-        const recreationBonus = financeRepository.recreationBonus(companyId, new Date().toISOString());
-        const lift = companyRepository.getAccountingLift(companyId);
-        const overhead = Math.max(0, (bldCount - 1) * 0.035);
-        sendJson(res, {
-          administrationOverhead: overhead, recreationBonus, workers: bldCount * 100,
-          adminCostDaily: Math.round(overhead * 1000), bankLevel: lift.bankSize,
-          bankContributing: lift.bankContributing, executiveLift: lift.executiveLift,
-          bankLift: lift.bankLift, accountingExemptThreshold: lift.exemptThreshold
-        });
       }
     })
     .register({

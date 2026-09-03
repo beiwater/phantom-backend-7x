@@ -7,5 +7,6 @@ test-results/
 *.sqlite
 *.sqlite-wal
 artifacts/
-data/
+/data/
+!server/data/
 *.sha256

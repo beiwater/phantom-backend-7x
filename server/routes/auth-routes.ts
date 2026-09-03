@@ -278,8 +278,10 @@ export async function handleAuthRoutes(
       sendJson(res, { error: 'Unauthorized' }, 401);
       return true;
     }
+    const isPlusOne = pathname.endsWith('/plus-one/');
     const stats = companyRepository.getAccountingOverheadStats(requestedCompanyId);
-    const ao = 1 + Math.max(0, stats.buildingCount - 1) * 0.035;
+    const count = stats.buildingCount + (isPlusOne ? 1 : 0);
+    const ao = 1 + Math.max(0, count - 1) * 0.035;
     const cooSkill = Math.max(0, Math.min(100, stats.cooSkill));
     const effective = ao - (ao - 1) * cooSkill / 100;
     sendJson(res, Math.round(effective * 1000) / 1000);
@@ -770,6 +772,8 @@ export function registerAuthRoutes(registry: RouteRegistry = globalRouteRegistry
   register('PATCH', '/api/v2/companies/:companyId/');
   register('GET', '/api/v3/companies/:companyId/');
   register('PATCH', '/api/v3/companies/:companyId/');
+  register('GET', '/api/v2/companies/:companyId/administration-overhead/');
+  register('GET', '/api/v2/companies/:companyId/administration-overhead/plus-one/');
 }
 
 registerAuthRoutes(globalRouteRegistry);
