@@ -388,6 +388,7 @@ export function getExecutiveCandidates(companyId: number) {
 }
 
 export function getExecutiveById(companyId: number, executiveId: number) {
+  resolveCompletedTrainings(companyId);
   const row = db.prepare('SELECT * FROM executives WHERE id = ? AND company_id = ?').get(executiveId, companyId) as unknown as ExecutiveRow | undefined;
   if (!row) throw new Error('Executive not found');
   return formatExecutive(row);
