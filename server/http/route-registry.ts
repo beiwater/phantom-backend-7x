@@ -1,7 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { readJsonBody, sendJson } from '../routes/utils.ts';
 import { createGameContext, type GameContext } from '../context/game-context.ts';
-import { DomainError, UnauthorizedError } from '../errors/domain-error.ts';
+import { companyRepository } from '../repositories/company-repository.ts';
 import { sendDomainError } from '../compatibility/simcompanies/response-helpers.ts';
 
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'OPTIONS';
@@ -133,7 +133,12 @@ export class RouteRegistry {
     // 4. Resolve and validate authentication context
     let ctx: GameContext | null = null;
     if (session) {
-      ctx = createGameContext(session.companyId, session.playerId, 0);
+      // #181: realm policy must come from the company's persisted realm, not
+      // a hardcoded 0 — Challenge Realm rules (exchange/contracts/bonds
+      // disabled, purchase limits) were silently bypassed on every
+      // registry-owned endpoint.
+      const company = session.companyId !== null ? companyRepository.findById(session.companyId) : null;
+      ctx = createGameContext(session.companyId, session.playerId, company?.realmId ?? 0);
     }
 
     if (route.auth === 'company' && (!ctx || !ctx.companyId)) {
