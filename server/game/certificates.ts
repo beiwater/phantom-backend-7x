@@ -23,24 +23,6 @@ function findCompany(idOrCompanyId: number): CompanyRow | null {
   return row || null;
 }
 
-// 1. Initialize Tables
-db.exec(`
-  CREATE TABLE IF NOT EXISTS certificates (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    realm_id INTEGER DEFAULT 0,
-    kind INTEGER,
-    place INTEGER DEFAULT 1,
-    name TEXT,
-    company_id INTEGER,
-    company_name TEXT,
-    value REAL DEFAULT 0,
-    rarity REAL DEFAULT 0.05,
-    year_started INTEGER,
-    resource_kind INTEGER,
-    datetime TEXT
-  );
-`);
-
 // 2. Seed Default Certificates
 (function seedCertificates() {
   const certCount = db.prepare('SELECT COUNT(*) as count FROM certificates').get() as { count: number };

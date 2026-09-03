@@ -118,27 +118,6 @@ db.exec(`
     created_at TEXT
   );
 
-  CREATE TABLE IF NOT EXISTS newspaper_articles (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    newspaper_id INTEGER,
-    realm_id INTEGER DEFAULT 0,
-    title TEXT,
-    type TEXT DEFAULT 'CUSTOM',
-    copy1 TEXT,
-    copy2 TEXT,
-    copy3 TEXT,
-    author_company_id INTEGER,
-    author_company_name TEXT,
-    translated_by_id INTEGER,
-    translated_by_name TEXT,
-    position INTEGER DEFAULT 0,
-    reactions_json TEXT DEFAULT '{}',
-    reaction_count INTEGER DEFAULT 0,
-    charts_json TEXT DEFAULT '[]',
-    outdated INTEGER DEFAULT 0,
-    created_at TEXT
-  );
-
   CREATE TABLE IF NOT EXISTS newspaper_sponsors (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     newspaper_id INTEGER,
@@ -147,15 +126,6 @@ db.exec(`
     company_name TEXT,
     text TEXT,
     logo TEXT,
-    created_at TEXT
-  );
-
-  CREATE TABLE IF NOT EXISTS newspaper_reactions (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    newspaper_id INTEGER,
-    article_id INTEGER,
-    company_id INTEGER,
-    reaction TEXT,
     created_at TEXT
   );
 `);

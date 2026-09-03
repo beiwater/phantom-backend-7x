@@ -46,6 +46,7 @@ Before writing any new logic, helpers, or data models, **mandatory search and in
 - **Shared Database & Utilities**:
   - Always reuse the single SQLite database instance `db` from `server/db/database.ts`. Never instantiate new `DatabaseSync` connections.
   - Always reuse `hashPassword`, `sendJson`, `readJsonBody`, `extractSessionToken`, and `getSession`.
+  - **Schema Authority (Issue #177)**: versioned migrations in `server/db/migrations/runner.ts` are the single source of truth for business schema. Schema changes may ONLY be made by adding a new migration entry (`version: N+1`). Never add ad-hoc `CREATE TABLE` / `ALTER TABLE` to runtime modules (`server/game/`, `server/application/`, `server/repositories/`, `server/routes/`) or to `server/db/connection.ts` — connection.ts handles connection + PRAGMA only. Fresh databases must boot fully from migrations + seed.
 
 ---
 

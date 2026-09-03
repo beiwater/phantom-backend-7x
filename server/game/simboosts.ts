@@ -4,7 +4,6 @@
  import { getBuildingById, formatBuilding } from './buildings.ts';
  import { addResource } from './warehouse.ts';
  import {
-   ensureBoostSettingsTable,
    getCompanyBoostSettings,
    getExchangedToday,
    realignCompanyBonus,
@@ -16,9 +15,6 @@
   EXCHANGE_CASH_PER_SIMBOOST,
   EXCHANGE_DAILY_LIMIT
  } from './simboost-settings.ts';
-
-// Create the persisted settings table on module load (idempotent DDL).
-ensureBoostSettingsTable(db);
 
 export interface PaymentPackage {
   sku: string;

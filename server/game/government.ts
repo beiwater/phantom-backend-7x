@@ -19,40 +19,6 @@ db.exec(`
     deadline TEXT,
     created_at TEXT
   );
-
-  CREATE TABLE IF NOT EXISTS government_bids (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    secret TEXT UNIQUE,
-    template_id INTEGER,
-    realm_id INTEGER DEFAULT 0,
-    creator_company_id INTEGER,
-    max_contractors INTEGER DEFAULT 5,
-    is_public INTEGER DEFAULT 1,
-    min_tier_index INTEGER DEFAULT 1,
-    price_breakdown_json TEXT,
-    note TEXT,
-    status TEXT DEFAULT 'OPEN',
-    created_at TEXT
-  );
-
-  CREATE TABLE IF NOT EXISTS government_bid_contractors (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    bid_secret TEXT,
-    company_id INTEGER,
-    is_main INTEGER DEFAULT 0,
-    tier_index INTEGER DEFAULT 1,
-    tier_multiplier REAL DEFAULT 1.0,
-    deposit_paid REAL DEFAULT 0,
-    fulfilled INTEGER DEFAULT 0,
-    joined_at TEXT
-  );
-
-  CREATE TABLE IF NOT EXISTS government_bid_blocked_companies (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    bid_secret TEXT,
-    company_id INTEGER,
-    blocked_at TEXT
-  );
 `);
 
 // Older databases may predate later columns; ALTER defensively (no-op if present).

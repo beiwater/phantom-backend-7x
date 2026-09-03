@@ -1,9 +1,10 @@
 import assert from 'node:assert';
 import { DatabaseSync } from 'node:sqlite';
-import { initializeDatabaseSchema } from '../server/db/connection.ts';
+import { MigrationRunner } from '../server/db/migrations/runner.ts';
 
 const memDb = new DatabaseSync(':memory:');
-initializeDatabaseSchema(memDb);
+const runner = new MigrationRunner(memDb);
+runner.runMigrations();
 
 console.log('--- Testing Issue #3: Database Indexes Optimization ---');
 
@@ -36,7 +37,7 @@ function checkPlanUsesIndex(query: string, expectedIndexName?: string) {
   }
 }
 checkPlanUsesIndex('SELECT * FROM warehouse WHERE company_id = 1', 'idx_warehouse_company_id');
-checkPlanUsesIndex('SELECT * FROM buildings WHERE company_id = 1', 'idx_buildings_company_id');
+checkPlanUsesIndex('SELECT * FROM buildings WHERE company_id = 1', 'idx_buildings_company');
 checkPlanUsesIndex('SELECT * FROM market_orders WHERE active = 1', 'idx_market_orders_active');
 checkPlanUsesIndex('SELECT * FROM production_queues WHERE company_id = 1', 'idx_production_queues_');
 checkPlanUsesIndex('SELECT * FROM contracts WHERE sender_company_id = 1', 'idx_contracts_sender_company_id');

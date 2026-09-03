@@ -7,28 +7,6 @@ import { virtualClock } from '../core/virtual-clock.ts';
 
 export const EXECUTIVE_TRAINING_COST = 30000;
 
-// Ensure executive_offers table exists
-db.exec(`
-  CREATE TABLE IF NOT EXISTS executive_offers (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    poacher_company_id INTEGER NOT NULL,
-    target_company_id INTEGER NOT NULL,
-    target_executive_id INTEGER NOT NULL,
-    slot_position TEXT DEFAULT 'coo',
-    skill_position TEXT DEFAULT 'o',
-    agency INTEGER DEFAULT 1,
-    status TEXT DEFAULT 'f',
-    expected_salary REAL NOT NULL,
-    salary REAL DEFAULT NULL,
-    agency_fee REAL DEFAULT 0,
-    accelerated INTEGER DEFAULT 0,
-    research_poacher TEXT DEFAULT NULL,
-    research_employer TEXT DEFAULT NULL,
-    extended_at TEXT DEFAULT NULL,
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
-  );
-`);
 
 export const AgencyTier = {
   IN_HOUSE: 1,
@@ -44,44 +22,6 @@ export const AGENCY_FEE_MULTIPLIERS: Record<number, number> = {
   [AgencyTier.GOOD_AGENCY]: 2.0,     // 2.0x expected salary
   [AgencyTier.TOP_TALENT_AGENCY]: 5.0 // 5.0x expected salary
 };
-
-// Issue #167/#165: the settling-in window, strike deadline and retirement
-// intent are part of the executive lifecycle contract. Older databases
-// predate these columns; ALTER defensively (no-op if present or if the
-// table does not exist yet — a fresh migrations run creates the full shape).
-{
-  const executivesTable = db.prepare(
-    "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'executives'"
-  ).get();
-  if (executivesTable) {
-    const cols = db.prepare('PRAGMA table_info(executives)').all() as Array<{ name: string }>;
-    const adds: Record<string, string> = {
-      work_history_accelerated: 'INTEGER DEFAULT 0',
-      plans_to_retire: 'INTEGER DEFAULT 0',
-      strike_until: 'TEXT'
-    };
-    for (const [column, ddl] of Object.entries(adds)) {
-      if (!cols.some(c => c.name === column)) {
-        db.exec(`ALTER TABLE executives ADD COLUMN ${column} ${ddl}`);
-      }
-    }
-  }
-}
-
-// Executive trainings (Issue #165): the original client schedules a training
-// (POST), can rush it with SimBoosts (PATCH) or cancel it (DELETE), and the
-// executive's skills improve when the 27h window completes.
-db.exec(`
-  CREATE TABLE IF NOT EXISTS executive_trainings (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    executive_id INTEGER NOT NULL,
-    company_id INTEGER NOT NULL,
-    datetime TEXT NOT NULL,
-    accelerated INTEGER DEFAULT 0,
-    skills_applied INTEGER DEFAULT 0,
-    created_at TEXT NOT NULL
-  );
-`);
 
 export const EXECUTIVE_TRAINING_WINDOW_S = 97200; // 27h (client constant Y$)
 

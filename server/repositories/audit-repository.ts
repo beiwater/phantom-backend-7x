@@ -7,19 +7,6 @@
 import type { DatabaseSync } from 'node:sqlite';
 import { db } from '../db/connection.ts';
 
-db.exec(`
-  CREATE TABLE IF NOT EXISTS audits (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    actor_company_id INTEGER,
-    target_company_id INTEGER,
-    target_player_id INTEGER,
-    action TEXT NOT NULL,
-    reason TEXT DEFAULT '',
-    created_at TEXT NOT NULL
-  );
-  CREATE INDEX IF NOT EXISTS idx_audits_target ON audits(target_company_id, created_at);
-`);
-
 export interface AuditEntity {
   id: number;
   actorCompanyId: number | null;

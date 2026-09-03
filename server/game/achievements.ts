@@ -9,16 +9,6 @@ import { DomainError } from '../errors/domain-error.ts';
 // exists (and is seeded) before any ownership check runs.
 import './certificates.ts';
 
-// Ensure table exists
-db.exec(`
-  CREATE TABLE IF NOT EXISTS company_achievements (
-    company_id INTEGER NOT NULL,
-    achievement_id TEXT NOT NULL,
-    collected_at TEXT NOT NULL,
-    PRIMARY KEY (company_id, achievement_id)
-  )
-`);
-
 // Issue #88: a display case slot can hold a production resource, a
 // certificate, an achievement, or a collectible (NFT). item_kind records
 // which, item_ref the achievement id / certificate id / nft asset id.

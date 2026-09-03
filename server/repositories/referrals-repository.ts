@@ -7,19 +7,6 @@
 import type { DatabaseSync } from 'node:sqlite';
 import { db } from '../db/connection.ts';
 
-db.exec(`
-  CREATE TABLE IF NOT EXISTS referrals (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    referrer_company_id INTEGER NOT NULL,
-    referred_company_id INTEGER UNIQUE NOT NULL,
-    code TEXT NOT NULL,
-    claimed_bonus INTEGER DEFAULT 0,
-    rewards_paid_json TEXT DEFAULT '{}',
-    created_at TEXT NOT NULL
-  );
-  CREATE INDEX IF NOT EXISTS idx_referrals_referrer ON referrals(referrer_company_id);
-`);
-
 export const REFERRAL_LEVEL_TIERS: Array<{ level: number; reward: number }> = [
   { level: 5, reward: 10 },
   { level: 10, reward: 20 },

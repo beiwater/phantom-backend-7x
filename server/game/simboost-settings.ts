@@ -26,29 +26,6 @@ export { REALIGN_COST_CHEAP, REALIGN_COST_EXPENSIVE };
 export const EXCHANGE_CASH_PER_SIMBOOST = 250;
 export const EXCHANGE_DAILY_LIMIT = 10000;
 
-export function ensureBoostSettingsTable(database = db): void {
-  database.exec(`
-    CREATE TABLE IF NOT EXISTS company_boost_settings (
-      company_id INTEGER PRIMARY KEY,
-      production_modifier INTEGER DEFAULT 0,
-      sales_modifier INTEGER DEFAULT 0,
-      exchanged_today INTEGER DEFAULT 0,
-      exchange_date TEXT DEFAULT '',
-      purchases_today INTEGER DEFAULT 0,
-      purchase_date TEXT DEFAULT ''
-    );
-  `);
-  // Migration for tables created before the C-5 daily purchase cap.
-  const cols = database.prepare("PRAGMA table_info(company_boost_settings)").all() as Array<{ name: string }>;
-  const names = new Set(cols.map(c => c.name));
-  if (!names.has('purchases_today')) {
-    database.exec('ALTER TABLE company_boost_settings ADD COLUMN purchases_today INTEGER DEFAULT 0');
-  }
-  if (!names.has('purchase_date')) {
-    database.exec('ALTER TABLE company_boost_settings ADD COLUMN purchase_date TEXT DEFAULT \'\'');
-  }
-}
-
 /**
  * UTC calendar date used as the exchange-limit bucket key. The official
  * server resets its exchangedToday counter on UTC midnight.

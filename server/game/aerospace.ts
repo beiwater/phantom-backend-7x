@@ -10,34 +10,6 @@ import { runInTransaction } from '../db/transaction.ts';
 import { getCompanyBoostSettings } from './simboost-settings.ts';
 import { productionRepository, type ProductionQueueEntity } from '../repositories/production-repository.ts';
 
-// Initialize Aerospace & Rocket Launch tables
-db.exec(`
-  CREATE TABLE IF NOT EXISTS rocket_launches (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    company_id INTEGER NOT NULL,
-    realm_id INTEGER DEFAULT 0,
-    building_id INTEGER,
-    rocket_kind INTEGER NOT NULL,
-    quality INTEGER DEFAULT 0,
-    success INTEGER DEFAULT 1,
-    launched_at TEXT NOT NULL
-  );
-
-  CREATE INDEX IF NOT EXISTS idx_rocket_launches_comp_realm ON rocket_launches(realm_id, company_id);
-
-  CREATE TABLE IF NOT EXISTS aerospace_sales_orders (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    company_id INTEGER,
-    building_id INTEGER,
-    resources_json TEXT,
-    search_cost REAL DEFAULT 750,
-    payout REAL DEFAULT 15000,
-    created_at TEXT,
-    expires_at TEXT,
-    fulfilled INTEGER DEFAULT 0
-  );
-`);
-
 export const LAUNCH_QUEUE_MAX = 30;
 
 /**

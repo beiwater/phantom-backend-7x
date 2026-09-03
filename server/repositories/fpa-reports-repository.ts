@@ -5,17 +5,6 @@
 import type { DatabaseSync } from 'node:sqlite';
 import { db } from '../db/connection.ts';
 
-db.exec(`
-  CREATE TABLE IF NOT EXISTS fpa_custom_reports (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    company_id INTEGER NOT NULL,
-    name TEXT NOT NULL,
-    category TEXT NOT NULL DEFAULT 'Financial',
-    config_json TEXT DEFAULT '{}',
-    created_at TEXT NOT NULL
-  );
-`);
-
 export interface CustomReportEntity {
   id: number;
   companyId: number;
