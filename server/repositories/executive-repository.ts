@@ -253,6 +253,14 @@ export const executiveRepository = {
     const row = db.prepare('SELECT COUNT(*) AS n FROM executive_trainings WHERE executive_id = ?').get(executiveId) as { n: number };
     return row.n;
   },
+  listTrainingsByExecutive(executiveId: number): Array<{ id: number; datetime: string; accelerated: number; skills_applied: number }> {
+    return db.prepare(`
+      SELECT id, datetime, accelerated, skills_applied
+      FROM executive_trainings
+      WHERE executive_id = ?
+      ORDER BY id ASC
+    `).all(executiveId) as Array<{ id: number; datetime: string; accelerated: number; skills_applied: number }>;
+  },
 
   insertTraining(executiveId: number, companyId: number, datetimeIso: string): ExecutiveTrainingRow {
     const inserted = db.prepare(`

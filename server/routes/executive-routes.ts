@@ -416,7 +416,10 @@ export async function handleExecutiveRoutes(
     if (method === 'GET') {
       try {
         const exec = getExecutiveByIdQuery(currentCompanyId, execId);
-        sendJson(res, { executive: exec });
+        sendJson(res, {
+          ...exec,
+          executive: exec
+        });
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
         sendJson(res, { error: msg }, 404);
@@ -429,7 +432,10 @@ export async function handleExecutiveRoutes(
       const body = await readJsonBody<{ salary?: number; position?: string; strikeUntil?: string | null; plansToRetire?: boolean; rushSettle?: boolean }>(req);
       try {
         const exec = await updateExecutiveCommand(gameCtx(), execId, body);
-        sendJson(res, { executive: exec });
+        sendJson(res, {
+          ...exec,
+          executive: exec
+        });
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
         sendJson(res, { error: msg }, 400);
@@ -490,6 +496,7 @@ export function registerExecutiveRoutes(registry: RouteRegistry = globalRouteReg
   register('DELETE', '/api/v3/companies/executives/hostile-offers/:offerId/');
   register('GET', '/api/v3/:scope/:realmId/former-executives/');
   register('GET', '/api/v4/:scope/:realmId/former-executives/');
+  register('GET', '/api/v2/companies/:companyId/former-executives/');
   register('GET', '/api/v4/executives/candidates/');
   register('POST', '/api/v4/executives/hire/');
   register('POST', '/api/v4/executives/:executiveId/fire/');

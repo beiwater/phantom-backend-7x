@@ -38,12 +38,16 @@ const pubRes = db.prepare('INSERT INTO newspaper_issues (issue_id, realm_id, pub
 );
 const pubIssueDbId = Number(pubRes.lastInsertRowid);
 
-// Insert unpublished issue 2
+// Insert unpublished draft/cancelled issue 2
 const unpubRes = db.prepare('INSERT INTO newspaper_issues (issue_id, realm_id, published, created_at) VALUES (?, ?, NULL, ?)').run(
   2, realmId, nowIso
 );
 const unpubIssueDbId = Number(unpubRes.lastInsertRowid);
 
+// Insert latest bookable issue 3
+db.prepare('INSERT INTO newspaper_issues (issue_id, realm_id, published, created_at) VALUES (?, ?, NULL, ?)').run(
+  3, realmId, nowIso
+);
 // Insert article for published issue
 const pubArt = db.prepare(`
   INSERT INTO newspaper_articles (newspaper_id, realm_id, title, type, copy1, author_company_id, author_company_name, position, reactions_json, reaction_count, charts_json, outdated, created_at)

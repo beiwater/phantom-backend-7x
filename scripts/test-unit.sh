@@ -80,6 +80,7 @@ BACKEND_TESTS=(
   tests/verify-issue-192-company-map-slots.test.ts
   tests/verify-issue-193-contract-submission.test.ts
   tests/verify-issue-194-newspaper-unpublished.test.ts
+  tests/verify-issue-195-196-executives.test.ts
   tests/verify-security-hardening.test.ts
   tests/verify-warehouse-statistics.test.ts
 )

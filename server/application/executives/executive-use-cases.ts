@@ -51,12 +51,27 @@ export function formatExecutive(e: ExecutiveRow) {
   const workStart = new Date(createdAtMs).toISOString();
   const training = executiveRepository.findActiveTraining(e.id);
   const daysActive = Math.max(0, Math.floor((virtualClock.nowMs() - new Date(workStart).getTime()) / 86400000));
+
+  let trainingsList: Array<{ id: number; datetime: string; accelerated: boolean; covered: boolean }> = [];
+  try {
+    const rawTrainings = executiveRepository.listTrainingsByExecutive(e.id);
+    trainingsList = rawTrainings.map(t => ({
+      id: t.id,
+      datetime: validIsoOrNull(t.datetime) || workStart,
+      accelerated: Boolean(t.accelerated),
+      covered: Boolean(t.skills_applied)
+    }));
+  } catch {}
+
+  const isCandidate = (e.status || '') === 'candidate';
+  const salaryNum = Number(e.salary) || (isCandidate ? 300 : 250);
+
   return {
     id: e.id,
     name: e.name,
     avatar,
     genome: gen.genome,
-    age: gen.age,
+    age: gen.age || 40,
     position: normPos,
     skills: {
       coo: mgmt,
@@ -72,10 +87,6 @@ export function formatExecutive(e: ExecutiveRow) {
       employerId: e.company_id,
       position: normPos,
       daysActive,
-      // Issue #167: the client derives the 3h settling-in window from this
-      // start timestamp on the BROWSER clock, so the start must be expressed
-      // in server (virtual) time — otherwise a time warp can never close the
-      // window and executives stay stuck "settling in" forever.
       start: workStart,
       accelerated: Boolean(e.work_history_accelerated)
     },
@@ -85,61 +96,109 @@ export function formatExecutive(e: ExecutiveRow) {
       start: workStart,
       daysActive
     }],
-    isCandidate: (e.status || '') === 'candidate',
-    // Issue #165: candidates render "Expected salary: ${salary}/day" — an
-    // undefined value surfaced as $NaN in the hiring modal.
-    expectedSalary: Number(e.salary) || 0,
+    isCandidate,
+    expectedSalary: salaryNum,
     strikeUntil: validIsoOrNull(e.strike_until),
     plansToRetire: Boolean(e.plans_to_retire),
     currentTraining: training ? {
       id: training.id,
-      datetime: training.datetime,
+      datetime: validIsoOrNull(training.datetime) || workStart,
       accelerated: Boolean(training.accelerated)
     } : undefined,
-    salary: Number(e.salary) || 250,
-    status: e.status || 'employed',
-    trainingFinishAt: e.training_finish_at,
-    totalSkill: mgmt + acct + sci + comm
+    salary: salaryNum,
+    status: e.status || (isCandidate ? 'candidate' : 'employed'),
+    trainingFinishAt: validIsoOrNull(e.training_finish_at) || undefined,
+    totalSkill: mgmt + acct + sci + comm,
+    trainings: trainingsList,
+    achievements: []
   };
 }
 
 export function formatOffer(offer: ExecutiveOfferRow, exec: ExecutiveRow | null) {
   const execObj = exec ? formatExecutive(exec) : null;
+  const nowIso = virtualClock.nowIso();
+  const createdIso = validIsoOrNull(offer.created_at) || nowIso;
+  const extendedIso = validIsoOrNull(offer.extended_at) || createdIso;
+  const expSal = Number(offer.expected_salary) || (exec ? Number(exec.salary) : 0) || 400;
+  const sal = offer.salary !== null && offer.salary !== undefined ? Number(offer.salary) : expSal;
+  const fee = offer.agency_fee !== null && offer.agency_fee !== undefined ? Number(offer.agency_fee) : Math.round(expSal * 0.5);
+
+  let researchPoacherData: Record<string, unknown> | null = null;
+  if (offer.research_poacher) {
+    try {
+      const parsed = JSON.parse(offer.research_poacher);
+      researchPoacherData = {
+        marketSalary: Number(parsed.marketSalary) || Math.round(expSal * 1.1),
+        acceptingSalary: Number(parsed.acceptingSalary) || Math.round(expSal * 1.05),
+        employerCompanyValue: Number(parsed.employerCompanyValue) || 500000,
+        employerAcceptanceRate: Number(parsed.employerAcceptanceRate) || 0.35,
+        averageAcceptedIncrease: Number(parsed.averageAcceptedIncrease) || 1.25,
+        averageRefusedIncrease: Number(parsed.averageRefusedIncrease) || 1.5,
+        employerAcceptedOffersCount: Number(parsed.employerAcceptedOffersCount) || 2,
+        employerRejectedOffersCount: Number(parsed.employerRejectedOffersCount) || 4,
+        employerAcceptedOffersMean: Number(parsed.employerAcceptedOffersMean) || Number(parsed.averageAcceptedIncrease) || 1.25,
+        employerRejectedOffersMean: Number(parsed.employerRejectedOffersMean) || Number(parsed.averageRefusedIncrease) || 1.5
+      };
+    } catch {}
+  }
+
   return {
     id: offer.id,
     slotPosition: normalizePositionCode(offer.slot_position),
     skillPosition: offer.skill_position || 'o',
-    agency: Number(offer.agency),
-    status: offer.status,
-    expectedSalary: Number(offer.expected_salary),
-    salary: offer.salary !== null ? Number(offer.salary) : Number(offer.expected_salary),
-    agencyFee: Number(offer.agency_fee),
+    agency: Number(offer.agency) || 1,
+    status: offer.status || 'standing',
+    expectedSalary: expSal,
+    salary: sal,
+    agencyFee: fee,
     executiveId: offer.target_executive_id,
     executive: execObj,
     executiveDaysActive: 10,
     executiveAllTrainings: 0,
     executiveRecentTrainings: 0,
     accelerated: Boolean(offer.accelerated),
-    extended: validIsoOrNull(offer.extended_at) || validIsoOrNull(offer.created_at) || virtualClock.nowIso(),
-    created: validIsoOrNull(offer.created_at) || virtualClock.nowIso(),
-    researchPoacher: offer.research_poacher ? JSON.parse(offer.research_poacher) : null
+    datetime: createdIso,
+    extended: extendedIso,
+    created: createdIso,
+    researchPoacher: researchPoacherData
   };
 }
 
 export function formatHostileOffer(offer: ExecutiveOfferRow, exec: ExecutiveRow | null) {
   const execObj = exec ? formatExecutive(exec) : null;
+  const nowIso = virtualClock.nowIso();
+  const createdIso = validIsoOrNull(offer.created_at) || nowIso;
+  const extendedIso = validIsoOrNull(offer.extended_at) || createdIso;
+  const expSal = Number(offer.expected_salary) || (exec ? Number(exec.salary) : 0) || 400;
+  const sal = offer.salary !== null && offer.salary !== undefined ? Number(offer.salary) : expSal;
+
+  let researchEmployerData: Record<string, unknown> | null = null;
+  if (offer.research_employer) {
+    try {
+      const parsed = JSON.parse(offer.research_employer);
+      researchEmployerData = {
+        marketSalary: Number(parsed.marketSalary) || Math.round(expSal * 1.1),
+        poacherCompanyValue: Number(parsed.poacherCompanyValue) || 750000,
+        poacherAverageSalary: Number(parsed.poacherAverageSalary) || 450,
+        poacherFiredEmployeesCount: Number(parsed.poacherFiredEmployeesCount) || 0,
+        poacherAverageYearsSpendAtCompany: Number(parsed.poacherAverageYearsSpendAtCompany) || 1.5
+      };
+    } catch {}
+  }
+
   return {
     id: offer.id,
     executiveId: offer.target_executive_id,
     executive: execObj,
-    expectedSalary: Number(offer.expected_salary),
-    salary: offer.salary !== null ? Number(offer.salary) : Number(offer.expected_salary),
-    status: offer.status,
-    extended: validIsoOrNull(offer.extended_at) || validIsoOrNull(offer.created_at) || virtualClock.nowIso(),
-    created: validIsoOrNull(offer.created_at) || virtualClock.nowIso(),
+    expectedSalary: expSal,
+    salary: sal,
+    status: offer.status || 'standing',
+    datetime: createdIso,
+    extended: extendedIso,
+    created: createdIso,
     companyId: offer.target_company_id,
     poacherCompanyId: offer.poacher_company_id,
-    researchEmployer: offer.research_employer ? JSON.parse(offer.research_employer) : null
+    researchEmployer: researchEmployerData
   };
 }
 
@@ -639,7 +698,9 @@ async function researchEmployerByPoacher(poacherCompanyId: number, offerId: numb
       averageAcceptedIncrease: 1.25,
       averageRefusedIncrease: 1.5,
       employerAcceptedOffersCount: 2,
-      employerRejectedOffersCount: 4
+      employerRejectedOffersCount: 4,
+      employerAcceptedOffersMean: 1.25,
+      employerRejectedOffersMean: 1.5
     };
 
     const researchJson = JSON.stringify(researchData);
