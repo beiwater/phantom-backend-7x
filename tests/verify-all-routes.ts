@@ -1,5 +1,5 @@
 async function runTests() {
-  const base = 'http://127.0.0.1:3000';
+  const base = process.env.BASE_URL ?? 'http://127.0.0.1:3000';
   const auth = await fetch(`${base}/api/v2/auth/email/connect/`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

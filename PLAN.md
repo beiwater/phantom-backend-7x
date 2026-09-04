@@ -1,94 +1,122 @@
-# Phantom Backend Compatibility & P0 Core Economic Loop Roadmap
+# SimCompanies 逆向工程与前端 1:1 语义恢复工程规划 (Master Roadmap)
 
-## 1. 核心战略目标 (Core Strategic Objective)
-> **“在启动前端重构前，基于官方前端客户端的真实契约，将 Phantom 后端推到 100% Contract-Verified & E2E-Verified。”**
->
-> 避免“前端业务”与“后端契约”双重不确定性。以官方前端（`frontend-original/static/bundle/assets/index-cgzgptQ8.js`）为唯一验收标准，确保核心经济循环（建筑、生产、仓储、交易、合同、政府订单、财务结算）无缝闭环、状态持久化零漏洞。
-
----
-
-## 2. API 现状基线 (Baseline Assessment)
-- **官方前端提取端点数**：594（含 297 个多语言镜像）。
-- **剔除无用外部系统**（Courses 培训 11 个、Steam/三方支付 10 个、运营埋点 14 个、三方 AI 3 个、验证码 2 个、官方审计与风控后台 27 个）后：
-  - **玩家侧实际基数**：**230 个核心接口**。
-  - **当前已实现**：**156 个 (67.8%)**。
-  - **微小版本差异**：**2 个 (0.9%)**（报纸赞助商 `/v2/` vs `/v3/`，百科质量 `/v4/` vs `/v2/`）。
-  - **待补齐接口**：**72 个 (31.3%)**。
+> **工程最高总则**：
+> **把现有 production 网页当成唯一真理，逐步逆向剥离混淆，还原为 1:1 的可维护规范源码。**
+> 坚决禁止“凭空重新写一个功能类似的游戏”，严禁脱离官方 6.8MB Bundle（`frontend-original/static/bundle/assets/index-cgzgptQ8.js`）脑补 UI 或业务逻辑。
+> 每一个恢复出来的模块，必须保留原版 DOM 结构、CSS 类名、交互时序、路由跳转、API 契约、Redux 状态机，并具备可追溯的 Provenance 证据。
 
 ---
 
-## 3. 阶段分级规划 (Phased Implementation Roadmap)
+## 1. 核心战略流水线：五阶段递进 (5-Stage Engineering Pipeline)
 
 ```mermaid
 flowchart TD
-    A[Phase 1: P0 契约深度对齐与防裂化] --> B[Phase 2: P0 阻断性核心接口补齐]
-    B --> C[Phase 3: 核心经济循环 DOM E2E 验收]
-    C --> D[Phase 4: P1 社交/报纸/百科补齐]
-    D --> E[Phase 5: P2 节日活动与边缘玩法]
-    E --> F[Phase 6: 自研现代 React 前端重构]
+    S1[Phase 1: 冻结基线与 Source Map 探查] --> S2[Phase 2: 纯机械解混淆 AST Normalization]
+    S2 --> S3[Phase 3: 全局逻辑地图构建 Logic Atlas]
+    S3 --> S4[Phase 4: 垂直业务切片逐步恢复 Vertical Slice]
+    S4 --> S5[Phase 5: 成熟度跟踪与 1:1 双重行为对照验证]
 ```
 
-### Phase 1: P0 已有核心接口的“深度契约对齐” (Contract Alignment)
-> **目的**：将当前 156 个“Route 已存在”升级为“Method + Request + Response Schema + Side-effects 100% 官方一致”。
+### Phase 1: 冻结基线与 Source Map 探查 (Baseline Freeze & Source Map Audit)
+* **目标**：将 `frontend-original/` 设为不可变基线；探查是否存在 `.js.map`。
+* **交付物**：
+  * `reconstruction-report/source-map-audit.json`
+* **判断门禁 (Gate)**：
+  * 若存在 `.map`：直接利用 Source Map 提取原汁原味的源码树；
+  * 若无 `.map`：正式进入基于 AST 与 Logic Atlas 的逆向流水线。
 
-- [ ] **建筑建造与管理** (`/api/v2/companies/buildings/`)
-  - 检查建造响应是否严格包含 `cost`, `resourcesConsumed`, `building`。
-  - 确保升级 (`PATCH size: 1`) 正确返回扣减原料 `resourcesConsumed` 与更新后的管理费用 `user.administrationOverheadPlusOne`。
-  - 确保降级/拆除 (`size: -1` / `DELETE`) 正确返还折旧资金 `money` 与废料 `resources`。
-- [ ] **生产与排产队列** (`/api/v2/companies/buildings/:id/queue/`)
-  - 检查排产 `POST` 响应是否返回完整最新队列数组，原料扣减原子性落库。
-  - 检查取消生产 `DELETE` 响应是否立即刷新队列。
-- [ ] **交易所挂单与撮合** (`/api/v2/market/order/`, `/api/market/`)
-  - 挂单 `POST` 响应必须包含 `moneyDelta`（扣除挂单手续费）和扣减运输单元（`Pe.TRANSPORTATION`）。
-  - 撤单 `DELETE` 响应必须包含 `fees`。
-  - 订单簿 `GET` 必须附带 `x-timestamp` 与 `x-request-ip` 响应头。
-- [ ] **销售办公室交付** (`/api/v2/companies/buildings/:id/sales-orders/:id/`)
-  - `PUT lowestQualityFirst: boolean` 严格返回 `{ money, resourceTransactions }` 并持久化货款。
+### Phase 2: 纯机械解混淆 (AST Mechanical Normalization)
+* **目标**：在**完全不改变任何业务逻辑、不修改任何业务变量名**的前提下，消除单行压缩与紧凑混淆。
+* **规则**：
+  * 展开逗号表达式（`a(), b(), c()` $\rightarrow$ 独立分行语句）
+  * 展开三元与短路运算（`a || b()` $\rightarrow$ `if (!a) { b(); }`）
+  * 展开对象解构别名
+* **交付物**：
+  * `reconstruction-work/normalized/index.normalized.js`
+* **判断门禁 (Gate)**：
+  * **必须保持可运行**：在浏览器中加载 `index.normalized.js`，控制台无报错，路由与基础交互正常。
 
----
+### Phase 3: 全局逻辑地图构建 (Logic Atlas Construction)
+* **目标**：在不盲目重写组件的前提下，先回答：“这个 6.8MB 的包里到底有什么？”
+* **核心资产建立（`reconstruction-report/atlas/`）**：
+  * `routes.json`：提取全量客户端路由与对应组件符号（`/buildings`, `/warehouse`, `/market` 等）
+  * `api-callers.json`：将 594 个已知 API 路由与前端实际调用函数关联
+  * `components.json`：提取所有 React 组件（Class / Function）、对应 Props 及 DOM 结构特征
+  * `state.json`：梳理 Redux Store 的 22 个 Slice Reducer、Action Types 与 Initial State
+  * `dependency-graph.json`：全局调用关系与数据流图谱
 
-### Phase 2: P0 阻断性核心接口补齐 (Critical Gap Filling)
-> **目的**：集中攻坚剩余 72 个未实现接口中真正影响主游玩的 12 个关键 P0 接口。
+### Phase 4: 按“垂直切片”恢复源码 (Vertical Slice Reconstruction)
+* **目标**：坚决拒绝按代码行数盲目翻译，而是按**功能垂直切片**逐一攻坚。
+* **恢复实施序列**：
+  1. **底层骨架**：`router.ts`（路由分发骨架）与 `httpClient.ts`（HTTP 客户端与拦截器）
+  2. **会话与外壳**：`auth/` 与 `layout/`（公司信息栏、导航顶栏、通用模态框）
+  3. **核心页面 1：仓库与库存**（`warehouse/`：151 种资源、直签合同接发、买单）
+  4. **核心页面 2：建筑与地皮**（`buildings/`：建造、升级、降级、拆除、机器人配置）
+  5. **核心页面 3：生产排产**（`production/`：排产队列、时间计算、原料扣除）
+  6. **核心页面 4：零售与餐饮**（`retail/`：零售时钟、二次价格惩罚、餐厅评分与翻台率）
+  7. **核心页面 5：交易所与吃单**（`market/`：订单簿挂牌、吃单撮合、运输费用）
+  8. **核心页面 6：公司财务与债券**（`finance/`：资产负债表、每日利息、发债与赎回）
+  9. **核心页面 7：总部与高管 HR**（`executives/`：聘用、培训、C-Suite 任命、边际递减）
+* **每个切片标准产出**：
+  * `reconstruction/<slice>/provenance.json`
+  * `reconstruction/<slice>/api.ts`
+  * `reconstruction/<slice>/selectors.ts`
+  * `reconstruction/<slice>/<Page>.tsx`
 
-1. **财务与报表闭环**：
-   - `GET /api/v2/companies/:id/balance-sheet/`（资产负债表，防止财务总览白屏）
-   - `GET /api/v2/companies/:id/cashflow-statement/`（现金流量表）
-   - `GET /api/v2/companies/:id/income-statement/`（利润表）
-   - `GET /api/v2/companies/me/administration-overhead/`（管理费用率实时查询）
-2. **直销合同扩展**：
-   - `GET /api/v2/contracts-history/:id/`（直销合同历史明细）
-3. **小秘书 / 私人助理 (PA)**：
-   - `POST /api/v2/pa-action/:id/:action/`（小助理引导任务完成与奖励领取）
-4. **公司基本状态与核验**：
-   - `GET /api/v2/company-lookup/:realmId/:name/:tag/`（公司防重名与信息检索）
-   - `POST /api/v2/players/simboosts-use/:action/`（SimBoosts 加速与核心槽位解锁）
-
----
-
-### Phase 3: 全链路闭环 DOM E2E 验证 (End-to-End Verification)
-> **目的**：拒绝单接口单元测试的自嗨，完全基于真实 Chromium 驱动官方前端。
-
-- [ ] 新建企业账号从 0 启动。
-- [ ] 建造种植园 / 发电厂，消耗金钱与建材。
-- [ ] 启动排产生产水 / 苹果，原料正确减少，生产完成后入库。
-- [ ] 将产物挂牌至交易所，消耗运输机与手续费。
-- [ ] 另一测试账号吃单成交，货款入账，库存转移。
-- [ ] 销售办公室接单并交付订单，货款到账。
-- [ ] 检查财务资产负债表与现金流明细，各项数据平衡。
-- [ ] 页面全量刷新，确认所有数据库状态持久化一致。
-
----
-
-### Phase 4 & 5: P1 拓展与 P2 活动系统（后续收尾）
-- **Phase 4 (P1 体验完整度)**：
-  - 官方报纸历史文章订阅与投票 (`/api/v2/newspaper/`)
-  - 百科全书行业进阶分析 (`/api/v3/encyclopedia/`)
-  - 聊天置顶与聊天规则展示 (`/api/v2/chatentry/`)
-- **Phase 5 (P2 节日边缘玩法)**：
-  - 复活节彩蛋收集与交换 (`/api/v2/egg-collect/`)
-  - 火箭发射统计与特殊节日徽章
+### Phase 5: 三重验收门与成熟度跟踪 (Verification Gates & Maturity)
+* **成熟度体系 (L0 ~ L7)**：
+  * **L0 Unknown** $\rightarrow$ **L1 Located** $\rightarrow$ **L2 Identified** $\rightarrow$ **L3 Renamed** $\rightarrow$ **L4 Extracted** $\rightarrow$ **L5 Static-Verified** $\rightarrow$ **L6 Behaviour-Verified** $\rightarrow$ **L7 1:1 Verified**
+* **L7 硬门禁**：
+  1. **P — Provenance**：原始 SHA、Bundle 范围、符号与证据全部可机器验证。
+  2. **S — Semantic**：AST/结构指纹证明调用、条件、集合操作、返回和 dispatch 顺序没有漂移。
+  3. **B — Behaviour**：独立 `VERIFY_ONLY` 浏览器对比 DOM、Network、State、Console 和 Screenshot。
+* `SYNTHETIC_BUSINESS` 或 `UNKNOWN` 任一非零，切片必须拒绝。
 
 ---
 
-### Phase 6: 自有前端现代 React 重建 (Frontend Rebuild)
-- 当 Phase 1~3 全部完成，后端核心经济循环达到 100% 坚固度时，启动轻量级现代化 React + TypeScript 前端重构，仅对接已验证的规范 API。
+## 2. 工程目录结构规范
+
+```text
+phantom-backend-7x/
+├── frontend-original/                 # [只读/不可变] 官方生产环境原始快照
+│   ├── index.html
+│   ├── static/
+│   │   ├── bundle/assets/index-cgzgptQ8.js
+│   │   └── bundle/assets/index-BsDbFrGK.css
+│   └── images/
+│
+├── reconstruction-work/               # [工作区] 机械解构与规范化中间产物
+│   ├── raw/
+│   ├── normalized/
+│   │   └── index.normalized.js        # 语法展开但保留原语义的可运行 Bundle
+│   └── analysis/                      # AST 提取出的中间分析数据
+│
+├── reconstruction-report/             # [分析与证据库]
+│   ├── source-map-audit.json          # Source Map 探查报告
+│   ├── symbol-ledger.json             # 符号推导置信度账本 (带证据链)
+│   └── atlas/                         # Logic Atlas 全景地图
+│       ├── routes.json
+│       ├── api-callers.json
+│       ├── components.json
+│       ├── state.json
+│       └── dependency-graph.json
+│
+├── reconstruction/                    # [最终目标] 1:1 语义还原出的现代化规范 TypeScript/React 源码
+│   ├── router/
+│   ├── api/
+│   ├── selectors/
+│   └── components/
+│
+└── RECONSTRUCTION_RULES.md            # 10 条不可逾越的重构铁律
+```
+
+---
+
+## 3. 当前 Sprint 核心冲刺目标 (Sprint Deliverables)
+
+1. [x] **既有阶段确认**：Source Map 探查与机械去混淆/多语言解释已经完成，不重复执行。
+2. [x] **恢复原始基线**：清除对生产 Bundle 的历史插桩，冻结 `frontend-original/` SHA-256。
+3. [ ] **建立自动约束**：完成 Provenance、Semantic、Classification、Behaviour 三重验收脚本及负向测试。
+4. [ ] **全景地图结构化**：只将现有 594 API、1026 路由、Redux、组件研究证据转换为 Atlas；不得脑补缺失关系。
+5. [ ] **基础设施恢复**：从原始 Bundle 精确提取 Router 与 HTTP Client；静态三门通过后才进入浏览器验证。
+6. [ ] **首个垂直切片**：从 Warehouse 开始，恢复原 DOM/API/State/CSS 链并达到 L7。

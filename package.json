@@ -18,6 +18,8 @@
     "e2e:headed": "playwright test --headed",
     "e2e:browser": "node --experimental-strip-types scripts/e2e/find-browser.ts",
     "e2e:report": "playwright show-report test-results/playwright-report",
+    "test:reconstruction": "node --test scripts/reconstruction/verification-gates.test.mjs",
+    "verify:reconstruction": "node scripts/reconstruction/verify-slice.mjs",
     "git:auto-push": "bash scripts/auto-push.sh"
   },
   "dependencies": {
@@ -27,6 +29,7 @@
     "ws": "^8.18.0"
   },
   "devDependencies": {
+    "@babel/parser": "^7.29.8",
     "@playwright/test": "^1.62.1",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.7",

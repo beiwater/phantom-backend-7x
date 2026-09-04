@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://phantom.local/schemas/reconstruction-provenance.schema.json",
+  "title": "Reconstruction slice provenance",
+  "type": "object",
+  "required": ["schemaVersion", "slice", "source", "artifacts"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "slice": { "type": "string", "minLength": 1 },
+    "source": {
+      "type": "object",
+      "required": ["path", "sha256"],
+      "additionalProperties": false,
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      }
+    },
+    "artifacts": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["file", "symbols"],
+        "additionalProperties": false,
+        "properties": {
+          "file": { "type": "string", "minLength": 1 },
+          "symbols": {
+            "type": "array",
+            "minItems": 0,
+            "items": {
+              "type": "object",
+              "required": ["recoveredSymbol", "originalSymbol", "bundleRange", "classification", "confidence", "evidence", "semantic"],
+              "additionalProperties": false,
+              "properties": {
+                "recoveredSymbol": { "type": "string", "minLength": 1 },
+                "originalSymbol": { "type": "string", "minLength": 1 },
+                "bundleRange": {
+                  "type": "array",
+                  "prefixItems": [
+                    { "type": "integer", "minimum": 0 },
+                    { "type": "integer", "minimum": 1 }
+                  ],
+                  "minItems": 2,
+                  "maxItems": 2
+                },
+                "classification": {
+                  "enum": ["RECOVERED", "INFERRED", "SYNTHETIC_GLUE", "SYNTHETIC_BUSINESS", "UNKNOWN"]
+                },
+                "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+                "evidence": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": { "type": "string", "minLength": 1 }
+                },
+                "rationale": { "type": "string", "minLength": 1 },
+                "semantic": {
+                  "type": "object",
+                  "required": ["mode"],
+                  "additionalProperties": false,
+                  "properties": {
+                    "mode": { "enum": ["EXACT_ALPHA", "STRUCTURAL"] },
+                    "aliases": {
+                      "type": "object",
+                      "additionalProperties": { "type": "string" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

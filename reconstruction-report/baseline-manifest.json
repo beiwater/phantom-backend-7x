@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "c19fad5",
+  "files": [
+    {
+      "path": "frontend-original/html/index.html",
+      "sha256": "8a50b45a5e285c3384c9e17da9f3ab42568b956638df5847cc275ea795df1406"
+    },
+    {
+      "path": "frontend-original/static/bundle/assets/index-cgzgptQ8.js",
+      "sha256": "3e5e8f66287b10c9673e8e41aa31c6cf6deb1a9fe4d4769e1436394a91f52541"
+    },
+    {
+      "path": "frontend-original/static/bundle/assets/index-BsDbFrGK.css",
+      "sha256": "696237671392cc951ab4399730738c355fa171be6217fbc34625e2cd775f970c"
+    }
+  ]
+}

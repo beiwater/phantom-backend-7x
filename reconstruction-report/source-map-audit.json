@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "status": "COMPLETED",
+  "bundle": "frontend-original/static/bundle/assets/index-cgzgptQ8.js",
+  "sourceMapComment": false,
+  "localMapFound": false,
+  "inlineSourcesContentFound": false,
+  "result": "NO_USABLE_SOURCE_MAP",
+  "conclusion": "Reuse the completed mechanical deminification and decompile evidence; further recovery requires provenance-backed AST extraction.",
+  "evidence": [
+    "No .map asset is present beside the production bundle or CSS snapshot.",
+    "No sourceMappingURL or embedded sourcesContent was retained in the production snapshot.",
+    "Audit completion was confirmed before the current reconstruction-verification sprint."
+  ]
+}

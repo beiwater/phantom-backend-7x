@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://phantom.local/schemas/reconstruction-behavior-evidence.schema.json",
+  "title": "Reconstruction browser differential evidence",
+  "type": "object",
+  "required": ["schemaVersion", "slice", "verifier", "runs", "comparisons"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "slice": { "type": "string", "minLength": 1 },
+    "verifier": {
+      "type": "object",
+      "required": ["mode", "id"],
+      "properties": {
+        "mode": { "const": "VERIFY_ONLY" },
+        "id": { "type": "string", "minLength": 1 }
+      }
+    },
+    "runs": {
+      "type": "object",
+      "required": ["production", "recovered"],
+      "properties": {
+        "production": { "$ref": "#/$defs/run" },
+        "recovered": { "$ref": "#/$defs/run" }
+      }
+    },
+    "comparisons": {
+      "type": "object",
+      "required": ["dom", "network", "state", "console", "screenshot"],
+      "additionalProperties": false,
+      "properties": {
+        "dom": { "$ref": "#/$defs/comparison" },
+        "network": { "$ref": "#/$defs/comparison" },
+        "state": { "$ref": "#/$defs/comparison" },
+        "console": { "$ref": "#/$defs/comparison" },
+        "screenshot": { "$ref": "#/$defs/comparison" }
+      }
+    }
+  },
+  "$defs": {
+    "artifact": {
+      "type": "object",
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      }
+    },
+    "run": {
+      "type": "object",
+      "required": ["url", "dom", "network", "state", "console", "screenshot"],
+      "properties": {
+        "url": { "type": "string", "minLength": 1 },
+        "dom": { "$ref": "#/$defs/artifact" },
+        "network": { "$ref": "#/$defs/artifact" },
+        "state": { "$ref": "#/$defs/artifact" },
+        "console": { "$ref": "#/$defs/artifact" },
+        "screenshot": { "$ref": "#/$defs/artifact" }
+      }
+    },
+    "comparison": {
+      "type": "object",
+      "required": ["status", "report"],
+      "properties": {
+        "status": { "const": "PASS" },
+        "report": { "$ref": "#/$defs/artifact" }
+      }
+    }
+  }
+}
