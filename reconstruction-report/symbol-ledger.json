@@ -5,7 +5,7 @@
     "domain": "routing",
     "role": "Master URL routing and endpoint generator dictionary (English)",
     "bundleOffset": 660840,
-    "confidence": 1.0,
+    "confidence": 1,
     "evidence": "1026 route generator functions mapping to UI and API paths"
   },
   {
@@ -14,7 +14,7 @@
     "domain": "routing",
     "role": "Master URL routing dictionary with language prefix",
     "bundleOffset": 689000,
-    "confidence": 1.0,
+    "confidence": 1,
     "evidence": "Mirrors Wcr with localized path interpolations"
   },
   {
@@ -104,7 +104,7 @@
     "domain": "sales",
     "role": "Mapping table between building dbLetters and sellable resource IDs",
     "bundleOffset": "chunk_oX.js",
-    "confidence": 1.0,
+    "confidence": 1,
     "evidence": "Maps G->food, C->electronics, A->petrol, H->fashion, d->hardware, 2->cars"
   },
   {
@@ -122,7 +122,115 @@
     "domain": "executives",
     "role": "Piecewise linear formula calculating effective skill from raw sum",
     "bundleOffset": "formulas_admin.md",
-    "confidence": 1.0,
+    "confidence": 1,
     "evidence": "x<=60->x, 60<x<=80->60+(x-60)/2, x>80->70+(x-80)/2"
+  },
+  {
+    "minifiedSymbol": "Oxi",
+    "proposedName": "AdministrationOverheadPanel",
+    "domain": "administration",
+    "role": "React UI component displaying administration overhead, executive skill bonuses, and diminishing returns modal",
+    "bundleOffset": 5100657,
+    "confidence": 0.98,
+    "evidence": "Mounts fetchAdministrationOverhead, renders admin overhead %, CFO discount, CMO sales bonus, CTO patent bonus, and diminishing returns modal"
+  },
+  {
+    "minifiedSymbol": "HT",
+    "proposedName": "calculateRawExecutiveSkillByRole",
+    "domain": "executives",
+    "role": "Sums raw skill points across all active executives for a specific role (chief 100%, apprentice 25%)",
+    "bundleOffset": 2165147,
+    "confidence": 0.99,
+    "evidence": "Maps over executives matching U6t[role] or apprentice Nt.*_APPRENTICE (1/4 skill) and sums skills[role]"
+  },
+  {
+    "minifiedSymbol": "Ts",
+    "proposedName": "calculateEffectiveExecutiveSkillByRole",
+    "domain": "executives",
+    "role": "Calculates effective executive skill by passing raw skill sum through diminishing returns curve",
+    "bundleOffset": 2165573,
+    "confidence": 0.99,
+    "evidence": "Evaluates Math.floor(H6t(HT(executives, role))) where H6t is the diminishing returns curve"
+  },
+  {
+    "minifiedSymbol": "H6t",
+    "proposedName": "applyDiminishingReturnsSkillCurve",
+    "domain": "executives",
+    "role": "Piecewise linear curve damping executive skill points exceeding 60 and 80",
+    "bundleOffset": 2165600,
+    "confidence": 1,
+    "evidence": "if (x > 80) x = 80 + (x-80)/2; if (x > 60) x = 60 + (x-60)/2"
+  },
+  {
+    "minifiedSymbol": "jhe",
+    "proposedName": "getSettlingExecutives",
+    "domain": "executives",
+    "role": "Filters executives currently within the onboarding / settling-in cooldown window (3 hours)",
+    "bundleOffset": 2165691,
+    "confidence": 0.98,
+    "evidence": "Checks elapsed time < executivesTimeToSettleInS (10800s) unless accelerated"
+  },
+  {
+    "minifiedSymbol": "V6t",
+    "proposedName": "getTrainingExecutives",
+    "domain": "executives",
+    "role": "Filters executives currently attending university / academy training (27 hours)",
+    "bundleOffset": 2165780,
+    "confidence": 0.98,
+    "evidence": "Checks currentTraining.datetime within executivesTimeToTrainS (97200s) unless accelerated"
+  },
+  {
+    "minifiedSymbol": "z6t",
+    "proposedName": "getStrikingExecutives",
+    "domain": "executives",
+    "role": "Filters executives currently on strike",
+    "bundleOffset": 2165740,
+    "confidence": 0.98,
+    "evidence": "Checks strikeUntil timestamp in the future"
+  },
+  {
+    "minifiedSymbol": "rd",
+    "proposedName": "getActiveWorkingExecutives",
+    "domain": "executives",
+    "role": "Filters executives to only those actively providing bonuses (excluding settling, training, striking, and locked apprentices)",
+    "bundleOffset": 2165840,
+    "confidence": 0.98,
+    "evidence": "Excludes IDs in settling, training, striking lists, and checks apprentice slot capacity G6t"
+  },
+  {
+    "minifiedSymbol": "k6",
+    "proposedName": "isChiefExecutivePosition",
+    "domain": "executives",
+    "role": "Checks if a position is one of the four C-suite roles (['o', 'f', 'm', 't'] -> COO, CFO, CMO, CTO)",
+    "bundleOffset": 2166010,
+    "confidence": 1,
+    "evidence": "Z$.indexOf(pos) !== -1 where Z$ = ['o', 'f', 'm', 't']"
+  },
+  {
+    "minifiedSymbol": "Lx",
+    "proposedName": "isApprenticePosition",
+    "domain": "executives",
+    "role": "Checks if a position is an apprentice / staff trainee position",
+    "bundleOffset": 2166080,
+    "confidence": 1,
+    "evidence": "Checks against COO_APPRENTICE, CFO_APPRENTICE, CMO_APPRENTICE, CTO_APPRENTICE"
+  },
+  {
+    "minifiedSymbol": "Fhe",
+    "proposedName": "isJuniorStaffPosition",
+    "domain": "executives",
+    "role": "Checks if a position is a general junior staff pool position (G1 to G5)",
+    "bundleOffset": 2166120,
+    "confidence": 1,
+    "evidence": "Checks against [Nt.G1, Nt.G2, Nt.G3, Nt.G4, Nt.G5]"
+  },
+  {
+    "minifiedSymbol": "Yd",
+    "proposedName": "calculateDiscountedAdministrationOverhead",
+    "domain": "administration",
+    "role": "Applies CFO executive skill discount percentage to base administration overhead",
+    "bundleOffset": 2165980,
+    "confidence": 0.99,
+    "evidence": "Computes overhead - (overhead - 1) * discountPercent / 100"
   }
 ]
