@@ -32,12 +32,11 @@ jobs:
       - name: Prepare Artifact
         run: |
           mkdir -p _site
-          if [ -f "historical/2019/showcase/index.html" ]; then
-            cp historical/2019/showcase/index.html _site/index.html
-          elif [ -f "docs/index.html" ]; then
-            cp docs/index.html _site/index.html
+          if [ -d "docs/static" ]; then
+            cp -r docs/* _site/
           else
-            cp index.html _site/index.html
+            cp index.html _site/
+            if [ -d "static" ]; then cp -r static _site/; fi
           fi
           touch _site/.nojekyll
 
