@@ -149,6 +149,14 @@ export async function handleRequest(req: IncomingMessage, res: ServerResponse) {
     sendJson(res, virtualClock.nowMs());
     return;
   }
+  if ((pathname === '/historical/2019/' || pathname === '/historical/2019/index.html') && method === 'GET') {
+    const showcasePath = path.resolve('historical/2019/showcase/index.html');
+    if (fs.existsSync(showcasePath)) {
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(fs.readFileSync(showcasePath, 'utf8'));
+      return;
+    }
+  }
 
   // 2. Resolve User Session
   const sessionToken = extractSessionToken(req);
