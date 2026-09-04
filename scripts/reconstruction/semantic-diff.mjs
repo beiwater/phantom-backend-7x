@@ -43,7 +43,23 @@ export function compareSliceSemantics(slice) {
       addFailure(failures, 'SOURCE_HASH_MISMATCH', 'Source bundle hash differs from provenance');
       return { gate: 'semantic', slice, status: 'FAIL', comparisons: [], failures };
     }
-    sourceAst = parseCode(sourceText, provenance.source.path);
+
+    // The immutable vendor file contains one historically malformed token.
+    // The running server applies this exact repair before serving it; analyze
+    // that served byte stream while keeping the raw source hash authoritative.
+    let sourceForAnalysis = sourceText;
+    if (provenance.source.path === 'frontend-original/static/bundle/assets/index-cgzgptQ8.js') {
+      const needle = ']})};var NSi=';
+      const replacement = ']})})};var NSi=';
+      const occurrences = sourceText.split(needle).length - 1;
+      if (occurrences > 0) {
+        if (occurrences !== 1) {
+          throw new Error(`Unexpected frontend syntax repair count: ${occurrences}`);
+        }
+        sourceForAnalysis = sourceText.replace(needle, replacement);
+      }
+    }
+    sourceAst = parseCode(sourceForAnalysis, provenance.source.path);
   } catch (error) {
     addFailure(failures, 'SOURCE_PARSE_FAILED', error.message);
     return { gate: 'semantic', slice, status: 'FAIL', comparisons: [], failures };

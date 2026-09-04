@@ -1,0 +1,188 @@
+{
+  "feature": "Warehouse",
+  "version": 2026,
+  "bundle": "frontend-original/static/bundle/assets/index-cgzgptQ8.js",
+  "closure": {
+    "featureSpecific": [
+      {
+        "symbol": "ZP",
+        "semanticName": "WarehousePage",
+        "layer": "page",
+        "bundleRange": [2630720, 2630950],
+        "dependencies": ["ktn", "nc", "ke"]
+      },
+      {
+        "symbol": "ktn",
+        "semanticName": "ConnectedWarehouseInventory",
+        "layer": "connected-component",
+        "bundleRange": [2630701, 2630719],
+        "dependencies": ["Stn", "Ctn"]
+      },
+      {
+        "symbol": "Ctn",
+        "semanticName": "WarehouseInventoryComponent",
+        "layer": "ui-component",
+        "bundleRange": [2627654, 2630700],
+        "dependencies": ["gt", "cNt", "y$r", "vw"]
+      },
+      {
+        "symbol": "y$r",
+        "semanticName": "getWarehouseCategoryTabs",
+        "layer": "ui-helper",
+        "bundleRange": [2442370, 2445000],
+        "dependencies": ["formatMessage"]
+      }
+    ],
+    "stateAndSelectors": [
+      {
+        "symbol": "Stn",
+        "semanticName": "connectWarehouse",
+        "layer": "selector-map",
+        "bundleRange": [2627177, 2627640],
+        "dependencies": ["user.authCompany", "warehouse.resources", "warehouse.contractsIncoming"]
+      },
+      {
+        "symbol": "Fa",
+        "semanticName": "fetchWarehouseResources",
+        "layer": "action-creator",
+        "bundleRange": [1354694, 1354890],
+        "dependencies": ["za", "L", "warehouse.fetchingResources"]
+      },
+      {
+        "symbol": "QL",
+        "semanticName": "fetchWarehouseResourcesAsync",
+        "layer": "action-creator",
+        "bundleRange": [1354898, 1355140],
+        "dependencies": ["oe", "L", "warehouse.resources"]
+      },
+      {
+        "symbol": "Mge",
+        "semanticName": "fetchWarehouseBuyOrders",
+        "layer": "action-creator",
+        "bundleRange": [1355146, 1355480],
+        "dependencies": ["za", "L", "warehouse.fetchingBuyOrders"]
+      },
+      {
+        "symbol": "n4t",
+        "semanticName": "cancelWarehouseBuyOrder",
+        "layer": "action-creator",
+        "bundleRange": [1355483, 1355650],
+        "dependencies": ["Ipr"]
+      },
+      {
+        "symbol": "Qpr",
+        "semanticName": "fetchContractsIncoming",
+        "layer": "action-creator",
+        "bundleRange": [1356180, 1356370],
+        "dependencies": ["za", "L", "warehouse.fetchingContractsIncoming"]
+      },
+      {
+        "symbol": "ev",
+        "semanticName": "refreshContractsIncoming",
+        "layer": "action-creator",
+        "bundleRange": [1356379, 1356500],
+        "dependencies": ["Qpr", "warehouse.timestamp.contractsIncoming"]
+      },
+      {
+        "symbol": "ifr",
+        "semanticName": "fetchContractsOutgoing",
+        "layer": "action-creator",
+        "bundleRange": [1357750, 1357930],
+        "dependencies": ["za", "L", "warehouse.fetchingContractsOutgoing"]
+      },
+      {
+        "symbol": "Wk",
+        "semanticName": "refreshContractsOutgoing",
+        "layer": "action-creator",
+        "bundleRange": [1357935, 1358050],
+        "dependencies": ["ifr", "warehouse.timestamp.contractsOutgoing"]
+      },
+      {
+        "symbol": "efr",
+        "semanticName": "fetchRecentContractsIncoming",
+        "layer": "action-creator",
+        "bundleRange": [1356806, 1356980],
+        "dependencies": ["za", "L", "warehouse.fetchingRecentIncoming"]
+      },
+      {
+        "symbol": "i4t",
+        "semanticName": "refreshRecentContractsIncoming",
+        "layer": "action-creator",
+        "bundleRange": [1356989, 1357110],
+        "dependencies": ["efr", "warehouse.timestamp.recentIncoming"]
+      },
+      {
+        "symbol": "Jpr",
+        "semanticName": "fetchRecentContractsOutgoing",
+        "layer": "action-creator",
+        "bundleRange": [1356506, 1356680],
+        "dependencies": ["za", "L", "warehouse.fetchingRecentOutgoing"]
+      },
+      {
+        "symbol": "Rge",
+        "semanticName": "refreshRecentContractsOutgoing",
+        "layer": "action-creator",
+        "bundleRange": [1356689, 1356800],
+        "dependencies": ["Jpr", "warehouse.timestamp.recentOutgoing"]
+      }
+    ],
+    "networkingAndRouting": [
+      {
+        "symbol": "za",
+        "semanticName": "dispatchAsyncApiThunk",
+        "layer": "network-thunk",
+        "bundleRange": [1341733, 1341880],
+        "dependencies": ["oe"]
+      },
+      {
+        "symbol": "oe",
+        "semanticName": "getHttpClient",
+        "layer": "network-client",
+        "bundleRange": [1225079, 1225120],
+        "dependencies": ["axios"]
+      },
+      {
+        "symbol": "L",
+        "semanticName": "useRoutes",
+        "layer": "router",
+        "bundleRange": [660500, 660800],
+        "dependencies": ["Wcr", "Ycr"]
+      }
+    ],
+    "domainUtilities": [
+      {
+        "symbol": "gt",
+        "semanticName": "getResourceLocalizedName",
+        "layer": "i18n-utility",
+        "bundleRange": [1751689, 1751800],
+        "dependencies": ["formatMessage"]
+      },
+      {
+        "symbol": "cNt",
+        "semanticName": "matchesResourceSlug",
+        "layer": "slug-utility",
+        "bundleRange": [2442261, 2442360],
+        "dependencies": ["gt"]
+      },
+      {
+        "symbol": "vw",
+        "semanticName": "sanitizeSearchInput",
+        "layer": "input-utility",
+        "bundleRange": [2761635, 2761750],
+        "dependencies": []
+      },
+      {
+        "symbol": "io",
+        "semanticName": "useRouteParams",
+        "layer": "router-hook",
+        "bundleRange": [2144036, 2144180],
+        "dependencies": ["useContext"]
+      }
+    ],
+    "thirdPartyFramework": [
+      { "id": "react", "imports": ["Component", "createElement", "useContext"] },
+      { "id": "react-redux", "imports": ["connect", "useDispatch", "useSelector"] },
+      { "id": "axios", "imports": ["get", "post", "patch", "delete"] }
+    ]
+  }
+}

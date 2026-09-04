@@ -1,0 +1,156 @@
+{
+  "schemaVersion": 1,
+  "slice": "warehouse",
+  "source": {
+    "path": "frontend-original/static/bundle/assets/index-cgzgptQ8.js",
+    "sha256": "3e5e8f66287b10c9673e8e41aa31c6cf6deb1a9fe4d4769e1436394a91f52541"
+  },
+  "artifacts": [
+    {
+      "file": "reconstruction/warehouse/api.ts",
+      "symbols": [
+        {
+          "recoveredSymbol": "getHttpClient",
+          "originalSymbol": "oe",
+          "bundleRange": [1232360, 1232385],
+          "classification": "SYNTHETIC_GLUE",
+          "confidence": 0.98,
+          "rationale": "Global Axios HTTP client provider connecting API thunks to runtime window.httpClient",
+          "evidence": [
+            "Counterpart to production symbol oe() which returns the master Axios instance Wur"
+          ],
+          "semantic": {
+            "mode": "STRUCTURAL",
+            "aliases": {}
+          }
+        },
+        {
+          "recoveredSymbol": "useRoutes",
+          "originalSymbol": "L",
+          "bundleRange": [1229602, 1229670],
+          "classification": "SYNTHETIC_GLUE",
+          "confidence": 0.98,
+          "rationale": "Route lookup table accessor returning URLs dictionary according to active language and realm",
+          "evidence": [
+            "Counterpart to production symbol L() returning route dictionary Zcr[lang]"
+          ],
+          "semantic": {
+            "mode": "STRUCTURAL",
+            "aliases": {}
+          }
+        },
+        {
+          "recoveredSymbol": "isValidRealm",
+          "originalSymbol": "qh",
+          "bundleRange": [1889891, 1889925],
+          "classification": "RECOVERED",
+          "confidence": 1.0,
+          "evidence": [
+            "Production function qh(e){return e!=null} checking realm identity validity"
+          ],
+          "semantic": {
+            "mode": "STRUCTURAL",
+            "aliases": {
+              "e": "realmId"
+            }
+          }
+        },
+        {
+          "recoveredSymbol": "dispatchAsyncApiThunk",
+          "originalSymbol": "za",
+          "bundleRange": [1349014, 1349138],
+          "classification": "RECOVERED",
+          "confidence": 1.0,
+          "evidence": [
+            "Production function za(e,t,r,n,i,a={},o='get'){return e({type:r,payload:a}),oe()[o](t).then(i).catch(()=>e({type:n,payload:a}))}",
+            "Direct 2022 counterpart function Ne from main.17916b1c.final-cra.js"
+          ],
+          "semantic": {
+            "mode": "STRUCTURAL",
+            "aliases": {
+              "oe": "getHttpClient",
+              "e": "dispatch",
+              "t": "url",
+              "r": "startActionType",
+              "n": "errorActionType",
+              "i": "onSuccess",
+              "a": "payload",
+              "o": "method"
+            }
+          }
+        },
+        {
+          "recoveredSymbol": "fetchWarehouseResources",
+          "originalSymbol": "Fa",
+          "bundleRange": [1361975, 1362178],
+          "classification": "RECOVERED",
+          "confidence": 0.99,
+          "evidence": [
+            "Production arrow const Fa=(e,t=void 0)=>(r,n)=>n().warehouse.fetchingResources?Promise.resolve():za(r,L().api_v3_resources(e),nU,iU,({data:i,headers:a})=>{r({type:aU,payload:{data:i,timestamp:a['x-timestamp']}}),t&&t()})",
+            "Direct 2022 CRA action creator calling Ne(dispatch, wi().api_v2_resources(), 'FETCH_RESOURCES', 'FETCH_RESOURCES_ERROR')"
+          ],
+          "semantic": {
+            "mode": "STRUCTURAL",
+            "aliases": {
+              "za": "dispatchAsyncApiThunk",
+              "L": "useRoutes",
+              "nU": "FETCH_RESOURCES_START",
+              "iU": "FETCH_RESOURCES_ERROR",
+              "aU": "FETCH_RESOURCES_SUCCESS",
+              "r": "dispatch",
+              "n": "getState",
+              "t": "callback"
+            }
+          }
+        },
+        {
+          "recoveredSymbol": "fetchContractsIncoming",
+          "originalSymbol": "Qpr",
+          "bundleRange": [1363461, 1363659],
+          "classification": "RECOVERED",
+          "confidence": 0.99,
+          "evidence": [
+            "Production arrow Qpr=(e,t,r)=>{r().warehouse.fetchingContractsIncoming||za(e,L().api_v3_contract_incoming(t,'me'),MPt,RPt,({data:n,headers:i})=>{e({type:LPt,payload:{data:n,realmId:t,timestamp:i['x-timestamp']}})})}",
+            "Direct 2022 CRA action dn calling Ne with api_contract_incoming"
+          ],
+          "semantic": {
+            "mode": "STRUCTURAL",
+            "aliases": {
+              "za": "dispatchAsyncApiThunk",
+              "L": "useRoutes",
+              "MPt": "FETCH_CONTRACTS_INCOMING_START",
+              "RPt": "FETCH_CONTRACTS_INCOMING_ERROR",
+              "LPt": "FETCH_CONTRACTS_INCOMING_SUCCESS",
+              "e": "dispatch",
+              "t": "realmId",
+              "r": "getState"
+            }
+          }
+        },
+        {
+          "recoveredSymbol": "refreshContractsIncoming",
+          "originalSymbol": "ev",
+          "bundleRange": [1363660, 1363787],
+          "classification": "RECOVERED",
+          "confidence": 0.99,
+          "evidence": [
+            "Production arrow ev=e=>(t,r)=>{const{contractsIncoming:n}=r().warehouse.timestamp,i=new Date().getTime()/1e3;qh(e)&&(!n||n<i-60*3)&&Qpr(t,e,r)}",
+            "Direct 2022 CRA action pn checking 180s cooldown and 2019 refreshContractsIncoming"
+          ],
+          "semantic": {
+            "mode": "STRUCTURAL",
+            "aliases": {
+              "Qpr": "fetchContractsIncoming",
+              "qh": "isValidRealm",
+              "e": "realmId",
+              "t": "dispatch",
+              "r": "getState",
+              "n": "contractsIncoming",
+              "i": "nowSec"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

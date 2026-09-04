@@ -1,0 +1,210 @@
+{
+  "schemaVersion": 1,
+  "slice": "warehouse",
+  "mode": "STATIC",
+  "status": "VERIFIED",
+  "maturity": "L5_STATIC_GATES_PASS",
+  "gates": {
+    "provenance": {
+      "gate": "provenance",
+      "slice": "warehouse",
+      "status": "PASS",
+      "source": {
+        "path": "frontend-original/static/bundle/assets/index-cgzgptQ8.js",
+        "sha256": "3e5e8f66287b10c9673e8e41aa31c6cf6deb1a9fe4d4769e1436394a91f52541"
+      },
+      "codeFiles": [
+        "reconstruction/warehouse/api.ts"
+      ],
+      "symbols": [
+        {
+          "file": "reconstruction/warehouse/api.ts",
+          "recoveredSymbol": "getHttpClient",
+          "classification": "SYNTHETIC_GLUE"
+        },
+        {
+          "file": "reconstruction/warehouse/api.ts",
+          "recoveredSymbol": "useRoutes",
+          "classification": "SYNTHETIC_GLUE"
+        },
+        {
+          "file": "reconstruction/warehouse/api.ts",
+          "recoveredSymbol": "isValidRealm",
+          "classification": "RECOVERED"
+        },
+        {
+          "file": "reconstruction/warehouse/api.ts",
+          "recoveredSymbol": "dispatchAsyncApiThunk",
+          "classification": "RECOVERED"
+        },
+        {
+          "file": "reconstruction/warehouse/api.ts",
+          "recoveredSymbol": "fetchWarehouseResources",
+          "classification": "RECOVERED"
+        },
+        {
+          "file": "reconstruction/warehouse/api.ts",
+          "recoveredSymbol": "fetchContractsIncoming",
+          "classification": "RECOVERED"
+        },
+        {
+          "file": "reconstruction/warehouse/api.ts",
+          "recoveredSymbol": "refreshContractsIncoming",
+          "classification": "RECOVERED"
+        }
+      ],
+      "errors": [],
+      "warnings": []
+    },
+    "classification": {
+      "slice": "warehouse",
+      "status": "PASS",
+      "counts": {
+        "RECOVERED": 5,
+        "INFERRED": 0,
+        "SYNTHETIC_GLUE": 2,
+        "SYNTHETIC_BUSINESS": 0,
+        "UNKNOWN": 0
+      },
+      "denominators": {
+        "totalExecutableSymbols": 7,
+        "businessSymbols": 5
+      },
+      "reconstructionPurity": 0.7142857142857143,
+      "businessPurity": 1,
+      "symbols": [
+        {
+          "file": "reconstruction/warehouse/api.ts",
+          "recoveredSymbol": "dispatchAsyncApiThunk",
+          "originalSymbol": "za",
+          "classification": "RECOVERED",
+          "confidence": 1
+        },
+        {
+          "file": "reconstruction/warehouse/api.ts",
+          "recoveredSymbol": "fetchContractsIncoming",
+          "originalSymbol": "Qpr",
+          "classification": "RECOVERED",
+          "confidence": 0.99
+        },
+        {
+          "file": "reconstruction/warehouse/api.ts",
+          "recoveredSymbol": "fetchWarehouseResources",
+          "originalSymbol": "Fa",
+          "classification": "RECOVERED",
+          "confidence": 0.99
+        },
+        {
+          "file": "reconstruction/warehouse/api.ts",
+          "recoveredSymbol": "getHttpClient",
+          "originalSymbol": "oe",
+          "classification": "SYNTHETIC_GLUE",
+          "confidence": 0.98
+        },
+        {
+          "file": "reconstruction/warehouse/api.ts",
+          "recoveredSymbol": "isValidRealm",
+          "originalSymbol": "qh",
+          "classification": "RECOVERED",
+          "confidence": 1
+        },
+        {
+          "file": "reconstruction/warehouse/api.ts",
+          "recoveredSymbol": "refreshContractsIncoming",
+          "originalSymbol": "ev",
+          "classification": "RECOVERED",
+          "confidence": 0.99
+        },
+        {
+          "file": "reconstruction/warehouse/api.ts",
+          "recoveredSymbol": "useRoutes",
+          "originalSymbol": "L",
+          "classification": "SYNTHETIC_GLUE",
+          "confidence": 0.98
+        }
+      ]
+    },
+    "semantic": {
+      "gate": "semantic",
+      "slice": "warehouse",
+      "status": "PASS",
+      "denominator": 5,
+      "passed": 5,
+      "comparisons": [
+        {
+          "file": "reconstruction/warehouse/api.ts",
+          "recoveredSymbol": "getHttpClient",
+          "originalSymbol": "oe",
+          "mode": "NOT_APPLICABLE",
+          "status": "SKIP",
+          "reason": "Global Axios HTTP client provider connecting API thunks to runtime window.httpClient"
+        },
+        {
+          "file": "reconstruction/warehouse/api.ts",
+          "recoveredSymbol": "useRoutes",
+          "originalSymbol": "L",
+          "mode": "NOT_APPLICABLE",
+          "status": "SKIP",
+          "reason": "Route lookup table accessor returning URLs dictionary according to active language and realm"
+        },
+        {
+          "file": "reconstruction/warehouse/api.ts",
+          "recoveredSymbol": "isValidRealm",
+          "originalSymbol": "qh",
+          "mode": "STRUCTURAL",
+          "status": "PASS",
+          "sourceFingerprintHash": "d3b5758678c888247ef68299ab964976a4086f81fbf2311712993263ae5a16d2",
+          "targetFingerprintHash": "d3b5758678c888247ef68299ab964976a4086f81fbf2311712993263ae5a16d2",
+          "differences": []
+        },
+        {
+          "file": "reconstruction/warehouse/api.ts",
+          "recoveredSymbol": "dispatchAsyncApiThunk",
+          "originalSymbol": "za",
+          "mode": "STRUCTURAL",
+          "status": "PASS",
+          "sourceFingerprintHash": "2a06ed7ff004692bc1e5c371e4f330a45db18eae8b0dda4b4be4443c1e1489f9",
+          "targetFingerprintHash": "2a06ed7ff004692bc1e5c371e4f330a45db18eae8b0dda4b4be4443c1e1489f9",
+          "differences": []
+        },
+        {
+          "file": "reconstruction/warehouse/api.ts",
+          "recoveredSymbol": "fetchWarehouseResources",
+          "originalSymbol": "Fa",
+          "mode": "STRUCTURAL",
+          "status": "PASS",
+          "sourceFingerprintHash": "eff154f75d529c37257a1e93c32804e92079548e87fb905b3611884613321743",
+          "targetFingerprintHash": "eff154f75d529c37257a1e93c32804e92079548e87fb905b3611884613321743",
+          "differences": []
+        },
+        {
+          "file": "reconstruction/warehouse/api.ts",
+          "recoveredSymbol": "fetchContractsIncoming",
+          "originalSymbol": "Qpr",
+          "mode": "STRUCTURAL",
+          "status": "PASS",
+          "sourceFingerprintHash": "92b2de2904eedaf7c43d074a50bf139c343bb24e0e7f4c0e2b3706c8002626c1",
+          "targetFingerprintHash": "92b2de2904eedaf7c43d074a50bf139c343bb24e0e7f4c0e2b3706c8002626c1",
+          "differences": []
+        },
+        {
+          "file": "reconstruction/warehouse/api.ts",
+          "recoveredSymbol": "refreshContractsIncoming",
+          "originalSymbol": "ev",
+          "mode": "STRUCTURAL",
+          "status": "PASS",
+          "sourceFingerprintHash": "30fd6d7a2e7830c5d31d4278d6776135a9d25d1a75d88d2af5df547990071dbe",
+          "targetFingerprintHash": "30fd6d7a2e7830c5d31d4278d6776135a9d25d1a75d88d2af5df547990071dbe",
+          "differences": []
+        }
+      ],
+      "failures": []
+    },
+    "behavior": {
+      "gate": "behavior",
+      "slice": "warehouse",
+      "status": "SKIP",
+      "reason": "--static requested"
+    }
+  }
+}

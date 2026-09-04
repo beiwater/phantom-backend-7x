@@ -232,5 +232,474 @@
     "bundleOffset": 2165980,
     "confidence": 0.99,
     "evidence": "Computes overhead - (overhead - 1) * discountPercent / 100"
+  },
+  {
+    "minifiedSymbol": "Fa",
+    "proposedName": "fetchWarehouseResources",
+    "domain": "warehouse",
+    "role": "Cross-version recovered symbol from 2026 bundle (fetchWarehouseResources)",
+    "bundleOffset": 1354694,
+    "confidence": 0.99,
+    "evidence": "Historical cross-version match: 2019=fetchResources, 2022=fetchResources. Arity 2, call graph [\"za\",\"L().api_v3_resources\",\"oe().get\"]",
+    "historicalMatches": {
+      "2019": {
+        "symbol": "fetchResources",
+        "domain": "warehouse",
+        "confidence": 0.95,
+        "evidence": "Refreshes user warehouse inventory via GET /api/v2/resources/"
+      },
+      "2022": {
+        "symbol": "fetchResources",
+        "domain": "warehouse",
+        "confidence": 0.99,
+        "evidence": "2022 CRA action creator calling Ne(dispatch, wi().api_v2_resources(), 'FETCH_RESOURCES', 'FETCH_RESOURCES_ERROR')"
+      }
+    },
+    "provenance": {
+      "bundle": "frontend-original/static/bundle/assets/index-cgzgptQ8.js",
+      "byteRange": [
+        1354694,
+        1354890
+      ],
+      "bundleHash": "3e5e8f66287b10c9673e8e41aa31c6cf6deb1a9fe4d4769e1436394a91f52541"
+    }
+  },
+  {
+    "minifiedSymbol": "QL",
+    "proposedName": "fetchWarehouseResourcesAsync",
+    "domain": "warehouse",
+    "role": "Cross-version recovered symbol from 2026 bundle (fetchWarehouseResourcesAsync)",
+    "bundleOffset": 1354898,
+    "confidence": 0.98,
+    "evidence": "Historical cross-version match: 2019=N/A, 2022=fetchResourcesAsync. Arity 1, call graph [\"oe().get\",\"L().api_v3_resources\"]",
+    "historicalMatches": {
+      "2022": {
+        "symbol": "fetchResourcesAsync",
+        "domain": "warehouse",
+        "confidence": 0.95,
+        "evidence": "Async generator thunk yielding axios response and updating warehouse resources"
+      }
+    },
+    "provenance": {
+      "bundle": "frontend-original/static/bundle/assets/index-cgzgptQ8.js",
+      "byteRange": [
+        1354898,
+        1355140
+      ],
+      "bundleHash": "3e5e8f66287b10c9673e8e41aa31c6cf6deb1a9fe4d4769e1436394a91f52541"
+    }
+  },
+  {
+    "minifiedSymbol": "Mge",
+    "proposedName": "fetchWarehouseBuyOrders",
+    "domain": "warehouse",
+    "role": "Cross-version recovered symbol from 2026 bundle (fetchWarehouseBuyOrders)",
+    "bundleOffset": 1355146,
+    "confidence": 0.98,
+    "evidence": "Historical cross-version match: 2019=N/A, 2022=fetchMarketBuyOrders. Arity 3, call graph [\"za\",\"L().api_v2_companies_market_buy_orders\"]",
+    "historicalMatches": {
+      "2022": {
+        "symbol": "fetchMarketBuyOrders",
+        "domain": "warehouse",
+        "confidence": 0.96,
+        "evidence": "Queries /api/v2/companies/market-buy-orders/ and dispatches UPDATE_BUY_ORDERS"
+      }
+    },
+    "provenance": {
+      "bundle": "frontend-original/static/bundle/assets/index-cgzgptQ8.js",
+      "byteRange": [
+        1355146,
+        1355480
+      ],
+      "bundleHash": "3e5e8f66287b10c9673e8e41aa31c6cf6deb1a9fe4d4769e1436394a91f52541"
+    }
+  },
+  {
+    "minifiedSymbol": "n4t",
+    "proposedName": "cancelWarehouseBuyOrder",
+    "domain": "market/warehouse",
+    "role": "Cross-version recovered symbol from 2026 bundle (cancelWarehouseBuyOrder)",
+    "bundleOffset": 1355483,
+    "confidence": 0.98,
+    "evidence": "Historical cross-version match: 2019=N/A, 2022=cancelBuyOrder. Arity 4, call graph [\"Ipr\",\"dispatch({type: IPt})\"]",
+    "historicalMatches": {
+      "2022": {
+        "symbol": "cancelBuyOrder",
+        "domain": "market/warehouse",
+        "confidence": 0.95,
+        "evidence": "DELETE /api/v2/companies/market-buy-orders/:id/ and dispatches REMOVE_BUY_ORDER"
+      }
+    },
+    "provenance": {
+      "bundle": "frontend-original/static/bundle/assets/index-cgzgptQ8.js",
+      "byteRange": [
+        1355483,
+        1355650
+      ],
+      "bundleHash": "3e5e8f66287b10c9673e8e41aa31c6cf6deb1a9fe4d4769e1436394a91f52541"
+    }
+  },
+  {
+    "minifiedSymbol": "Qpr",
+    "proposedName": "fetchContractsIncoming",
+    "domain": "warehouse",
+    "role": "Cross-version recovered symbol from 2026 bundle (fetchContractsIncoming)",
+    "bundleOffset": 1356180,
+    "confidence": 0.99,
+    "evidence": "Historical cross-version match: 2019=refreshContractsIncoming, 2022=dn. Arity 3, call graph [\"za\",\"L().api_v3_contract_incoming\"]",
+    "historicalMatches": {
+      "2019": {
+        "symbol": "refreshContractsIncoming",
+        "domain": "warehouse",
+        "confidence": 0.95,
+        "evidence": "Checked warehouse.timestamp.contractsIncoming with 180s timeout"
+      },
+      "2022": {
+        "symbol": "dn",
+        "domain": "warehouse",
+        "confidence": 0.99,
+        "evidence": "2022 CRA action calling Ne(dispatch, wi().api_contract_incoming(), 'FETCH_CONTRACTS_INCOMING', 'FETCH_CONTRACTS_INCOMING_ERROR')"
+      }
+    },
+    "provenance": {
+      "bundle": "frontend-original/static/bundle/assets/index-cgzgptQ8.js",
+      "byteRange": [
+        1356180,
+        1356370
+      ],
+      "bundleHash": "3e5e8f66287b10c9673e8e41aa31c6cf6deb1a9fe4d4769e1436394a91f52541"
+    }
+  },
+  {
+    "minifiedSymbol": "ev",
+    "proposedName": "refreshContractsIncoming",
+    "domain": "warehouse",
+    "role": "Cross-version recovered symbol from 2026 bundle (refreshContractsIncoming)",
+    "bundleOffset": 1356379,
+    "confidence": 0.99,
+    "evidence": "Historical cross-version match: 2019=refreshContractsIncoming, 2022=pn. Arity 1, call graph [\"Qpr\"]",
+    "historicalMatches": {
+      "2019": {
+        "symbol": "refreshContractsIncoming",
+        "domain": "warehouse",
+        "confidence": 0.99,
+        "evidence": "(!timestamp || timestamp < now - 180) && fetchContractsIncoming()"
+      },
+      "2022": {
+        "symbol": "pn",
+        "domain": "warehouse",
+        "confidence": 0.99,
+        "evidence": "(!a || a < n - 180) && dn(dispatch, getState)"
+      }
+    },
+    "provenance": {
+      "bundle": "frontend-original/static/bundle/assets/index-cgzgptQ8.js",
+      "byteRange": [
+        1356379,
+        1356500
+      ],
+      "bundleHash": "3e5e8f66287b10c9673e8e41aa31c6cf6deb1a9fe4d4769e1436394a91f52541"
+    }
+  },
+  {
+    "minifiedSymbol": "Jpr",
+    "proposedName": "fetchRecentContractsOutgoing",
+    "domain": "warehouse",
+    "role": "Cross-version recovered symbol from 2026 bundle (fetchRecentContractsOutgoing)",
+    "bundleOffset": 1356506,
+    "confidence": 0.99,
+    "evidence": "Historical cross-version match: 2019=N/A, 2022=bn. Arity 2, call graph [\"za\",\"L().api_contract_history_outgoing\"]",
+    "historicalMatches": {
+      "2022": {
+        "symbol": "bn",
+        "domain": "warehouse",
+        "confidence": 0.99,
+        "evidence": "FETCH_RECENT_CONTRACTS_OUTGOING calling /api/contract-history-outgoing/"
+      }
+    },
+    "provenance": {
+      "bundle": "frontend-original/static/bundle/assets/index-cgzgptQ8.js",
+      "byteRange": [
+        1356506,
+        1356680
+      ],
+      "bundleHash": "3e5e8f66287b10c9673e8e41aa31c6cf6deb1a9fe4d4769e1436394a91f52541"
+    }
+  },
+  {
+    "minifiedSymbol": "Rge",
+    "proposedName": "refreshRecentContractsOutgoing",
+    "domain": "warehouse",
+    "role": "Cross-version recovered symbol from 2026 bundle (refreshRecentContractsOutgoing)",
+    "bundleOffset": 1356689,
+    "confidence": 0.99,
+    "evidence": "Historical cross-version match: 2019=N/A, 2022=refreshRecentContractsOutgoing. Arity 0, call graph [\"Jpr\"]",
+    "historicalMatches": {
+      "2022": {
+        "symbol": "refreshRecentContractsOutgoing",
+        "domain": "warehouse",
+        "confidence": 0.99,
+        "evidence": "(!r || r < n - 180) && Jpr(e, t)"
+      }
+    },
+    "provenance": {
+      "bundle": "frontend-original/static/bundle/assets/index-cgzgptQ8.js",
+      "byteRange": [
+        1356689,
+        1356800
+      ],
+      "bundleHash": "3e5e8f66287b10c9673e8e41aa31c6cf6deb1a9fe4d4769e1436394a91f52541"
+    }
+  },
+  {
+    "minifiedSymbol": "efr",
+    "proposedName": "fetchRecentContractsIncoming",
+    "domain": "warehouse",
+    "role": "Cross-version recovered symbol from 2026 bundle (fetchRecentContractsIncoming)",
+    "bundleOffset": 1356806,
+    "confidence": 0.99,
+    "evidence": "Historical cross-version match: 2019=N/A, 2022=fetchRecentContractsIncoming. Arity 2, call graph [\"za\",\"L().api_contract_history_incoming\"]",
+    "historicalMatches": {
+      "2022": {
+        "symbol": "fetchRecentContractsIncoming",
+        "domain": "warehouse",
+        "confidence": 0.99,
+        "evidence": "FETCH_RECENT_CONTRACTS_INCOMING calling /api/contract-history-incoming/"
+      }
+    },
+    "provenance": {
+      "bundle": "frontend-original/static/bundle/assets/index-cgzgptQ8.js",
+      "byteRange": [
+        1356806,
+        1356980
+      ],
+      "bundleHash": "3e5e8f66287b10c9673e8e41aa31c6cf6deb1a9fe4d4769e1436394a91f52541"
+    }
+  },
+  {
+    "minifiedSymbol": "i4t",
+    "proposedName": "refreshRecentContractsIncoming",
+    "domain": "warehouse",
+    "role": "Cross-version recovered symbol from 2026 bundle (refreshRecentContractsIncoming)",
+    "bundleOffset": 1356989,
+    "confidence": 0.99,
+    "evidence": "Historical cross-version match: 2019=N/A, 2022=refreshRecentContractsIncoming. Arity 0, call graph [\"efr\"]",
+    "historicalMatches": {
+      "2022": {
+        "symbol": "refreshRecentContractsIncoming",
+        "domain": "warehouse",
+        "confidence": 0.99,
+        "evidence": "(!r || r < n - 180) && efr(e, t)"
+      }
+    },
+    "provenance": {
+      "bundle": "frontend-original/static/bundle/assets/index-cgzgptQ8.js",
+      "byteRange": [
+        1356989,
+        1357110
+      ],
+      "bundleHash": "3e5e8f66287b10c9673e8e41aa31c6cf6deb1a9fe4d4769e1436394a91f52541"
+    }
+  },
+  {
+    "minifiedSymbol": "za",
+    "proposedName": "dispatchAsyncApiThunk",
+    "domain": "network",
+    "role": "Cross-version recovered symbol from 2026 bundle (dispatchAsyncApiThunk)",
+    "bundleOffset": 1341733,
+    "confidence": 1,
+    "evidence": "Historical cross-version match: 2019=N/A, 2022=Ne. Arity 7, call graph [\"oe()[method](url).then(successCb).catch(...)\"]",
+    "historicalMatches": {
+      "2022": {
+        "symbol": "Ne",
+        "domain": "network",
+        "confidence": 1,
+        "evidence": "function Ne(dispatch, url, actionStart, actionError, successCb, payload, method = 'get') - verbatim implementation"
+      }
+    },
+    "provenance": {
+      "bundle": "frontend-original/static/bundle/assets/index-cgzgptQ8.js",
+      "byteRange": [
+        1341733,
+        1341880
+      ],
+      "bundleHash": "3e5e8f66287b10c9673e8e41aa31c6cf6deb1a9fe4d4769e1436394a91f52541"
+    }
+  },
+  {
+    "minifiedSymbol": "Stn",
+    "proposedName": "connectWarehouse",
+    "domain": "warehouse",
+    "role": "Cross-version recovered symbol from 2026 bundle (connectWarehouse)",
+    "bundleOffset": 2627177,
+    "confidence": 0.99,
+    "evidence": "Historical cross-version match: 2019=N/A, 2022=connect(mapStateToProps). Arity 1, call graph [\"Vr (Redux connect)\"]",
+    "historicalMatches": {
+      "2022": {
+        "symbol": "connect(mapStateToProps)",
+        "domain": "warehouse",
+        "confidence": 0.98,
+        "evidence": "Redux connect HOC mapping realm, contest, contacts, contractsIncoming, resources to Warehouse props"
+      }
+    },
+    "provenance": {
+      "bundle": "frontend-original/static/bundle/assets/index-cgzgptQ8.js",
+      "byteRange": [
+        2627177,
+        2627640
+      ],
+      "bundleHash": "3e5e8f66287b10c9673e8e41aa31c6cf6deb1a9fe4d4769e1436394a91f52541"
+    }
+  },
+  {
+    "minifiedSymbol": "Ctn",
+    "proposedName": "WarehouseInventoryComponent",
+    "domain": "warehouse",
+    "role": "Cross-version recovered symbol from 2026 bundle (WarehouseInventoryComponent)",
+    "bundleOffset": 2627654,
+    "confidence": 0.98,
+    "evidence": "Historical cross-version match: 2019=N/A, 2022=N/A. Arity undefined, call graph []",
+    "historicalMatches": {
+      "2019": {
+        "domain": "warehouse",
+        "confidence": 0.9,
+        "evidence": "Early React warehouse item grid view"
+      },
+      "2022": {
+        "domain": "warehouse",
+        "confidence": 0.96,
+        "evidence": "Warehouse main view with inventory grid and search filters"
+      }
+    },
+    "provenance": {
+      "bundle": "frontend-original/static/bundle/assets/index-cgzgptQ8.js",
+      "byteRange": [
+        2627654,
+        2630700
+      ],
+      "bundleHash": "3e5e8f66287b10c9673e8e41aa31c6cf6deb1a9fe4d4769e1436394a91f52541"
+    }
+  },
+  {
+    "minifiedSymbol": "ZP",
+    "proposedName": "WarehousePage",
+    "domain": "warehouse",
+    "role": "Cross-version recovered symbol from 2026 bundle (WarehousePage)",
+    "bundleOffset": 2630720,
+    "confidence": 0.99,
+    "evidence": "Historical cross-version match: 2019=N/A, 2022=N/A. Arity undefined, call graph [\"ke (useIntl)\",\"nc (useFeatures)\",\"ktn (connected Warehouse)\"]",
+    "historicalMatches": {
+      "2022": {
+        "domain": "warehouse",
+        "confidence": 0.95,
+        "evidence": "Warehouse page root wrapper receiving router props"
+      }
+    },
+    "provenance": {
+      "bundle": "frontend-original/static/bundle/assets/index-cgzgptQ8.js",
+      "byteRange": [
+        2630720,
+        2630950
+      ],
+      "bundleHash": "3e5e8f66287b10c9673e8e41aa31c6cf6deb1a9fe4d4769e1436394a91f52541"
+    }
+  },
+  {
+    "minifiedSymbol": "y$r",
+    "proposedName": "getWarehouseCategoryTabs",
+    "domain": "warehouse",
+    "role": "Cross-version recovered symbol from 2026 bundle (getWarehouseCategoryTabs)",
+    "bundleOffset": 2442370,
+    "confidence": 0.97,
+    "evidence": "Historical cross-version match: 2019=N/A, 2022=N/A. Arity 2, call graph [\"e.formatMessage\",\"FU\",\"v6\",\"iA\"]",
+    "historicalMatches": {
+      "2022": {
+        "domain": "warehouse",
+        "confidence": 0.92,
+        "evidence": "Filters warehouse resources by category: All, Energy, Resources, Agriculture, Construction, etc."
+      }
+    },
+    "provenance": {
+      "bundle": "frontend-original/static/bundle/assets/index-cgzgptQ8.js",
+      "byteRange": [
+        2442370,
+        2445000
+      ],
+      "bundleHash": "3e5e8f66287b10c9673e8e41aa31c6cf6deb1a9fe4d4769e1436394a91f52541"
+    }
+  },
+  {
+    "minifiedSymbol": "cNt",
+    "proposedName": "matchesResourceSlug",
+    "domain": "core",
+    "role": "Cross-version recovered symbol from 2026 bundle (matchesResourceSlug)",
+    "bundleOffset": 2442261,
+    "confidence": 0.99,
+    "evidence": "Historical cross-version match: 2019=N/A, 2022=N/A. Arity 3, call graph [\"gt\",\"replace(/ /g, '-').toLowerCase()\"]",
+    "provenance": {
+      "bundle": "frontend-original/static/bundle/assets/index-cgzgptQ8.js",
+      "byteRange": [
+        2442261,
+        2442360
+      ],
+      "bundleHash": "3e5e8f66287b10c9673e8e41aa31c6cf6deb1a9fe4d4769e1436394a91f52541"
+    }
+  },
+  {
+    "minifiedSymbol": "gt",
+    "proposedName": "getResourceLocalizedName",
+    "domain": "core",
+    "role": "Cross-version recovered symbol from 2026 bundle (getResourceLocalizedName)",
+    "bundleOffset": 1751689,
+    "confidence": 1,
+    "evidence": "Historical cross-version match: 2019=N/A, 2022=N/A. Arity 2, call graph []",
+    "historicalMatches": {
+      "2022": {
+        "confidence": 1,
+        "evidence": "e.formatMessage({id: 'be-re-' + resourceId})"
+      }
+    },
+    "provenance": {
+      "bundle": "frontend-original/static/bundle/assets/index-cgzgptQ8.js",
+      "byteRange": [
+        1751689,
+        1751800
+      ],
+      "bundleHash": "3e5e8f66287b10c9673e8e41aa31c6cf6deb1a9fe4d4769e1436394a91f52541"
+    }
+  },
+  {
+    "minifiedSymbol": "vw",
+    "proposedName": "sanitizeSearchInput",
+    "domain": "core",
+    "role": "Cross-version recovered symbol from 2026 bundle (sanitizeSearchInput)",
+    "bundleOffset": 2761635,
+    "confidence": 1,
+    "evidence": "Historical cross-version match: 2019=N/A, 2022=N/A. Arity 1, call graph []",
+    "provenance": {
+      "bundle": "frontend-original/static/bundle/assets/index-cgzgptQ8.js",
+      "byteRange": [
+        2761635,
+        2761750
+      ],
+      "bundleHash": "3e5e8f66287b10c9673e8e41aa31c6cf6deb1a9fe4d4769e1436394a91f52541"
+    }
+  },
+  {
+    "minifiedSymbol": "io",
+    "proposedName": "useRouteParams",
+    "domain": "core",
+    "role": "Cross-version recovered symbol from 2026 bundle (useRouteParams)",
+    "bundleOffset": 2144036,
+    "confidence": 1,
+    "evidence": "Historical cross-version match: 2019=N/A, 2022=N/A. Arity 0, call graph [\"M.useContext(jx)\",\"matches[matches.length - 1].params\"]",
+    "provenance": {
+      "bundle": "frontend-original/static/bundle/assets/index-cgzgptQ8.js",
+      "byteRange": [
+        2144036,
+        2144180
+      ],
+      "bundleHash": "3e5e8f66287b10c9673e8e41aa31c6cf6deb1a9fe4d4769e1436394a91f52541"
+    }
   }
 ]

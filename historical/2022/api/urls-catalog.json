@@ -1,0 +1,2366 @@
+[
+  {
+    "name": "about",
+    "pattern": "zh/about/",
+    "params": []
+  },
+  {
+    "name": "account",
+    "pattern": "zh/company/%(realm_id)s/%(company)s/",
+    "params": [
+      "realm_id",
+      "company"
+    ]
+  },
+  {
+    "name": "account_base",
+    "pattern": "zh/account-settings/",
+    "params": []
+  },
+  {
+    "name": "account_chatrooms",
+    "pattern": "zh/account-settings/chatrooms/%(realm_id)s/",
+    "params": [
+      "realm_id"
+    ]
+  },
+  {
+    "name": "account_delete",
+    "pattern": "zh/account-settings/delete/",
+    "params": []
+  },
+  {
+    "name": "account_delete_confirm",
+    "pattern": "zh/account/delete/confirm/%(player_id)s/%(verification)s/",
+    "params": [
+      "player_id",
+      "verification"
+    ]
+  },
+  {
+    "name": "account_language",
+    "pattern": "zh/account-settings/language/",
+    "params": []
+  },
+  {
+    "name": "account_notes",
+    "pattern": "zh/account/notes/",
+    "params": []
+  },
+  {
+    "name": "account_password",
+    "pattern": "zh/account-settings/password/",
+    "params": []
+  },
+  {
+    "name": "account_reset",
+    "pattern": "zh/account-settings/reset/%(realm_id)s/",
+    "params": [
+      "realm_id"
+    ]
+  },
+  {
+    "name": "achievements",
+    "pattern": "zh/achievements/",
+    "params": []
+  },
+  {
+    "name": "admin_emails",
+    "pattern": "zh/admin/emails/",
+    "params": []
+  },
+  {
+    "name": "analytics",
+    "pattern": "zh/analytics/",
+    "params": []
+  },
+  {
+    "name": "api_algo_payment",
+    "pattern": "api/v2/payment-algo/",
+    "params": []
+  },
+  {
+    "name": "api_bonds",
+    "pattern": "api/bonds/",
+    "params": []
+  },
+  {
+    "name": "api_bonds_by_rating",
+    "pattern": "api/bonds/rating/%(rating)s/",
+    "params": [
+      "rating"
+    ]
+  },
+  {
+    "name": "api_bonds_get",
+    "pattern": "api/bonds/%(pk)s/",
+    "params": [
+      "pk"
+    ]
+  },
+  {
+    "name": "api_buildings",
+    "pattern": "api/v3/%(realm_id)s/buildings/%(state)s/",
+    "params": [
+      "realm_id",
+      "state"
+    ]
+  },
+  {
+    "name": "api_captcha",
+    "pattern": "api/v2/captcha/",
+    "params": []
+  },
+  {
+    "name": "api_chatroom",
+    "pattern": "api/chatroom/",
+    "params": []
+  },
+  {
+    "name": "api_contract_get",
+    "pattern": "api/v2/contracts/%(pk)s/",
+    "params": [
+      "pk"
+    ]
+  },
+  {
+    "name": "api_contract_history",
+    "pattern": "api/v2/contracts-history/%(pk)s/",
+    "params": [
+      "pk"
+    ]
+  },
+  {
+    "name": "api_contract_history_incoming",
+    "pattern": "api/v2/contracts-history-incoming/",
+    "params": []
+  },
+  {
+    "name": "api_contract_history_outgoing",
+    "pattern": "api/v2/contracts-history-outgoing/",
+    "params": []
+  },
+  {
+    "name": "api_contract_history_outgoing_get",
+    "pattern": "api/v2/contracts-history-outgoing/%(pk)s/",
+    "params": [
+      "pk"
+    ]
+  },
+  {
+    "name": "api_contract_incoming",
+    "pattern": "api/v2/contracts-incoming/",
+    "params": []
+  },
+  {
+    "name": "api_contract_outgoing",
+    "pattern": "api/v2/contracts-outgoing/",
+    "params": []
+  },
+  {
+    "name": "api_course",
+    "pattern": "api/courses/%(course_id)s/",
+    "params": [
+      "course_id"
+    ]
+  },
+  {
+    "name": "api_course_history",
+    "pattern": "api/courses/%(course_id)s/history/",
+    "params": [
+      "course_id"
+    ]
+  },
+  {
+    "name": "api_course_invitations",
+    "pattern": "api/courses/%(course_id)s/invitations/",
+    "params": [
+      "course_id"
+    ]
+  },
+  {
+    "name": "api_course_invitations_get",
+    "pattern": "api/courses/%(course_id)s/invitations/%(invitation_id)s/",
+    "params": [
+      "course_id",
+      "invitation_id"
+    ]
+  },
+  {
+    "name": "api_course_invite",
+    "pattern": "api/courses/invite/",
+    "params": []
+  },
+  {
+    "name": "api_course_leads",
+    "pattern": "api/courses/%(language)s/leads/",
+    "params": [
+      "language"
+    ]
+  },
+  {
+    "name": "api_course_payment",
+    "pattern": "api/courses/%(course_id)s/payment/",
+    "params": [
+      "course_id"
+    ]
+  },
+  {
+    "name": "api_course_referrals",
+    "pattern": "api/courses/%(language)s/referrals/",
+    "params": [
+      "language"
+    ]
+  },
+  {
+    "name": "api_course_students_get",
+    "pattern": "api/courses/%(course_id)s/students/%(student_id)s/",
+    "params": [
+      "course_id",
+      "student_id"
+    ]
+  },
+  {
+    "name": "api_course_topics",
+    "pattern": "api/courses/%(language)s/topics/",
+    "params": [
+      "language"
+    ]
+  },
+  {
+    "name": "api_courses",
+    "pattern": "api/courses/",
+    "params": []
+  },
+  {
+    "name": "api_device_login",
+    "pattern": "api/v2/auth/device/auth/",
+    "params": []
+  },
+  {
+    "name": "api_devices",
+    "pattern": "api/v2/players/devices/",
+    "params": []
+  },
+  {
+    "name": "api_devices_delete",
+    "pattern": "api/v2/players/devices/%(device_id)s/",
+    "params": [
+      "device_id"
+    ]
+  },
+  {
+    "name": "api_email_prompt",
+    "pattern": "api/v2/email-prompt/",
+    "params": []
+  },
+  {
+    "name": "api_error_announcement",
+    "pattern": "api/v2/error-announcement/",
+    "params": []
+  },
+  {
+    "name": "api_get_braintree_key",
+    "pattern": "api/checkout/braintree-key/",
+    "params": []
+  },
+  {
+    "name": "api_invite_payment",
+    "pattern": "api/courses/invite/payment/",
+    "params": []
+  },
+  {
+    "name": "api_market",
+    "pattern": "api/v3/market/%(realm_id)s/%(kind)s/",
+    "params": [
+      "realm_id",
+      "kind"
+    ]
+  },
+  {
+    "name": "api_market_all",
+    "pattern": "api/v3/market/all/%(realm_id)s/%(kind)s/",
+    "params": [
+      "realm_id",
+      "kind"
+    ]
+  },
+  {
+    "name": "api_market_limits",
+    "pattern": "api/v2/market/limits/%(player_id)s/%(kind)s/%(quality)s/",
+    "params": [
+      "player_id",
+      "kind",
+      "quality"
+    ]
+  },
+  {
+    "name": "api_message",
+    "pattern": "api/v2/message/",
+    "params": []
+  },
+  {
+    "name": "api_messages",
+    "pattern": "api/messages/",
+    "params": []
+  },
+  {
+    "name": "api_messages_by_company",
+    "pattern": "api/messages_by_company/",
+    "params": []
+  },
+  {
+    "name": "api_messages_cases",
+    "pattern": "api/v2/messages-cases/",
+    "params": []
+  },
+  {
+    "name": "api_messages_cases_get",
+    "pattern": "api/v2/messages-cases/%(case_id)s/",
+    "params": [
+      "case_id"
+    ]
+  },
+  {
+    "name": "api_moderators",
+    "pattern": "api/v2/moderators/",
+    "params": []
+  },
+  {
+    "name": "api_moderators_delete",
+    "pattern": "api/v2/moderators/%(moderator_id)s/",
+    "params": [
+      "moderator_id"
+    ]
+  },
+  {
+    "name": "api_newcomers",
+    "pattern": "api/v2/newcomers/",
+    "params": []
+  },
+  {
+    "name": "api_nfts_auction_assets",
+    "pattern": "api/v2/nfts/auction-assets/",
+    "params": []
+  },
+  {
+    "name": "api_nfts_auction_assets_get",
+    "pattern": "api/v2/nfts/auction-assets/%(auction_asset_id)s/",
+    "params": [
+      "auction_asset_id"
+    ]
+  },
+  {
+    "name": "api_nfts_auction_history",
+    "pattern": "api/v2/nfts/auction-history/",
+    "params": []
+  },
+  {
+    "name": "api_nfts_collectors",
+    "pattern": "api/v2/nfts/collectors/",
+    "params": []
+  },
+  {
+    "name": "api_pa_action",
+    "pattern": "api/v2/pa-action/%(situation)s/%(choice)s/",
+    "params": [
+      "situation",
+      "choice"
+    ]
+  },
+  {
+    "name": "api_payment",
+    "pattern": "api/v2/payment/",
+    "params": []
+  },
+  {
+    "name": "api_player_companies",
+    "pattern": "api/v2/players/companies/",
+    "params": []
+  },
+  {
+    "name": "api_polls_get",
+    "pattern": "api/v2/polls/%(poll_id)s/",
+    "params": [
+      "poll_id"
+    ]
+  },
+  {
+    "name": "api_polls_vote",
+    "pattern": "api/v2/polls/%(poll_id)s/%(question_id)s/vote/",
+    "params": [
+      "poll_id",
+      "question_id"
+    ]
+  },
+  {
+    "name": "api_push_devices",
+    "pattern": "api/v2/players/push-devices/",
+    "params": []
+  },
+  {
+    "name": "api_push_devices_delete",
+    "pattern": "api/v2/players/push-devices/%(device_id)s/",
+    "params": [
+      "device_id"
+    ]
+  },
+  {
+    "name": "api_registration_captcha",
+    "pattern": "api/v2/registrations/captcha/",
+    "params": []
+  },
+  {
+    "name": "api_report",
+    "pattern": "api/v2/report/",
+    "params": []
+  },
+  {
+    "name": "api_time",
+    "pattern": "api/v2/time-millis/",
+    "params": []
+  },
+  {
+    "name": "api_v1_busy",
+    "pattern": "api/v1/buildings/%(building_pk)s/busy/",
+    "params": [
+      "building_pk"
+    ]
+  },
+  {
+    "name": "api_v1_market_ticker",
+    "pattern": "api/v1/market-ticker/%(since)s/",
+    "params": [
+      "since"
+    ]
+  },
+  {
+    "name": "api_v1_nfts_account",
+    "pattern": "api/v1/nfts/account/",
+    "params": []
+  },
+  {
+    "name": "api_v1_nfts_account_address",
+    "pattern": "api/v1/nfts/account/%(address)s/",
+    "params": [
+      "address"
+    ]
+  },
+  {
+    "name": "api_v1_nfts_account_resync",
+    "pattern": "api/v1/nfts/account-resync/%(player_id)s/",
+    "params": [
+      "player_id"
+    ]
+  },
+  {
+    "name": "api_v1_nfts_asset_claim",
+    "pattern": "api/v1/nfts/asset/%(asset_id)s/claim/",
+    "params": [
+      "asset_id"
+    ]
+  },
+  {
+    "name": "api_v1_nfts_asset_optin",
+    "pattern": "api/v1/nfts/asset/%(asset_id)s/optin/",
+    "params": [
+      "asset_id"
+    ]
+  },
+  {
+    "name": "api_v1_nfts_asset_return",
+    "pattern": "api/v1/nfts/asset/%(asset_id)s/return/",
+    "params": [
+      "asset_id"
+    ]
+  },
+  {
+    "name": "api_v1_player_companies",
+    "pattern": "api/v1/players/%(player_id)s/companies/",
+    "params": [
+      "player_id"
+    ]
+  },
+  {
+    "name": "api_v1_realms",
+    "pattern": "api/realms/",
+    "params": []
+  },
+  {
+    "name": "api_v1_rush",
+    "pattern": "api/v1/rush/%(building_pk)s/",
+    "params": [
+      "building_pk"
+    ]
+  },
+  {
+    "name": "api_v2_admin_test_email",
+    "pattern": "api/v2/admin/test-email/",
+    "params": []
+  },
+  {
+    "name": "api_v2_analytics_lifetime_value",
+    "pattern": "api/v2/analytics/lifetime-value/",
+    "params": []
+  },
+  {
+    "name": "api_v2_analytics_player_base",
+    "pattern": "api/v2/analytics/player-base/",
+    "params": []
+  },
+  {
+    "name": "api_v2_analytics_player_registrations",
+    "pattern": "api/v2/analytics/player-registrations/",
+    "params": []
+  },
+  {
+    "name": "api_v2_analytics_player_retention",
+    "pattern": "api/v2/analytics/player-retention/",
+    "params": []
+  },
+  {
+    "name": "api_v2_analytics_purchases_by_size",
+    "pattern": "api/v2/analytics/purchases-by-size/",
+    "params": []
+  },
+  {
+    "name": "api_v2_analytics_recent_payments",
+    "pattern": "api/v2/analytics/recent-payments/",
+    "params": []
+  },
+  {
+    "name": "api_v2_analytics_revenue_by_country",
+    "pattern": "api/v2/analytics/revenue-by-country/",
+    "params": []
+  },
+  {
+    "name": "api_v2_analytics_revenue_by_provider",
+    "pattern": "api/v2/analytics/revenue-by-provider/",
+    "params": []
+  },
+  {
+    "name": "api_v2_analytics_revenue_heartbeat",
+    "pattern": "api/v2/analytics/revenue-heartbeat/",
+    "params": []
+  },
+  {
+    "name": "api_v2_analytics_revenue_this_month",
+    "pattern": "api/v2/analytics/revenue-this-month/",
+    "params": []
+  },
+  {
+    "name": "api_v2_analytics_revenue_timeline",
+    "pattern": "api/v2/analytics/revenue-timeline/",
+    "params": []
+  },
+  {
+    "name": "api_v2_analytics_simboosts_spend",
+    "pattern": "api/v2/analytics/simboosts-spend/",
+    "params": []
+  },
+  {
+    "name": "api_v2_analytics_time_to_purchase",
+    "pattern": "api/v2/analytics/time-to-purchase/",
+    "params": []
+  },
+  {
+    "name": "api_v2_articles_by_author",
+    "pattern": "api/v2/newspaper/articles-by-author/%(player_id)s/",
+    "params": [
+      "player_id"
+    ]
+  },
+  {
+    "name": "api_v2_articles_by_substring",
+    "pattern": "api/v2/newspaper/articles-by-substring/%(realm_id)s/%(substring)s/",
+    "params": [
+      "realm_id",
+      "substring"
+    ]
+  },
+  {
+    "name": "api_v2_assets_buy_escrows",
+    "pattern": "api/v2/nfts/assets-buy-escrows/",
+    "params": []
+  },
+  {
+    "name": "api_v2_assets_buy_escrows_get",
+    "pattern": "api/v2/nfts/assets-buy-escrows/%(abo_id)s/",
+    "params": [
+      "abo_id"
+    ]
+  },
+  {
+    "name": "api_v2_assets_buy_offers",
+    "pattern": "api/v2/nfts/assets-buy-offers/",
+    "params": []
+  },
+  {
+    "name": "api_v2_assets_buy_offers_get",
+    "pattern": "api/v2/nfts/assets-buy-offers/%(abo_id)s/%(seller_address)s/",
+    "params": [
+      "abo_id",
+      "seller_address"
+    ]
+  },
+  {
+    "name": "api_v2_audit_company",
+    "pattern": "api/v2/audit/%(company_id)s/personal/",
+    "params": [
+      "company_id"
+    ]
+  },
+  {
+    "name": "api_v2_audit_company_audits",
+    "pattern": "api/v2/audit/%(company_id)s/audits/",
+    "params": [
+      "company_id"
+    ]
+  },
+  {
+    "name": "api_v2_audit_company_auth",
+    "pattern": "api/v2/audit/%(company_id)s/auth/",
+    "params": [
+      "company_id"
+    ]
+  },
+  {
+    "name": "api_v2_audit_company_payments",
+    "pattern": "api/v2/audit/%(company_id)s/payments/",
+    "params": [
+      "company_id"
+    ]
+  },
+  {
+    "name": "api_v2_audit_company_simboosts_use",
+    "pattern": "api/v2/audit/%(company_id)s/simboosts-use/",
+    "params": [
+      "company_id"
+    ]
+  },
+  {
+    "name": "api_v2_audit_contracts",
+    "pattern": "api/v2/audit/%(company_id)s/contracts/",
+    "params": [
+      "company_id"
+    ]
+  },
+  {
+    "name": "api_v2_audit_ip",
+    "pattern": "api/v2/audit-ip/%(player_id)s/%(ip_hash)s/",
+    "params": [
+      "player_id",
+      "ip_hash"
+    ]
+  },
+  {
+    "name": "api_v2_audit_market_trades",
+    "pattern": "api/v2/audit/%(company_id)s/market-trades/",
+    "params": [
+      "company_id"
+    ]
+  },
+  {
+    "name": "api_v2_audits",
+    "pattern": "api/v2/audits/",
+    "params": []
+  },
+  {
+    "name": "api_v2_balance_sheet",
+    "pattern": "api/v2/companies/%(company_id)s/balance-sheet/",
+    "params": [
+      "company_id"
+    ]
+  },
+  {
+    "name": "api_v2_balance_sheet_historic",
+    "pattern": "api/v2/companies/%(company_id)s/balance-sheet/%(period)s/%(back)s/",
+    "params": [
+      "company_id",
+      "period",
+      "back"
+    ]
+  },
+  {
+    "name": "api_v2_ban_identity",
+    "pattern": "api/v2/companies/%(company_id)s/ban-identity/",
+    "params": [
+      "company_id"
+    ]
+  },
+  {
+    "name": "api_v2_ban_reasons_all",
+    "pattern": "api/v2/encyclopedia/ban-reasons/",
+    "params": []
+  },
+  {
+    "name": "api_v2_blockchain",
+    "pattern": "api/v2/nfts/blockchain/",
+    "params": []
+  },
+  {
+    "name": "api_v2_blockchain_suggested_params",
+    "pattern": "api/v2/nfts/blockchain/suggested-params/",
+    "params": []
+  },
+  {
+    "name": "api_v2_bonus",
+    "pattern": "api/v2/companies/me/bonus/",
+    "params": []
+  },
+  {
+    "name": "api_v2_busy_take",
+    "pattern": "api/v2/order/take/%(building_pk)s/",
+    "params": [
+      "building_pk"
+    ]
+  },
+  {
+    "name": "api_v2_cashflow",
+    "pattern": "api/v2/companies/%(company_id)s/cashflow/%(until_id)s/",
+    "params": [
+      "company_id",
+      "until_id"
+    ]
+  },
+  {
+    "name": "api_v2_cashflow_statement",
+    "pattern": "api/v2/companies/%(company_id)s/cashflow-statement/",
+    "params": [
+      "company_id"
+    ]
+  },
+  {
+    "name": "api_v2_cashflow_statement_historic",
+    "pattern": "api/v2/companies/%(company_id)s/cashflow-statement/%(period)s/%(back)s/",
+    "params": [
+      "company_id",
+      "period",
+      "back"
+    ]
+  },
+  {
+    "name": "api_v2_chatentry",
+    "pattern": "api/v2/chatentry/%(chat_entry_id)s/",
+    "params": [
+      "chat_entry_id"
+    ]
+  },
+  {
+    "name": "api_v2_chatentry_pin",
+    "pattern": "api/v2/chatentry/%(chat_entry_id)s/pin/",
+    "params": [
+      "chat_entry_id"
+    ]
+  },
+  {
+    "name": "api_v2_chatrules",
+    "pattern": "api/v2/chatroom/%(chatroom_id)s/show-rules/",
+    "params": [
+      "chatroom_id"
+    ]
+  },
+  {
+    "name": "api_v2_companies",
+    "pattern": "api/v2/companies/%(company_id)s/",
+    "params": [
+      "company_id"
+    ]
+  },
+  {
+    "name": "api_v2_companies_achievements",
+    "pattern": "api/v2/no-cache/companies/%(company_id)s/achievements/",
+    "params": [
+      "company_id"
+    ]
+  },
+  {
+    "name": "api_v2_companies_achievements_get",
+    "pattern": "api/v2/no-cache/companies/achievements/%(achievement_id)s/",
+    "params": [
+      "achievement_id"
+    ]
+  },
+  {
+    "name": "api_v2_companies_achievements_overview",
+    "pattern": "api/v2/companies/%(company_id)s/achievements/",
+    "params": [
+      "company_id"
+    ]
+  },
+  {
+    "name": "api_v2_companies_administration_overhead",
+    "pattern": "api/v2/companies/me/administration-overhead/",
+    "params": []
+  },
+  {
+    "name": "api_v2_companies_administration_overhead_plus_one",
+    "pattern": "api/v2/companies/me/administration-overhead/plus-one/",
+    "params": []
+  },
+  {
+    "name": "api_v2_companies_ban",
+    "pattern": "api/v2/companies/%(company_id)s/ban/",
+    "params": [
+      "company_id"
+    ]
+  },
+  {
+    "name": "api_v2_companies_ban_get",
+    "pattern": "api/v2/companies/ban/%(ban_id)s/",
+    "params": [
+      "ban_id"
+    ]
+  },
+  {
+    "name": "api_v2_companies_bonds_owned",
+    "pattern": "api/v2/companies/%(company_id)s/bonds/owned/",
+    "params": [
+      "company_id"
+    ]
+  },
+  {
+    "name": "api_v2_companies_bonds_sold",
+    "pattern": "api/v2/companies/%(company_id)s/bonds/sold/",
+    "params": [
+      "company_id"
+    ]
+  },
+  {
+    "name": "api_v2_companies_buildings",
+    "pattern": "api/v2/companies/%(company_id)s/buildings/",
+    "params": [
+      "company_id"
+    ]
+  },
+  {
+    "name": "api_v2_companies_buildings_abundance",
+    "pattern": "api/v2/companies/buildings/%(building_id)s/abundance/",
+    "params": [
+      "building_id"
+    ]
+  },
+  {
+    "name": "api_v2_companies_buildings_followers",
+    "pattern": "api/v2/companies/buildings/%(building_id)s/followers/",
+    "params": [
+      "building_id"
+    ]
+  },
+  {
+    "name": "api_v2_companies_buildings_get",
+    "pattern": "api/v2/companies/%(company_id)s/buildings/%(building_id)s/",
+    "params": [
+      "company_id",
+      "building_id"
+    ]
+  },
+  {
+    "name": "api_v2_companies_buildings_history",
+    "pattern": "api/v2/companies/buildings/%(building_id)s/history/",
+    "params": [
+      "building_id"
+    ]
+  },
+  {
+    "name": "api_v2_companies_buildings_queue",
+    "pattern": "api/v2/companies/buildings/%(building_id)s/queue/",
+    "params": [
+      "building_id"
+    ]
+  },
+  {
+    "name": "api_v2_companies_buildings_queue_get",
+    "pattern": "api/v2/companies/buildings/%(building_id)s/queue/%(task_id)s/",
+    "params": [
+      "building_id",
+      "task_id"
+    ]
+  },
+  {
+    "name": "api_v2_companies_buildings_restaurant_properties",
+    "pattern": "api/v2/companies/buildings/%(building_id)s/restaurant-properties/",
+    "params": [
+      "building_id"
+    ]
+  },
+  {
+    "name": "api_v2_companies_buildings_restaurant_runs",
+    "pattern": "api/v2/companies/buildings/%(building_id)s/restaurant-runs/",
+    "params": [
+      "building_id"
+    ]
+  },
+  {
+    "name": "api_v2_companies_buildings_sales_orders",
+    "pattern": "api/v2/companies/buildings/%(building_id)s/sales-orders/",
+    "params": [
+      "building_id"
+    ]
+  },
+  {
+    "name": "api_v2_companies_buildings_sales_orders_get",
+    "pattern": "api/v2/companies/buildings/%(building_id)s/sales-orders/%(order_id)s/",
+    "params": [
+      "building_id",
+      "order_id"
+    ]
+  },
+  {
+    "name": "api_v2_companies_by_company",
+    "pattern": "api/v2/companies-by-company/%(realm_id)s/%(company)s/",
+    "params": [
+      "realm_id",
+      "company"
+    ]
+  },
+  {
+    "name": "api_v2_companies_chatrooms",
+    "pattern": "api/v2/companies/chatrooms/%(company_id)s/",
+    "params": [
+      "company_id"
+    ]
+  },
+  {
+    "name": "api_v2_companies_chatrooms_get",
+    "pattern": "api/v2/companies/chatrooms/%(company_id)s/%(chatroom)s/",
+    "params": [
+      "company_id",
+      "chatroom"
+    ]
+  },
+  {
+    "name": "api_v2_companies_display_case",
+    "pattern": "api/v2/companies/%(company_id)s/display-case/",
+    "params": [
+      "company_id"
+    ]
+  },
+  {
+    "name": "api_v2_companies_display_case_get",
+    "pattern": "api/v2/companies/%(company_id)s/display-case/%(item_id)s/",
+    "params": [
+      "company_id",
+      "item_id"
+    ]
+  },
+  {
+    "name": "api_v2_companies_executives",
+    "pattern": "api/v2/companies/%(company_id)s/executives/",
+    "params": [
+      "company_id"
+    ]
+  },
+  {
+    "name": "api_v2_companies_executives_hostile_offers",
+    "pattern": "api/v2/companies/executives/hostile-offers/",
+    "params": []
+  },
+  {
+    "name": "api_v2_companies_executives_position",
+    "pattern": "api/v2/companies/%(company_id)s/executives/%(position)s/",
+    "params": [
+      "company_id",
+      "position"
+    ]
+  },
+  {
+    "name": "api_v2_companies_free_text",
+    "pattern": "api/v2/companies/%(company_id)s/free-text/",
+    "params": [
+      "company_id"
+    ]
+  },
+  {
+    "name": "api_v2_companies_ignore",
+    "pattern": "api/v2/companies/%(company_id)s/ignore/",
+    "params": [
+      "company_id"
+    ]
+  },
+  {
+    "name": "api_v2_companies_market_orders",
+    "pattern": "api/v2/companies/%(company_id)s/market-orders/",
+    "params": [
+      "company_id"
+    ]
+  },
+  {
+    "name": "api_v2_companies_my_note",
+    "pattern": "api/v2/companies/%(company_id)s/my-note/",
+    "params": [
+      "company_id"
+    ]
+  },
+  {
+    "name": "api_v2_companies_note",
+    "pattern": "api/v2/companies/%(company_id)s/note/%(about_id)s/",
+    "params": [
+      "company_id",
+      "about_id"
+    ]
+  },
+  {
+    "name": "api_v2_companies_note_list",
+    "pattern": "api/v2/companies/me/note/",
+    "params": []
+  },
+  {
+    "name": "api_v2_companies_past_finances_overview",
+    "pattern": "api/v2/companies/%(company_id)s/past-finances-overview/",
+    "params": [
+      "company_id"
+    ]
+  },
+  {
+    "name": "api_v2_companies_referrals",
+    "pattern": "api/v2/companies/referrals/",
+    "params": []
+  },
+  {
+    "name": "api_v2_companies_resource_ability",
+    "pattern": "api/v2/companies/%(company_id)s/resource-ability/%(resource_kind)s/",
+    "params": [
+      "company_id",
+      "resource_kind"
+    ]
+  },
+  {
+    "name": "api_v2_company_list",
+    "pattern": "api/v2/companies/list/%(realm_id)s/%(like)s/",
+    "params": [
+      "realm_id",
+      "like"
+    ]
+  },
+  {
+    "name": "api_v2_company_tags",
+    "pattern": "api/v2/companies/%(company_id)s/tags/",
+    "params": [
+      "company_id"
+    ]
+  },
+  {
+    "name": "api_v2_company_tags_get",
+    "pattern": "api/v2/companies/tags/%(tag_id)s/",
+    "params": [
+      "tag_id"
+    ]
+  },
+  {
+    "name": "api_v2_contacts",
+    "pattern": "api/v2/contacts/",
+    "params": []
+  },
+  {
+    "name": "api_v2_contacts_get",
+    "pattern": "api/v2/contacts/%(company_id)s/",
+    "params": [
+      "company_id"
+    ]
+  },
+  {
+    "name": "api_v2_country_pricing",
+    "pattern": "api/v2/payment-pricing/",
+    "params": []
+  },
+  {
+    "name": "api_v2_crypto_pricing",
+    "pattern": "api/v2/payment-crypto/",
+    "params": []
+  },
+  {
+    "name": "api_v2_custom_reports",
+    "pattern": "api/v2/fpa/custom-reports/",
+    "params": []
+  },
+  {
+    "name": "api_v2_encyclopedia_construction_cost",
+    "pattern": "api/v2/encyclopedia/construction-cost/",
+    "params": []
+  },
+  {
+    "name": "api_v2_encyclopedia_levels_all",
+    "pattern": "api/v2/encyclopedia/levels/",
+    "params": []
+  },
+  {
+    "name": "api_v2_encyclopedia_market_ticks",
+    "pattern": "api/v2/encyclopedia/market-ticks/",
+    "params": []
+  },
+  {
+    "name": "api_v2_encyclopedia_ratings_all",
+    "pattern": "api/v2/encyclopedia/ratings/",
+    "params": []
+  },
+  {
+    "name": "api_v2_encyclopedia_restaurant",
+    "pattern": "api/v2/encyclopedia/restaurant-constants/",
+    "params": []
+  },
+  {
+    "name": "api_v2_exchange",
+    "pattern": "api/v2/exchange/",
+    "params": []
+  },
+  {
+    "name": "api_v2_executives_get",
+    "pattern": "api/v2/executives/%(executive_id)s/",
+    "params": [
+      "executive_id"
+    ]
+  },
+  {
+    "name": "api_v2_executives_trainings",
+    "pattern": "api/v2/executives/%(executive_id)s/trainings/",
+    "params": [
+      "executive_id"
+    ]
+  },
+  {
+    "name": "api_v2_executives_trainings_get",
+    "pattern": "api/v2/executives/%(executive_id)s/trainings/%(training_id)s/",
+    "params": [
+      "executive_id",
+      "training_id"
+    ]
+  },
+  {
+    "name": "api_v2_google_purchase",
+    "pattern": "api/v2/google-purchase/",
+    "params": []
+  },
+  {
+    "name": "api_v2_government_orders",
+    "pattern": "api/v2/government-orders/",
+    "params": []
+  },
+  {
+    "name": "api_v2_government_orders_bids",
+    "pattern": "api/v2/government-orders/%(order_id)s/bids/",
+    "params": [
+      "order_id"
+    ]
+  },
+  {
+    "name": "api_v2_government_orders_bids_get",
+    "pattern": "api/v2/government-orders/%(order_id)s/bids/%(bid_id)s/",
+    "params": [
+      "order_id",
+      "bid_id"
+    ]
+  },
+  {
+    "name": "api_v2_government_orders_get",
+    "pattern": "api/v2/government-orders/%(order_id)s/",
+    "params": [
+      "order_id"
+    ]
+  },
+  {
+    "name": "api_v2_help_chatroom",
+    "pattern": "api/v2/help-chatroom/",
+    "params": []
+  },
+  {
+    "name": "api_v2_image_upload",
+    "pattern": "api/v2/image-upload/",
+    "params": []
+  },
+  {
+    "name": "api_v2_income_statement",
+    "pattern": "api/v2/companies/%(company_id)s/income-statement/",
+    "params": [
+      "company_id"
+    ]
+  },
+  {
+    "name": "api_v2_income_statement_historic",
+    "pattern": "api/v2/companies/%(company_id)s/income-statement/%(period)s/%(back)s/",
+    "params": [
+      "company_id",
+      "period",
+      "back"
+    ]
+  },
+  {
+    "name": "api_v2_level_bonus",
+    "pattern": "api/v2/no-cache/companies/level-bonus/%(achievement_id)s/",
+    "params": [
+      "achievement_id"
+    ]
+  },
+  {
+    "name": "api_v2_market_order",
+    "pattern": "api/v2/market-order/",
+    "params": []
+  },
+  {
+    "name": "api_v2_market_ticker",
+    "pattern": "api/v2/market-ticker/%(realm_id)s/%(since)s/",
+    "params": [
+      "realm_id",
+      "since"
+    ]
+  },
+  {
+    "name": "api_v2_moderator_notes",
+    "pattern": "api/v2/players/%(player_id)s/moderator-notes/",
+    "params": [
+      "player_id"
+    ]
+  },
+  {
+    "name": "api_v2_moderator_notes_delete",
+    "pattern": "api/v2/players/%(player_id)s/moderator-notes/%(note_id)s/",
+    "params": [
+      "player_id",
+      "note_id"
+    ]
+  },
+  {
+    "name": "api_v2_moderator_notes_latest",
+    "pattern": "api/v2/moderator-notes/",
+    "params": []
+  },
+  {
+    "name": "api_v2_moderator_notes_more",
+    "pattern": "api/v2/moderator-notes/%(last_id)s/",
+    "params": [
+      "last_id"
+    ]
+  },
+  {
+    "name": "api_v2_newspaper_sponsor_params",
+    "pattern": "api/v2/newspaper/sponsor-params/",
+    "params": []
+  },
+  {
+    "name": "api_v2_nfts_assets",
+    "pattern": "api/v2/nfts/assets/",
+    "params": []
+  },
+  {
+    "name": "api_v2_nfts_assets_ads",
+    "pattern": "api/v2/nfts/assets-sell-offers/",
+    "params": []
+  },
+  {
+    "name": "api_v2_nfts_assets_get",
+    "pattern": "api/v2/nfts/assets/%(asset_id)s/",
+    "params": [
+      "asset_id"
+    ]
+  },
+  {
+    "name": "api_v2_nfts_assets_trades",
+    "pattern": "api/v2/nfts/assets/trades/",
+    "params": []
+  },
+  {
+    "name": "api_v2_notifications",
+    "pattern": "api/v2/players/notifications/%(company_id)s",
+    "params": [
+      "company_id"
+    ]
+  },
+  {
+    "name": "api_v2_packages",
+    "pattern": "api/v2/payment-packages/",
+    "params": []
+  },
+  {
+    "name": "api_v2_pages",
+    "pattern": "api/v2/pages/%(slug)s/",
+    "params": [
+      "slug"
+    ]
+  },
+  {
+    "name": "api_v2_player_bonuses",
+    "pattern": "api/v2/players/bonuses/",
+    "params": []
+  },
+  {
+    "name": "api_v2_players_language",
+    "pattern": "api/v2/players/language/",
+    "params": []
+  },
+  {
+    "name": "api_v2_players_personal_data",
+    "pattern": "api/v2/players/%(player_id)s/personal-data/",
+    "params": [
+      "player_id"
+    ]
+  },
+  {
+    "name": "api_v2_research",
+    "pattern": "api/v2/players/research/",
+    "params": []
+  },
+  {
+    "name": "api_v2_resource_donate",
+    "pattern": "api/v2/resources/%(resource_id)s/donate/",
+    "params": [
+      "resource_id"
+    ]
+  },
+  {
+    "name": "api_v2_resource_get",
+    "pattern": "api/v2/resources/%(resource_id)s/",
+    "params": [
+      "resource_id"
+    ]
+  },
+  {
+    "name": "api_v2_resource_transactions",
+    "pattern": "api/v2/resources-transactions/%(kind)s/%(last_id)s/",
+    "params": [
+      "kind",
+      "last_id"
+    ]
+  },
+  {
+    "name": "api_v2_resources",
+    "pattern": "api/v2/resources/",
+    "params": []
+  },
+  {
+    "name": "api_v2_revoke",
+    "pattern": "api/v2/players/revoke-links/",
+    "params": []
+  },
+  {
+    "name": "api_v2_rocket_launches",
+    "pattern": "api/v2/rocket-launches/%(company_id)s/",
+    "params": [
+      "company_id"
+    ]
+  },
+  {
+    "name": "api_v2_sponsor_get",
+    "pattern": "api/v2/newspaper/%(newspaper_id)s/sponsor/%(position)s/",
+    "params": [
+      "newspaper_id",
+      "position"
+    ]
+  },
+  {
+    "name": "api_v2_sponsor_get_all",
+    "pattern": "api/v2/newspaper/%(newspaper_id)s/sponsor/",
+    "params": [
+      "newspaper_id"
+    ]
+  },
+  {
+    "name": "api_v2_tag_search",
+    "pattern": "api/v2/tag-search/%(query)s/",
+    "params": [
+      "query"
+    ]
+  },
+  {
+    "name": "api_v2_unlock",
+    "pattern": "api/v2/unlock/",
+    "params": []
+  },
+  {
+    "name": "api_v2_unlocked_hqs",
+    "pattern": "api/v2/players/unlocked-hqs/",
+    "params": []
+  },
+  {
+    "name": "api_v3_article_get",
+    "pattern": "api/v3/%(lang)s/newspaper/%(newspaper_id)s/article/%(article_id)s/",
+    "params": [
+      "lang",
+      "newspaper_id",
+      "article_id"
+    ]
+  },
+  {
+    "name": "api_v3_article_get_all",
+    "pattern": "api/v3/%(lang)s/newspaper/%(newspaper_id)s/article/",
+    "params": [
+      "lang",
+      "newspaper_id"
+    ]
+  },
+  {
+    "name": "api_v3_companies_past_finances",
+    "pattern": "api/v3/companies/%(company_id)s/past-finances/",
+    "params": [
+      "company_id"
+    ]
+  },
+  {
+    "name": "api_v3_contest",
+    "pattern": "api/v3/%(lang)s/contest/%(contest_id)s/",
+    "params": [
+      "lang",
+      "contest_id"
+    ]
+  },
+  {
+    "name": "api_v3_encyclopedia_buildings",
+    "pattern": "api/v3/%(realm_id)s/encyclopedia/buildings/%(kind)s/",
+    "params": [
+      "realm_id",
+      "kind"
+    ]
+  },
+  {
+    "name": "api_v3_encyclopedia_supporters_all",
+    "pattern": "api/v3/encyclopedia/supporters/%(realm_id)s/",
+    "params": [
+      "realm_id"
+    ]
+  },
+  {
+    "name": "api_v3_newspaper_get",
+    "pattern": "api/v3/%(lang)s/%(realm_id)s/newspaper/%(issue_id)s/",
+    "params": [
+      "lang",
+      "realm_id",
+      "issue_id"
+    ]
+  },
+  {
+    "name": "api_v3_newspaper_get_all",
+    "pattern": "api/v3/%(lang)s/%(realm_id)s/newspaper/",
+    "params": [
+      "lang",
+      "realm_id"
+    ]
+  },
+  {
+    "name": "api_v4_encyclopedia_existing_resource_quality",
+    "pattern": "api/v4/%(lang)s/%(realm_id)s/encyclopedia/existing-resource-quality/",
+    "params": [
+      "lang",
+      "realm_id"
+    ]
+  },
+  {
+    "name": "api_v4_encyclopedia_ranking",
+    "pattern": "api/v4/encyclopedia/ranking/%(realm_id)s/%(blob)s/",
+    "params": [
+      "realm_id",
+      "blob"
+    ]
+  },
+  {
+    "name": "api_v4_encyclopedia_resources",
+    "pattern": "api/v4/%(lang)s/%(realm_id)s/encyclopedia/resources/%(economy_state)s/%(kind)s/",
+    "params": [
+      "lang",
+      "realm_id",
+      "economy_state",
+      "kind"
+    ]
+  },
+  {
+    "name": "api_v4_encyclopedia_resources_all",
+    "pattern": "api/v4/%(lang)s/%(realm_id)s/encyclopedia/resources/",
+    "params": [
+      "lang",
+      "realm_id"
+    ]
+  },
+  {
+    "name": "api_v4_encyclopedia_trainings_all",
+    "pattern": "api/v4/%(lang)s/%(realm_id)s/encyclopedia/trainings/",
+    "params": [
+      "lang",
+      "realm_id"
+    ]
+  },
+  {
+    "name": "api_v4_stats",
+    "pattern": "api/v4/%(lang)s/%(realm_id)s/stats/top/%(category)s/",
+    "params": [
+      "lang",
+      "realm_id",
+      "category"
+    ]
+  },
+  {
+    "name": "appleAuth",
+    "pattern": "auth/apple/",
+    "params": []
+  },
+  {
+    "name": "apple_purchase",
+    "pattern": "apple-purchase/",
+    "params": []
+  },
+  {
+    "name": "article_aerospace",
+    "pattern": "zh/articles/aerospace/",
+    "params": []
+  },
+  {
+    "name": "article_api",
+    "pattern": "zh/articles/api/",
+    "params": []
+  },
+  {
+    "name": "article_bigoil",
+    "pattern": "zh/articles/one-beginners-experience/",
+    "params": []
+  },
+  {
+    "name": "article_bonds_guide",
+    "pattern": "zh/articles/bonds-guide/",
+    "params": []
+  },
+  {
+    "name": "article_bonds_strategy",
+    "pattern": "zh/articles/bonds-strategy-guide/",
+    "params": []
+  },
+  {
+    "name": "article_changelog",
+    "pattern": "zh/articles/change-log/",
+    "params": []
+  },
+  {
+    "name": "article_economy",
+    "pattern": "zh/articles/sim-companies-economy-model/",
+    "params": []
+  },
+  {
+    "name": "article_government_orders_guide",
+    "pattern": "zh/articles/government-orders/",
+    "params": []
+  },
+  {
+    "name": "article_moderators",
+    "pattern": "zh/articles/moderators/",
+    "params": []
+  },
+  {
+    "name": "article_time_table",
+    "pattern": "zh/articles/time-table/",
+    "params": []
+  },
+  {
+    "name": "auction_house",
+    "pattern": "zh/market/auction-house/",
+    "params": []
+  },
+  {
+    "name": "audit",
+    "pattern": "zh/account/audit/%(company_id)s/",
+    "params": [
+      "company_id"
+    ]
+  },
+  {
+    "name": "audit_ip",
+    "pattern": "zh/account/audit-ip/%(player_id)s/%(ip_hash)s/",
+    "params": [
+      "player_id",
+      "ip_hash"
+    ]
+  },
+  {
+    "name": "audit_private_messages",
+    "pattern": "zh/account/audit-private-messages/%(case_id)s/",
+    "params": [
+      "case_id"
+    ]
+  },
+  {
+    "name": "audit_private_messages_list",
+    "pattern": "zh/account/audit-private-messages/",
+    "params": []
+  },
+  {
+    "name": "avatar",
+    "pattern": "zh/account/avatar/%(company_id)s/",
+    "params": [
+      "company_id"
+    ]
+  },
+  {
+    "name": "ban_ip",
+    "pattern": "administration/",
+    "params": []
+  },
+  {
+    "name": "bot_trap_redirect_loop",
+    "pattern": "register-me/",
+    "params": []
+  },
+  {
+    "name": "building",
+    "pattern": "zh/b/%(pk)s/",
+    "params": [
+      "pk"
+    ]
+  },
+  {
+    "name": "building_finish_up",
+    "pattern": "zh/admin/buildings/finish/%(building_id)s/",
+    "params": [
+      "building_id"
+    ]
+  },
+  {
+    "name": "bust",
+    "pattern": "500/",
+    "params": []
+  },
+  {
+    "name": "cancel_email_change",
+    "pattern": "cancel-email-change/%(player_id)s/%(email)s/%(ts)s/%(verification)s/",
+    "params": [
+      "player_id",
+      "email",
+      "ts",
+      "verification"
+    ]
+  },
+  {
+    "name": "captcha",
+    "pattern": "zh/captcha/",
+    "params": []
+  },
+  {
+    "name": "change_language",
+    "pattern": "change-language/%(language)s/",
+    "params": [
+      "language"
+    ]
+  },
+  {
+    "name": "checkout",
+    "pattern": "zh/checkout/",
+    "params": []
+  },
+  {
+    "name": "contest",
+    "pattern": "zh/contest/%(contest_id)s/",
+    "params": [
+      "contest_id"
+    ]
+  },
+  {
+    "name": "cookie_policy",
+    "pattern": "zh/cookie-policy/",
+    "params": []
+  },
+  {
+    "name": "course",
+    "pattern": "zh/courses/%(course_id)s/",
+    "params": [
+      "course_id"
+    ]
+  },
+  {
+    "name": "course_invite_accept",
+    "pattern": "zh/courses/accept-invite/%(player_id)s/%(verification)s/%(course_id)s/",
+    "params": [
+      "player_id",
+      "verification",
+      "course_id"
+    ]
+  },
+  {
+    "name": "course_invite_accept_by_email",
+    "pattern": "zh/courses/accept-invite-by-email/%(email)s/%(course_id)s/",
+    "params": [
+      "email",
+      "course_id"
+    ]
+  },
+  {
+    "name": "course_student_checkout",
+    "pattern": "zh/courses/student-checkout/",
+    "params": []
+  },
+  {
+    "name": "courses",
+    "pattern": "zh/courses/",
+    "params": []
+  },
+  {
+    "name": "create",
+    "pattern": "zh/create/",
+    "params": []
+  },
+  {
+    "name": "csv_account_history",
+    "pattern": "zh/csv/account-history/",
+    "params": []
+  },
+  {
+    "name": "csv_audit_resource_history",
+    "pattern": "zh/csv/audit/%(company_id)s/resource-history/",
+    "params": [
+      "company_id"
+    ]
+  },
+  {
+    "name": "csv_balance_sheet",
+    "pattern": "zh/csv/balance-sheet/",
+    "params": []
+  },
+  {
+    "name": "csv_cashflow_statement",
+    "pattern": "zh/csv/cashflow-statement/",
+    "params": []
+  },
+  {
+    "name": "csv_course_executives",
+    "pattern": "zh/csv/courses/%(course_id)s/executives/",
+    "params": [
+      "course_id"
+    ]
+  },
+  {
+    "name": "csv_course_history",
+    "pattern": "zh/csv/courses/%(course_id)s/history/",
+    "params": [
+      "course_id"
+    ]
+  },
+  {
+    "name": "csv_course_history_balance_sheet",
+    "pattern": "zh/csv/courses/%(course_id)s/history-balance-sheet/",
+    "params": [
+      "course_id"
+    ]
+  },
+  {
+    "name": "csv_course_history_cashflow_statement",
+    "pattern": "zh/csv/courses/%(course_id)s/history-cashflow-statement/",
+    "params": [
+      "course_id"
+    ]
+  },
+  {
+    "name": "csv_course_history_compact",
+    "pattern": "zh/csv/courses/%(course_id)s/history-compact/",
+    "params": [
+      "course_id"
+    ]
+  },
+  {
+    "name": "csv_course_history_income_statement",
+    "pattern": "zh/csv/courses/%(course_id)s/history-income-statement/",
+    "params": [
+      "course_id"
+    ]
+  },
+  {
+    "name": "csv_course_history_other",
+    "pattern": "zh/csv/courses/%(course_id)s/history-other/",
+    "params": [
+      "course_id"
+    ]
+  },
+  {
+    "name": "csv_facebook_import",
+    "pattern": "zh/csv/facebook-import/",
+    "params": []
+  },
+  {
+    "name": "csv_facebook_import_registrations",
+    "pattern": "zh/csv/facebook-import/registrations/",
+    "params": []
+  },
+  {
+    "name": "csv_income_statement",
+    "pattern": "zh/csv/income-statement/",
+    "params": []
+  },
+  {
+    "name": "csv_resource_history",
+    "pattern": "zh/csv/resource-history/",
+    "params": []
+  },
+  {
+    "name": "csv_resource_history_of_kind",
+    "pattern": "zh/csv/resource-history/%(kind)s/",
+    "params": [
+      "kind"
+    ]
+  },
+  {
+    "name": "csv_warehouse",
+    "pattern": "zh/csv/warehouse/",
+    "params": []
+  },
+  {
+    "name": "detail",
+    "pattern": ".well-known/acme-challenge/%(acme_data)s",
+    "params": [
+      "acme_data"
+    ]
+  },
+  {
+    "name": "device",
+    "pattern": "zh/device/",
+    "params": []
+  },
+  {
+    "name": "dups",
+    "pattern": "zh/dup-cases/",
+    "params": []
+  },
+  {
+    "name": "dups_case",
+    "pattern": "zh/dup-cases/%(case_id)s/",
+    "params": [
+      "case_id"
+    ]
+  },
+  {
+    "name": "emailAuth",
+    "pattern": "api/v2/auth/email/auth/",
+    "params": []
+  },
+  {
+    "name": "emailConnect",
+    "pattern": "api/v2/auth/email/connect/",
+    "params": []
+  },
+  {
+    "name": "email_prompt",
+    "pattern": "zh/email-prompt/",
+    "params": []
+  },
+  {
+    "name": "encyklopedy",
+    "pattern": "zh/encyclopedia/%(realm_id)s/resource/%(kind)s/",
+    "params": [
+      "realm_id",
+      "kind"
+    ]
+  },
+  {
+    "name": "encyklopedy_base",
+    "pattern": "zh/encyclopedia/%(realm_id)s/",
+    "params": [
+      "realm_id"
+    ]
+  },
+  {
+    "name": "encyklopedy_building",
+    "pattern": "zh/encyclopedia/%(realm_id)s/building/%(kind)s/",
+    "params": [
+      "realm_id",
+      "kind"
+    ]
+  },
+  {
+    "name": "encyklopedy_collectibles",
+    "pattern": "zh/encyclopedia/%(realm_id)s/collectibles/",
+    "params": [
+      "realm_id"
+    ]
+  },
+  {
+    "name": "encyklopedy_collectors",
+    "pattern": "zh/encyclopedia/%(realm_id)s/collectors/",
+    "params": [
+      "realm_id"
+    ]
+  },
+  {
+    "name": "encyklopedy_levels",
+    "pattern": "zh/encyclopedia/%(realm_id)s/levels/",
+    "params": [
+      "realm_id"
+    ]
+  },
+  {
+    "name": "encyklopedy_ranking",
+    "pattern": "zh/encyclopedia/%(realm_id)s/ranking/",
+    "params": [
+      "realm_id"
+    ]
+  },
+  {
+    "name": "encyklopedy_ratings",
+    "pattern": "zh/encyclopedia/%(realm_id)s/ratings/",
+    "params": [
+      "realm_id"
+    ]
+  },
+  {
+    "name": "encyklopedy_supporters",
+    "pattern": "zh/encyclopedia/%(realm_id)s/supporters/",
+    "params": [
+      "realm_id"
+    ]
+  },
+  {
+    "name": "end_tutorial",
+    "pattern": "zh/start_playing/",
+    "params": []
+  },
+  {
+    "name": "facebookAuth",
+    "pattern": "auth/facebook/auth/",
+    "params": []
+  },
+  {
+    "name": "facebookConnect",
+    "pattern": "auth/facebook/connect/",
+    "params": []
+  },
+  {
+    "name": "facebookPermsMissing",
+    "pattern": "auth/facebook/flash-perms-missing/",
+    "params": []
+  },
+  {
+    "name": "faq",
+    "pattern": "zh/articles/frequently-asked-questions/",
+    "params": []
+  },
+  {
+    "name": "followup",
+    "pattern": "zh/followup/%(followup_id)s/",
+    "params": [
+      "followup_id"
+    ]
+  },
+  {
+    "name": "for_schools",
+    "pattern": "zh/for-schools/",
+    "params": []
+  },
+  {
+    "name": "fpa",
+    "pattern": "zh/fpa/",
+    "params": []
+  },
+  {
+    "name": "headquarters",
+    "pattern": "zh/headquarters/",
+    "params": []
+  },
+  {
+    "name": "headquarters_accounting",
+    "pattern": "zh/headquarters/accounting/",
+    "params": []
+  },
+  {
+    "name": "headquarters_executives",
+    "pattern": "zh/headquarters/executives/",
+    "params": []
+  },
+  {
+    "name": "headquarters_executives_position",
+    "pattern": "zh/headquarters/executives/%(position)s/",
+    "params": [
+      "position"
+    ]
+  },
+  {
+    "name": "headquarters_finance",
+    "pattern": "zh/headquarters/finance/",
+    "params": []
+  },
+  {
+    "name": "headquarters_finance_bond",
+    "pattern": "zh/headquarters/finance/bond/%(id)s/",
+    "params": [
+      "id"
+    ]
+  },
+  {
+    "name": "headquarters_overview",
+    "pattern": "zh/headquarters/overview/",
+    "params": []
+  },
+  {
+    "name": "headquarters_simboosts",
+    "pattern": "zh/headquarters/simboosts/",
+    "params": []
+  },
+  {
+    "name": "home",
+    "pattern": "zh/",
+    "params": []
+  },
+  {
+    "name": "inpersonate",
+    "pattern": "zh/admin/companies/inpersonate/%(company_id)s/",
+    "params": [
+      "company_id"
+    ]
+  },
+  {
+    "name": "js_reverse",
+    "pattern": "zh/jsreverse/",
+    "params": []
+  },
+  {
+    "name": "landscape",
+    "pattern": "zh/landscape/",
+    "params": []
+  },
+  {
+    "name": "manifest",
+    "pattern": "manifest.json",
+    "params": []
+  },
+  {
+    "name": "market",
+    "pattern": "zh/market/",
+    "params": []
+  },
+  {
+    "name": "market_bonds",
+    "pattern": "zh/market/bonds/%(ratings)s/",
+    "params": [
+      "ratings"
+    ]
+  },
+  {
+    "name": "market_government_orders",
+    "pattern": "zh/market/government-orders/",
+    "params": []
+  },
+  {
+    "name": "market_resource",
+    "pattern": "zh/market/resource/%(kind)s/",
+    "params": [
+      "kind"
+    ]
+  },
+  {
+    "name": "messages",
+    "pattern": "zh/messages/",
+    "params": []
+  },
+  {
+    "name": "messages_to",
+    "pattern": "zh/messages/%(company)s/",
+    "params": [
+      "company"
+    ]
+  },
+  {
+    "name": "moderator_notes",
+    "pattern": "zh/account/moderator-notes/",
+    "params": []
+  },
+  {
+    "name": "moderators",
+    "pattern": "zh/moderators/",
+    "params": []
+  },
+  {
+    "name": "newcomers",
+    "pattern": "zh/newcomers/",
+    "params": []
+  },
+  {
+    "name": "newspaper",
+    "pattern": "zh/newspaper/%(realm_id)s/",
+    "params": [
+      "realm_id"
+    ]
+  },
+  {
+    "name": "newspaper_issue",
+    "pattern": "zh/newspaper/%(realm_id)s/%(issue_id)s/",
+    "params": [
+      "realm_id",
+      "issue_id"
+    ]
+  },
+  {
+    "name": "nft_account",
+    "pattern": "zh/account-settings/nft-account/",
+    "params": []
+  },
+  {
+    "name": "not_found",
+    "pattern": "404/",
+    "params": []
+  },
+  {
+    "name": "notifications",
+    "pattern": "zh/account-settings/notifications/%(realm_id)s/",
+    "params": [
+      "realm_id"
+    ]
+  },
+  {
+    "name": "offline",
+    "pattern": "offline",
+    "params": []
+  },
+  {
+    "name": "one_click_signin",
+    "pattern": "zh/signin/%(player_id)s/%(verification)s/",
+    "params": [
+      "player_id",
+      "verification"
+    ]
+  },
+  {
+    "name": "pa_action",
+    "pattern": "pa-action/%(situation)s/%(choice)s/",
+    "params": [
+      "situation",
+      "choice"
+    ]
+  },
+  {
+    "name": "pages",
+    "pattern": "zh/pages/%(slug)s/",
+    "params": [
+      "slug"
+    ]
+  },
+  {
+    "name": "passwordReset",
+    "pattern": "api/v2/auth/email/reset/",
+    "params": []
+  },
+  {
+    "name": "polls",
+    "pattern": "zh/polls/%(poll_id)s/",
+    "params": [
+      "poll_id"
+    ]
+  },
+  {
+    "name": "privacy",
+    "pattern": "zh/privacy/",
+    "params": []
+  },
+  {
+    "name": "qanda",
+    "pattern": "zh/articles/q-and-a-session/",
+    "params": []
+  },
+  {
+    "name": "qanda_de",
+    "pattern": "zh/articles/q-and-a-session/de/",
+    "params": []
+  },
+  {
+    "name": "realm_transfer",
+    "pattern": "zh/realm/transfer/",
+    "params": []
+  },
+  {
+    "name": "realms_page",
+    "pattern": "zh/realms/",
+    "params": []
+  },
+  {
+    "name": "referral",
+    "pattern": "zh/ref/%(player_id)s/",
+    "params": [
+      "player_id"
+    ]
+  },
+  {
+    "name": "referrals",
+    "pattern": "zh/referrals/",
+    "params": []
+  },
+  {
+    "name": "refunds",
+    "pattern": "zh/account/audit-refund/",
+    "params": []
+  },
+  {
+    "name": "report",
+    "pattern": "zh/report/",
+    "params": []
+  },
+  {
+    "name": "research",
+    "pattern": "zh/headquarters/research/",
+    "params": []
+  },
+  {
+    "name": "research_resource",
+    "pattern": "zh/headquarters/research/%(resource_name)s",
+    "params": [
+      "resource_name"
+    ]
+  },
+  {
+    "name": "rocket_launches",
+    "pattern": "zh/rocket-launches/",
+    "params": []
+  },
+  {
+    "name": "rss_guides",
+    "pattern": "rss/guides/",
+    "params": []
+  },
+  {
+    "name": "sce_terms",
+    "pattern": "sce-terms/",
+    "params": []
+  },
+  {
+    "name": "search",
+    "pattern": "zh/search/",
+    "params": []
+  },
+  {
+    "name": "serviceworker",
+    "pattern": "serviceworker.js",
+    "params": []
+  },
+  {
+    "name": "settings",
+    "pattern": "zh/account-settings/settings/%(realm_id)s/",
+    "params": [
+      "realm_id"
+    ]
+  },
+  {
+    "name": "signin",
+    "pattern": "zh/signin/",
+    "params": []
+  },
+  {
+    "name": "signout",
+    "pattern": "zh/signout/",
+    "params": []
+  },
+  {
+    "name": "signup",
+    "pattern": "zh/signup/",
+    "params": []
+  },
+  {
+    "name": "sitemap",
+    "pattern": "sitemap.xml",
+    "params": []
+  },
+  {
+    "name": "start_in_tutorial_direct",
+    "pattern": "zh/start-in-tutorial/%(realm_id)s/",
+    "params": [
+      "realm_id"
+    ]
+  },
+  {
+    "name": "start_tutorial",
+    "pattern": "zh/tutorial/",
+    "params": []
+  },
+  {
+    "name": "start_tutorial_realm",
+    "pattern": "zh/tutorial/%(realm_id)s/",
+    "params": [
+      "realm_id"
+    ]
+  },
+  {
+    "name": "survey",
+    "pattern": "zh/exit-survey/%(choice)s/",
+    "params": [
+      "choice"
+    ]
+  },
+  {
+    "name": "tag_search",
+    "pattern": "zh/tag-search/%(query)s/",
+    "params": [
+      "query"
+    ]
+  },
+  {
+    "name": "terms",
+    "pattern": "zh/terms/",
+    "params": []
+  },
+  {
+    "name": "tutorial_finished",
+    "pattern": "zh/tutorial-finished/",
+    "params": []
+  },
+  {
+    "name": "use_in_education",
+    "pattern": "zh/use-in-education/",
+    "params": []
+  },
+  {
+    "name": "use_in_education_form",
+    "pattern": "zh/use-in-education/form/",
+    "params": []
+  },
+  {
+    "name": "v1_api_realm_create_company",
+    "pattern": "api/v1/realm-create-company/%(realm_id)s/",
+    "params": [
+      "realm_id"
+    ]
+  },
+  {
+    "name": "v1_api_realm_transfer",
+    "pattern": "api/v1/realm/%(realm_id)s/transfer/",
+    "params": [
+      "realm_id"
+    ]
+  },
+  {
+    "name": "v1_api_switch_realm",
+    "pattern": "api/v1/realm/%(realm_id)s/switch/",
+    "params": [
+      "realm_id"
+    ]
+  },
+  {
+    "name": "v1_api_sync_realm",
+    "pattern": "api/v1/realm/%(realm_id)s/sync/",
+    "params": [
+      "realm_id"
+    ]
+  },
+  {
+    "name": "v2_market_order_cancel",
+    "pattern": "api/v2/market-order/%(order_pk)s/",
+    "params": [
+      "order_pk"
+    ]
+  },
+  {
+    "name": "v2_market_take",
+    "pattern": "api/v2/market-order/take/",
+    "params": []
+  },
+  {
+    "name": "version",
+    "pattern": "version/",
+    "params": []
+  },
+  {
+    "name": "warehouse",
+    "pattern": "zh/headquarters/warehouse/",
+    "params": []
+  },
+  {
+    "name": "warehouse_incoming",
+    "pattern": "zh/headquarters/warehouse/incoming-contracts/",
+    "params": []
+  },
+  {
+    "name": "warehouse_outgoing",
+    "pattern": "zh/headquarters/warehouse/outgoing-contracts/",
+    "params": []
+  },
+  {
+    "name": "warehouse_stats",
+    "pattern": "zh/headquarters/warehouse/stats/",
+    "params": []
+  }
+]

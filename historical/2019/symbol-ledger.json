@@ -1,0 +1,68 @@
+[
+  {
+    "symbol": "unitsSoldAnHour",
+    "semanticName": "calculateUnitsSoldAnHour",
+    "type": "function",
+    "domain": "retail",
+    "sourceFile": "reactjs.2ebf9ff0e2ef.early-react.js",
+    "arguments": [
+      "salesModifier",
+      "price",
+      "quality",
+      "marketSaturation",
+      "retailModeling"
+    ],
+    "constants": [
+      0.24,
+      0.1,
+      360000
+    ],
+    "confidence": 1,
+    "evidence": "Exact function definition in 2019 React bundle (line 1, index 2129)"
+  },
+  {
+    "symbol": "timeModeling",
+    "semanticName": "evaluateRetailTimeModeling",
+    "type": "function",
+    "domain": "retail",
+    "sourceFile": "reactjs.2ebf9ff0e2ef.early-react.js",
+    "arguments": [
+      "retailModeling",
+      "saturation",
+      "amount",
+      "price"
+    ],
+    "confidence": 1,
+    "evidence": "Direct eval of retailModeling expression with saturation, amount, price"
+  },
+  {
+    "symbol": "profitPerUnit",
+    "semanticName": "calculateRetailProfitPerUnit",
+    "type": "function",
+    "domain": "retail",
+    "sourceFile": "reactjs.2ebf9ff0e2ef.early-react.js",
+    "arguments": [
+      "salesModifier",
+      "price",
+      "quality",
+      "marketSaturation",
+      "retailModeling",
+      "administrationOverhead",
+      "storeBaseSalary"
+    ],
+    "confidence": 1,
+    "evidence": "Direct profit per unit formula subtracting hourly salary overhead"
+  },
+  {
+    "symbol": "refreshContractsIncoming",
+    "semanticName": "checkAndRefreshContractsIncoming",
+    "type": "function",
+    "domain": "warehouse",
+    "sourceFile": "reactjs.2ebf9ff0e2ef.early-react.js",
+    "constants": [
+      180
+    ],
+    "confidence": 1,
+    "evidence": "Checked last fetch timestamp against 180s cooldown"
+  }
+]

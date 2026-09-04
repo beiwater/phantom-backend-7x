@@ -1,9 +1,17 @@
 /**
  * Warehouse & Inventory API Client
+ * Runtime-grafted with reconstructed 2026 production warehouse services.
  */
 
 import { httpClient } from './http-client.ts';
 import { Routes } from '../routes/route-definitions.ts';
+import {
+  fetchWarehouseResources,
+  fetchContractsIncoming,
+  refreshContractsIncoming,
+  dispatchAsyncApiThunk,
+  type HttpResponse
+} from '../../reconstruction/warehouse/api.ts';
 
 export interface WarehouseItem {
   resourceId: number;
@@ -27,7 +35,24 @@ export interface B2BContract {
   createdAt: string;
 }
 
+// Ensure global window hooks for reconstructed services
+if (typeof window !== 'undefined') {
+  (window as unknown as { httpClient: unknown }).httpClient = httpClient;
+  (window as unknown as { Urls: unknown }).Urls = {
+    api_v3_resources: (companyId: string | number) => Routes.api.warehouse.inventory(companyId),
+    api_v3_contract_incoming: (realmId: string | number) => Routes.api.warehouse.contractsIncoming(realmId)
+  };
+}
+
 export const warehouseApi = {
+  // Reconstructed production thunk exports available to modern runtime
+  reconstructed: {
+    fetchWarehouseResources,
+    fetchContractsIncoming,
+    refreshContractsIncoming,
+    dispatchAsyncApiThunk
+  },
+
   async fetchInventory(companyId: number | string): Promise<WarehouseItem[]> {
     const res = await httpClient.get<WarehouseItem[]>(Routes.api.warehouse.inventory(companyId));
     return res.data;

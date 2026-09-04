@@ -1,0 +1,38 @@
+[
+  {
+    "symbol": "ga",
+    "semanticName": "warehouseReducer",
+    "domain": "warehouse",
+    "sourceFile": "main.17916b1c.final-cra.js",
+    "role": "Redux reducer handling all warehouse resources, contracts, and transactions",
+    "confidence": 1,
+    "evidence": "Root reducer key 'warehouse: ga', handles FETCH_RESOURCES, UPDATE_RESOURCES, contracts"
+  },
+  {
+    "symbol": "ba",
+    "semanticName": "initialWarehouseState",
+    "domain": "warehouse",
+    "sourceFile": "main.17916b1c.final-cra.js",
+    "role": "Initial state object for warehouse slice",
+    "confidence": 1,
+    "evidence": "Default parameter to warehouseReducer ga"
+  },
+  {
+    "symbol": "wi",
+    "semanticName": "useRoutes",
+    "domain": "routing",
+    "sourceFile": "main.17916b1c.final-cra.js",
+    "role": "Dynamic Proxy wrapper around window.Urls for API route dispatch",
+    "confidence": 1,
+    "evidence": "Exact implementation creating Proxy around window.Urls[lang] with fallback logger"
+  },
+  {
+    "symbol": "Ne",
+    "semanticName": "dispatchAsyncApiThunk",
+    "domain": "network",
+    "sourceFile": "main.17916b1c.final-cra.js",
+    "role": "Generic axios thunk handler dispatching START, SUCCESS, and ERROR actions",
+    "confidence": 1,
+    "evidence": "Calls uo[method](url).then(successCb).catch(errorCb)"
+  }
+]
