@@ -6,7 +6,9 @@ test-results/
 *.sqlite-shm
 *.sqlite
 *.sqlite-wal
-artifacts/
+artifacts/*
+!artifacts/archeology/
+artifacts/archeology/cache/
 /data/
 !server/data/
 *.sha256

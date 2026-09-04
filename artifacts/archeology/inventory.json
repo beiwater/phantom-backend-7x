@@ -1,0 +1,853 @@
+{
+  "snapshots": {
+    "20161011104837": {
+      "timestamp": "20161011104837",
+      "target": "20161001",
+      "scripts": [
+        {
+          "url": "https://d1fxy698ilbz6u.cloudfront.net/static/js/angular.min.26680517e102.js",
+          "size": 146836,
+          "architecture": "Standard/Vendor JS",
+          "sourcemap": {
+            "sourceMappingURL": "angular.min.js.map",
+            "has_inline_map": false,
+            "map_url_discovered": "https://d1fxy698ilbz6u.cloudfront.net/static/js/angular.min.js.map",
+            "map_downloaded": false,
+            "has_sources_content": false,
+            "source_files_count": 0
+          }
+        },
+        {
+          "url": "https://d1fxy698ilbz6u.cloudfront.net/static/js/angular-timer.min.b78a03015dd0.js",
+          "size": 7383,
+          "architecture": "AngularJS, Modules: ['timer'], Services: 2",
+          "sourcemap": {
+            "sourceMappingURL": null,
+            "has_inline_map": false,
+            "map_url_discovered": null,
+            "map_downloaded": false,
+            "has_sources_content": false,
+            "source_files_count": 0
+          }
+        },
+        {
+          "url": "https://d1fxy698ilbz6u.cloudfront.net/static/js/angular-cookies.min.fea0e8c628dd.js",
+          "size": 1433,
+          "architecture": "Standard/Vendor JS",
+          "sourcemap": {
+            "sourceMappingURL": "angular-cookies.min.js.map",
+            "has_inline_map": false,
+            "map_url_discovered": "https://d1fxy698ilbz6u.cloudfront.net/static/js/angular-cookies.min.js.map",
+            "map_downloaded": false,
+            "has_sources_content": false,
+            "source_files_count": 0
+          }
+        },
+        {
+          "url": "https://d1fxy698ilbz6u.cloudfront.net/static/js/angular-sanitize.min.806dcb821861.js",
+          "size": 5831,
+          "architecture": "Standard/Vendor JS",
+          "sourcemap": {
+            "sourceMappingURL": "angular-sanitize.min.js.map",
+            "has_inline_map": false,
+            "map_url_discovered": "https://d1fxy698ilbz6u.cloudfront.net/static/js/angular-sanitize.min.js.map",
+            "map_downloaded": false,
+            "has_sources_content": false,
+            "source_files_count": 0
+          }
+        },
+        {
+          "url": "https://d1fxy698ilbz6u.cloudfront.net/static/js/angular-timeago.min.f2108328fa02.js",
+          "size": 9013,
+          "architecture": "AngularJS, Modules: ['yaru22.angular-timeago'], Services: 2",
+          "sourcemap": {
+            "sourceMappingURL": null,
+            "has_inline_map": false,
+            "map_url_discovered": null,
+            "map_downloaded": false,
+            "has_sources_content": false,
+            "source_files_count": 0
+          }
+        },
+        {
+          "url": "https://d1fxy698ilbz6u.cloudfront.net/static/js/angular-animate.min.9bff95026ba5.js",
+          "size": 25188,
+          "architecture": "Standard/Vendor JS",
+          "sourcemap": {
+            "sourceMappingURL": "angular-animate.min.js.map",
+            "has_inline_map": false,
+            "map_url_discovered": "https://d1fxy698ilbz6u.cloudfront.net/static/js/angular-animate.min.js.map",
+            "map_downloaded": false,
+            "has_sources_content": false,
+            "source_files_count": 0
+          }
+        },
+        {
+          "url": "https://d1fxy698ilbz6u.cloudfront.net/static/js/angular-easyfb.min.d08c8803e320.js",
+          "size": 7528,
+          "architecture": "AngularJS, Modules: ['ezfb']",
+          "sourcemap": {
+            "sourceMappingURL": null,
+            "has_inline_map": false,
+            "map_url_discovered": null,
+            "map_downloaded": false,
+            "has_sources_content": false,
+            "source_files_count": 0
+          }
+        },
+        {
+          "url": "https://d1fxy698ilbz6u.cloudfront.net/static/js/humanize-duration.29e0f3c17dfa.js",
+          "size": 14802,
+          "architecture": "Standard/Vendor JS",
+          "sourcemap": {
+            "sourceMappingURL": null,
+            "has_inline_map": false,
+            "map_url_discovered": null,
+            "map_downloaded": false,
+            "has_sources_content": false,
+            "source_files_count": 0
+          }
+        },
+        {
+          "url": "https://d1fxy698ilbz6u.cloudfront.net/static/js/moment.cd9f0b2d1b3e.js",
+          "size": 104409,
+          "architecture": "Standard/Vendor JS",
+          "sourcemap": {
+            "sourceMappingURL": null,
+            "has_inline_map": false,
+            "map_url_discovered": null,
+            "map_downloaded": false,
+            "has_sources_content": false,
+            "source_files_count": 0
+          }
+        },
+        {
+          "url": "https://d1fxy698ilbz6u.cloudfront.net/static/js/angular/animation/dirAnimations.57c48e2f0c98.js",
+          "size": 1345,
+          "architecture": "AngularJS, Modules: ['appLandia']",
+          "sourcemap": {
+            "sourceMappingURL": null,
+            "has_inline_map": false,
+            "map_url_discovered": null,
+            "map_downloaded": false,
+            "has_sources_content": false,
+            "source_files_count": 0
+          }
+        },
+        {
+          "url": "https://d1fxy698ilbz6u.cloudfront.net/static/js/jquery.min.f03e5a3bf534.js",
+          "size": 95992,
+          "architecture": "React",
+          "sourcemap": {
+            "sourceMappingURL": "jquery.min.map",
+            "has_inline_map": false,
+            "map_url_discovered": "https://d1fxy698ilbz6u.cloudfront.net/static/js/jquery.min.map",
+            "map_downloaded": false,
+            "has_sources_content": false,
+            "source_files_count": 0
+          }
+        },
+        {
+          "url": "https://d1fxy698ilbz6u.cloudfront.net/static/js/jquery.countdown.min.5687ff37986e.js",
+          "size": 5057,
+          "architecture": "Standard/Vendor JS",
+          "sourcemap": {
+            "sourceMappingURL": null,
+            "has_inline_map": false,
+            "map_url_discovered": null,
+            "map_downloaded": false,
+            "has_sources_content": false,
+            "source_files_count": 0
+          }
+        },
+        {
+          "url": "https://d1fxy698ilbz6u.cloudfront.net/static/js/typeahead.bundle.28654235b116.js",
+          "size": 96186,
+          "architecture": "Standard/Vendor JS",
+          "sourcemap": {
+            "sourceMappingURL": null,
+            "has_inline_map": false,
+            "map_url_discovered": null,
+            "map_downloaded": false,
+            "has_sources_content": false,
+            "source_files_count": 0
+          }
+        }
+      ]
+    },
+    "20170731110112": {
+      "timestamp": "20170731110112",
+      "target": "20170801",
+      "scripts": [
+        {
+          "url": "https://d1fxy698ilbz6u.cloudfront.net/static/js/angular.min.26680517e102.js",
+          "size": 146836,
+          "architecture": "Standard/Vendor JS",
+          "sourcemap": {
+            "sourceMappingURL": "angular.min.js.map",
+            "has_inline_map": false,
+            "map_url_discovered": "https://d1fxy698ilbz6u.cloudfront.net/static/js/angular.min.js.map",
+            "map_downloaded": false,
+            "has_sources_content": false,
+            "source_files_count": 0
+          }
+        },
+        {
+          "url": "https://d1fxy698ilbz6u.cloudfront.net/static/js/angular-timer.min.b78a03015dd0.js",
+          "size": 7383,
+          "architecture": "AngularJS, Modules: ['timer'], Services: 2",
+          "sourcemap": {
+            "sourceMappingURL": null,
+            "has_inline_map": false,
+            "map_url_discovered": null,
+            "map_downloaded": false,
+            "has_sources_content": false,
+            "source_files_count": 0
+          }
+        },
+        {
+          "url": "https://d1fxy698ilbz6u.cloudfront.net/static/js/angular-cookies.min.fea0e8c628dd.js",
+          "size": 1433,
+          "architecture": "Standard/Vendor JS",
+          "sourcemap": {
+            "sourceMappingURL": "angular-cookies.min.js.map",
+            "has_inline_map": false,
+            "map_url_discovered": "https://d1fxy698ilbz6u.cloudfront.net/static/js/angular-cookies.min.js.map",
+            "map_downloaded": false,
+            "has_sources_content": false,
+            "source_files_count": 0
+          }
+        },
+        {
+          "url": "https://d1fxy698ilbz6u.cloudfront.net/static/js/angular-sanitize.min.806dcb821861.js",
+          "size": 5831,
+          "architecture": "Standard/Vendor JS",
+          "sourcemap": {
+            "sourceMappingURL": "angular-sanitize.min.js.map",
+            "has_inline_map": false,
+            "map_url_discovered": "https://d1fxy698ilbz6u.cloudfront.net/static/js/angular-sanitize.min.js.map",
+            "map_downloaded": false,
+            "has_sources_content": false,
+            "source_files_count": 0
+          }
+        },
+        {
+          "url": "https://d1fxy698ilbz6u.cloudfront.net/static/js/angular-timeago.min.f2108328fa02.js",
+          "size": 9013,
+          "architecture": "AngularJS, Modules: ['yaru22.angular-timeago'], Services: 2",
+          "sourcemap": {
+            "sourceMappingURL": null,
+            "has_inline_map": false,
+            "map_url_discovered": null,
+            "map_downloaded": false,
+            "has_sources_content": false,
+            "source_files_count": 0
+          }
+        },
+        {
+          "url": "https://d1fxy698ilbz6u.cloudfront.net/static/js/angular-animate.min.9bff95026ba5.js",
+          "size": 25188,
+          "architecture": "Standard/Vendor JS",
+          "sourcemap": {
+            "sourceMappingURL": "angular-animate.min.js.map",
+            "has_inline_map": false,
+            "map_url_discovered": "https://d1fxy698ilbz6u.cloudfront.net/static/js/angular-animate.min.js.map",
+            "map_downloaded": false,
+            "has_sources_content": false,
+            "source_files_count": 0
+          }
+        },
+        {
+          "url": "https://d1fxy698ilbz6u.cloudfront.net/static/js/angular-easyfb.min.d08c8803e320.js",
+          "size": 7528,
+          "architecture": "AngularJS, Modules: ['ezfb']",
+          "sourcemap": {
+            "sourceMappingURL": null,
+            "has_inline_map": false,
+            "map_url_discovered": null,
+            "map_downloaded": false,
+            "has_sources_content": false,
+            "source_files_count": 0
+          }
+        },
+        {
+          "url": "https://d1fxy698ilbz6u.cloudfront.net/static/js/humanize-duration.29e0f3c17dfa.js",
+          "size": 14802,
+          "architecture": "Standard/Vendor JS",
+          "sourcemap": {
+            "sourceMappingURL": null,
+            "has_inline_map": false,
+            "map_url_discovered": null,
+            "map_downloaded": false,
+            "has_sources_content": false,
+            "source_files_count": 0
+          }
+        },
+        {
+          "url": "https://d1fxy698ilbz6u.cloudfront.net/static/js/moment.cd9f0b2d1b3e.js",
+          "size": 104409,
+          "architecture": "Standard/Vendor JS",
+          "sourcemap": {
+            "sourceMappingURL": null,
+            "has_inline_map": false,
+            "map_url_discovered": null,
+            "map_downloaded": false,
+            "has_sources_content": false,
+            "source_files_count": 0
+          }
+        },
+        {
+          "url": "https://d1fxy698ilbz6u.cloudfront.net/static/js/angular/animation/dirAnimations.57c48e2f0c98.js",
+          "size": 1345,
+          "architecture": "AngularJS, Modules: ['appLandia']",
+          "sourcemap": {
+            "sourceMappingURL": null,
+            "has_inline_map": false,
+            "map_url_discovered": null,
+            "map_downloaded": false,
+            "has_sources_content": false,
+            "source_files_count": 0
+          }
+        },
+        {
+          "url": "https://d1fxy698ilbz6u.cloudfront.net/static/js/jquery.min.f03e5a3bf534.js",
+          "size": 95992,
+          "architecture": "React",
+          "sourcemap": {
+            "sourceMappingURL": "jquery.min.map",
+            "has_inline_map": false,
+            "map_url_discovered": "https://d1fxy698ilbz6u.cloudfront.net/static/js/jquery.min.map",
+            "map_downloaded": false,
+            "has_sources_content": false,
+            "source_files_count": 0
+          }
+        },
+        {
+          "url": "https://d1fxy698ilbz6u.cloudfront.net/static/js/jquery.countdown.min.5687ff37986e.js",
+          "size": 5057,
+          "architecture": "Standard/Vendor JS",
+          "sourcemap": {
+            "sourceMappingURL": null,
+            "has_inline_map": false,
+            "map_url_discovered": null,
+            "map_downloaded": false,
+            "has_sources_content": false,
+            "source_files_count": 0
+          }
+        },
+        {
+          "url": "https://d1fxy698ilbz6u.cloudfront.net/static/js/typeahead.bundle.28654235b116.js",
+          "size": 96186,
+          "architecture": "Standard/Vendor JS",
+          "sourcemap": {
+            "sourceMappingURL": null,
+            "has_inline_map": false,
+            "map_url_discovered": null,
+            "map_downloaded": false,
+            "has_sources_content": false,
+            "source_files_count": 0
+          }
+        }
+      ]
+    },
+    "20181128083847": {
+      "timestamp": "20181128083847",
+      "target": "20180601",
+      "scripts": [
+        {
+          "url": "https://d1fxy698ilbz6u.cloudfront.net/static/CACHE4/js/ef8f0017eb19.js",
+          "size": 153572,
+          "architecture": "AngularJS, Modules: ['timer'], Controllers: 1, Services: 2",
+          "sourcemap": {
+            "sourceMappingURL": null,
+            "has_inline_map": false,
+            "map_url_discovered": null,
+            "map_downloaded": false,
+            "has_sources_content": false,
+            "source_files_count": 0
+          }
+        },
+        {
+          "url": "https://d1fxy698ilbz6u.cloudfront.net/static/CACHE4/js/7b7c4f413fc8.js",
+          "size": 259741,
+          "architecture": "Standard/Vendor JS",
+          "sourcemap": {
+            "sourceMappingURL": null,
+            "has_inline_map": false,
+            "map_url_discovered": null,
+            "map_downloaded": false,
+            "has_sources_content": false,
+            "source_files_count": 0
+          }
+        },
+        {
+          "url": "https://d1fxy698ilbz6u.cloudfront.net/static/CACHE4/js/4090763f3779.js",
+          "size": 192759,
+          "architecture": "React",
+          "sourcemap": {
+            "sourceMappingURL": null,
+            "has_inline_map": false,
+            "map_url_discovered": null,
+            "map_downloaded": false,
+            "has_sources_content": false,
+            "source_files_count": 0
+          }
+        },
+        {
+          "url": "https://d1fxy698ilbz6u.cloudfront.net/static/CACHE4/js/7a135b4d8c6e.js",
+          "size": 15675,
+          "architecture": "AngularJS, Modules: ['yaru22.angular-timeago'], Services: 3",
+          "sourcemap": {
+            "sourceMappingURL": null,
+            "has_inline_map": false,
+            "map_url_discovered": null,
+            "map_downloaded": false,
+            "has_sources_content": false,
+            "source_files_count": 0
+          }
+        },
+        {
+          "url": "https://d1fxy698ilbz6u.cloudfront.net/static/CACHE4/js/581e9a261d98.js",
+          "size": 271648,
+          "architecture": "AngularJS, Modules: ['ui.bootstrap.debounce', 'ui.bootstrap.tpls', 'uib/template/progressbar/progress.html'], Controllers: 40, Services: 21",
+          "sourcemap": {
+            "sourceMappingURL": null,
+            "has_inline_map": false,
+            "map_url_discovered": null,
+            "map_downloaded": false,
+            "has_sources_content": false,
+            "source_files_count": 0
+          }
+        },
+        {
+          "url": "https://d1fxy698ilbz6u.cloudfront.net/static/CACHE4/js/45a7e380bf4f.js",
+          "size": 104701,
+          "architecture": "AngularJS, Modules: ['lr.upload.formdata', 'lr.upload.iframe', 'lr.upload.directives'], Services: 15",
+          "sourcemap": {
+            "sourceMappingURL": null,
+            "has_inline_map": false,
+            "map_url_discovered": null,
+            "map_downloaded": false,
+            "has_sources_content": false,
+            "source_files_count": 0
+          }
+        },
+        {
+          "url": "https://d1fxy698ilbz6u.cloudfront.net/static/CACHE4/js/a49dcbbe57a7.js",
+          "size": 9906,
+          "architecture": "AngularJS, Modules: ['appLandia'], Controllers: 2, Services: 1",
+          "sourcemap": {
+            "sourceMappingURL": null,
+            "has_inline_map": false,
+            "map_url_discovered": null,
+            "map_downloaded": false,
+            "has_sources_content": false,
+            "source_files_count": 0
+          }
+        }
+      ]
+    },
+    "20190105174125": {
+      "timestamp": "20190105174125",
+      "target": "20190101",
+      "scripts": [
+        {
+          "url": "https://d1fxy698ilbz6u.cloudfront.net/static/CACHE4/js/ef8f0017eb19.js",
+          "size": 153572,
+          "architecture": "AngularJS, Modules: ['timer'], Controllers: 1, Services: 2",
+          "sourcemap": {
+            "sourceMappingURL": null,
+            "has_inline_map": false,
+            "map_url_discovered": null,
+            "map_downloaded": false,
+            "has_sources_content": false,
+            "source_files_count": 0
+          }
+        },
+        {
+          "url": "https://d1fxy698ilbz6u.cloudfront.net/static/CACHE4/js/7b7c4f413fc8.js",
+          "size": 259741,
+          "architecture": "Standard/Vendor JS",
+          "sourcemap": {
+            "sourceMappingURL": null,
+            "has_inline_map": false,
+            "map_url_discovered": null,
+            "map_downloaded": false,
+            "has_sources_content": false,
+            "source_files_count": 0
+          }
+        },
+        {
+          "url": "https://d1fxy698ilbz6u.cloudfront.net/static/reactjs.2ebf9ff0e2ef.js",
+          "size": 1311370,
+          "architecture": "Webpack, React",
+          "sourcemap": {
+            "sourceMappingURL": "main.37ccd34b.js.map",
+            "has_inline_map": false,
+            "map_url_discovered": "https://d1fxy698ilbz6u.cloudfront.net/static/main.37ccd34b.js.map",
+            "map_downloaded": false,
+            "has_sources_content": false,
+            "source_files_count": 0
+          }
+        },
+        {
+          "url": "/static/reactjs.2ebf9ff0e2ef.js",
+          "size": 1311370,
+          "architecture": "Webpack, React",
+          "sourcemap": {
+            "sourceMappingURL": "main.37ccd34b.js.map",
+            "has_inline_map": false,
+            "map_url_discovered": "/static/main.37ccd34b.js.map",
+            "map_downloaded": true,
+            "has_sources_content": false,
+            "source_files_count": 0
+          }
+        },
+        {
+          "url": "https://d1fxy698ilbz6u.cloudfront.net/static/CACHE4/js/4090763f3779.js",
+          "size": 192759,
+          "architecture": "React",
+          "sourcemap": {
+            "sourceMappingURL": null,
+            "has_inline_map": false,
+            "map_url_discovered": null,
+            "map_downloaded": false,
+            "has_sources_content": false,
+            "source_files_count": 0
+          }
+        },
+        {
+          "url": "https://d1fxy698ilbz6u.cloudfront.net/static/CACHE4/js/7a135b4d8c6e.js",
+          "size": 15675,
+          "architecture": "AngularJS, Modules: ['yaru22.angular-timeago'], Services: 3",
+          "sourcemap": {
+            "sourceMappingURL": null,
+            "has_inline_map": false,
+            "map_url_discovered": null,
+            "map_downloaded": false,
+            "has_sources_content": false,
+            "source_files_count": 0
+          }
+        },
+        {
+          "url": "https://d1fxy698ilbz6u.cloudfront.net/static/CACHE4/js/581e9a261d98.js",
+          "size": 271648,
+          "architecture": "AngularJS, Modules: ['ui.bootstrap.debounce', 'ui.bootstrap.tpls', 'uib/template/progressbar/progress.html'], Controllers: 40, Services: 21",
+          "sourcemap": {
+            "sourceMappingURL": null,
+            "has_inline_map": false,
+            "map_url_discovered": null,
+            "map_downloaded": false,
+            "has_sources_content": false,
+            "source_files_count": 0
+          }
+        },
+        {
+          "url": "https://d1fxy698ilbz6u.cloudfront.net/static/CACHE4/js/45a7e380bf4f.js",
+          "size": 104701,
+          "architecture": "AngularJS, Modules: ['lr.upload.formdata', 'lr.upload.iframe', 'lr.upload.directives'], Services: 15",
+          "sourcemap": {
+            "sourceMappingURL": null,
+            "has_inline_map": false,
+            "map_url_discovered": null,
+            "map_downloaded": false,
+            "has_sources_content": false,
+            "source_files_count": 0
+          }
+        },
+        {
+          "url": "https://d1fxy698ilbz6u.cloudfront.net/static/CACHE4/js/a49dcbbe57a7.js",
+          "size": 9906,
+          "architecture": "AngularJS, Modules: ['appLandia'], Controllers: 2, Services: 1",
+          "sourcemap": {
+            "sourceMappingURL": null,
+            "has_inline_map": false,
+            "map_url_discovered": null,
+            "map_downloaded": false,
+            "has_sources_content": false,
+            "source_files_count": 0
+          }
+        }
+      ]
+    },
+    "20191209111841": {
+      "timestamp": "20191209111841",
+      "target": "20191201",
+      "scripts": [
+        {
+          "url": "https://d1fxy698ilbz6u.cloudfront.net/static/CACHE4/js/352d5bf03e9a.js",
+          "size": 153574,
+          "architecture": "AngularJS, Modules: ['timer'], Controllers: 1, Services: 2",
+          "sourcemap": {
+            "sourceMappingURL": null,
+            "has_inline_map": false,
+            "map_url_discovered": null,
+            "map_downloaded": false,
+            "has_sources_content": false,
+            "source_files_count": 0
+          }
+        },
+        {
+          "url": "https://d1fxy698ilbz6u.cloudfront.net/static/CACHE4/js/679799dff47b.js",
+          "size": 259744,
+          "architecture": "Standard/Vendor JS",
+          "sourcemap": {
+            "sourceMappingURL": null,
+            "has_inline_map": false,
+            "map_url_discovered": null,
+            "map_downloaded": false,
+            "has_sources_content": false,
+            "source_files_count": 0
+          }
+        },
+        {
+          "url": "https://d1fxy698ilbz6u.cloudfront.net/static/CACHE4/js/ab21d84ce107.js",
+          "size": 192763,
+          "architecture": "React",
+          "sourcemap": {
+            "sourceMappingURL": null,
+            "has_inline_map": false,
+            "map_url_discovered": null,
+            "map_downloaded": false,
+            "has_sources_content": false,
+            "source_files_count": 0
+          }
+        },
+        {
+          "url": "https://d1fxy698ilbz6u.cloudfront.net/static/CACHE4/js/bcd416bf20ff.js",
+          "size": 15678,
+          "architecture": "AngularJS, Modules: ['yaru22.angular-timeago'], Services: 3",
+          "sourcemap": {
+            "sourceMappingURL": null,
+            "has_inline_map": false,
+            "map_url_discovered": null,
+            "map_downloaded": false,
+            "has_sources_content": false,
+            "source_files_count": 0
+          }
+        },
+        {
+          "url": "https://d1fxy698ilbz6u.cloudfront.net/static/CACHE4/js/c7d6940adb66.js",
+          "size": 271653,
+          "architecture": "AngularJS, Modules: ['ui.bootstrap.debounce', 'ui.bootstrap.tpls', 'uib/template/progressbar/progress.html'], Controllers: 40, Services: 21",
+          "sourcemap": {
+            "sourceMappingURL": null,
+            "has_inline_map": false,
+            "map_url_discovered": null,
+            "map_downloaded": false,
+            "has_sources_content": false,
+            "source_files_count": 0
+          }
+        },
+        {
+          "url": "https://d1fxy698ilbz6u.cloudfront.net/static/CACHE4/js/9bd8e37e35b7.js",
+          "size": 104706,
+          "architecture": "AngularJS, Modules: ['lr.upload.formdata', 'lr.upload.iframe', 'lr.upload.directives'], Services: 15",
+          "sourcemap": {
+            "sourceMappingURL": null,
+            "has_inline_map": false,
+            "map_url_discovered": null,
+            "map_downloaded": false,
+            "has_sources_content": false,
+            "source_files_count": 0
+          }
+        }
+      ]
+    },
+    "20200524130654": {
+      "timestamp": "20200524130654",
+      "target": "20200501",
+      "scripts": [
+        {
+          "url": "https://d1fxy698ilbz6u.cloudfront.net/static/CACHE4/js/679799dff47b.js",
+          "size": 259744,
+          "architecture": "Standard/Vendor JS",
+          "sourcemap": {
+            "sourceMappingURL": null,
+            "has_inline_map": false,
+            "map_url_discovered": null,
+            "map_downloaded": false,
+            "has_sources_content": false,
+            "source_files_count": 0
+          }
+        },
+        {
+          "url": "https://d1fxy698ilbz6u.cloudfront.net/static/js/runtime-main.c83880fc.8d811eb78073.js",
+          "size": 1594,
+          "architecture": "Webpack",
+          "sourcemap": {
+            "sourceMappingURL": "https://www.simcompanies.com/static/js/runtime-main.c83880fc.js.map",
+            "has_inline_map": false,
+            "map_url_discovered": "https://www.simcompanies.com/static/js/runtime-main.c83880fc.js.map",
+            "map_downloaded": false,
+            "has_sources_content": false,
+            "source_files_count": 0
+          }
+        },
+        {
+          "url": "https://d1fxy698ilbz6u.cloudfront.net/static/CACHE4/js/ab21d84ce107.js",
+          "size": 192763,
+          "architecture": "React",
+          "sourcemap": {
+            "sourceMappingURL": null,
+            "has_inline_map": false,
+            "map_url_discovered": null,
+            "map_downloaded": false,
+            "has_sources_content": false,
+            "source_files_count": 0
+          }
+        }
+      ]
+    },
+    "20201101015329": {
+      "timestamp": "20201101015329",
+      "target": "20201101",
+      "scripts": [
+        {
+          "url": "/jsreverse/",
+          "size": 23215,
+          "architecture": "Django-Compressor",
+          "sourcemap": {
+            "sourceMappingURL": null,
+            "has_inline_map": false,
+            "map_url_discovered": null,
+            "map_downloaded": true,
+            "has_sources_content": false,
+            "source_files_count": 0
+          }
+        },
+        {
+          "url": "/de/jsreverse/",
+          "size": 23215,
+          "architecture": "Django-Compressor",
+          "sourcemap": {
+            "sourceMappingURL": null,
+            "has_inline_map": false,
+            "map_url_discovered": null,
+            "map_downloaded": true,
+            "has_sources_content": false,
+            "source_files_count": 0
+          }
+        },
+        {
+          "url": "/fr/jsreverse/",
+          "size": 23215,
+          "architecture": "Django-Compressor",
+          "sourcemap": {
+            "sourceMappingURL": null,
+            "has_inline_map": false,
+            "map_url_discovered": null,
+            "map_downloaded": true,
+            "has_sources_content": false,
+            "source_files_count": 0
+          }
+        },
+        {
+          "url": "/pt/jsreverse/",
+          "size": 23215,
+          "architecture": "Django-Compressor",
+          "sourcemap": {
+            "sourceMappingURL": null,
+            "has_inline_map": false,
+            "map_url_discovered": null,
+            "map_downloaded": true,
+            "has_sources_content": false,
+            "source_files_count": 0
+          }
+        },
+        {
+          "url": "/tr/jsreverse/",
+          "size": 23215,
+          "architecture": "Django-Compressor",
+          "sourcemap": {
+            "sourceMappingURL": null,
+            "has_inline_map": false,
+            "map_url_discovered": null,
+            "map_downloaded": true,
+            "has_sources_content": false,
+            "source_files_count": 0
+          }
+        },
+        {
+          "url": "/it/jsreverse/",
+          "size": 23215,
+          "architecture": "Django-Compressor",
+          "sourcemap": {
+            "sourceMappingURL": null,
+            "has_inline_map": false,
+            "map_url_discovered": null,
+            "map_downloaded": true,
+            "has_sources_content": false,
+            "source_files_count": 0
+          }
+        },
+        {
+          "url": "/es/jsreverse/",
+          "size": 23215,
+          "architecture": "Django-Compressor",
+          "sourcemap": {
+            "sourceMappingURL": null,
+            "has_inline_map": false,
+            "map_url_discovered": null,
+            "map_downloaded": true,
+            "has_sources_content": false,
+            "source_files_count": 0
+          }
+        },
+        {
+          "url": "https://d1fxy698ilbz6u.cloudfront.net/static/CACHE4/js/679799dff47b.js",
+          "size": 259744,
+          "architecture": "Standard/Vendor JS",
+          "sourcemap": {
+            "sourceMappingURL": null,
+            "has_inline_map": false,
+            "map_url_discovered": null,
+            "map_downloaded": false,
+            "has_sources_content": false,
+            "source_files_count": 0
+          }
+        },
+        {
+          "url": "https://d1fxy698ilbz6u.cloudfront.net/static/js/runtime-main.c83880fc.8d811eb78073.js",
+          "size": 1594,
+          "architecture": "Webpack",
+          "sourcemap": {
+            "sourceMappingURL": "https://www.simcompanies.com/static/js/runtime-main.c83880fc.js.map",
+            "has_inline_map": false,
+            "map_url_discovered": "https://www.simcompanies.com/static/js/runtime-main.c83880fc.js.map",
+            "map_downloaded": false,
+            "has_sources_content": false,
+            "source_files_count": 0
+          }
+        },
+        {
+          "url": "https://d1fxy698ilbz6u.cloudfront.net/static/js/2.2bc31f1e.chunk.58f7d5c9491b.js",
+          "size": 1938099,
+          "architecture": "Webpack, React",
+          "sourcemap": {
+            "sourceMappingURL": "https://www.simcompanies.com/static/js/2.2bc31f1e.chunk.js.map",
+            "has_inline_map": false,
+            "map_url_discovered": "https://www.simcompanies.com/static/js/2.2bc31f1e.chunk.js.map",
+            "map_downloaded": false,
+            "has_sources_content": false,
+            "source_files_count": 0
+          }
+        },
+        {
+          "url": "https://d1fxy698ilbz6u.cloudfront.net/static/CACHE4/js/ab21d84ce107.js",
+          "size": 192763,
+          "architecture": "React",
+          "sourcemap": {
+            "sourceMappingURL": null,
+            "has_inline_map": false,
+            "map_url_discovered": null,
+            "map_downloaded": false,
+            "has_sources_content": false,
+            "source_files_count": 0
+          }
+        }
+      ]
+    }
+  },
+  "findings": []
+}
