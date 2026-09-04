@@ -10,3 +10,4 @@ artifacts/
 /data/
 !server/data/
 *.sha256
+dist/

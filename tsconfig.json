@@ -6,6 +6,7 @@
     "esModuleInterop": true,
     "strict": false,
     "skipLibCheck": true,
-    "allowSyntheticDefaultImports": true
+    "allowSyntheticDefaultImports": true,
+    "jsx": "react-jsx"
   }
 }

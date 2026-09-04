@@ -5,6 +5,8 @@
   "main": "server/index.ts",
   "type": "module",
   "scripts": {
+    "dev": "vite",
+    "build": "vite build",
     "start": "node --experimental-strip-types server/index.ts",
     "test": "bash scripts/test-all.sh",
     "test:unit": "bash scripts/test-unit.sh",
@@ -20,9 +22,15 @@
   },
   "dependencies": {
     "puppeteer": "^25.9.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
     "ws": "^8.18.0"
   },
   "devDependencies": {
-    "@playwright/test": "^1.62.1"
+    "@playwright/test": "^1.62.1",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.7",
+    "@vitejs/plugin-react": "^6.1.1",
+    "vite": "^8.2.2"
   }
 }
