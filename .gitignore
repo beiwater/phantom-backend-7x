@@ -11,3 +11,4 @@ artifacts/
 !server/data/
 *.sha256
 dist/
+*.bak
