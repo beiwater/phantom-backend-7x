@@ -19,6 +19,24 @@
     }
   ];
 
+  // Dummy WebSocket to prevent connection errors on static hosting
+  class MockWebSocket extends EventTarget {
+    constructor(url) {
+      super();
+      this.url = url;
+      this.readyState = 1; // OPEN
+      setTimeout(() => {
+        if (typeof this.onopen === "function") this.onopen(new Event("open"));
+      }, 50);
+    }
+    send(data) {}
+    close() {
+      this.readyState = 3;
+      if (typeof this.onclose === "function") this.onclose(new Event("close"));
+    }
+  }
+  window.WebSocket = MockWebSocket;
+
   const mockAdminData = {
     authInfoFetched: true,
     authUser: {
@@ -33,7 +51,7 @@
       money: 100000000,
       simBoosts: 50000,
       valuation: 500000000,
-      extraExecutiveSlots: 2,
+      extraExecutiveSlots: 4,
       productionModifier: 50,
       salesModifier: 50,
       rating: 5,
@@ -61,7 +79,8 @@
     { id: 1, kind: 1, amount: 500000, quality: 3, cost: 1.20 },
     { id: 2, kind: 2, amount: 2000000, quality: 0, cost: 0.15 },
     { id: 3, kind: 3, amount: 100000, quality: 2, cost: 9.50 },
-    { id: 4, kind: 40, amount: 25000, quality: 4, cost: 120.00 }
+    { id: 4, kind: 40, amount: 25000, quality: 4, cost: 120.00 },
+    { id: 5, kind: 13, amount: 150000, quality: 1, cost: 0.35 }
   ];
 
   const endpoints = [
@@ -79,10 +98,19 @@
     ["/api/v2/resources/", mockResources],
     ["/api/v1/market-ticker/", []],
     ["/api/chatroom/", []],
-    ["/api/v2/newspaper/get-all/", []]
+    ["/api/v2/newspaper/get-all/", []],
+    ["/api/v2/analytics/player-base/", { total: 15000, active: 4500 }],
+    ["/api/v2/analytics/player-dropout/", { rate: 0.05 }],
+    ["/api/v2/analytics/player-retention/", { day7: 0.85, day30: 0.65 }],
+    ["/api/v2/analytics/revenue-heartbeat/", { currentMonth: 50000 }],
+    ["/api/v2/analytics/simboosts-reserve/", { reserve: 250000 }],
+    ["/api/v2/analytics/purchases-by-size/", []],
+    ["/api/v2/analytics/time-to-purchase/", []],
+    ["/api/v2/analytics/recent-payments/", []],
+    ["/api/v2/analytics/lifetime-value/", { ltv: 45.5 }]
   ];
 
-  // Intercept XMLHttpRequest for complete offline/static execution on GitHub Pages
+  // Intercept XMLHttpRequest
   const RealXHR = window.XMLHttpRequest;
   function MockXHR() {
     const xhr = new RealXHR();
@@ -133,7 +161,7 @@
   }
   window.XMLHttpRequest = MockXHR;
 
-  // Intercept Fetch API as well
+  // Intercept Fetch API
   const originalFetch = window.fetch;
   window.fetch = async function(resource, init) {
     const url = typeof resource === "string" ? resource : (resource && resource.url) || "";
@@ -148,6 +176,21 @@
     if (originalFetch) return originalFetch(resource, init);
     return new Response("[]", { status: 200 });
   };
+
+  // Intercept anchor clicks to stay inside GitHub Pages subpath
+  document.addEventListener("click", function(e) {
+    const a = e.target.closest("a");
+    if (!a) return;
+    const href = a.getAttribute("href");
+    if (href && href.startsWith("/") && !href.startsWith("//") && !href.startsWith("/phantom-backend-7x")) {
+      e.preventDefault();
+      if (window.routerHistory) {
+        window.routerHistory.push(href);
+      } else {
+        window.location.href = "/phantom-backend-7x" + href;
+      }
+    }
+  }, true);
 </script>
 
     <meta charset="utf-8">
