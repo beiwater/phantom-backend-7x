@@ -15,7 +15,7 @@ export interface SalesBuildingPageProps {
 }
 
 export const SalesBuildingPage: React.FC<SalesBuildingPageProps> = ({ building }) => {
-  const { state, retail, salesOffice } = useSalesBuilding(building);
+  const { state, retail, salesOffice, restaurant } = useSalesBuilding(building);
 
   if (state.loading) {
     return (
@@ -60,8 +60,8 @@ export const SalesBuildingPage: React.FC<SalesBuildingPageProps> = ({ building }
           building={building}
           properties={state.restaurantProperties}
           runs={state.restaurantRuns}
-          onUpdateProperties={async () => {}}
-          onToggleRun={async () => {}}
+          onUpdateProperties={restaurant.updateProperties}
+          onToggleRun={restaurant.toggleRun}
         />
       )}
     </div>

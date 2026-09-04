@@ -40,8 +40,19 @@ export function useEncyclopedia(
       ]);
 
       const prices: Record<number, number> = {};
-      for (const [k, v] of Object.entries(ticker)) {
-        prices[Number(k)] = v.price;
+      if (Array.isArray(ticker)) {
+        for (const item of ticker) {
+          if (item && typeof item.kind === 'number') {
+            prices[item.kind] = item.price;
+          }
+        }
+      } else if (ticker && typeof ticker === 'object') {
+        for (const [k, v] of Object.entries(ticker)) {
+          const item = v as { kind?: number; price?: number };
+          const kind = typeof item?.kind === 'number' ? item.kind : Number(k);
+          const price = typeof item?.price === 'number' ? item.price : Number(v);
+          prices[kind] = price;
+        }
       }
 
       setState(prev => ({
@@ -63,14 +74,18 @@ export function useEncyclopedia(
   // Filtered resources by search and category
   const filteredResources = useMemo(() => {
     return state.resources.filter(res => {
+      const matchesCategory =
+        !state.activeCategory ||
+        state.activeCategory === 'all' ||
+        res.category === state.activeCategory;
       const matchesSearch =
         state.searchQuery === '' ||
         res.name.toLowerCase().includes(state.searchQuery.toLowerCase()) ||
         String(res.dbLetter) === state.searchQuery;
 
-      return matchesSearch;
+      return matchesCategory && matchesSearch;
     });
-  }, [state.resources, state.searchQuery]);
+  }, [state.resources, state.searchQuery, state.activeCategory]);
 
   // Cost calculation for a resource
   const calculateCostBreakdown = useCallback(
@@ -106,8 +121,18 @@ export function useEncyclopedia(
     filteredResources,
     setSearchQuery: (query: string) => setState(prev => ({ ...prev, searchQuery: query })),
     setActiveCategory: (cat: string | null) => setState(prev => ({ ...prev, activeCategory: cat })),
-    setSelectedResource: (id: number | null) => setState(prev => ({ ...prev, selectedResourceId: id })),
-    setSelectedBuilding: (kind: string | null) => setState(prev => ({ ...prev, selectedBuildingKind: kind })),
+    setSelectedResource: (id: number | null) =>
+      setState(prev => ({
+        ...prev,
+        selectedResourceId: id,
+        selectedBuildingKind: id !== null ? null : prev.selectedBuildingKind
+      })),
+    setSelectedBuilding: (kind: string | null) =>
+      setState(prev => ({
+        ...prev,
+        selectedBuildingKind: kind,
+        selectedResourceId: kind !== null ? null : prev.selectedResourceId
+      })),
     calculateCostBreakdown
   };
 }

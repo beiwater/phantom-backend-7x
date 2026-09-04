@@ -10,7 +10,10 @@ import type { ResourceRetailInfo, EncyclopediaResourceDetail } from '../shared/t
 export interface MarketTickerItem {
   kind: number;
   price: number;
-  quality: number;
+  quality?: number;
+  image?: string;
+  is_up?: boolean;
+  realmId?: number;
 }
 
 export interface AdminOverheadResponse {
@@ -60,8 +63,8 @@ export const encyclopediaApi = {
   /**
    * Fetches live market ticker prices across all resources in the realm.
    */
-  async fetchMarketTicker(realmId: number | string): Promise<Record<number, MarketTickerItem>> {
-    const res = await httpClient.get<Record<number, MarketTickerItem>>(
+  async fetchMarketTicker(realmId: number | string): Promise<MarketTickerItem[]> {
+    const res = await httpClient.get<MarketTickerItem[]>(
       Routes.api.market.ticker(realmId)
     );
     return res.data;

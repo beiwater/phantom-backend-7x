@@ -16,11 +16,18 @@ export interface DeliverSalesOrderResponse {
   }>;
 }
 
+export interface ToggleRestaurantRunResponse {
+  building: unknown;
+  run: RestaurantRun;
+  resourceTransactions: Array<{ kind: number; quality: number; amount: number }>;
+  moneyUpdate: number;
+}
+
 export const salesApi = {
-  // --- Generic Retail Queue (Stores, Dealership, Seasonal) ---
+  // --- Generic Retail Orders (Stores, Dealership, Seasonal) ---
 
   async fetchQueue(buildingId: number | string): Promise<RetailTask[]> {
-    const res = await httpClient.get<RetailTask[]>(Routes.api.building.queue(buildingId));
+    const res = await httpClient.get<RetailTask[]>(`/api/v2/companies/buildings/${buildingId}/sales-orders/`);
     return res.data;
   },
 
@@ -33,17 +40,18 @@ export const salesApi = {
       quality?: number;
     }
   ): Promise<RetailTask[]> {
-    const res = await httpClient.post<RetailTask[]>(Routes.api.building.queue(buildingId), {
-      kind: params.resourceId,
-      amount: params.amount,
-      price: params.price,
+    await httpClient.post(`/api/v2/companies/buildings/${buildingId}/sales-orders/`, {
+      resource: params.resourceId,
+      units: params.amount,
+      sellingPrice: params.price,
       quality: params.quality ?? 0
     });
+    const res = await httpClient.get<RetailTask[]>(`/api/v2/companies/buildings/${buildingId}/sales-orders/`);
     return res.data;
   },
 
   async cancelRetailTask(buildingId: number | string, taskId: number | string): Promise<void> {
-    await httpClient.delete(Routes.api.building.queueItem(buildingId, taskId));
+    await httpClient.delete(`/api/v2/companies/buildings/${buildingId}/sales-orders/${taskId}/`);
   },
 
   // --- Sales Offices (Aerospace Contracts) ---
@@ -101,8 +109,8 @@ export const salesApi = {
     return res.data;
   },
 
-  async toggleRestaurantRun(buildingId: number | string, open: boolean): Promise<RestaurantRun> {
-    const res = await httpClient.post<RestaurantRun>(Routes.api.restaurant.runs(buildingId), {
+  async toggleRestaurantRun(buildingId: number | string, open: boolean): Promise<ToggleRestaurantRunResponse> {
+    const res = await httpClient.post<ToggleRestaurantRunResponse>(Routes.api.restaurant.runs(buildingId), {
       open
     });
     return res.data;

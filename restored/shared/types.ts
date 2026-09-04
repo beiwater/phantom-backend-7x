@@ -91,6 +91,7 @@ export interface RestaurantProperties {
   staffLevel: number;
   seatingCapacity: number;
   isOpen: boolean;
+  keepOpen?: boolean;
 }
 
 export interface RestaurantRun {

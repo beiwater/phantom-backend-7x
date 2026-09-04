@@ -21,15 +21,25 @@ export const RestaurantBuilding: React.FC<RestaurantBuildingProps> = ({
   onUpdateProperties,
   onToggleRun
 }) => {
-  const [isOpen, setIsOpen] = useState<boolean>(properties?.isOpen ?? false);
+  const currentOpen = properties?.keepOpen ?? properties?.isOpen ?? false;
+  const [isOpen, setIsOpen] = useState<boolean>(currentOpen);
   const [isUpdating, setIsUpdating] = useState<boolean>(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  React.useEffect(() => {
+    setIsOpen(properties?.keepOpen ?? properties?.isOpen ?? false);
+  }, [properties?.keepOpen, properties?.isOpen]);
 
   const handleToggleOpen = async () => {
     setIsUpdating(true);
+    setErrorMessage(null);
     try {
       const next = !isOpen;
       await onToggleRun(next);
       setIsOpen(next);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to update restaurant cycle';
+      setErrorMessage(msg);
     } finally {
       setIsUpdating(false);
     }

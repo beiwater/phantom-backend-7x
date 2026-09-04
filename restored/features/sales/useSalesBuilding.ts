@@ -7,7 +7,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { salesApi } from '../../api/sales-api.ts';
 import { SALES_BUILDING_KINDS } from '../../shared/game-constants.ts';
 import type { SalesBuildingState, SalesBuildingCategory } from './types.ts';
-import type { PlayerBuilding } from '../../shared/types.ts';
+import type { PlayerBuilding, RestaurantProperties } from '../../shared/types.ts';
 
 export function useSalesBuilding(building: PlayerBuilding) {
   const buildingKind = building.kind;
@@ -111,6 +111,22 @@ export function useSalesBuilding(building: PlayerBuilding) {
       salesOrders: prev.salesOrders.filter(o => o.id !== orderId)
     }));
   };
+  // Actions for Restaurant
+  const updateRestaurantProperties = async (props: Partial<RestaurantProperties>) => {
+    const updated = await salesApi.updateRestaurantProperties(building.id, props);
+    setState(prev => ({ ...prev, restaurantProperties: updated }));
+  };
+
+  const toggleRestaurantRun = async (open: boolean) => {
+    const result = await salesApi.toggleRestaurantRun(building.id, open);
+    setState(prev => ({
+      ...prev,
+      restaurantProperties: prev.restaurantProperties
+        ? { ...prev.restaurantProperties, isOpen: open, keepOpen: open }
+        : null,
+      restaurantRuns: result.run ? [result.run, ...prev.restaurantRuns] : prev.restaurantRuns
+    }));
+  };
 
   return {
     state,
@@ -123,6 +139,10 @@ export function useSalesBuilding(building: PlayerBuilding) {
       findCustomer,
       deliverSalesOrder,
       rejectSalesOrder
+    },
+    restaurant: {
+      updateProperties: updateRestaurantProperties,
+      toggleRun: toggleRestaurantRun
     }
   };
 }
