@@ -8,7 +8,9 @@ import {
 import { getProductionQueueUseCase } from '../application/production/get-production-queue.ts';
 import { startRetailUseCase } from '../application/production/start-retail.ts';
 import { cancelProductionUseCase } from '../application/production/cancel-production.ts';
+import { collectAccumulatorUseCase } from '../application/production/collect-accumulator.ts';
 import { collectProductionUseCase } from '../application/production/collect-production.ts';
+import { productionRepository } from '../repositories/production-repository.ts';
 import { collectRetailOrderUseCase } from '../application/retail/retail-use-cases.ts';
 import { retailRepository } from '../repositories/retail-repository.ts';
 import { getProductionHistoryUseCase } from '../application/production/get-production-history.ts';
@@ -31,6 +33,7 @@ import {
   toSimCompaniesQueueDTO,
   toSimCompaniesHistoryDTO
 } from '../compatibility/simcompanies/production-dto.ts';
+import { toSimCompaniesCollectAccumulatorDTO } from '../compatibility/simcompanies/accumulator-dto.ts';
 import { ValidationError, NotFoundError, ForbiddenError, UnauthorizedError } from '../errors/domain-error.ts';
 import type { GameContext } from '../context/game-context.ts';
 import {
@@ -80,7 +83,8 @@ export function registerBuildingRoutes(registry: RouteRegistry = globalRouteRegi
     const existingBld = await buildingRepository.findById(buildingId);
     const isRetailSell = body.price !== undefined ||
       body.estimatedSecondsToFinish !== undefined ||
-      existingBld?.category === 'sales';
+      existingBld?.category === 'sales' ||
+      existingBld?.category === 'seasonal';
     if (isRetailSell) {
       const retail = await startRetailUseCase(ctx, {
         buildingId,
@@ -685,6 +689,18 @@ export function registerBuildingRoutes(registry: RouteRegistry = globalRouteRegi
     }
   });
 
+  // Issue #200: Forest Nursery uses a dedicated cut-down endpoint. The
+  // original client sends an empty POST body and reads only resource/building.
+  registry.register({
+    method: 'POST',
+    pattern: '/api/v1/buildings/:id/accumulator/collect/',
+    auth: 'company',
+    handler: async (_req, res, ctx, params) => {
+      const result = await collectAccumulatorUseCase(ctx!, Number(params.id));
+      sendJson(res, toSimCompaniesCollectAccumulatorDTO(result));
+    }
+  });
+
   // 10. Take finished order — production output OR completed retail sale
   // (Issue #142: the client posts {cash} to /api/v2/order/take/:buildingId/
   // to pick up finished sales revenue; previously only production was
@@ -695,6 +711,16 @@ export function registerBuildingRoutes(registry: RouteRegistry = globalRouteRegi
     auth: 'company',
     handler: async (_req, res, ctx, params) => {
       const requestedId = Number(params.id);
+
+      const requestedBuilding = buildingRepository.findById(requestedId);
+      const requestedQueue = productionRepository.findById(requestedId);
+      const accumulatorBuilding = requestedBuilding
+        ?? (requestedQueue ? buildingRepository.findById(requestedQueue.buildingId) : null);
+      if (accumulatorBuilding?.companyId === ctx!.companyId && accumulatorBuilding.kind === 'v') {
+        const accumulator = await collectAccumulatorUseCase(ctx!, accumulatorBuilding.id);
+        sendJson(res, toSimCompaniesCollectAccumulatorDTO(accumulator));
+        return;
+      }
 
       // Retail fallback: a finished sales order on this building collects revenue
       const retailOrders = retailRepository.findByCompanyAndBuilding(ctx!.companyId, requestedId);

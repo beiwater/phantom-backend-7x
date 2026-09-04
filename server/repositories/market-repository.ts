@@ -373,14 +373,17 @@ export class MarketTradeRepository {
   }
 
   /** Issue #100: daily VWAP per resource+quality over the latest trading day. */
-  findDailyReferencePrices(): MarketReferencePriceEntity[] {
+  findDailyReferencePrices(realmId?: number): MarketReferencePriceEntity[] {
     const rows = this.database.prepare(`
-      SELECT kind, quality, trade_date,
-             SUM(price * amount) AS notional,
-             SUM(amount) AS volume
-      FROM market_trades
-      GROUP BY kind, quality, trade_date
-    `).all() as Array<{ kind: number; quality: number; trade_date: string; notional: number; volume: number }>;
+      SELECT t.kind, t.quality, t.trade_date,
+             SUM(t.price * t.amount) AS notional,
+             SUM(t.amount) AS volume
+      FROM market_trades t
+      LEFT JOIN companies buyer ON buyer.company_id = t.buyer_id
+      LEFT JOIN companies seller ON seller.company_id = t.seller_id
+      WHERE (? IS NULL OR buyer.realm_id = ? OR seller.realm_id = ?)
+      GROUP BY t.kind, t.quality, t.trade_date
+    `).all(realmId ?? null, realmId ?? null, realmId ?? null) as Array<{ kind: number; quality: number; trade_date: string; notional: number; volume: number }>;
 
     const latestByPair = new Map<string, { kind: number; quality: number; trade_date: string; notional: number; volume: number }>();
     for (const row of rows) {
@@ -399,6 +402,40 @@ export class MarketTradeRepository {
         date: row.trade_date
       }))
       .sort((a, b) => (a.kind - b.kind) || (a.quality - b.quality));
+  }
+  findDailyReferencePriceHistory(kind: number, realmId?: number): Array<{
+    kind: number;
+    quality: number;
+    date: string;
+    vwap: number;
+    volume: number;
+  }> {
+    const rows = this.database.prepare(`
+      SELECT t.kind, t.quality, t.trade_date,
+             SUM(t.price * t.amount) AS notional,
+             SUM(t.amount) AS volume
+      FROM market_trades t
+      LEFT JOIN companies buyer ON buyer.company_id = t.buyer_id
+      LEFT JOIN companies seller ON seller.company_id = t.seller_id
+      WHERE t.kind = ?
+        AND (? IS NULL OR buyer.realm_id = ? OR seller.realm_id = ?)
+      GROUP BY t.kind, t.quality, t.trade_date
+      HAVING SUM(t.amount) > 0
+      ORDER BY t.trade_date ASC, t.quality ASC
+    `).all(kind, realmId ?? null, realmId ?? null, realmId ?? null) as Array<{
+      kind: number;
+      quality: number;
+      trade_date: string;
+      notional: number;
+      volume: number;
+    }>;
+    return rows.map(row => ({
+      kind: Number(row.kind),
+      quality: Number(row.quality),
+      date: row.trade_date,
+      vwap: Math.round((Number(row.notional) / Number(row.volume)) * 1e6) / 1e6,
+      volume: Number(row.volume)
+    }));
   }
 }
 

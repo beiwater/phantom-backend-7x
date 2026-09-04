@@ -1668,7 +1668,132 @@ export const MIGRATIONS: MigrationDefinition[] = [
         END
       `);
     }
-  }
+  },
+  {
+    version: 26,
+    name: '026_supporter_state',
+    up: (db: DatabaseSync) => {
+      const columns = new Set(
+        (db.prepare('PRAGMA table_info(companies)').all() as Array<{ name: string }>)
+          .map(column => column.name)
+      );
+      const additions: Record<string, string> = {
+        supporter_until: 'TEXT',
+        supporter_certificates: 'INTEGER NOT NULL DEFAULT 0',
+        supporter_started_at: 'TEXT'
+      };
+      for (const [column, ddl] of Object.entries(additions)) {
+        if (!columns.has(column)) {
+          db.exec(`ALTER TABLE companies ADD COLUMN ${column} ${ddl}`);
+        }
+      }
+      db.exec('CREATE INDEX IF NOT EXISTS idx_companies_supporter_until ON companies(realm_id, supporter_until)');
+    }
+  },
+  {
+    version: 27,
+    name: '027_encyclopedia_resource_events',
+    up: (db: DatabaseSync) => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS encyclopedia_resource_events (
+          id INTEGER PRIMARY KEY,
+          realm_id INTEGER NOT NULL,
+          kind INTEGER NOT NULL,
+          speed_modifier REAL NOT NULL,
+          since TEXT NOT NULL,
+          until TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_encyclopedia_resource_events_active
+          ON encyclopedia_resource_events(realm_id, since, until);
+      `);
+    }
+  },
+  {
+    version: 28,
+    name: '028_retail_sales_history',
+    up: (db: DatabaseSync) => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS retail_sales_history (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          realm_id INTEGER NOT NULL,
+          company_id INTEGER NOT NULL,
+          resource_kind INTEGER NOT NULL,
+          quality INTEGER NOT NULL DEFAULT 0,
+          units REAL NOT NULL,
+          unit_price REAL NOT NULL,
+          revenue REAL NOT NULL,
+          sold_at TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_retail_sales_history_realm_date
+          ON retail_sales_history(realm_id, sold_at, resource_kind);
+      `);
+    }
+  },
+  {
+    version: 29,
+    name: '029_gift_baskets',
+    // Gift-basket persistence was previously created outside the migration
+    // chain; keep the durable send/delete/claim records under schema authority.
+    up: (db: DatabaseSync) => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS gift_baskets (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          sender_company_id INTEGER NOT NULL,
+          recipient_company_id INTEGER NOT NULL,
+          kind TEXT NOT NULL,
+          simboosts INTEGER DEFAULT 0,
+          quality INTEGER,
+          collectible_id INTEGER,
+          message TEXT,
+          year INTEGER NOT NULL,
+          sent INTEGER DEFAULT 0,
+          simboosts_claimed INTEGER DEFAULT 0,
+          created_at TEXT,
+          sent_at TEXT
+        );
+        CREATE INDEX IF NOT EXISTS idx_gift_baskets_recipient
+          ON gift_baskets(recipient_company_id, year);
+        CREATE INDEX IF NOT EXISTS idx_gift_baskets_sender
+          ON gift_baskets(sender_company_id, year);
+
+        CREATE TABLE IF NOT EXISTS gift_basket_drafts (
+          company_id INTEGER NOT NULL,
+          year INTEGER NOT NULL,
+          draft_json TEXT,
+          updated_at TEXT,
+          PRIMARY KEY (company_id, year)
+        );
+      `);
+    }
+  },
+  {
+    version: 30,
+    name: '030_accumulator_states',
+    // Issue #200: accumulator progress is distinct from ordinary production
+    // output; persist it by building so collect/reload can reconstruct value,
+    // quality, and source-cost state without trusting an in-memory fallback.
+    up: (db: DatabaseSync) => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS accumulator_states (
+          building_id INTEGER PRIMARY KEY,
+          company_id INTEGER NOT NULL,
+          resource_kind INTEGER NOT NULL,
+          value REAL NOT NULL DEFAULT 0,
+          cost_total REAL NOT NULL DEFAULT 0,
+          updated_at TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_accumulator_states_company
+          ON accumulator_states(company_id, resource_kind);
+      `);
+      db.prepare(`
+        INSERT OR IGNORE INTO accumulator_states
+          (building_id, company_id, resource_kind, value, cost_total, updated_at)
+        SELECT id, company_id, 150, 0, 0, COALESCE(created_at, ?)
+        FROM buildings
+        WHERE kind = 'v'
+      `).run(new Date().toISOString());
+    }
+  },
 ];
 
 export class MigrationRunner {

@@ -9,6 +9,7 @@ import { runInTransaction } from '../db/transaction.ts';
 import { hashPassword } from '../db/migrations/index.ts';
 import { createSession } from '../auth/session.ts';
 import { normalizePositionCode } from '../domain/executives.ts';
+import { getBuildingMeta } from '../game-data/buildings.ts';
 
 export interface ScenarioBuildingInput {
   kind: string; // 'P', 'r', 'G', 'F', 'B', etc.
@@ -252,10 +253,22 @@ export class FixtureService {
           const buildingId = (maxBldgRow?.m ?? 1000) + 1;
 
           const posName = `slot_${slot}`;
+          const buildingMeta = getBuildingMeta(b.kind);
           db.prepare(`
-            INSERT INTO buildings (id, company_id, kind, size, position, abundance, busy_until, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, NULL, ?)
-          `).run(buildingId, companyId, b.kind, b.size, posName, abundance, nowIso);
+            INSERT INTO buildings (id, company_id, kind, size, position, name, cost, category, abundance, busy_until, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?)
+          `).run(
+            buildingId,
+            companyId,
+            b.kind,
+            b.size,
+            posName,
+            buildingMeta.name,
+            buildingMeta.cost,
+            buildingMeta.category,
+            abundance,
+            nowIso
+          );
           buildingsCount++;
 
           // If restaurant, initialize properties
@@ -277,11 +290,19 @@ export class FixtureService {
       let warehouseRows = 0;
       if (input.warehouse && input.warehouse.length > 0) {
         for (const w of input.warehouse) {
-          db.prepare(`
-            INSERT INTO warehouse (company_id, kind, quality, amount, cost_workers, updated_at)
-            VALUES (?, ?, ?, ?, 1.0, ?)
-            ON CONFLICT(company_id, kind, quality) DO UPDATE SET amount = amount + ?
-          `).run(companyId, w.kind, w.quality, w.amount, nowIso, w.amount);
+          const existingWarehouse = db.prepare(
+            'SELECT id FROM warehouse WHERE company_id = ? AND kind = ? AND quality = ? ORDER BY id LIMIT 1'
+          ).get(companyId, w.kind, w.quality) as { id: number } | undefined;
+          if (existingWarehouse) {
+            db.prepare(
+              'UPDATE warehouse SET amount = amount + ?, updated_at = ? WHERE id = ?'
+            ).run(w.amount, nowIso, existingWarehouse.id);
+          } else {
+            db.prepare(`
+              INSERT INTO warehouse (company_id, kind, quality, amount, cost_workers, updated_at)
+              VALUES (?, ?, ?, ?, 1.0, ?)
+            `).run(companyId, w.kind, w.quality, w.amount, nowIso);
+          }
           warehouseRows++;
         }
       }

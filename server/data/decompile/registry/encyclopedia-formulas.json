@@ -205,8 +205,8 @@
       "surface": "resource retail history chart",
       "confidence": "strong",
       "finding": "The chart maps retailData[].date to x-axis, retailData[].averagePrice to price, retailData[].saturation to the demand-series data, and reads retailData[].demand and retailData[].amountSold; restaurant chart reads amountSoldRestaurant. Direct consumers are at bundle offsets 4035713 and 4036637-4037194.",
-      "currentEvidence": "server/routes/encyclopedia-routes.ts currently constructs only date, saturation, and averagePrice in retailData; no route change is made in this evidence task.",
-      "nextInvestigation": "Save an official /api/v4/{realmId}/resources-retail-info/ response and compare all chart fields before changing a route."
+      "currentEvidence": "The private server now returns 28 virtual-clock-relative daily entries. Prices prefer persisted retail sales, then realm-scoped market VWAPs, then the canonical saturation-aware model; entries include demand, amountSold, and amountSoldRestaurant.",
+      "nextInvestigation": "Capture a private-server browser refresh and verify the Encyclopedia chart renders the persisted history without missing values."
     },
     {
       "surface": "industry/realm modifiers",

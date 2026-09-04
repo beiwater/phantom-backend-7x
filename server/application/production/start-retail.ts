@@ -53,7 +53,7 @@ export async function startRetailUseCase(
     if (building.companyId !== ctx.companyId) {
       throw new ForbiddenError('You do not own this building');
     }
-    if (building.category !== 'sales') {
+    if (building.category !== 'sales' && building.category !== 'seasonal') {
       throw new ValidationError(
         `Resource ${input.kind} cannot be produced in building type '${building.kind}'`
       );

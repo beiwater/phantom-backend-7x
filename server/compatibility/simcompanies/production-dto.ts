@@ -213,12 +213,17 @@ export function computeFallbackUnitCost(item: ProductionQueueEntity): number {
 
 export interface SimCompaniesQueueItemDTO {
   id: number;
+  /** Queue marker used by the legacy persistence model. */
   kind: number;
+  /** Direct resource kind consumed by the bundled queue-card component. */
+  resourceKind: number;
   quality: number;
   amount: number;
   duration: number;
   started: string;
   finishes: string;
+  /** Unit cost used by the production detail view. */
+  cost: number;
   resource: {
     name: string;
     image: string;
@@ -231,6 +236,8 @@ export interface SimCompaniesQueueItemDTO {
   economySource: string;
   productionModifier: number;
   productionOutputMultiplier: number;
+  /** Rocket quality is only meaningful for aerospace research queue cards. */
+  rocketQuality?: number;
 }
 
 export function toSimCompaniesQueueDTO(
@@ -250,11 +257,13 @@ export function toSimCompaniesQueueDTO(
     return {
       id: item.id,
       kind: item.kind,
+      resourceKind: item.kind,
       quality,
       amount: finiteOr(item.amount, 0),
       duration: finiteOr(item.durationSeconds, 0),
       started: item.startedAt,
       finishes: item.finishesAt,
+      cost: unitCost,
       resource: res ? {
         name: getResourceName(displayKind),
         image: res.image,
@@ -266,7 +275,8 @@ export function toSimCompaniesQueueDTO(
       economyPhaseStartedAt: item.economyPhaseStartedAt,
       economySource: item.economySource,
       productionModifier: item.productionModifier,
-      productionOutputMultiplier: item.productionOutputMultiplier
+      productionOutputMultiplier: item.productionOutputMultiplier,
+      ...(launchRocketKind !== null ? { rocketQuality: quality } : {})
     };
   });
 }

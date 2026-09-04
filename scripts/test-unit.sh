@@ -28,7 +28,7 @@ if [ -z "${NODE_BIN:-}" ]; then
 fi
 
 # Suites that must run standalone (they spawn isolated servers).
-STANDALONE_RE='verify-issue-70-rest|verify-issue-7[8-9]|verify-issue-8[0-9]|verify-issue-84-90|verify-issue-9[0-9]|bfs-crawler|white-screen|dom-verify'
+STANDALONE_RE='verify-issue-70-rest|verify-issue-7[8-9]|verify-issue-8[0-9]|verify-issue-84-90|verify-issue-9[0-9]|verify-issue-199|bfs-crawler|white-screen|dom-verify'
 
 # Suites admitted to the default CI gate. New test files are discovered below
 # and reported as quarantined until their runtime assumptions and baseline
@@ -74,6 +74,7 @@ ADMITTED_TESTS=(
   tests/verify-issue-188-chat-timestamps.test.ts
   tests/verify-issue-189-chat-ordering.test.ts
   tests/verify-issue-190-production-duration.test.ts
+  tests/verify-issue-199-encyclopedia.test.ts
   tests/verify-issue-192-company-map-slots.test.ts
   tests/verify-issue-193-contract-submission.test.ts
   tests/verify-issue-194-newspaper-unpublished.test.ts

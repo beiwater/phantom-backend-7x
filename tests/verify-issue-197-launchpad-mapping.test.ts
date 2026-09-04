@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { db } from '../server/db/connection.ts';
+import { registerPlayer } from '../server/db/seed/index.ts';
 import { createGameContext } from '../server/context/game-context.ts';
 import { buildingRepository } from '../server/repositories/building-repository.ts';
 import { productionRepository } from '../server/repositories/production-repository.ts';
@@ -7,12 +8,13 @@ import { startProductionUseCase } from '../server/application/production/start-p
 import { toSimCompaniesBuildingDTO } from '../server/compatibility/simcompanies/building-dto.ts';
 import { toSimCompaniesQueueDTO } from '../server/compatibility/simcompanies/production-dto.ts';
 
-const company = db.prepare('SELECT company_id, realm_id FROM companies ORDER BY company_id LIMIT 1').get() as {
-  company_id: number;
-  realm_id: number;
-};
-const companyId = Number(company.company_id);
-const context = createGameContext(companyId, companyId, Number(company.realm_id));
+const registered = registerPlayer(
+  `issue197_${Date.now()}_${Math.random().toString(36).slice(2, 8)}@test.local`,
+  'Password123!',
+  `Issue 197 Launch Mapping ${Date.now()}`
+);
+const companyId = registered.companyId;
+const context = createGameContext(companyId, registered.playerId, 0);
 const now = new Date().toISOString();
 
 const insertBuilding = (size: number, position: string): number => {
@@ -46,17 +48,19 @@ const sorBuilding = buildingRepository.findById(launchPad);
 assert.ok(sorBuilding);
 const sorDto = toSimCompaniesBuildingDTO(sorBuilding!);
 const sorBusy = sorDto.busy as { resource?: { kind?: number; name?: string; amount?: number; image?: string } };
-assert.equal(sorBusy.resource?.kind, 91);
-assert.equal(sorBusy.resource?.name, 'Sub-orbital rocket');
+assert.equal(sorBusy.resource?.kind, 100);
+assert.equal(sorBusy.resource?.name, 'Aero Research');
 assert.equal(sorBusy.resource?.amount, 1);
-assert.ok(sorBusy.resource?.image?.includes('sub-orbital-rocket'));
+assert.ok(sorBusy.resource?.image?.includes('aero-research'));
 
 insertWarehouse(94, 1);
 const bfr = await startProductionUseCase(context, { buildingId: launchPad, kind: 94, amount: 1 });
 assert.deepEqual(bfr.resourceTransactions.map(tx => ({ kind: tx.kind, amount: tx.amount })), [{ kind: 94, amount: -1 }]);
 const queue = toSimCompaniesQueueDTO(productionRepository.findActiveByBuilding(launchPad, companyId));
+assert.deepEqual(queue.map(item => item.resourceKind), [100, 100]);
+assert.deepEqual(queue.map(item => item.rocketQuality), [0, 0]);
 assert.deepEqual(queue.map(item => item.resource?.kind), [91, 94]);
-assert.deepEqual(queue.map(item => item.resource?.name), ['Sub-orbital rocket', 'BFR']);
+assert.deepEqual(queue.map(item => item.resource?.name), ['Sub Orbital Rocket2', 'BFR']);
 
 const researchOnlyPad = insertBuilding(1, 'issue-197-research-only');
 insertWarehouse(100, 5000);

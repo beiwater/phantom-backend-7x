@@ -1381,8 +1381,15 @@
       "normalizedUrl": "/api/v1/buildings/:e/accumulator/collect/",
       "bundleSourceOffset": 664237,
       "confidence": "verified_bundle_static",
-      "backendStatus": "unimplemented",
-      "backendImplementation": null
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "file": "server/routes/building-routes.ts",
+          "line": 694,
+          "method": "POST",
+          "path": "/api/v1/buildings/:id/accumulator/collect/"
+        }
+      ]
     },
     {
       "name": "api_v1_audit_requests",

@@ -1,5 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { readJsonBody, sendJson, setPreparsedBody } from './utils.ts';
+import { createGameContext } from '../context/game-context.ts';
 import { DomainError } from '../errors/domain-error.ts';
 import { getCompanyCollectibles } from '../game/collectibles.ts';
 import { getGovernmentOrders, getGovernmentTier } from '../game/government.ts';
@@ -29,6 +30,8 @@ import {
   sendBasket,
   updateOutgoingMessage
 } from '../game-data/gift-baskets.ts';
+import { companyRepository } from '../repositories/company-repository.ts';
+import { deleteOutgoingGiftBasketUseCase } from '../application/gift-baskets/delete-outgoing.ts';
 import { RouteRegistry, globalRouteRegistry, type HttpMethod } from '../http/route-registry.ts';
 
 /** Issue #88: DomainError carries an authoritative status + machine code. */
@@ -166,7 +169,20 @@ export async function handleAchievementRoutes(
       return true;
     }
     if (method === 'DELETE') {
-      sendJson(res, { success: true });
+      const routeCompanyId = basketOutgoingGetMatch[1] === 'me'
+        ? currentCompanyId
+        : Number(basketOutgoingGetMatch[1]);
+      if (routeCompanyId !== currentCompanyId) {
+        sendJson(res, { error: 'Unauthorized' }, 401);
+        return true;
+      }
+      try {
+        const realmId = companyRepository.findById(currentCompanyId)?.realmId ?? 0;
+        const ctx = createGameContext(currentCompanyId, currentCompanyId, realmId);
+        sendJson(res, await deleteOutgoingGiftBasketUseCase(ctx, basketId, Number(basketOutgoingGetMatch[2])));
+      } catch (err: unknown) {
+        sendDomainError(res, err);
+      }
       return true;
     }
   }

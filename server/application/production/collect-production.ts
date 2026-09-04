@@ -42,6 +42,17 @@ export async function collectProductionUseCase(
       // collected again (double XP / double resources).
       throw new ConflictError('Production order has already been collected');
     }
+    const accumulatorBuilding = itemByQueue
+      ? buildingRepository.findById(itemByQueue.buildingId)
+      : null;
+    if (itemByQueue && !itemByQueue.resolved
+      && itemByQueue.companyId === ctx.companyId
+      && itemByQueue.kind === 150
+      && accumulatorBuilding?.kind === 'v') {
+      // Issue #200: accumulator progress is cut down by its dedicated
+      // application flow; never deliver the growth amount as ordinary stock.
+      throw new ValidationError('Accumulator production must use the dedicated collect endpoint');
+    }
 
     if (itemByQueue && itemByQueue.companyId === ctx.companyId) {
       targetItem = itemByQueue;

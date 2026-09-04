@@ -148,10 +148,12 @@ export class VirtualClock {
       // ignore
     }
 
-    // 3. Resolve retail orders
+    // Retail orders stay persisted until collection, while revenue is credited
+    // when the sale starts. A due finished_at is therefore the completion
+    // marker; revenue_credited is not an in-progress status.
     try {
       const retailRows = db.prepare(
-        "SELECT COUNT(*) as cnt FROM retail_orders WHERE finished_at <= ? AND status = 'in_progress'"
+        "SELECT COUNT(*) as cnt FROM retail_orders WHERE finished_at <= ?"
       ).get(nowString) as { cnt: number } | undefined;
       completedRetailOrders = Number(retailRows?.cnt) || 0;
     } catch {

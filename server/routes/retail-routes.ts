@@ -8,9 +8,12 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { readJsonBody, sendJson, setPreparsedBody } from './utils.ts';
 import { createGameContext } from '../context/game-context.ts';
 import { buildingRepository } from '../repositories/building-repository.ts';
+import { companyRepository } from '../repositories/company-repository.ts';
 import { retailRepository } from '../repositories/retail-repository.ts';
 import {
   formatRetailOrder,
+  formatSalesOfficeOrder,
+  getSalesOfficeSearchFee,
   startRetailOrderUseCase,
   collectRetailOrderUseCase,
   cancelRetailOrderUseCase,
@@ -32,15 +35,17 @@ export async function handleRetailRoutes(
     const orderId = buildingSalesOrdersMatch && buildingSalesOrdersMatch[2]
       ? Number(buildingSalesOrdersMatch[2])
       : undefined;
+    const scopedBuilding = buildingId === undefined ? null : buildingRepository.findById(buildingId);
 
     if (!currentCompanyId) {
       sendJson(res, { error: 'Unauthorized' }, 401);
       return true;
     }
 
+    const companyRealmId = companyRepository.findById(currentCompanyId)?.realmId ?? 0;
+
     if (buildingId !== undefined) {
-      const building = buildingRepository.findById(buildingId);
-      if (!building || building.companyId !== currentCompanyId) {
+      if (!scopedBuilding || scopedBuilding.companyId !== currentCompanyId) {
         sendJson(res, { error: 'Unauthorized' }, 401);
         return true;
       }
@@ -57,14 +62,21 @@ export async function handleRetailRoutes(
           sendJson(res, { error: 'Unauthorized' }, 401);
           return true;
         }
-        sendJson(res, formatRetailOrder(order));
+        sendJson(res, scopedBuilding?.kind === 'B'
+          ? formatSalesOfficeOrder(order, getSalesOfficeSearchFee(scopedBuilding.size))
+          : formatRetailOrder(order));
         return true;
       }
 
       const orders: RetailOrderEntity[] = buildingId === undefined
         ? retailRepository.findByCompany(currentCompanyId)
         : retailRepository.findByCompanyAndBuilding(currentCompanyId, buildingId);
-      sendJson(res, orders.map(formatRetailOrder));
+      sendJson(res, orders.map(order => {
+        const orderBuilding = scopedBuilding ?? buildingRepository.findById(order.buildingId);
+        return orderBuilding?.kind === 'B'
+          ? formatSalesOfficeOrder(order, getSalesOfficeSearchFee(orderBuilding.size))
+          : formatRetailOrder(order);
+      }));
       return true;
     }
 
@@ -77,7 +89,7 @@ export async function handleRetailRoutes(
         sellingPrice?: number;
       }>(req);
       try {
-        const ctx = createGameContext(currentCompanyId, currentCompanyId, 0);
+        const ctx = createGameContext(currentCompanyId, currentCompanyId, companyRealmId);
         const targetBuildingId = buildingId ?? body.building;
         // #153: a Sales Office has no retail products — POSTing here is the
         // original "look for customer" flow: charge the search fee and open
@@ -121,7 +133,7 @@ export async function handleRetailRoutes(
         return true;
       }
 
-      const ctx = createGameContext(currentCompanyId, currentCompanyId, 0);
+      const ctx = createGameContext(currentCompanyId, currentCompanyId, companyRealmId);
       try {
         if (method === 'PUT') {
           const result = await collectRetailOrderUseCase(ctx, orderId);
@@ -160,7 +172,8 @@ export async function handleRetailRoutes(
       sendJson(res, formatRetailOrder(order));
       return true;
     }
-    const ctx = createGameContext(currentCompanyId, currentCompanyId, 0);
+    const companyRealmId = companyRepository.findById(currentCompanyId)?.realmId ?? 0;
+    const ctx = createGameContext(currentCompanyId, currentCompanyId, companyRealmId);
     try {
       if (method === 'PUT') {
         const result = await collectRetailOrderUseCase(ctx, orderId);

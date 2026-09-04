@@ -3,17 +3,39 @@ import { sendJson } from './utils.ts';
 import {
   CONSTANTS_CORE,
   CONSTANTS_BUILDINGS,
-  CONSTANTS_RESOURCES,
-  getResourceDef
+  CONSTANTS_RESOURCES
 } from '../game/constants.ts';
-import { getCompanyById } from '../game/company.ts';
 import { companyRepository } from '../repositories/company-repository.ts';
 import { warehouseRepository } from '../repositories/warehouse-repository.ts';
 import { getWeather } from '../game-data/weather.ts';
 import { getCertificates } from '../game/achievements.ts';
 import { getGovernmentOrders, getGovernmentTier, getGovernmentBids } from '../game/government.ts';
 import { getCompanyRankings } from '../game/encyclopedia.ts';
+import {
+  getEncyclopediaRetailInfo,
+  getEncyclopediaResourceDetail,
+  getEncyclopediaProductionModifiers,
+  getEncyclopediaEvents,
+  getEncyclopediaSupporters
+} from '../application/encyclopedia/encyclopedia-queries.ts';
 import { RouteRegistry, globalRouteRegistry } from '../http/route-registry.ts';
+
+function extractRealmId(pathname: string, marker: string): number | null {
+  const segments = pathname.split('/').filter(Boolean);
+  const markerSegments = marker.split('/');
+  const markerIndex = segments.findIndex((_, index) =>
+    markerSegments.every((segment, offset) => segments[index + offset] === segment)
+  );
+  if (markerIndex < 0) return null;
+  const candidates = [
+    segments[markerIndex - 1],
+    segments[markerIndex + markerSegments.length]
+  ];
+  for (const candidate of candidates) {
+    if (candidate !== undefined && /^\d+$/.test(candidate)) return Number(candidate);
+  }
+  return null;
+}
 
 export async function handleEncyclopediaRoutes(
   _req: IncomingMessage,
@@ -54,105 +76,66 @@ export async function handleEncyclopediaRoutes(
   }
 
   // 2. Production Modifiers & Industry/Realm Modifiers
-  if (
-    pathname.startsWith('/api/') &&
-    (pathname.includes('/production-modifiers/') ||
-     pathname.includes('/industry-modifiers/') ||
-     pathname.includes('/realm-modifiers/'))
-  ) {
+  const productionRealmId = extractRealmId(pathname, 'production-modifiers');
+  if (productionRealmId !== null) {
     sendJson(res, {
-      resourceProductionModifiers: [],
-      industryModifiers: [],
-      realmModifiers: []
+      resourceProductionModifiers: getEncyclopediaProductionModifiers(productionRealmId)
     });
     return true;
   }
+  const industryRealmId = extractRealmId(pathname, 'industry-modifiers');
+  if (industryRealmId !== null) {
+    sendJson(res, {
+      error: 'Industry modifiers are unavailable',
+      code: 'BACKEND_UNAVAILABLE'
+    }, 501);
+    return true;
+  }
+  const realmModifiersRealmId = extractRealmId(pathname, 'realm-modifiers');
+  if (realmModifiersRealmId !== null) {
+    sendJson(res, {
+      error: 'Realm modifiers are unavailable',
+      code: 'BACKEND_UNAVAILABLE'
+    }, 501);
+    return true;
+  }
 
-  // 3. Resources Retail Info MUST be an ARRAY of objects with dbLetter and retailData array!
-  // P0-06: the frontend retail widget additionally reads TOP-LEVEL `saturation` and
-  // `averagePrice` per entry (see official HAR: entry = {quality, dbLetter,
-  // saturation, averagePrice, retailData}); without top-level averagePrice every
-  // display case renders null and the grocery sales area stays empty.
-  if (pathname.startsWith('/api/') && pathname.includes('/resources-retail-info/')) {
-    const today = new Date().toISOString().split('T')[0];
-    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
-    const retailArray: Array<{
-      quality: number | null;
-      dbLetter: number;
-      saturation: number;
-      averagePrice: number | null;
-      retailData: Array<{ date: string; saturation: number; averagePrice: number }>;
-    }> = [];
-
-    for (const [k, def] of Object.entries(CONSTANTS_RESOURCES)) {
-      const kind = Number(k);
-      const isRetail = def.unitsSoldAnHour > 0;
-      const saturation = 0.5;
-      const averagePrice = isRetail ? 2.5 : 0;
-      retailArray.push({
-        quality: null,
-        dbLetter: kind,
-        saturation,
-        averagePrice: isRetail ? averagePrice : null,
-        retailData: [
-          { date: yesterday, saturation, averagePrice },
-          { date: today, saturation, averagePrice }
-        ]
-      });
-    }
-    sendJson(res, retailArray);
+  // 3. Resources Retail Info
+  const retailRealmId = extractRealmId(pathname, 'resources-retail-info');
+  if (retailRealmId !== null) {
+    sendJson(res, getEncyclopediaRetailInfo(retailRealmId));
     return true;
   }
 
   // 4. Encyclopedia Resource Detail
-  const encResMatch = pathname.match(/^\/api\/v4\/[^/]+\/\d+\/encyclopedia\/resources\/(\d+)\/(\d+)\/$/) ||
-                      pathname.match(/^\/api\/v4\/[^/]+\/\d+\/encyclopedia\/resources\/(\d+)\/$/);
+  const encResMatch = pathname.match(
+    /^\/api\/v4\/[^/]+\/(\d+)\/encyclopedia\/resources\/(\d+)(?:\/(\d+))?\/$/
+  ) ?? pathname.match(
+    /^\/api\/v4\/(\d+)\/encyclopedia\/resources\/(\d+)(?:\/(\d+))?\/$/
+  );
   if (encResMatch) {
-    const kind = Number(encResMatch[1]);
-    const quality = encResMatch[2] ? Number(encResMatch[2]) : 0;
-    const resDef = getResourceDef(kind);
-    const today = new Date().toISOString().split('T')[0];
-    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
-
-    sendJson(res, {
-      dbLetter: kind,
-      name: resDef?.name || `Resource #${kind}`,
-      producedAt: resDef?.producedAt || 'P',
-      producedFrom: resDef?.producedFrom || {},
-      producedPerHourRaw: resDef?.producedPerHourRaw || 200,
-      image: resDef?.image || 'images/resources/apples.png',
-      transportation: resDef?.transportation || 1,
-      isExchangeTradable: resDef?.isExchangeTradable ?? true,
-      unitsSoldAnHour: resDef?.unitsSoldAnHour || 0,
-      decay: resDef?.decay || 0,
-      quality,
-      retailModel: { saturation: 0.5, averagePrice: 2.5 },
-      retailData: [
-        { date: yesterday, saturation: 0.5, averagePrice: 2.5 },
-        { date: today, saturation: 0.5, averagePrice: 2.5 }
-      ],
-      market: { price: 1.0 + quality, quality }
-    });
+    const realmId = Number(encResMatch[1]);
+    const kind = Number(encResMatch[2]);
+    const quality = encResMatch[3] ? Number(encResMatch[3]) : 0;
+    const detail = getEncyclopediaResourceDetail(realmId, kind, quality);
+    if (detail === null) {
+      sendJson(res, {
+        error: 'Resource not found',
+        code: 'API_NOT_FOUND',
+        path: pathname
+      }, 404);
+    } else {
+      sendJson(res, detail);
+    }
     return true;
   }
 
   // 5. Existing resource quality — real per-company warehouse quality map
   if (pathname.startsWith('/api/') && pathname.includes('/encyclopedia/existing-resource-quality/')) {
-    for (const k of Object.keys(CONSTANTS_RESOURCES)) {
-      qualityMap[k] = 0;
-    }
-    if (currentCompanyId) {
-      const qualityByKind = warehouseRepository.getQualityMap(currentCompanyId);
-      for (const [kind, q] of qualityByKind) {
-        const key = String(kind);
-        if (key in qualityMap) {
-          qualityMap[key] = q;
-        }
-      }
-    }
-    sendJson(res, qualityMap);
+    sendJson(res, encyclopediaQualityMap(currentCompanyId));
     return true;
   }
+
 
   // 6. Static Documentation Pages / Guides — P1-03.
   // Served by routes/page-routes.ts (registered later in the router): the
@@ -187,14 +170,16 @@ export async function handleEncyclopediaRoutes(
   }
 
   // 8. Encyclopedia Events
-  if (pathname.startsWith('/api/') && pathname.includes('/encyclopedia/events/')) {
-    sendJson(res, { events: [] });
+  const eventsRealmId = extractRealmId(pathname, 'encyclopedia/events');
+  if (eventsRealmId !== null) {
+    sendJson(res, { events: getEncyclopediaEvents(eventsRealmId) });
     return true;
   }
 
-  // 9. Encyclopedia Supporters MUST return { supporters: [] }
-  if (pathname.startsWith('/api/') && pathname.includes('/encyclopedia/supporters/')) {
-    sendJson(res, { supporters: [] });
+  // 9. Encyclopedia Supporters
+  const supportersRealmId = extractRealmId(pathname, 'encyclopedia/supporters');
+  if (supportersRealmId !== null) {
+    sendJson(res, { supporters: getEncyclopediaSupporters(supportersRealmId) });
     return true;
   }
 
@@ -254,58 +239,6 @@ export async function handleEncyclopediaRoutes(
   return false;
 }
 
-function encyclopediaRetailInfo(): Array<{
-  quality: number | null;
-  dbLetter: number;
-  saturation: number;
-  averagePrice: number | null;
-  retailData: Array<{ date: string; saturation: number; averagePrice: number }>;
-}> {
-  const today = new Date().toISOString().split('T')[0];
-  const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
-  const result = [];
-  for (const [kindValue, definition] of Object.entries(CONSTANTS_RESOURCES)) {
-    const kind = Number(kindValue);
-    const saturation = 0.5;
-    const averagePrice = 2.5;
-    result.push({
-      quality: null,
-      dbLetter: kind,
-      saturation,
-      averagePrice: definition.unitsSoldAnHour > 0 ? averagePrice : null,
-      retailData: [
-        { date: yesterday, saturation, averagePrice },
-        { date: today, saturation, averagePrice }
-      ]
-    });
-  }
-  return result;
-}
-
-function encyclopediaResourceDetail(kind: number, quality: number): Record<string, unknown> {
-  const definition = getResourceDef(kind);
-  const today = new Date().toISOString().split('T')[0];
-  const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
-  return {
-    dbLetter: kind,
-    name: definition?.name || `Resource #${kind}`,
-    producedAt: definition?.producedAt || 'P',
-    producedFrom: definition?.producedFrom || {},
-    producedPerHourRaw: definition?.producedPerHourRaw || 200,
-    image: definition?.image || 'images/resources/apples.png',
-    transportation: definition?.transportation || 1,
-    isExchangeTradable: definition?.isExchangeTradable ?? true,
-    unitsSoldAnHour: definition?.unitsSoldAnHour || 0,
-    decay: definition?.decay || 0,
-    quality,
-    retailModel: { saturation: 0.5, averagePrice: 2.5 },
-    retailData: [
-      { date: yesterday, saturation: 0.5, averagePrice: 2.5 },
-      { date: today, saturation: 0.5, averagePrice: 2.5 }
-    ],
-    market: { price: 1.0 + quality, quality }
-  };
-}
 
 function encyclopediaQualityMap(companyId: number | null): Record<string, number> {
   const result: Record<string, number> = {};
@@ -327,8 +260,6 @@ function encyclopediaCertificates(): { latestCertificates: unknown[]; rarestCert
 }
 
 export function registerEncyclopediaRoutes(registry: RouteRegistry = globalRouteRegistry): void {
-  const modifiers = { resourceProductionModifiers: [], industryModifiers: [], realmModifiers: [] };
-  const resources = { resources: [{ kind: 1 }, { kind: 2 }, { kind: 3 }, { kind: 13 }, { kind: 66 }] };
   registry
     .register({ method: 'GET', pattern: '/api/v2/constants/core/', owner: 'encyclopedia', handler: async (_req, res) => { sendJson(res, CONSTANTS_CORE); } })
     .register({ method: 'GET', pattern: '/api/v2/constants/buildings/', owner: 'encyclopedia', handler: async (_req, res) => { sendJson(res, CONSTANTS_BUILDINGS); } })
@@ -343,31 +274,97 @@ export function registerEncyclopediaRoutes(registry: RouteRegistry = globalRoute
       handler: async (_req, res, _ctx, params) => { sendJson(res, getWeather(Number(params.realmId))); }
     })
     .register({
+      method: 'GET', pattern: '/api/v2/production-modifiers/:realmId/', owner: 'encyclopedia',
+      handler: async (_req, res, _ctx, params) => {
+        sendJson(res, {
+          resourceProductionModifiers: getEncyclopediaProductionModifiers(Number(params.realmId))
+        });
+      }
+    })
+    .register({
+      method: 'GET', pattern: '/api/v2/industry-modifiers/:realmId/', owner: 'encyclopedia',
+      handler: async (_req, res) => {
+        sendJson(res, {
+          error: 'Industry modifiers are unavailable',
+          code: 'BACKEND_UNAVAILABLE'
+        }, 501);
+      }
+    })
+    .register({
+      method: 'GET', pattern: '/api/v2/realm-modifiers/:realmId/', owner: 'encyclopedia',
+      handler: async (_req, res) => {
+        sendJson(res, {
+          error: 'Realm modifiers are unavailable',
+          code: 'BACKEND_UNAVAILABLE'
+        }, 501);
+      }
+    })
+    .register({
       method: 'GET', pattern: '/api/v2/:scope/:realmId/production-modifiers/', owner: 'encyclopedia',
-      handler: async (_req, res) => { sendJson(res, modifiers); }
+      handler: async (_req, res, _ctx, params) => {
+        sendJson(res, {
+          resourceProductionModifiers: getEncyclopediaProductionModifiers(Number(params.realmId))
+        });
+      }
     })
     .register({
       method: 'GET', pattern: '/api/v2/:scope/:realmId/industry-modifiers/', owner: 'encyclopedia',
-      handler: async (_req, res) => { sendJson(res, modifiers); }
+      handler: async (_req, res) => {
+        sendJson(res, {
+          error: 'Industry modifiers are unavailable',
+          code: 'BACKEND_UNAVAILABLE'
+        }, 501);
+      }
     })
     .register({
       method: 'GET', pattern: '/api/v2/:scope/:realmId/realm-modifiers/', owner: 'encyclopedia',
-      handler: async (_req, res) => { sendJson(res, modifiers); }
+      handler: async (_req, res) => {
+        sendJson(res, {
+          error: 'Realm modifiers are unavailable',
+          code: 'BACKEND_UNAVAILABLE'
+        }, 501);
+      }
     })
     .register({
       method: 'GET', pattern: '/api/v2/:scope/:realmId/resources-retail-info/', owner: 'encyclopedia',
-      handler: async (_req, res) => { sendJson(res, encyclopediaRetailInfo()); }
+      handler: async (_req, res, _ctx, params) => {
+        sendJson(res, getEncyclopediaRetailInfo(Number(params.realmId)));
+      }
+    })
+    .register({
+      method: 'GET', pattern: '/api/v4/:realmId/resources-retail-info/', owner: 'encyclopedia',
+      handler: async (_req, res, _ctx, params) => {
+        sendJson(res, getEncyclopediaRetailInfo(Number(params.realmId)));
+      }
     })
     .register({
       method: 'GET', pattern: '/api/v4/:scope/:realmId/encyclopedia/resources/:kind/', owner: 'encyclopedia',
       handler: async (_req, res, _ctx, params) => {
-        sendJson(res, encyclopediaResourceDetail(Number(params.kind), 0));
+        const detail = getEncyclopediaResourceDetail(
+          Number(params.realmId),
+          Number(params.kind),
+          0
+        );
+        if (detail === null) {
+          sendJson(res, { error: 'Resource not found', code: 'API_NOT_FOUND' }, 404);
+        } else {
+          sendJson(res, detail);
+        }
       }
     })
     .register({
       method: 'GET', pattern: '/api/v4/:scope/:realmId/encyclopedia/resources/:kind/:quality/', owner: 'encyclopedia',
       handler: async (_req, res, _ctx, params) => {
-        sendJson(res, encyclopediaResourceDetail(Number(params.kind), Number(params.quality)));
+        const detail = getEncyclopediaResourceDetail(
+          Number(params.realmId),
+          Number(params.kind),
+          Number(params.quality)
+        );
+        if (detail === null) {
+          sendJson(res, { error: 'Resource not found', code: 'API_NOT_FOUND' }, 404);
+        } else {
+          sendJson(res, detail);
+        }
       }
     })
     .register({
@@ -400,11 +397,27 @@ export function registerEncyclopediaRoutes(registry: RouteRegistry = globalRoute
     })
     .register({
       method: 'GET', pattern: '/api/v2/:scope/:realmId/encyclopedia/events/', owner: 'encyclopedia',
-      handler: async (_req, res) => { sendJson(res, { events: [] }); }
+      handler: async (_req, res, _ctx, params) => {
+        sendJson(res, { events: getEncyclopediaEvents(Number(params.realmId)) });
+      }
+    })
+    .register({
+      method: 'GET', pattern: '/api/v3/encyclopedia/events/:realmId/', owner: 'encyclopedia',
+      handler: async (_req, res, _ctx, params) => {
+        sendJson(res, { events: getEncyclopediaEvents(Number(params.realmId)) });
+      }
     })
     .register({
       method: 'GET', pattern: '/api/v2/:scope/:realmId/encyclopedia/supporters/', owner: 'encyclopedia',
-      handler: async (_req, res) => { sendJson(res, { supporters: [] }); }
+      handler: async (_req, res, _ctx, params) => {
+        sendJson(res, { supporters: getEncyclopediaSupporters(Number(params.realmId)) });
+      }
+    })
+    .register({
+      method: 'GET', pattern: '/api/v3/encyclopedia/supporters/:realmId/', owner: 'encyclopedia',
+      handler: async (_req, res, _ctx, params) => {
+        sendJson(res, { supporters: getEncyclopediaSupporters(Number(params.realmId)) });
+      }
     })
     .register({
       method: 'GET', pattern: '/api/v2/:scope/:realmId/certificates-explorer/latest/', owner: 'encyclopedia',

@@ -177,14 +177,30 @@ test('player can explore encyclopedia, newspaper, and financial overview without
   await expect(page).toHaveURL(/\/zh-cn\/landscape\//);
   await expect(page.getByText('$100,000', { exact: true })).toBeVisible();
 
-  // 1. Explore Encyclopedia
+  // 1. Explore Encyclopedia and assert the actual API payloads used by the UI.
+  const retailResponsePromise = page.waitForResponse(response =>
+    response.url().includes('/api/') && response.url().includes('/resources-retail-info/') && response.status() === 200
+  );
   await page.goto('/zh-cn/encyclopedia/0/');
+  const retailResponse = await retailResponsePromise;
+  const retailPayload = await retailResponse.json();
+  expect(Array.isArray(retailPayload)).toBe(true);
+  const appleRetail = retailPayload.find((entry: { dbLetter?: number }) => entry.dbLetter === 3);
+  expect(appleRetail).toMatchObject({
+    dbLetter: 3,
+    averagePrice: expect.any(Number),
+    saturation: expect.any(Number)
+  });
   await expect(page.getByText('原材料加工业', { exact: true }).first()).toBeVisible();
   await expect(page.locator('body')).not.toContainText('NaN');
   await page.screenshot({ path: testInfo.outputPath('07-encyclopedia-home.png') });
 
   await page.goto('/zh-cn/encyclopedia/0/resource/3/');
   await expect(page.getByText('苹果', { exact: true }).first()).toBeVisible();
+  await expect(page.locator('body')).not.toContainText('NaN');
+  await page.reload();
+  await expect(page.getByText('苹果', { exact: true }).first()).toBeVisible();
+  await expect(page.locator('body')).not.toContainText('NaN');
   await page.screenshot({ path: testInfo.outputPath('08-encyclopedia-apples.png') });
 
   // 2. Explore Newspaper

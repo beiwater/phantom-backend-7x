@@ -15,6 +15,9 @@ import { assertAllowedProduct } from '../../game/robotics.ts';
 import { queueRocketLaunch, rocketKindForLaunchRequest } from '../../game/aerospace.ts';
 import { getEconomyPhase } from '../scheduler/daily-jobs.ts';
 import { getCompanyBoostSettings } from '../../game/simboost-settings.ts';
+import { accumulatorRepository } from '../../repositories/accumulator-repository.ts';
+import { getAccumulatorParameters, accumulatorBonusForResearch } from '../../game-data/accumulator.ts';
+import { getProductionQualityCap } from '../../game/research.ts';
 
 export interface StartProductionInput {
   buildingId: number;
@@ -88,10 +91,24 @@ export async function startProductionUseCase(
       } satisfies StartProductionResult;
     }
 
+    const accumulatorParameters = building.kind === 'v'
+      ? getAccumulatorParameters(input.kind)
+      : null;
+    const isAccumulator = accumulatorParameters !== null;
+
+    // Issue #200: Forest Nursery growth is progress, not immediate inventory.
+    // Keep the requested growth amount in the queue and persist the accumulator
+    // row before any material debit so max-boundary rejection is atomic.
+    if (isAccumulator) {
+      const state = accumulatorRepository.ensureForBuilding(building.id, ctx.companyId, input.kind);
+      if (state.value + input.amount > accumulatorParameters.max) {
+        throw new ValidationError(`Accumulator value exceeds maximum ${accumulatorParameters.max}`);
+      }
+    }
+
     // Issue #96: a robotized building is locked to its specialized product;
     // any other production request is rejected while robots are installed.
     assertAllowedProduct(building, input.kind);
-
     // C-13: official contract rejects production on a busy building instead of
     // silently chaining the new item behind the running queue.
     // Issue #47: construction/upgrade busy (no queue rows at all) is also a
@@ -115,13 +132,18 @@ export async function startProductionUseCase(
 
     // Issue #99: the queue item's duration must fit the company tier limit
     // (2h below L5, 24h below L15, 48h at L15+). Enforced BEFORE any
-    // ingredients are consumed so the 400 QUEUE_DURATION_LIMIT rejection is
-    // side-effect free.
+    // ingredients are consumed so the duration rejection is side-effect free.
     const combinedProductionModifier = Math.max(
       -0.75,
       Math.min(3, economy.productionModifier + (companyBoost.productionModifier / 100))
     );
-    const productionOutputMultiplier = Math.max(0.5, Math.min(1.5, 1 + economy.productionModifier));
+    const researchedAccumulatorQuality = isAccumulator
+      ? getProductionQualityCap(ctx.companyId, input.kind)
+      : 0;
+    const accumulatorBonus = accumulatorBonusForResearch(input.kind, researchedAccumulatorQuality);
+    const productionOutputMultiplier = isAccumulator
+      ? 1
+      : Math.max(0.5, Math.min(1.5, 1 + economy.productionModifier));
     const durationSeconds = calculateProductionTime(
       input.kind,
       input.amount,
@@ -129,7 +151,8 @@ export async function startProductionUseCase(
       combinedProductionModifier,
       {
         economyState: economy.state,
-        quality: input.quality ?? 100
+        quality: input.quality ?? 100,
+        accumulatorBonus
       }
     );
     assertQueueDuration(
@@ -145,7 +168,11 @@ export async function startProductionUseCase(
     const baseOutputAmount = isAbundanceExtractorKind(building.kind)
       ? scaleExtractorOutput(input.amount, getBuildingAbundance(building.id)?.abundance ?? 100)
       : input.amount;
-    const outputAmount = Math.max(1, Math.round(baseOutputAmount * productionOutputMultiplier));
+    // Accumulator queues store growth progress. The tree inventory output is
+    // materialized only by the dedicated cut-down collect use case.
+    const outputAmount = isAccumulator
+      ? input.amount
+      : Math.max(1, Math.round(baseOutputAmount * productionOutputMultiplier));
     // 3. Consume required ingredients atomically, tracking the weighted
     // average input quality and total cost basis (P0-02).
     const allTransactions: ResourceTransactionEntity[] = [];

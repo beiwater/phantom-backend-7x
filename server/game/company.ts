@@ -31,6 +31,7 @@ export interface CompanyRow {
   moderator_sign?: number;
   supporter_until?: string | null;
   supporter_certificates?: number;
+  supporter_started_at?: string | null;
 }
 
 function toSafeCompanyName(name: string): string {
@@ -310,8 +311,12 @@ export async function activateSupporter(companyId: number, now: number = virtual
     const supporterUntil = new Date(baseMs + SUPPORTER_DURATION_DAYS * 24 * 60 * 60 * 1000).toISOString();
     const certificates = current.certificates + 1;
     const result = db.prepare(
-      'UPDATE companies SET supporter_until = ?, supporter_certificates = ? WHERE company_id = ?'
-    ).run(supporterUntil, certificates, companyId);
+      `UPDATE companies
+       SET supporter_until = ?,
+           supporter_certificates = ?,
+           supporter_started_at = COALESCE(supporter_started_at, ?)
+       WHERE company_id = ?`
+    ).run(supporterUntil, certificates, new Date(now).toISOString(), companyId);
     if (result.changes !== 1) {
       throw new Error('Company not found');
     }

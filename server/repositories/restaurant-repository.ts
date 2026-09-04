@@ -40,6 +40,12 @@ export interface RestaurantUpsertEntity {
   ratingPenaltyApplied: boolean;
 }
 
+export interface RestaurantDailySalesRow {
+  date: string;
+  served: number;
+  menuJson: string;
+}
+
 export interface RestaurantMarketEntity {
   marketGuests: number;
   activeRestaurants: Array<{ id: number; size: number }>;
@@ -238,6 +244,30 @@ export class RestaurantRepository {
       .get(buildingId) as { count: number };
     return Number(row?.count) || 0;
   }
+  /** Resolved restaurant sales grouped by settlement date for encyclopedia history. */
+  findDailySalesSummary(realmId: number, fromDate: string, toDate: string): RestaurantDailySalesRow[] {
+    const rows = this.database.prepare(`
+      SELECT substr(COALESCE(r.cycle_end, r.datetime), 1, 10) AS date,
+             COALESCE(r.served, 0) AS served,
+             COALESCE(r.menu_json, '[]') AS menu_json
+      FROM restaurant_runs r
+      JOIN companies c ON c.company_id = r.company_id
+      WHERE c.realm_id = ?
+        AND r.resolved = 1
+        AND substr(COALESCE(r.cycle_end, r.datetime), 1, 10) BETWEEN ? AND ?
+      ORDER BY date ASC, r.id ASC
+    `).all(realmId, fromDate, toDate) as Array<{
+      date: string;
+      served: number;
+      menu_json: string;
+    }>;
+    return rows.map(row => ({
+      date: row.date,
+      served: Number(row.served) || 0,
+      menuJson: row.menu_json || '[]'
+    }));
+  }
+
 
   /** COO management skill (0-100) for a company. */
   getCooManagement(companyId: number): number {

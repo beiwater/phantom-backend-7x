@@ -344,6 +344,46 @@ export class CompanyRepository {
     return result.simboosts;
   }
 
+  /** Companies that have purchased supporter status, backed by persisted certificates. */
+  listSupporters(realmId: number): Array<{
+    companyId: number;
+    name: string;
+    realmId: number;
+    logo: string;
+    level: number;
+    rating: string;
+    note: string;
+    dateJoined: string;
+  }> {
+    const rows = this.database.prepare(`
+      SELECT company_id, name, realm_id, logo, level, rating, note,
+             COALESCE(supporter_started_at, created_at) AS date_joined
+      FROM companies
+      WHERE realm_id = ?
+        AND COALESCE(supporter_certificates, 0) > 0
+      ORDER BY date_joined ASC, company_id ASC
+    `).all(realmId) as Array<{
+      company_id: number;
+      name: string;
+      realm_id: number;
+      logo: string | null;
+      level: number;
+      rating: string | null;
+      note: string | null;
+      date_joined: string;
+    }>;
+    return rows.map(row => ({
+      companyId: Number(row.company_id),
+      name: row.name || '',
+      realmId: Number(row.realm_id),
+      logo: row.logo || '',
+      level: Number(row.level) || 0,
+      rating: row.rating || '',
+      note: row.note || '',
+      dateJoined: row.date_joined
+    }));
+  }
+
   /** Top companies by money (leaderboard), excluding deleted. */
   listTopCompaniesByMoney(limit = 100): Array<{
     companyId: number;

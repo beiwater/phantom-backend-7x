@@ -58,6 +58,12 @@ export function mapRetailOrderRow(row: RetailOrderDbRow): RetailOrderEntity {
   };
 }
 
+export interface RetailDailySalesSummary {
+  date: string;
+  units: number;
+  revenue: number;
+}
+
 export interface InsertRetailOrderInput {
   buildingId: number;
   companyId: number;
@@ -139,6 +145,84 @@ export class RetailRepository {
     ).run(orderId, companyId);
     return deleted.changes === 1;
   }
+  /** Persist a completed sale before the transient order is removed. */
+  recordSale(input: {
+    realmId: number;
+    companyId: number;
+    resourceKind: number;
+    quality: number;
+    units: number;
+    unitPrice: number;
+    revenue: number;
+    soldAt: string;
+  }): void {
+    this.database.prepare(`
+      INSERT INTO retail_sales_history
+        (realm_id, company_id, resource_kind, quality, units, unit_price, revenue, sold_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      input.realmId,
+      input.companyId,
+      input.resourceKind,
+      input.quality,
+      input.units,
+      input.unitPrice,
+      input.revenue,
+      input.soldAt
+    );
+  }
+
+  /** Settled retail sales from both the history and legacy order projections. */
+  findDailySalesSummary(realmId: number, fromDate: string, toDate: string, resourceKind?: number): RetailDailySalesSummary[] {
+    const rows = this.database.prepare(`
+      SELECT sales.date,
+             COALESCE(SUM(sales.units), 0) AS units,
+             COALESCE(SUM(sales.revenue), 0) AS revenue
+      FROM (
+        SELECT substr(r.finished_at, 1, 10) AS date,
+               r.units AS units,
+               r.units * r.unit_price AS revenue
+        FROM retail_orders r
+        JOIN companies c ON c.company_id = r.company_id
+        WHERE c.realm_id = ?
+          AND COALESCE(r.revenue_credited, 0) = 1
+          AND r.finished_at IS NOT NULL
+          AND substr(r.finished_at, 1, 10) BETWEEN ? AND ?
+          AND (? IS NULL OR r.resource_kind = ?)
+        UNION ALL
+        SELECT substr(h.sold_at, 1, 10) AS date,
+               h.units AS units,
+               h.revenue AS revenue
+        FROM retail_sales_history h
+        WHERE h.realm_id = ?
+          AND substr(h.sold_at, 1, 10) BETWEEN ? AND ?
+          AND (? IS NULL OR h.resource_kind = ?)
+      ) sales
+      GROUP BY sales.date
+      ORDER BY sales.date ASC
+    `).all(
+      realmId,
+      fromDate,
+      toDate,
+      resourceKind ?? null,
+      resourceKind ?? null,
+      realmId,
+      fromDate,
+      toDate,
+      resourceKind ?? null,
+      resourceKind ?? null
+    ) as Array<{
+      date: string;
+      units: number;
+      revenue: number;
+    }>;
+    return rows.map(row => ({
+      date: row.date,
+      units: Number(row.units) || 0,
+      revenue: Number(row.revenue) || 0
+    }));
+  }
+
 
   /** First owned sales-category building (used when no building is specified). */
   findFirstSalesBuilding(companyId: number): { id: number; kind: string; size: number } | null {

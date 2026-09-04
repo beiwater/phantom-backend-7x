@@ -48,6 +48,33 @@ export function formatRetailOrder(order: RetailOrderEntity): RetailOrderDTO {
   };
 }
 
+interface SalesOfficeResourceRequirement {
+  kind: number;
+  amount: number;
+  price: number;
+}
+
+export interface SalesOfficeOrderDTO extends RetailOrderDTO {
+  datetime: string;
+  resources: SalesOfficeResourceRequirement[];
+  qualityBonus: number;
+  searchCost: number;
+}
+
+export function formatSalesOfficeOrder(order: RetailOrderEntity, searchCost: number): SalesOfficeOrderDTO {
+  return {
+    ...formatRetailOrder(order),
+    datetime: order.createdAt,
+    resources: [{
+      kind: order.resourceKind,
+      amount: order.units,
+      price: order.unitPrice
+    }],
+    qualityBonus: 0,
+    searchCost
+  };
+}
+
 // --- StartRetail ------------------------------------------------------------
 
 export interface StartRetailInput {
@@ -207,6 +234,17 @@ export async function collectRetailOrderUseCase(ctx: GameContext, orderId: numbe
       description: 'Company money change',
       descriptionKey: ''
     });
+    retailRepository.recordSale({
+      realmId: ctx.realmId,
+      companyId: ctx.companyId,
+      resourceKind: order.resourceKind,
+      quality: order.quality,
+      units: order.units,
+      unitPrice: effectivePrice,
+      revenue,
+      soldAt: order.finishedAt || virtualClock.nowIso()
+    });
+
 
     if (!retailRepository.deleteOwned(order.id, ctx.companyId)) {
       throw new ConflictError('Retail order is no longer available');
@@ -282,8 +320,12 @@ const SALES_OFFICE_KIND = 'B';
 const CUSTOMER_SEARCH_FEE_PER_LEVEL = Math.floor(345 * 1.7 * 47);
 const CUSTOMER_SEARCH_DURATION_SECONDS = 47 * 3600;
 
+export function getSalesOfficeSearchFee(buildingSize: number): number {
+  return CUSTOMER_SEARCH_FEE_PER_LEVEL * Math.max(1, Math.floor(buildingSize || 1));
+}
+
 export interface FindSalesOfficeCustomerResult {
-  salesOrder: RetailOrderDTO;
+  salesOrder: SalesOfficeOrderDTO;
   /** Negative delta — the original client feeds it straight to addMoney(). */
   money: number;
 }
@@ -316,7 +358,7 @@ export async function findSalesOfficeCustomerUseCase(
   }
 
   const { unitPrice } = getAuthoritativeRetailPrice(resourceKind, 0, undefined, 0.5, getEconomyPhase(ctx.realmId).state);
-  const fee = CUSTOMER_SEARCH_FEE_PER_LEVEL * (building.size || 1);
+  const fee = getSalesOfficeSearchFee(building.size || 1);
   const finishedAt = new Date(virtualClock.nowMs() + CUSTOMER_SEARCH_DURATION_SECONDS * 1000).toISOString();
   const createdAt = virtualClock.nowIso();
 
@@ -341,6 +383,6 @@ export async function findSalesOfficeCustomerUseCase(
       finishedAt,
       createdAt
     });
-    return { salesOrder: formatRetailOrder(order), money: -fee };
+    return { salesOrder: formatSalesOfficeOrder(order, fee), money: -fee };
   }, { immediate: true });
 }

@@ -1,6 +1,9 @@
 import type { BuildingEntity } from '../../repositories/building-repository.ts';
 import { virtualClock } from '../../core/virtual-clock.ts';
 import { productionRepository } from '../../repositories/production-repository.ts';
+import { accumulatorRepository } from '../../repositories/accumulator-repository.ts';
+import type { AccumulatorResourceState } from '../../game-data/accumulator.ts';
+import { accumulatorStateDTO } from '../../game-data/accumulator.ts';
 import { getBuildingMeta } from '../../game-data/buildings.ts';
 import { getResourceDef, getResourceName } from '../../game-data/resources.ts';
 import { finiteOr, computeFallbackUnitCost } from './production-dto.ts';
@@ -51,10 +54,11 @@ export interface SimCompaniesBuildingDTO {
     lockedProduct: number | null;
     wageMultiplier: number;
   } | null;
+  /** Issue #200: Forest Nursery progress and source-cost state. */
+  productionAccumulator?: AccumulatorResourceState;
   /** Compatibility payload consumed by the bundled restaurant detail view. */
   restaurantProperties?: LegacyRestaurantProperties;
 }
-
 export function toSimCompaniesBuildingDTO(
   building: BuildingEntity,
   companyName: string = 'Private Co',
@@ -73,20 +77,24 @@ export function toSimCompaniesBuildingDTO(
       : null;
     const displayKind = launchRocketKind ?? activeQueue.kind;
     const displayResource = getResourceDef(displayKind);
+    // Launch busy markers use kind 100 so the original client recognizes the
+    // aerospace-specific busy panel; the queue card derives the rocket from
+    // the research amount and its nested resource metadata.
+    const busyKind = launchRocketKind === null ? displayKind : activeQueue.kind;
+    const busyResource = launchRocketKind === null ? displayResource : getResourceDef(busyKind);
     const displayAmount = launchRocketKind === null ? Number(activeQueue.amount) || 0 : 1;
     const canFetch = new Date(activeQueue.finishesAt).getTime() <= virtualClock.nowMs();
     const isSales = building.category === 'sales';
+    const isAccumulatorQueue = building.kind === 'v' && activeQueue.kind === 150;
+    const accumulatorState = isAccumulatorQueue
+      ? accumulatorRepository.findByBuilding(building.id, building.companyId)
+      : null;
     busyObj = {
       id: activeQueue.id,
       started: activeQueue.startedAt,
-      duration: Number(activeQueue.durationSeconds) || 0,
-      accelerationFactor: 1,
-      category: isSales ? 's' : 'r',
-      canFetch: isSales ? false : canFetch,
-      manualResolve: false,
       resource: {
-        kind: displayKind,
-        name: getResourceName(displayKind),
+        kind: busyKind,
+        name: getResourceName(busyKind),
         quality: Math.max(0, Math.floor(Number(activeQueue.quality) || 0)),
         unitCost: finiteOr(
           activeQueue.cost,
@@ -96,13 +104,22 @@ export function toSimCompaniesBuildingDTO(
         amountAvailableNow: isSales || launchRocketKind !== null
           ? 0
           : (canFetch ? displayAmount : 0),
-        image: displayResource?.image || ''
+        image: busyResource?.image || ''
       },
       economyPhase: activeQueue.economyPhase,
       economyPhaseStartedAt: activeQueue.economyPhaseStartedAt,
       economySource: activeQueue.economySource,
       productionModifier: activeQueue.productionModifier,
-      productionOutputMultiplier: activeQueue.productionOutputMultiplier
+      productionOutputMultiplier: activeQueue.productionOutputMultiplier,
+      ...(isAccumulatorQueue
+        ? {
+            category: 'nurturing',
+            accumulator: {
+              value: Number(activeQueue.amount) || 0,
+              unitCost: finiteOr(activeQueue.cost, 0)
+            }
+          }
+        : {})
     };
   } else if (building.kind === 'r') {
     resolveDueRestaurantRunsSync(building.id, building.companyId);
@@ -133,6 +150,9 @@ export function toSimCompaniesBuildingDTO(
     };
   }
 
+  const accumulatorState = building.kind === 'v'
+    ? accumulatorRepository.findByBuilding(building.id, building.companyId)
+    : null;
   const dto: SimCompaniesBuildingDTO = {
     id: building.id,
     busy: busyObj,
@@ -172,6 +192,9 @@ export function toSimCompaniesBuildingDTO(
           lockedProduct: null,
           wageMultiplier: 1
         },
+    productionAccumulator: building.kind === 'v'
+      ? accumulatorStateDTO(150, accumulatorState?.value ?? 0, accumulatorState?.costTotal ?? 0)
+      : undefined,
     workers: (building.size || 1) * 10
   };
 
