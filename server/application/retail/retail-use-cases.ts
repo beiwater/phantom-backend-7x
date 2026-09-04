@@ -16,6 +16,7 @@ import {
   getAuthoritativeRetailPrice,
   calculateRetailDuration
 } from '../../game-data/retail.ts';
+import { getResourceDef } from '../../game-data/resources.ts';
 import { retailRepository, type RetailOrderEntity } from '../../repositories/retail-repository.ts';
 import { buildingRepository } from '../../repositories/building-repository.ts';
 import { warehouseRepository } from '../../repositories/warehouse-repository.ts';
@@ -62,6 +63,7 @@ export interface SalesOfficeOrderDTO extends RetailOrderDTO {
 }
 
 export function formatSalesOfficeOrder(order: RetailOrderEntity, searchCost: number): SalesOfficeOrderDTO {
+  const resDef = typeof getResourceDef === 'function' ? getResourceDef(order.resourceKind) : null;
   return {
     ...formatRetailOrder(order),
     datetime: order.createdAt,
@@ -70,9 +72,14 @@ export function formatSalesOfficeOrder(order: RetailOrderEntity, searchCost: num
       amount: order.units,
       price: order.unitPrice
     }],
+    resourceId: order.resourceKind,
+    resourceName: resDef?.name || `Resource #${order.resourceKind}`,
+    amount: order.units,
+    price: order.unitPrice,
+    quality: order.quality,
     qualityBonus: 0,
     searchCost
-  };
+  } as SalesOfficeOrderDTO;
 }
 
 // --- StartRetail ------------------------------------------------------------
@@ -309,8 +316,8 @@ export async function cancelRetailOrderUseCase(ctx: GameContext, orderId: number
 
 // --- FindSalesOfficeCustomer (#153) ------------------------------------------
 
-/** Aerospace products (phase 7) a customer contract can ask for. */
-const AEROSPACE_PRODUCTS = [76, 77, 78, 79, 80, 81, 82, 83, 84];
+/** Aerospace end products (BFR 94, Sub-orbital rocket 91, Jumbo jet 95, Luxury jet 96, Single engine 97, Quadcopter 98, Satellite 99). */
+const AEROSPACE_PRODUCTS = [91, 94, 95, 96, 97, 98, 99];
 const SALES_OFFICE_KIND = 'B';
 /**
  * Original panel fee shape: AVERAGE_SALARY(345) × salesOffice.salaryModifier

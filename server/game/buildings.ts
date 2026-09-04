@@ -146,7 +146,8 @@ const BUILDING_NAMES: Record<string, string> = {
   R: 'Refinery',
   S: 'Gas station',
   C: 'Car dealership',
-  H: 'Hardware store'
+  H: 'Hardware store',
+  B: 'Sales office'
 };
 
 export function getBuildingMeta(kind: string) {

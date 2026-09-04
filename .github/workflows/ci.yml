@@ -33,6 +33,8 @@ jobs:
           cache: npm
       - name: Install locked dependencies
         run: npm ci
+      - name: Build compatible frontend and verify bundle
+        run: npm run build
       - name: Run backend and API contracts
         run: npm run test:unit
 

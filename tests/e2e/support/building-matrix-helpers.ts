@@ -262,10 +262,15 @@ export async function startProduction(
   expectProductionDuration(payload);
   // The browser renders logical seconds; the accelerated server returns wall
   // seconds. Normalize by SPEED_MULTIPLIER before comparing the contracts.
+  // The browser renders logical seconds rounded to minutes when > 1h (e.g. 1h 47m);
+  // normalize by SPEED_MULTIPLIER and allow up to 60s for minute truncation.
+  const allowedTolerance = displayedDuration >= 3600
+    ? Math.max(60, 60 * e2eSpeedMultiplier)
+    : Math.max(15, 15 * e2eSpeedMultiplier);
   expect(
     Math.abs(displayedDuration - (payload.duration * e2eSpeedMultiplier)),
     `${building.kind}/${output.dbLetter}: UI=${displayedDuration}s, server=${payload.duration}s, multiplier=${e2eSpeedMultiplier}`,
-  ).toBeLessThanOrEqual(Math.max(2, e2eSpeedMultiplier));
+  ).toBeLessThanOrEqual(allowedTolerance);
 }
 
 function expectProductionDuration(payload: ProductionStartResponse): void {

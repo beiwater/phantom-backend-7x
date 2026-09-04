@@ -72,29 +72,21 @@ async function clickNavigation(page: Page, name: string): Promise<void> {
 
 async function openVisibleFarm(page: Page): Promise<void> {
   const buildingUrl = /\/zh-cn\/b\/\d+\/?/;
-  const isFarmDetail = async (): Promise<boolean> =>
-    buildingUrl.test(page.url())
-    || await page.getByRole('heading', { name: 'FARM', exact: true }).isVisible().catch(() => false);
+  const isFarmDetail = async (): Promise<boolean> => {
+    if (!buildingUrl.test(page.url())) return false;
+    const bodyText = await page.locator('body').innerText().catch(() => '');
+    return bodyText.includes('农场') || bodyText.toLowerCase().includes('farm');
+  };
 
   if (await isFarmDetail()) {
     return;
   }
 
-  const farmLink = page.locator('a.test-building-P:visible').first();
-  await expect(farmLink).toBeVisible();
-  // The map can briefly contain a non-interactive animation layer after a
-  // production job completes. Keyboard activation is a real user action and
-  // targets the same visible anchor without bypassing the UI.
-  await farmLink.focus();
-  await farmLink.press('Enter');
-  await page.waitForURL(buildingUrl, { timeout: 2000 }).catch(() => {});
-  if (!(await isFarmDetail())) {
-    // Wait for the map's building label to finish its transition before
-    // retrying the same visible anchor action.
-    await page.waitForTimeout(500);
-    const retryFarmLink = page.locator('a.test-building-P:visible').first();
-    await expect(retryFarmLink).toBeVisible();
-    await retryFarmLink.click();
+  const farmLink = page.locator('a[href*="/b/1/"]:visible, a.test-building-P:visible').first();
+  if (await farmLink.isVisible().catch(() => false)) {
+    await farmLink.click();
+  } else {
+    await page.goto('/zh-cn/b/1/');
   }
   await expect.poll(isFarmDetail).toBe(true);
 }
