@@ -20,6 +20,7 @@
     "e2e:report": "playwright show-report test-results/playwright-report",
     "test:reconstruction": "node --test scripts/reconstruction/verification-gates.test.mjs",
     "verify:reconstruction": "node scripts/reconstruction/verify-slice.mjs",
+    "toggle:construction-time": "bash scripts/toggle-construction-time.sh",
     "git:auto-push": "bash scripts/auto-push.sh"
   },
   "dependencies": {

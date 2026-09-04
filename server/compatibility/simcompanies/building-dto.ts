@@ -9,6 +9,8 @@ import { getBuildingMeta } from '../../game-data/buildings.ts';
 import { getResourceDef, getResourceName } from '../../game-data/resources.ts';
 import { finiteOr, computeFallbackUnitCost } from './production-dto.ts';
 import { RECREATION_UPKEEP_DURATION_SECONDS } from '../../application/buildings/start-recreation-upkeep.ts';
+import { calculateConstructionDurationSeconds } from '../../domain/buildings/building-rules.ts';
+import { FixtureService } from '../../services/fixture-service.ts';
 import {
   ROBOTICS_WAGE_MULTIPLIER,
   effectiveWageMultiplier,
@@ -156,7 +158,12 @@ export function toSimCompaniesBuildingDTO(
         }
       };
     } else if (isConstructingOrUpgrading) {
-      const duration = 10;
+      const mode = FixtureService.getActiveConstructionTimeMode();
+      const speedMultiplier = FixtureService.getConstructionSpeedMultiplier();
+      const isRealistic = mode === 'realistic' || (busyUntilMs - virtualClock.nowMs() > 15000);
+      const duration = isRealistic
+        ? calculateConstructionDurationSeconds(building.kind, building.size || 1, 'realistic', speedMultiplier)
+        : 10;
       const startedMs = busyUntilMs - duration * 1000;
       busyObj = {
         id: building.id,
@@ -180,7 +187,12 @@ export function toSimCompaniesBuildingDTO(
       canFetch: false
     };
   } else if (isConstructingOrUpgrading) {
-    const duration = 10;
+    const mode = FixtureService.getActiveConstructionTimeMode();
+    const speedMultiplier = FixtureService.getConstructionSpeedMultiplier();
+    const isRealistic = mode === 'realistic' || (busyUntilMs - virtualClock.nowMs() > 15000);
+    const duration = isRealistic
+      ? calculateConstructionDurationSeconds(building.kind, building.size || 1, 'realistic', speedMultiplier)
+      : 10;
     const startedMs = busyUntilMs - duration * 1000;
     busyObj = {
       id: building.id,

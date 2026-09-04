@@ -5,7 +5,12 @@ import { buildingRepository, type BuildingEntity } from '../../repositories/buil
 import { companyRepository } from '../../repositories/company-repository.ts';
 import { warehouseRepository } from '../../repositories/warehouse-repository.ts';
 import { eventBus } from '../../events/event-bus.ts';
-import { estimateUpgradeCost, assertNotBusyForConstructionWork } from '../../domain/buildings/building-rules.ts';
+import {
+  estimateUpgradeCost,
+  assertNotBusyForConstructionWork,
+  calculateConstructionDurationSeconds
+} from '../../domain/buildings/building-rules.ts';
+import { FixtureService } from '../../services/fixture-service.ts';
 import { NotFoundError, ForbiddenError, ValidationError, ConflictError } from '../../errors/domain-error.ts';
 import { assertNotRoboticsLocked } from '../../game/robotics.ts';
 
@@ -67,8 +72,10 @@ export async function upgradeBuildingUseCase(
 
     // 5. Update building size and busy state
     const newSize = building.size + sizeDelta;
-    const busyUntil = new Date(virtualClock.nowMs() + 10000).toISOString();
-
+    const mode = FixtureService.getActiveConstructionTimeMode();
+    const speedMultiplier = FixtureService.getConstructionSpeedMultiplier();
+    const durationSeconds = calculateConstructionDurationSeconds(building.kind, sizeDelta, mode, speedMultiplier);
+    const busyUntil = new Date(virtualClock.nowMs() + durationSeconds * 1000).toISOString();
     const updatedBuilding = buildingRepository.updateSize(building.id, ctx.companyId, newSize);
     buildingRepository.updateBusyUntil(building.id, ctx.companyId, busyUntil);
     const finalizedBuilding = { ...updatedBuilding, busyUntil };

@@ -14,3 +14,5 @@ artifacts/archeology/cache/
 *.sha256
 dist/
 *.bak
+.env
+!.env.example

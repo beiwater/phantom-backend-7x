@@ -10,7 +10,24 @@ import { hashPassword } from '../db/migrations/index.ts';
 import { createSession } from '../auth/session.ts';
 import { normalizePositionCode } from '../domain/executives.ts';
 import { getBuildingMeta } from '../game-data/buildings.ts';
-
+import { CONFIG } from '../config.ts';
+import {
+  calculateConstructionDurationSeconds,
+  formatDurationHuman,
+  type ConstructionTimeMode
+} from '../domain/buildings/building-rules.ts';
+import {
+  getConfiguredChatrooms,
+  setConfiguredChatrooms,
+  type ChatroomSubscriptionEntry
+} from '../routes/social-routes.ts';
+import { virtualClock } from '../core/virtual-clock.ts';
+import {
+  setEconomyPhase,
+  rollEconomyPhase,
+  getEconomyPhase,
+  type EconomyPhaseStatus
+} from '../application/scheduler/daily-jobs.ts';
 export interface ScenarioBuildingInput {
   kind: string; // 'P', 'r', 'G', 'F', 'B', etc.
   size: number;
@@ -366,13 +383,21 @@ export class FixtureService {
 
   /**
    * Switch marketplace pricing mode:
-   * - 'realistic': Seeds market orders using canonical production costs from economy models.
+   * - 'realistic': Calculates floating NPC prices based on each building's production model,
+   *   guaranteeing approximately $300 (or TARGET_BUILDING_PROFIT) profit per building level per hour.
    * - 'test': Seeds market orders with flat $1.00 + Q testing prices.
    */
   static async setMarketPricingMode(
     mode: 'realistic' | 'test',
-    database: typeof db = db
-  ): Promise<{ mode: string; ordersUpdated: number; samplePrices: Array<{ resource: string; q0: number; q2: number }> }> {
+    database: typeof db = db,
+    options?: { targetProfit?: number; volatility?: number }
+  ): Promise<{
+    mode: string;
+    targetProfit: number;
+    volatility: number;
+    ordersUpdated: number;
+    samplePrices: Array<{ resource: string; q0: number; q2: number; estHourlyProfit: number }>;
+  }> {
     const fs = await import('node:fs');
     const path = await import('node:path');
     const { CONFIG } = await import('../config.ts');
@@ -394,13 +419,30 @@ export class FixtureService {
       return Math.round((Math.round(price / tick) * tick) * 1000) / 1000;
     }
 
-    const nowIso = new Date().toISOString();
-    const samplePrices: Array<{ resource: string; q0: number; q2: number }> = [];
-    let ordersUpdated = 0;
+    function deterministicFloat(seed: number): number {
+      const x = Math.sin(seed) * 10000;
+      return x - Math.floor(x);
+    }
 
+    const targetProfit = options?.targetProfit ?? Number(CONFIG.TARGET_BUILDING_PROFIT) ?? 300;
+    const volatility = options?.volatility ?? Number(CONFIG.MARKET_PRICE_VOLATILITY) ?? 0.05;
+
+    const nowIso = new Date().toISOString();
+    const samplePrices: Array<{ resource: string; q0: number; q2: number; estHourlyProfit: number }> = [];
+    let ordersUpdated = 0;
     return runInTransaction(async () => {
       // 1. Delete previous NPC seeded market orders (seller_id = 999900)
       database.prepare('DELETE FROM market_orders WHERE seller_id = 999900').run();
+
+      // Load latest retail saturations to compute product demand factors
+      const saturationRows = database.prepare(`
+        SELECT kind, saturation FROM retail_saturation
+        WHERE date = (SELECT MAX(date) FROM retail_saturation)
+      `).all() as Array<{ kind: number; saturation: number }>;
+      const saturationMap = new Map<number, number>();
+      for (const row of saturationRows) {
+        saturationMap.set(Number(row.kind), Number(row.saturation));
+      }
 
       const insertStmt = database.prepare(`
         INSERT INTO market_orders (seller_id, kind, quality, quantity, price, fees, posted_at, active)
@@ -412,15 +454,35 @@ export class FixtureService {
         if (def.isExchangeTradable === false) continue;
 
         const model = economyModels[String(kind)]?.state_1 || economyModels[String(kind)]?.state_0;
-        const baseCost = Number(model?.modeledProductionCostPerUnit) || 2.0;
+        const baseCost = Number(model?.modeledProductionCostPerUnit) || Number(def.cost) || 2.0;
+        const levelsNeeded = Number(model?.buildingLevelsNeededPerUnitPerHour) || 0;
 
+        // Demand-adjusted pricing:
+        // - Baseline saturation ~0.50 yields demand = 1.0 (hourly profit ~ $300)
+        // - High saturation (low demand) compresses terminal price & profit (< $300)
+        // - Low saturation (high demand) expands price & profit (> $300)
+        const rawSat = saturationMap.get(kind);
+        const demand = rawSat !== undefined
+          ? Math.max(0.4, Math.min(2.0, Math.round((0.5 / Math.max(0.1, rawSat)) * 100) / 100))
+          : 1.0;
+
+        const effectiveProfitTarget = targetProfit * demand;
+        const unitProfitTarget = levelsNeeded > 0
+          ? effectiveProfitTarget * levelsNeeded
+          : baseCost * 0.15 * demand;
+        const targetQ0BasePrice = baseCost + unitProfitTarget;
         let q0Price = 1.0;
         let q2Price = 1.02;
 
         for (let q = 0; q <= 12; q++) {
           let unitPrice = 1.0 + q;
           if (mode === 'realistic') {
-            unitPrice = roundToTick(baseCost * (1.05 + q * 0.10));
+            // Natural price volatility floating within [-volatility, +volatility]
+            const floatDelta = (deterministicFloat(kind * 137 + q * 29 + 17) - 0.5) * 2 * volatility;
+            const floatPrice = targetQ0BasePrice * (1 + floatDelta);
+            const qualityMultiplier = 1.0 + q * 0.10;
+            unitPrice = roundToTick(floatPrice * qualityMultiplier);
+            unitPrice = Math.max(getPriceTickSize(unitPrice), unitPrice);
           } else {
             unitPrice = roundToTick(1.0 + q * 0.01);
           }
@@ -431,13 +493,25 @@ export class FixtureService {
           insertStmt.run(kind, q, unitPrice, nowIso);
           ordersUpdated++;
         }
-
         if (samplePrices.length < 6) {
-          samplePrices.push({ resource: def.image || `Resource #${kind}`, q0: q0Price, q2: q2Price });
+          const unitsPerHour = levelsNeeded > 0 ? (1 / levelsNeeded) : 100;
+          const estHourlyProfit = Math.round(unitsPerHour * (q0Price - baseCost));
+          samplePrices.push({
+            resource: def.image || `Resource #${kind}`,
+            q0: q0Price,
+            q2: q2Price,
+            estHourlyProfit
+          });
         }
       }
 
-      return { mode, ordersUpdated, samplePrices };
+      database.prepare(`
+        INSERT INTO company_settings (company_id, key, value)
+        VALUES (0, 'market_pricing_mode', ?)
+        ON CONFLICT(company_id, key) DO UPDATE SET value = excluded.value
+      `).run(mode);
+
+      return { mode, targetProfit, volatility, ordersUpdated, samplePrices };
     });
   }
 
@@ -454,5 +528,211 @@ export class FixtureService {
       else if (sample.price < 0.3) mode = 'realistic';
     }
     return { mode, totalNpcOrders: total };
+  }
+
+  /**
+   * Get active construction time mode ('test' vs 'realistic').
+   */
+  static getActiveConstructionTimeMode(database: typeof db = db): ConstructionTimeMode {
+    try {
+      const row = database
+        .prepare("SELECT value FROM company_settings WHERE company_id = 0 AND key = 'construction_time_mode'")
+        .get() as { value: string } | undefined;
+      if (row?.value === 'realistic' || row?.value === 'test') {
+        return row.value;
+      }
+    } catch {
+      // fallback
+    }
+    return (CONFIG.CONSTRUCTION_TIME_MODE as ConstructionTimeMode) || 'test';
+  }
+
+  /**
+   * Get active construction speed multiplier.
+   */
+  static getConstructionSpeedMultiplier(database: typeof db = db): number {
+    try {
+      const row = database
+        .prepare("SELECT value FROM company_settings WHERE company_id = 0 AND key = 'construction_speed_multiplier'")
+        .get() as { value: string } | undefined;
+      if (row?.value) {
+        const val = parseFloat(row.value);
+        if (Number.isFinite(val) && val > 0) return val;
+      }
+    } catch {
+      // fallback
+    }
+    return Number(CONFIG.CONSTRUCTION_SPEED_MULTIPLIER) || 1.0;
+  }
+
+  /**
+   * One-click switcher for construction time mode:
+   * - 'realistic': uses authentic encyclopedia buildDuration for buildings and upgrades.
+   * - 'test': flat 10-second fast build duration.
+   */
+  static async setConstructionTimeMode(
+    mode: 'realistic' | 'test',
+    speedMultiplier?: number,
+    database: typeof db = db
+  ): Promise<{
+    mode: 'realistic' | 'test';
+    description: string;
+    speedMultiplier: number;
+    samples: Array<{ name: string; kind: string; durationSeconds: number; durationDisplay: string }>;
+  }> {
+    database.prepare(`
+      INSERT INTO company_settings (company_id, key, value)
+      VALUES (0, 'construction_time_mode', ?)
+      ON CONFLICT(company_id, key) DO UPDATE SET value = excluded.value
+    `).run(mode);
+
+    if (typeof speedMultiplier === 'number' && speedMultiplier > 0) {
+      database.prepare(`
+        INSERT INTO company_settings (company_id, key, value)
+        VALUES (0, 'construction_speed_multiplier', ?)
+        ON CONFLICT(company_id, key) DO UPDATE SET value = excluded.value
+      `).run(String(speedMultiplier));
+    }
+
+    return FixtureService.getConstructionTimeMode(database);
+  }
+
+  /**
+   * Get current construction time mode and representative sample durations.
+   */
+  static getConstructionTimeMode(database: typeof db = db): {
+    mode: 'realistic' | 'test';
+    description: string;
+    speedMultiplier: number;
+    samples: Array<{ name: string; kind: string; durationSeconds: number; durationDisplay: string }>;
+  } {
+    const mode = FixtureService.getActiveConstructionTimeMode(database);
+    const speedMultiplier = FixtureService.getConstructionSpeedMultiplier(database);
+    const sampleBuildings = [
+      { name: 'Plantation', kind: 'P' },
+      { name: 'Water reservoir', kind: 'W' },
+      { name: 'Power plant', kind: 'E' },
+      { name: 'Car factory', kind: '1' },
+      { name: 'Launchpad', kind: 'l' }
+    ];
+
+    const samples = sampleBuildings.map(b => {
+      const durationSeconds = calculateConstructionDurationSeconds(b.kind, 1, mode, speedMultiplier);
+      return {
+        name: b.name,
+        kind: b.kind,
+        durationSeconds,
+        durationDisplay: formatDurationHuman(durationSeconds)
+      };
+    });
+
+    return {
+      mode,
+      description: mode === 'realistic'
+        ? `Realistic construction time enabled (derived from encyclopedia buildDuration, ${speedMultiplier}x speed)`
+        : 'Fast test construction time enabled (10 seconds flat)',
+      speedMultiplier,
+      samples
+    };
+  }
+
+  /**
+   * Get configured chatrooms list.
+   */
+  static getConfiguredChatrooms(): Array<ChatroomSubscriptionEntry> {
+    return getConfiguredChatrooms();
+  }
+
+  /**
+   * Configure custom chatrooms (count, preset, or custom rooms).
+   */
+  static setConfiguredChatrooms(options: {
+    count?: number;
+    preset?: string;
+    rooms?: Array<ChatroomSubscriptionEntry>;
+    reset?: boolean;
+  }) {
+    return setConfiguredChatrooms(options);
+  }
+
+  /**
+   * Set economy phase: 'recession' (0), 'normal' (1), or 'boom' (2).
+   */
+  static setEconomyState(
+    stateInput: 'recession' | 'normal' | 'boom' | number,
+    options?: {
+      realmId?: number;
+      random?: boolean;
+      refreshSchedule?: string;
+    },
+    database: typeof db = db
+  ): EconomyPhaseStatus & { random: boolean; refreshSchedule: string } {
+    const realmId = options?.realmId ?? 0;
+    let numericState = 1;
+    if (typeof stateInput === 'number') {
+      numericState = Math.max(0, Math.min(2, Math.floor(stateInput)));
+    } else {
+      const s = String(stateInput).toLowerCase();
+      if (s === 'recession' || s === '0' || s === 'depression' || s === '萧条') numericState = 0;
+      else if (s === 'boom' || s === '2' || s === '景气') numericState = 2;
+      else numericState = 1;
+    }
+
+    // Persist phase directly into economy_state
+    setEconomyPhase(realmId, numericState, new Date(virtualClock.nowMs()), 'admin', true);
+
+    if (options?.random !== undefined) {
+      database.prepare(`
+        INSERT INTO company_settings (company_id, key, value)
+        VALUES (0, 'economy_random', ?)
+        ON CONFLICT(company_id, key) DO UPDATE SET value = excluded.value
+      `).run(options.random ? 'true' : 'false');
+    }
+
+    if (options?.refreshSchedule) {
+      database.prepare(`
+        INSERT INTO company_settings (company_id, key, value)
+        VALUES (0, 'economy_refresh_schedule', ?)
+        ON CONFLICT(company_id, key) DO UPDATE SET value = excluded.value
+      `).run(options.refreshSchedule);
+    }
+
+    return FixtureService.getEconomyState(realmId, database);
+  }
+
+  /**
+   * Get current economy state and settings.
+   */
+  static getEconomyState(
+    realmId: number = 0,
+    database: typeof db = db
+  ): EconomyPhaseStatus & { random: boolean; refreshSchedule: string } {
+    const phase = getEconomyPhase(realmId);
+    let random = CONFIG.ECONOMY_RANDOM;
+    let refreshSchedule = CONFIG.ECONOMY_REFRESH_SCHEDULE;
+
+    try {
+      const rowRandom = database.prepare("SELECT value FROM company_settings WHERE company_id = 0 AND key = 'economy_random'").get() as { value: string } | undefined;
+      if (rowRandom?.value) random = rowRandom.value === 'true';
+
+      const rowSched = database.prepare("SELECT value FROM company_settings WHERE company_id = 0 AND key = 'economy_refresh_schedule'").get() as { value: string } | undefined;
+      if (rowSched?.value) refreshSchedule = rowSched.value;
+    } catch {
+      // fallback
+    }
+
+    return {
+      ...phase,
+      random,
+      refreshSchedule
+    };
+  }
+
+  /**
+   * Roll next economy phase randomly according to Markov transition weights.
+   */
+  static rollEconomyState(realmId: number = 0, database: typeof db = db) {
+    rollEconomyPhase(new Date(virtualClock.nowMs()), realmId);
+    return FixtureService.getEconomyState(realmId, database);
   }
 }

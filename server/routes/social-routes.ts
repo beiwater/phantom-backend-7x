@@ -30,7 +30,7 @@ interface ChatroomSubscriptionEntry {
 // Default chatroom catalog. `notSubscribed` mirrors the official payload:
 // only the rooms a company opted out of (persisted in company_settings)
 // carry the flag.
-const DEFAULT_CHATROOMS: Array<ChatroomSubscriptionEntry> = [
+export const DEFAULT_CHATROOMS: Array<ChatroomSubscriptionEntry> = [
   { name: 'Supporters', language: 'en', category: 'supporter', image: '/chat-icon/005F73/supporter.png', db_letter: 'P', realmsShared: true, protectedForCountry: null, notSubscribed: true },
   { name: 'Game', language: 'en', category: 'game', image: '/chat-icon/005F73/game.png', db_letter: 'G', realmsShared: true, protectedForCountry: null, show_rules: true, unread: 0 },
   { name: 'Help', language: 'en', category: 'help', image: '/chat-icon/005F73/help.png', db_letter: 'H', realmsShared: true, protectedForCountry: null, show_rules: true, unread: 0 },
@@ -42,6 +42,74 @@ const DEFAULT_CHATROOMS: Array<ChatroomSubscriptionEntry> = [
   { name: '[ZH] 交易', language: 'zh-cn', category: 'sales', image: '/chat-icon/234B8B/sales.png', db_letter: 'k', realmsShared: false, protectedForCountry: null, show_rules: true, unread: 0 },
   { name: '[ZH] 社交', language: 'zh-cn', category: 'social', image: '/chat-icon/234B8B/social.png', db_letter: 'n', realmsShared: true, protectedForCountry: null, show_rules: true, unread: 0 }
 ];
+
+export const CHATROOM_PRESETS: Record<string, Array<ChatroomSubscriptionEntry>> = {
+  default: DEFAULT_CHATROOMS,
+  minimal: [
+    { name: 'Game', language: 'en', category: 'game', image: '/chat-icon/005F73/game.png', db_letter: 'G', realmsShared: true, protectedForCountry: null, show_rules: true, unread: 0 },
+    { name: 'Help', language: 'en', category: 'help', image: '/chat-icon/005F73/help.png', db_letter: 'H', realmsShared: true, protectedForCountry: null, show_rules: true, unread: 0 },
+    { name: 'Sales', language: 'en', category: 'sales', image: '/chat-icon/005F73/sales.png', db_letter: 'S', realmsShared: false, protectedForCountry: null, show_rules: true, unread: 0 }
+  ],
+  zh: [
+    { name: '[ZH] 游戏', language: 'zh-cn', category: 'game', image: '/chat-icon/234B8B/game.png', db_letter: 'N', realmsShared: true, protectedForCountry: null, show_rules: false, unread: 0 },
+    { name: '[ZH] 交易', language: 'zh-cn', category: 'sales', image: '/chat-icon/234B8B/sales.png', db_letter: 'k', realmsShared: false, protectedForCountry: null, show_rules: true, unread: 0 },
+    { name: '[ZH] 社交', language: 'zh-cn', category: 'social', image: '/chat-icon/234B8B/social.png', db_letter: 'n', realmsShared: true, protectedForCountry: null, show_rules: true, unread: 0 }
+  ],
+  en: DEFAULT_CHATROOMS.filter(r => r.language === 'en')
+};
+
+export function getConfiguredChatrooms(): Array<ChatroomSubscriptionEntry> {
+  try {
+    const raw = socialRepository.getCompanySetting(0, 'configured_chatrooms');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
+    }
+  } catch {
+    // fallback
+  }
+
+  const envCount = parseInt(process.env.CHATROOM_COUNT || '', 10);
+  const envPreset = process.env.CHATROOM_PRESET?.toLowerCase();
+
+  if (envPreset && CHATROOM_PRESETS[envPreset]) {
+    return CHATROOM_PRESETS[envPreset];
+  }
+  if (Number.isInteger(envCount) && envCount > 0) {
+    return DEFAULT_CHATROOMS.slice(0, envCount);
+  }
+
+  return DEFAULT_CHATROOMS;
+}
+
+export function setConfiguredChatrooms(options: {
+  count?: number;
+  preset?: string;
+  rooms?: Array<ChatroomSubscriptionEntry>;
+  reset?: boolean;
+}): { success: boolean; count: number; chatrooms: Array<ChatroomSubscriptionEntry> } {
+  if (options.reset) {
+    socialRepository.upsertCompanySetting(0, 'configured_chatrooms', '[]');
+    const chatrooms = getConfiguredChatrooms();
+    return { success: true, count: chatrooms.length, chatrooms };
+  }
+
+  let finalRooms: Array<ChatroomSubscriptionEntry> = DEFAULT_CHATROOMS;
+
+  if (Array.isArray(options.rooms) && options.rooms.length > 0) {
+    finalRooms = options.rooms;
+  } else if (options.preset && CHATROOM_PRESETS[options.preset.toLowerCase()]) {
+    finalRooms = CHATROOM_PRESETS[options.preset.toLowerCase()];
+  } else if (typeof options.count === 'number' && options.count > 0) {
+    finalRooms = DEFAULT_CHATROOMS.slice(0, Math.min(options.count, DEFAULT_CHATROOMS.length));
+  }
+
+  socialRepository.upsertCompanySetting(0, 'configured_chatrooms', JSON.stringify(finalRooms));
+
+  return { success: true, count: finalRooms.length, chatrooms: finalRooms };
+}
 
 function loadChatroomSubscriptions(companyId: number): Array<ChatroomSubscriptionEntry> {
   const settingValue = socialRepository.getCompanySetting(companyId, 'chatroom_subscriptions');
@@ -55,7 +123,8 @@ function loadChatroomSubscriptions(companyId: number): Array<ChatroomSubscriptio
     }
   }
   const stamp = virtualClock.nowIso();
-  return DEFAULT_CHATROOMS.map(entry => {
+  const availableRooms = getConfiguredChatrooms();
+  return availableRooms.map(entry => {
     const withStamp: ChatroomSubscriptionEntry = { ...entry, datetime: stamp };
     return unsubscribed.includes(entry.db_letter) ? { ...withStamp, notSubscribed: true } : withStamp;
   });

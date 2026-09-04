@@ -1,7 +1,21 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
+import fs from 'node:fs';
+import path from 'node:path';
 import { sendJson } from './utils.ts';
 import { RouteRegistry, globalRouteRegistry } from '../http/route-registry.ts';
 import { companyRepository } from '../repositories/company-repository.ts';
+
+// Load stored official guides data if available
+let guidesData: Record<string, any> = {};
+try {
+  const guidesPath = path.resolve(import.meta.dirname, '..', 'data', 'pages', 'guides.json');
+  if (fs.existsSync(guidesPath)) {
+    guidesData = JSON.parse(fs.readFileSync(guidesPath, 'utf-8'));
+  }
+} catch {
+  // fallback
+}
+
 /**
  * P1-03: Static page / guide article content route.
  *
@@ -89,7 +103,7 @@ const SUPPORTED_LANGUAGES = [
   'en', 'de', 'fr', 'pt', 'tr', 'it', 'es', 'zh-cn', 'zh-tw', 'cs', 'pl', 'ru', 'ja'
 ];
 
-/** GET /api/v3/:locale/pages/:slug/ */
+/** GET /api/v3/pages/:locale/:slug/ */
 export function getPageArticle(locale: string, rawSlug: string): {
   status: number;
   payload: Record<string, unknown> | null;
@@ -102,11 +116,37 @@ export function getPageArticle(locale: string, rawSlug: string): {
     return { status: 404, payload: { error: 'Page not found', code: 'PAGE_NOT_FOUND', path: `/api/v3/${locale}/pages/` } };
   }
 
+  // 1. Authoritative stored official guide data
+  const stored = guidesData[slug];
+  if (stored) {
+    const isZh = lang === 'zh-cn' || lang === 'zh' || lang === 'zh-tw';
+    const content = isZh
+      ? (stored.content?.['zh-cn'] || stored.content?.en)
+      : (stored.content?.en || stored.content?.['zh-cn']);
+    const guide = GUIDE_BY_SLUG[slug];
+    const title = isZh
+      ? (guide?.titleZh || stored.titleZh || content?.title)
+      : (guide?.title || stored.titleEn || content?.title);
+    const body = content?.body || `<p>${title}</p>`;
+
+    return {
+      status: 200,
+      payload: {
+        slug,
+        slugTitle: slug,
+        title,
+        body,
+        language: lang,
+        lastUpdate: stored.lastUpdate || new Date().toISOString(),
+        otherLanguages: stored.otherLanguages || SUPPORTED_LANGUAGES.map(code => ({ code, title }))
+      }
+    };
+  }
+
+  // 2. Fallback catalog
   const guide = GUIDE_BY_SLUG[slug];
   const article = ARTICLE_CATALOG[slug];
   if (!guide && !article) {
-    // Unknown slug: serve an explicit placeholder page (P1-03 contract: no 404
-    // for catalog entries; unknown slugs never appear in the catalog).
     return {
       status: 200,
       payload: buildArticle(lang, slug, PLACEHOLDER_TITLE_ZH, PLACEHOLDER_TITLE_ZH,
@@ -142,6 +182,12 @@ export async function handlePageRoutes(
   method: string,
   currentPlayerId?: number | null
 ): Promise<boolean> {
+  // Report bug: POST & GET /api/v2/report/
+  if (pathname === '/api/v2/report/' || pathname === '/api/v2/report') {
+    sendJson(res, { success: true, message: "Report received. Thank you for keeping Sim Companies fair and fun!" });
+    return true;
+  }
+
   if (method !== 'GET') return false;
 
   // Admin Control Panel route — requires an authenticated admin session
@@ -200,10 +246,22 @@ export async function handlePageRoutes(
     return true;
   }
 
-  // Frontend api_v3_pages: GET /api/v3/pages/:locale/:slug/
-  const pageMatch = pathname.match(/^\/api\/v3\/pages\/([a-z-]+)\/([a-z0-9-]+)\/$/);
+  // 1. Moderators list: GET /api/v2/moderators/
+  if (pathname === '/api/v2/moderators/' || pathname === '/api/v2/moderators') {
+    sendJson(res, [
+      { id: 1, companyId: 1, company: "Sim Companies Staff", name: "Patrik", logo: "images/companies/logo_staff.png", country: "US" },
+      { id: 2, companyId: 2, company: "Community Support", name: "Moderator Team", logo: "images/companies/logo_mod.png", country: "CN" }
+    ]);
+    return true;
+  }
+
+
+  // 3. Frontend api_v3_pages: GET /api/v3/pages/:locale/:slug/ or /api/v3/:locale/pages/:slug/
+  const pageMatch = pathname.match(/^\/api\/v3\/(?:pages\/([a-z-]+)|([a-z-]+)\/pages)\/([a-z0-9-]+)\/?$/);
   if (pageMatch) {
-    const { status, payload } = getPageArticle(pageMatch[1], pageMatch[2]);
+    const locale = pageMatch[1] || pageMatch[2] || 'en';
+    const slug = pageMatch[3];
+    const { status, payload } = getPageArticle(locale, slug);
     sendJson(res, payload, status);
     return true;
   }
@@ -224,7 +282,34 @@ export function registerPageRoutes(registry: RouteRegistry = globalRouteRegistry
     })
     .register({
       method: 'GET',
+      pattern: '/api/v2/moderators/',
+      owner: 'pages',
+      handler: async (req, res, ctx) => {
+        const pathname = new URL(req.url || '/', 'http://localhost').pathname;
+        await handlePageRoutes(req, res, pathname, 'GET', ctx?.playerId ?? null);
+      }
+    })
+    .register({
+      method: 'POST',
+      pattern: '/api/v2/report/',
+      owner: 'pages',
+      handler: async (req, res, ctx) => {
+        const pathname = new URL(req.url || '/', 'http://localhost').pathname;
+        await handlePageRoutes(req, res, pathname, 'POST', ctx?.playerId ?? null);
+      }
+    })
+    .register({
+      method: 'GET',
       pattern: '/api/v3/pages/:locale/:slug/',
+      owner: 'pages',
+      handler: async (req, res, ctx) => {
+        const pathname = new URL(req.url || '/', 'http://localhost').pathname;
+        await handlePageRoutes(req, res, pathname, 'GET', ctx?.playerId ?? null);
+      }
+    })
+    .register({
+      method: 'GET',
+      pattern: '/api/v3/:locale/pages/:slug/',
       owner: 'pages',
       handler: async (req, res, ctx) => {
         const pathname = new URL(req.url || '/', 'http://localhost').pathname;

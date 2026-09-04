@@ -158,3 +158,60 @@ export function assertBondCollateralFloor(
   }
 }
 
+/**
+ * Construction Time Modes:
+ * - 'test': fast 10-second construction/upgrade for rapid test and automated suites.
+ * - 'realistic': authentic building construction time derived directly from the
+ *   official encyclopedia buildDuration (1h for Plantation, 2h for Well, 3h for
+ *   Power plant, 6h for Car factory, 9h for Launchpad, etc.).
+ */
+export type ConstructionTimeMode = 'realistic' | 'test';
+
+/**
+ * Retrieve the authentic encyclopedia build duration (in seconds) for level 1
+ * construction of the given building kind.
+ */
+export function getBuildingBuildDuration(kind: string): number {
+  const def = CANONICAL_BUILDINGS[kind];
+  if (def?.buildDuration && def.buildDuration > 0) {
+    return def.buildDuration;
+  }
+  const costUnits = getBuildingCostUnits(kind);
+  return Math.max(1800, costUnits * 1800);
+}
+
+/**
+ * Human-readable duration format (e.g., "10s", "1h", "1h 30m").
+ */
+export function formatDurationHuman(seconds: number): string {
+  if (seconds < 60) return `${seconds}s`;
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  if (hours > 0 && minutes > 0) return `${hours}h ${minutes}m`;
+  if (hours > 0) return `${hours}h`;
+  return `${minutes}m`;
+}
+
+/**
+ * Calculate construction or upgrade duration in seconds according to the encyclopedia
+ * formulas and active mode.
+ *
+ * Encyclopedia formulas:
+ * - Level 1 (new build): buildDuration seconds (buildDuration / 3600 hours)
+ * - Upgrade: buildDuration * sizeDelta seconds
+ * - Speed multiplier: duration / speedMultiplier (Issue #186 & virtual-clock compatibility)
+ */
+export function calculateConstructionDurationSeconds(
+  kind: string,
+  sizeUnits: number = 1,
+  mode: ConstructionTimeMode = 'test',
+  speedMultiplier: number = 1
+): number {
+  if (mode === 'test') {
+    return 10;
+  }
+  const baseDuration = getBuildingBuildDuration(kind) * Math.max(1, sizeUnits);
+  const multiplier = speedMultiplier > 0 ? speedMultiplier : 1;
+  return Math.max(1, Math.round(baseDuration / multiplier));
+}
+

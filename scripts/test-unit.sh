@@ -62,6 +62,9 @@ ADMITTED_TESTS=(
   tests/verify-issue-89-finance.test.ts
   tests/verify-issues-110-121.test.ts
   tests/verify-market-pricing-modes.test.ts
+  tests/verify-construction-time-mode.test.ts
+  tests/verify-demand-pricing-and-chatrooms.test.ts
+  tests/verify-economy-and-library-guides.test.ts
   tests/verify-p1-03-research-guide.test.ts
   tests/verify-issue-183-production-economy.test.ts
   tests/verify-issue-184-government-content.test.ts

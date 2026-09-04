@@ -13,6 +13,7 @@ import { virtualClock } from '../core/virtual-clock.ts';
 import { FixtureService, type ScenarioInput } from '../services/fixture-service.ts';
 import { buildSessionCookie } from '../auth/session.ts';
 import { RouteRegistry, globalRouteRegistry, type HttpMethod } from '../http/route-registry.ts';
+import { CHATROOM_PRESETS } from './social-routes.ts';
 
 export async function handleDebugRoutes(
   req: IncomingMessage,
@@ -91,6 +92,47 @@ export async function handleDebugRoutes(
           return true;
         }
         const result = await FixtureService.setMarketPricingMode(body.mode);
+        sendJson(res, { success: true, ...result });
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        sendJson(res, { error: msg }, 500);
+      }
+      return true;
+    }
+    sendJson(res, { error: 'Method not allowed' }, 405);
+    return true;
+  }
+
+  // 2.2. GET & POST /api/v2/debug/construction-mode/
+  if (pathname === '/api/v2/debug/construction-mode/' || pathname === '/api/debug/construction-mode/') {
+    if (method === 'GET') {
+      sendJson(res, FixtureService.getConstructionTimeMode());
+      return true;
+    }
+    if (method === 'POST') {
+      try {
+        const body = await readJsonBody<{
+          mode?: 'realistic' | 'test' | 'real' | 'fast';
+          toggle?: boolean;
+          speedMultiplier?: number;
+        }>(req);
+
+        let targetMode: 'realistic' | 'test';
+        if (body.toggle) {
+          const current = FixtureService.getConstructionTimeMode().mode;
+          targetMode = current === 'realistic' ? 'test' : 'realistic';
+        } else if (body.mode === 'realistic' || body.mode === 'real') {
+          targetMode = 'realistic';
+        } else if (body.mode === 'test' || body.mode === 'fast') {
+          targetMode = 'test';
+        } else {
+          sendJson(res, {
+            error: 'Invalid request: mode must be "realistic" ("real") or "test" ("fast"), or pass toggle: true'
+          }, 400);
+          return true;
+        }
+
+        const result = await FixtureService.setConstructionTimeMode(targetMode, body.speedMultiplier);
         sendJson(res, { success: true, ...result });
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -190,6 +232,72 @@ export async function handleDebugRoutes(
     }
   }
 
+  // 5. Chatrooms configuration: GET & POST /api/v2/debug/chatrooms/
+  if (pathname === '/api/v2/debug/chatrooms/' || pathname === '/api/debug/chatrooms/') {
+    if (method === 'GET') {
+      const chatrooms = FixtureService.getConfiguredChatrooms();
+      sendJson(res, {
+        count: chatrooms.length,
+        chatrooms,
+        availablePresets: Object.keys(CHATROOM_PRESETS)
+      });
+      return true;
+    }
+
+    if (method === 'POST') {
+      interface ChatroomConfigBody {
+        count?: number;
+        preset?: string;
+        rooms?: any[];
+        reset?: boolean;
+      }
+      const body = await readJsonBody<ChatroomConfigBody>(req);
+      const result = FixtureService.setConfiguredChatrooms(body);
+      sendJson(res, result);
+      return true;
+    }
+
+    sendJson(res, { error: 'Method not allowed' }, 405);
+    return true;
+  }
+
+  // 6. Economy state customization: GET & POST /api/v2/debug/economy/
+  if (pathname === '/api/v2/debug/economy/' || pathname === '/api/debug/economy/') {
+    if (method === 'GET') {
+      const realmParam = new URL(req.url || '/', 'http://localhost').searchParams.get('realmId');
+      const realmId = realmParam ? Number(realmParam) : 0;
+      sendJson(res, FixtureService.getEconomyState(realmId));
+      return true;
+    }
+
+    if (method === 'POST') {
+      interface EconomyConfigBody {
+        state?: 'boom' | 'recession' | 'normal' | number;
+        random?: boolean;
+        refreshSchedule?: string;
+        roll?: boolean;
+        realmId?: number;
+      }
+      const body = await readJsonBody<EconomyConfigBody>(req);
+      const realmId = body?.realmId ?? 0;
+      if (body?.roll) {
+        const rolled = FixtureService.rollEconomyState(realmId);
+        sendJson(res, rolled);
+        return true;
+      }
+      const updated = FixtureService.setEconomyState(body?.state ?? 'normal', {
+        random: body?.random,
+        refreshSchedule: body?.refreshSchedule,
+        realmId
+      });
+      sendJson(res, updated);
+      return true;
+    }
+
+    sendJson(res, { error: 'Method not allowed' }, 405);
+    return true;
+  }
+
   return false;
 }
 
@@ -214,9 +322,14 @@ export function registerDebugRoutes(registry: RouteRegistry = globalRouteRegistr
     register('GET', `${prefix}/presets/`);
     register('GET', `${prefix}/market-mode/`);
     register('POST', `${prefix}/market-mode/`);
+    register('GET', `${prefix}/construction-mode/`);
+    register('POST', `${prefix}/construction-mode/`);
+    register('GET', `${prefix}/chatrooms/`);
+    register('POST', `${prefix}/chatrooms/`);
     register('POST', `${prefix}/time-warp/`);
+    register('GET', `${prefix}/economy/`);
+    register('POST', `${prefix}/economy/`);
     register('POST', `${prefix}/fixture/`);
   }
 }
-
 registerDebugRoutes(globalRouteRegistry);

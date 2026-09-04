@@ -8,8 +8,11 @@ import {
 } from './constants.ts';
 import { getWarehouseItemExact, consumeResourceExactWithTransactions } from './warehouse.ts';
 import { updateCompanyMoney, getCompanyById } from './company.ts';
-import { extraSlotIndex } from '../domain/buildings/building-rules.ts';
-
+import {
+  extraSlotIndex,
+  calculateConstructionDurationSeconds
+} from '../domain/buildings/building-rules.ts';
+import { FixtureService } from '../services/fixture-service.ts';
 export interface BuildingRow {
   id: number;
   company_id: number;
@@ -171,7 +174,12 @@ export function formatBuilding(b: BuildingRow) {
     busyObj = getRetailBusy(b.id);
   }
   if (!busyObj && isConstructingOrUpgrading) {
-    const duration = 10;
+    const mode = FixtureService.getActiveConstructionTimeMode();
+    const speedMultiplier = FixtureService.getConstructionSpeedMultiplier();
+    const isRealistic = mode === 'realistic' || (busyUntilMs - virtualClock.nowMs() > 15000);
+    const duration = isRealistic
+      ? calculateConstructionDurationSeconds(b.kind, b.size || 1, 'realistic', speedMultiplier)
+      : 10;
     const startedMs = busyUntilMs - duration * 1000;
     busyObj = {
       id: b.id,
@@ -401,8 +409,10 @@ export function constructBuilding(companyId: number, kind: string, position: str
   const consumedMaterials: Array<{ db_letter: number; quality: number; amount: number }> = [];
   let newMoney = comp.money;
   const now = virtualClock.nowIso();
-  const busyUntil = new Date(virtualClock.nowMs() + 10000).toISOString();
-
+  const mode = FixtureService.getActiveConstructionTimeMode();
+  const speedMultiplier = FixtureService.getConstructionSpeedMultiplier();
+  const durationSeconds = calculateConstructionDurationSeconds(kind, 1, mode, speedMultiplier);
+  const busyUntil = new Date(virtualClock.nowMs() + durationSeconds * 1000).toISOString();
   db.exec('BEGIN');
   try {
     for (const req of materials) {
@@ -473,7 +483,10 @@ export function upgradeBuilding(companyId: number, buildingId: number, sizeDelta
 
   const materials = validateConstructionMaterials(companyId, sizeDelta);
   const consumedMaterials: Array<{ db_letter: number; quality: number; amount: number }> = [];
-  const busyUntil = new Date(virtualClock.nowMs() + 10000).toISOString();
+  const mode = FixtureService.getActiveConstructionTimeMode();
+  const speedMultiplier = FixtureService.getConstructionSpeedMultiplier();
+  const durationSeconds = calculateConstructionDurationSeconds(building.kind, sizeDelta, mode, speedMultiplier);
+  const busyUntil = new Date(virtualClock.nowMs() + durationSeconds * 1000).toISOString();
   let newMoney = comp.money;
 
   db.exec('BEGIN');

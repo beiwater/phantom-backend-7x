@@ -21,10 +21,17 @@ const smartphoneQ0 = db.prepare('SELECT price FROM market_orders WHERE seller_id
 
 console.log(`  -> Realistic Prices: Power=$${powerQ0.price}, Apples=$${applesQ0.price}, Steak=$${steakQ0.price}, Smartphone=$${smartphoneQ0.price}`);
 assert.ok(powerQ0.price < 0.3, 'Power realistic price should be < $0.30');
-assert.ok(applesQ0.price > 1.0 && applesQ0.price < 3.0, 'Apples realistic price should be ~$1.46');
+assert.ok(applesQ0.price > 1.0 && applesQ0.price < 6.0, 'Apples realistic price should provide ~$300 building profit');
 assert.ok(steakQ0.price > 20.0, 'Steak realistic price should be > $20.00');
 assert.ok(smartphoneQ0.price > 200.0, 'Smartphone realistic price should be > $200.00');
 
+// Verify building hourly profit is around $300
+const appleProfit = (applesQ0.price - 1.386) * 121.7;
+console.log(`  -> Calculated Hourly Profit for Apples: $${appleProfit.toFixed(1)} (compressed by demand/sat to ~$200-240)`);
+assert.ok(appleProfit >= 180 && appleProfit <= 260, `Hourly profit for apples should reflect compressed demand, got ${appleProfit}`);
+const powerProfit = (powerQ0.price - 0.161) * 2566.9;
+console.log(`  -> Calculated Hourly Profit for Power: $${powerProfit.toFixed(1)} (target: ~$300)`);
+assert.ok(powerProfit >= 270 && powerProfit <= 350, `Hourly profit for power should be around $300 target, got ${powerProfit}`);
 // 2. Switch to Test mode
 console.log('[2/4] Switching marketplace to [TEST] mode...');
 const resTest = await FixtureService.setMarketPricingMode('test');

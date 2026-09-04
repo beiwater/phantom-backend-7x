@@ -11,8 +11,10 @@ import {
   validateConstructionPosition,
   normalizePosition,
   extraSlotIndex,
-  assertNotBusyForConstructionWork
+  assertNotBusyForConstructionWork,
+  calculateConstructionDurationSeconds
 } from '../../domain/buildings/building-rules.ts';
+import { FixtureService } from '../../services/fixture-service.ts';
 import { getTierForLevel } from '../../domain/leveling/level-rules.ts';
 import { getBuildingMeta } from '../../game-data/buildings.ts';
 import { ConflictError, ValidationError, NotFoundError } from '../../errors/domain-error.ts';
@@ -106,8 +108,10 @@ export async function constructBuildingUseCase(
 
     // 4. Create building
     const now = virtualClock.nowIso();
-    const busyUntil = new Date(virtualClock.nowMs() + 10000).toISOString();
-
+    const mode = FixtureService.getActiveConstructionTimeMode();
+    const speedMultiplier = FixtureService.getConstructionSpeedMultiplier();
+    const durationSeconds = calculateConstructionDurationSeconds(kind, 1, mode, speedMultiplier);
+    const busyUntil = new Date(virtualClock.nowMs() + durationSeconds * 1000).toISOString();
     const abundance = initialAbundanceForKind(String(kind));
     const building = buildingRepository.create({
       companyId: ctx.companyId,

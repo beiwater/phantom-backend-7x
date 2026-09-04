@@ -88,6 +88,8 @@ async function main() {
     console.log(`Time Offset     : ${virtualClock.getOffsetHours()} hours (${virtualClock.getOffsetMs()} ms)`);
     const marketMode = FixtureService.getMarketPricingMode();
     console.log(`Market Pricing  : [${marketMode.mode.toUpperCase()}] (${marketMode.totalNpcOrders} active orders)`);
+    const constrMode = FixtureService.getConstructionTimeMode();
+    console.log(`Construction    : [${constrMode.mode.toUpperCase()}] (${constrMode.description})`);
     console.log(`Presets Avail   : ${Object.keys(FixtureService.PRESETS).join(', ')}`);
     return;
   }
@@ -234,6 +236,143 @@ async function main() {
     }
     return;
   }
+  if (command === 'construction' || command === 'construction-time') {
+    console.log('=== Building Construction Time Mode Manager ===');
+    if (argv.toggle) {
+      const current = FixtureService.getConstructionTimeMode().mode;
+      const targetMode = current === 'realistic' ? 'test' : 'realistic';
+      console.log(`Toggling construction time mode from [${current.toUpperCase()}] -> [${targetMode.toUpperCase()}]...`);
+      const res = await FixtureService.setConstructionTimeMode(targetMode, argv.speed ? Number(argv.speed) : undefined);
+      console.log(`✅ Construction Time Mode Switched to [${res.mode.toUpperCase()}]!`);
+      console.log(`- ${res.description}`);
+      console.log('- Sample Durations:');
+      for (const s of res.samples) {
+        console.log(`  * ${s.name.padEnd(20)} (${s.kind}): ${s.durationDisplay} (${s.durationSeconds}s)`);
+      }
+      return;
+    }
+
+    if (argv.status || (!argv.mode)) {
+      const current = FixtureService.getConstructionTimeMode();
+      console.log(`Current Mode      : [${current.mode.toUpperCase()}]`);
+      console.log(`Description       : ${current.description}`);
+      console.log(`Speed Multiplier  : ${current.speedMultiplier}x`);
+      console.log('\nSample Durations:');
+      for (const s of current.samples) {
+        console.log(`  * ${s.name.padEnd(20)} (${s.kind}): ${s.durationDisplay} (${s.durationSeconds}s)`);
+      }
+      console.log('\nTo toggle or switch mode:');
+      console.log('  scripts/dev-tool.ts construction --toggle                   (One-click toggle between modes)');
+      console.log('  scripts/dev-tool.ts construction --mode realistic            (Authentic encyclopedia buildDuration)');
+      console.log('  scripts/dev-tool.ts construction --mode test                 (Flat 10-second fast test builds)');
+      console.log('  scripts/dev-tool.ts construction --mode realistic --speed 2 (Realistic at 2x speed)');
+      return;
+    }
+
+    const targetMode = String(argv.mode).toLowerCase();
+    if (targetMode !== 'realistic' && targetMode !== 'test' && targetMode !== 'real' && targetMode !== 'fast') {
+      console.error(`Invalid mode: "${argv.mode}". Must be "realistic" ("real") or "test" ("fast").`);
+      process.exit(1);
+    }
+    const normMode = (targetMode === 'realistic' || targetMode === 'real') ? 'realistic' : 'test';
+
+    console.log(`Switching construction time mode to [${normMode.toUpperCase()}]...`);
+    const res = await FixtureService.setConstructionTimeMode(normMode, argv.speed ? Number(argv.speed) : undefined);
+    console.log(`✅ Construction Time Mode Switched to [${res.mode.toUpperCase()}]!`);
+    console.log(`- ${res.description}`);
+    console.log('- Sample Durations:');
+    for (const s of res.samples) {
+      console.log(`  * ${s.name.padEnd(20)} (${s.kind}): ${s.durationDisplay} (${s.durationSeconds}s)`);
+    }
+    return;
+  }
+  if (command === 'chatrooms' || command === 'chatroom') {
+    console.log('=== Chatroom Configuration Manager ===');
+    if (argv.reset) {
+      const res = FixtureService.setConfiguredChatrooms({ reset: true });
+      console.log(`✅ Chatrooms Reset to Default (${res.count} rooms)!`);
+      return;
+    }
+    if (argv.count || argv.preset) {
+      const res = FixtureService.setConfiguredChatrooms({
+        count: argv.count ? Number(argv.count) : undefined,
+        preset: argv.preset ? String(argv.preset) : undefined
+      });
+      console.log(`✅ Chatrooms Configured: ${res.count} rooms active!`);
+      for (const r of res.chatrooms) {
+        console.log(`  * [${r.db_letter}] ${r.name.padEnd(20)} (${r.language}) - category: ${r.category}`);
+      }
+      return;
+    }
+
+    // List current chatrooms
+    const chatrooms = FixtureService.getConfiguredChatrooms();
+    console.log(`Active Chatrooms: ${chatrooms.length}`);
+    for (const r of chatrooms) {
+      console.log(`  * [${r.db_letter}] ${r.name.padEnd(20)} (${r.language}) - category: ${r.category} ${r.notSubscribed ? '(opt-in)' : '(default)'}`);
+    }
+    console.log('\nAvailable Presets: default, minimal, zh, en');
+    console.log('\nUsage Examples:');
+    console.log('  scripts/dev-tool.ts chatrooms --count 3            (Set exactly 3 chatrooms)');
+    console.log('  scripts/dev-tool.ts chatrooms --preset zh          (Use Chinese chatrooms only)');
+    console.log('  scripts/dev-tool.ts chatrooms --preset minimal     (Game, Help, Sales only)');
+    console.log('  scripts/dev-tool.ts chatrooms --reset              (Reset to default 10 chatrooms)');
+    return;
+  }
+  if (command === 'economy' || command === 'econ') {
+    console.log('=== Economy Phase & Cycle Manager (景气 / 萧条 / 正常) ===');
+    const realmId = argv.realm ? Number(argv.realm) : 0;
+
+    if (argv.roll) {
+      console.log('Rolling economy phase according to Markov transition weights...');
+      const res = FixtureService.rollEconomyState(realmId);
+      console.log(`✅ Economy Rolled to: [${res.stateName.toUpperCase()}] (state: ${res.state})`);
+      console.log(`- Phase           : ${res.phase}`);
+      console.log(`- Modifier        : ${(res.productionModifier * 100).toFixed(1)}% (${res.modifierKind})`);
+      console.log(`- Cycle Started   : ${res.startAt}`);
+      console.log(`- Next Refresh    : ${res.endAt}`);
+      return;
+    }
+
+    if (argv.state || argv.random !== undefined || argv.schedule) {
+      const randomOpt = argv.random !== undefined
+        ? (String(argv.random).toLowerCase() === 'true' || String(argv.random).toLowerCase() === 'on' || argv.random === true)
+        : undefined;
+      const res = FixtureService.setEconomyState(argv.state ? String(argv.state) : 'normal', {
+        realmId,
+        random: randomOpt,
+        refreshSchedule: argv.schedule ? String(argv.schedule) : undefined
+      });
+      console.log(`✅ Economy State Updated: [${res.stateName.toUpperCase()}] (state: ${res.state})!`);
+      console.log(`- Phase           : ${res.phase}`);
+      console.log(`- Modifier        : ${(res.productionModifier * 100).toFixed(1)}% (${res.modifierKind})`);
+      console.log(`- Random Rotation : ${res.random ? 'ON (Enabled)' : 'OFF (Locked)'}`);
+      console.log(`- Refresh Schedule: ${res.refreshSchedule}`);
+      console.log(`- Cycle Started   : ${res.startAt}`);
+      console.log(`- Next Boundary   : ${res.endAt}`);
+      return;
+    }
+
+    // Default: Display status
+    const current = FixtureService.getEconomyState(realmId);
+    console.log(`Current State     : [${current.stateName.toUpperCase()}] (state: ${current.state}, phase: ${current.phase})`);
+    console.log(`Production Bonus  : ${(current.productionBonus * 100).toFixed(1)}%`);
+    console.log(`Production Malus  : ${(current.productionMalus * 100).toFixed(1)}%`);
+    console.log(`Modifier Kind     : ${current.modifierKind} (${(current.productionModifier * 100).toFixed(1)}%)`);
+    console.log(`Random Rotation   : ${current.random ? 'ON (Enabled)' : 'OFF (Locked)'}`);
+    console.log(`Refresh Schedule  : ${current.refreshSchedule}`);
+    console.log(`Cycle Started At  : ${current.startAt}`);
+    console.log(`Next Refresh At   : ${current.endAt}`);
+    console.log('\nUsage Examples:');
+    console.log('  scripts/dev-tool.ts economy --state boom           (Switch to Boom / 景气)');
+    console.log('  scripts/dev-tool.ts economy --state recession      (Switch to Recession / 萧条)');
+    console.log('  scripts/dev-tool.ts economy --state normal         (Switch to Normal / 平稳)');
+    console.log('  scripts/dev-tool.ts economy --random off           (Lock state, disable random rotation)');
+    console.log('  scripts/dev-tool.ts economy --schedule friday_15_utc (Configure refresh schedule)');
+    console.log('  scripts/dev-tool.ts economy --roll                 (Instantly roll next state)');
+    return;
+  }
+
 
   if (command === 'migrate') {
     const { MigrationRunner } = await import('../server/db/migrations/runner.ts');
