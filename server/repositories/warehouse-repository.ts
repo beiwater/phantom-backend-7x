@@ -393,14 +393,16 @@ export class WarehouseRepository {
     companyId: number,
     kind: number,
     minQuality: number,
-    amount: number
+    amount: number,
+    preferHighestQuality: boolean = false
   ): ResourceTransactionEntity[] {
     if (amount <= 0) return [];
 
+    const orderDirection = preferHighestQuality ? 'DESC' : 'ASC';
     const rows = this.database.prepare(`
       SELECT * FROM warehouse
       WHERE company_id = ? AND kind = ? AND quality >= ? AND amount > 0
-      ORDER BY quality ASC
+      ORDER BY quality ${orderDirection}
     `).all(companyId, kind, minQuality) as WarehouseDbRow[];
 
     const totalAvailable = rows.reduce((sum, r) => sum + r.amount, 0);

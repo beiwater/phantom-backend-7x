@@ -2,6 +2,7 @@ import type { BuildingEntity } from '../../repositories/building-repository.ts';
 import { virtualClock } from '../../core/virtual-clock.ts';
 import { productionRepository } from '../../repositories/production-repository.ts';
 import { accumulatorRepository } from '../../repositories/accumulator-repository.ts';
+import { retailRepository } from '../../repositories/retail-repository.ts';
 import type { AccumulatorResourceState } from '../../game-data/accumulator.ts';
 import { accumulatorStateDTO } from '../../game-data/accumulator.ts';
 import { getBuildingMeta } from '../../game-data/buildings.ts';
@@ -125,6 +126,47 @@ export function toSimCompaniesBuildingDTO(
     resolveDueRestaurantRunsSync(building.id, building.companyId);
     const restaurantBusy = getRestaurantBusy(building.id);
     if (restaurantBusy) busyObj = restaurantBusy;
+  } else if ((building.category === 'sales' || building.category === 'seasonal') && building.kind !== 'B') {
+    const retailOrders = retailRepository.findByCompanyAndBuilding(building.companyId, building.id);
+    const latestOrder = retailOrders[0];
+    if (latestOrder) {
+      const finishedAtMs = latestOrder.finishedAt ? new Date(latestOrder.finishedAt).getTime() : 0;
+      const canFetch = finishedAtMs > 0 && finishedAtMs <= virtualClock.nowMs();
+      const resDef = getResourceDef(latestOrder.resourceKind);
+      const revenue = Math.round(latestOrder.units * latestOrder.unitPrice * 100) / 100;
+      const startedMs = new Date(latestOrder.createdAt).getTime();
+      const durationSeconds = finishedAtMs > 0
+        ? Math.max(1, Math.round((finishedAtMs - startedMs) / 1000))
+        : 0;
+      busyObj = {
+        id: latestOrder.id,
+        started: latestOrder.createdAt,
+        duration: durationSeconds,
+        category: 's',
+        canFetch,
+        sales_order: {
+          id: latestOrder.id,
+          image: resDef?.image || '',
+          name: resDef?.name || `Resource #${latestOrder.resourceKind}`,
+          amount: latestOrder.units,
+          price: latestOrder.unitPrice,
+          quality: latestOrder.quality || 0,
+          remainingProfit: revenue,
+          profitAvailableNow: canFetch ? revenue : 0
+        }
+      };
+    } else if (isConstructingOrUpgrading) {
+      const duration = 10;
+      const startedMs = busyUntilMs - duration * 1000;
+      busyObj = {
+        id: building.id,
+        started: new Date(startedMs).toISOString(),
+        duration,
+        category: 'b',
+        expanding: true,
+        canFetch: false
+      };
+    }
   } else if (isConstructingOrUpgrading && building.upkeepActive) {
     // production & sales speed bonus from busy.upkeep being truthy and
     // renders "funds last until started + duration" from these fields.

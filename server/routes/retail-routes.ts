@@ -136,7 +136,13 @@ export async function handleRetailRoutes(
       const ctx = createGameContext(currentCompanyId, currentCompanyId, companyRealmId);
       try {
         if (method === 'PUT') {
-          const result = await collectRetailOrderUseCase(ctx, orderId);
+          const body = req.headers['content-type']?.includes('application/json')
+            ? await readJsonBody<Record<string, unknown>>(req).catch(() => ({}))
+            : {};
+          const result = await collectRetailOrderUseCase(ctx, orderId, {
+            lowestQualityFirst: typeof body?.lowestQualityFirst === 'boolean' ? body.lowestQualityFirst : undefined,
+            highestQualityFirst: typeof body?.highestQualityFirst === 'boolean' ? body.highestQualityFirst : undefined
+          });
           sendJson(res, result);
         } else {
           await cancelRetailOrderUseCase(ctx, orderId);
@@ -176,7 +182,13 @@ export async function handleRetailRoutes(
     const ctx = createGameContext(currentCompanyId, currentCompanyId, companyRealmId);
     try {
       if (method === 'PUT') {
-        const result = await collectRetailOrderUseCase(ctx, orderId);
+        const body = req.headers['content-type']?.includes('application/json')
+          ? await readJsonBody<Record<string, unknown>>(req).catch(() => ({}))
+          : {};
+        const result = await collectRetailOrderUseCase(ctx, orderId, {
+          lowestQualityFirst: typeof body?.lowestQualityFirst === 'boolean' ? body.lowestQualityFirst : undefined,
+          highestQualityFirst: typeof body?.highestQualityFirst === 'boolean' ? body.highestQualityFirst : undefined
+        });
         sendJson(res, result);
       } else {
         await cancelRetailOrderUseCase(ctx, orderId);

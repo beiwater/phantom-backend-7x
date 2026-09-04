@@ -8,6 +8,7 @@ import { warehouseRepository } from '../repositories/warehouse-repository.ts';
 import { updateCompanyMoney } from './company.ts';
 import { getResourceDef } from './constants.ts';
 import { getCompanyBoostSettings } from './simboost-settings.ts';
+import { CONFIG } from '../config.ts';
 
 // The legacy database shipped before the restaurant guide was implemented in
 // full. Keep migrations here so an existing local database can be upgraded in
@@ -107,7 +108,12 @@ function ensureRestaurantColumns(): void {
 }
 ensureRestaurantColumns();
 
-export const RESTAURANT_CYCLE_SECONDS = 43200;
+export const BASE_RESTAURANT_CYCLE_SECONDS = 43200;
+export function getRestaurantCycleSeconds(): number {
+  const multiplier = Number(CONFIG.PRODUCTION_SPEED_MULTIPLIER) || 1;
+  return Math.max(3, Math.round(BASE_RESTAURANT_CYCLE_SECONDS / multiplier));
+}
+export const RESTAURANT_CYCLE_SECONDS = getRestaurantCycleSeconds();
 export const RESTAURANT_CYCLE_MS = RESTAURANT_CYCLE_SECONDS * 1000;
 export const RESTAURANT_MENU_PRICE_MIN = 60;
 export const RESTAURANT_MENU_PRICE_MAX = 350;
@@ -513,7 +519,7 @@ export function getRestaurantBusy(buildingId: number): Record<string, unknown> |
     return {
       id: run.id,
       started: run.cycle_start || run.datetime,
-      duration: RESTAURANT_CYCLE_SECONDS,
+      duration: getRestaurantCycleSeconds(),
       accelerationFactor: 1,
       category: 'o',
       manualResolve: false,
@@ -615,7 +621,8 @@ interface RestaurantRunDbRow {
 
 function mapRunRow(row: RestaurantRunDbRow): RestaurantRun {
   const cycleStart = row.cycle_start || row.datetime;
-  const cycleEnd = row.cycle_end || new Date(new Date(cycleStart).getTime() + RESTAURANT_CYCLE_MS).toISOString();
+  const cycleDurationMs = getRestaurantCycleSeconds() * 1000;
+  const cycleEnd = row.cycle_end || new Date(new Date(cycleStart).getTime() + cycleDurationMs).toISOString();
   return {
     id: row.id,
     buildingId: row.building_id,
@@ -746,7 +753,8 @@ function startRestaurantCycleInTransaction(buildingId: number, companyId: number
   updateCompanyMoney(companyId, -cost);
 
   const cycleStart = startAt.toISOString();
-  const cycleEnd = new Date(startAt.getTime() + RESTAURANT_CYCLE_MS).toISOString();
+  const cycleDurationMs = getRestaurantCycleSeconds() * 1000;
+  const cycleEnd = new Date(startAt.getTime() + cycleDurationMs).toISOString();
   const runId = restaurantRepository.insertRun([
     buildingId,
     companyId,

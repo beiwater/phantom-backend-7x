@@ -1531,7 +1531,8 @@ export const MIGRATIONS: MigrationDefinition[] = [
       const retailAdds: Record<string, string> = {
         economy_phase: 'INTEGER DEFAULT 1',
         economy_phase_started_at: 'TEXT',
-        economy_source: "TEXT DEFAULT 'migration'"
+        economy_source: "TEXT DEFAULT 'migration'",
+        quality_bonus: 'REAL DEFAULT 0'
       };
       for (const [column, ddl] of Object.entries(retailAdds)) {
         if (!retailColumns.has(column)) {

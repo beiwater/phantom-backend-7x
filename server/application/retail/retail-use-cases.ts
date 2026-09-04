@@ -22,6 +22,7 @@ import { buildingRepository } from '../../repositories/building-repository.ts';
 import { warehouseRepository } from '../../repositories/warehouse-repository.ts';
 import { companyRepository } from '../../repositories/company-repository.ts';
 import { getEconomyPhase } from '../scheduler/daily-jobs.ts';
+import { CONFIG } from '../../config.ts';
 
 // --- Compatibility DTO (original frontend shape) ----------------------------
 
@@ -64,9 +65,19 @@ export interface SalesOfficeOrderDTO extends RetailOrderDTO {
 
 export function formatSalesOfficeOrder(order: RetailOrderEntity, searchCost: number): SalesOfficeOrderDTO {
   const resDef = typeof getResourceDef === 'function' ? getResourceDef(order.resourceKind) : null;
+  // The original client calculates:
+  //   l = Date.parse(order.datetime)
+  //   endTime = new Date(l + 47 * 3600 * 1000)
+  //   if (l > now - 47h) => still searching (shows countdown to endTime)
+  //   else => search completed, contract ready to fulfill!
+  // Under speed multiplier, finishedAt is scaled down. To make the client's
+  // unscaled (l + 47h) arithmetic land exactly on finishedAt (or immediately complete
+  // when finishedAt <= now), we project datetime = finishedAt - 47h:
+  const finishedAtMs = order.finishedAt ? new Date(order.finishedAt).getTime() : new Date(order.createdAt).getTime();
+  const effectiveDatetime = new Date(finishedAtMs - 47 * 3600 * 1000).toISOString();
   return {
     ...formatRetailOrder(order),
-    datetime: order.createdAt,
+    datetime: effectiveDatetime,
     resources: [{
       kind: order.resourceKind,
       amount: order.units,
@@ -77,7 +88,7 @@ export function formatSalesOfficeOrder(order: RetailOrderEntity, searchCost: num
     amount: order.units,
     price: order.unitPrice,
     quality: order.quality,
-    qualityBonus: 0,
+    qualityBonus: order.qualityBonus || 0,
     searchCost
   } as SalesOfficeOrderDTO;
 }
@@ -200,7 +211,16 @@ export interface CollectRetailResult {
     category: string;
   }>;
 }
-export async function collectRetailOrderUseCase(ctx: GameContext, orderId: number): Promise<CollectRetailResult> {
+export interface CollectRetailOrderOptions {
+  lowestQualityFirst?: boolean;
+  highestQualityFirst?: boolean;
+}
+
+export async function collectRetailOrderUseCase(
+  ctx: GameContext,
+  orderId: number,
+  options: CollectRetailOrderOptions = {}
+): Promise<CollectRetailResult> {
   const order = retailRepository.findById(orderId);
   if (!order) {
     throw new NotFoundError('Order not found');
@@ -213,36 +233,72 @@ export async function collectRetailOrderUseCase(ctx: GameContext, orderId: numbe
     throw new ValidationError('Retail order is still in progress and cannot be fulfilled prematurely');
   }
 
-  const { maxPrice } = getAuthoritativeRetailPrice(order.resourceKind, order.quality, undefined, 0.5, getEconomyPhase(ctx.realmId).state);
-  const effectivePrice = Math.min(order.unitPrice, maxPrice);
-  const revenue = Math.round(order.units * effectivePrice * 100) / 100;
+  const building = buildingRepository.findById(order.buildingId);
+  const isSalesOffice = building?.kind === SALES_OFFICE_KIND;
+  const preferHighestQuality = options.highestQualityFirst ?? (options.lowestQualityFirst === false);
 
   return runInTransaction(async (tx: TransactionContext): Promise<CollectRetailResult> => {
-    // The frontend appends these entries to its resource-history cache.
-    // Keep the transaction's persisted warehouse cost and history metadata.
-    const consumed = warehouseRepository.consumeExact(
-      ctx.companyId,
-      order.resourceKind,
-      order.quality,
-      order.units
-    );
+    // If sales office, consume from warehouse with flexible quality (>= order.quality)
+    // matching player's lowestQualityFirst / highestQualityFirst preference.
+    let consumed: Array<{ kind: number; quality: number; amount: number; cost: number }>;
+    if (isSalesOffice) {
+      consumed = warehouseRepository.consumeWithTransactions(
+        ctx.companyId,
+        order.resourceKind,
+        order.quality,
+        order.units,
+        preferHighestQuality
+      );
+    } else {
+      consumed = warehouseRepository.consumeExact(
+        ctx.companyId,
+        order.resourceKind,
+        order.quality,
+        order.units
+      );
+    }
+
+    const deliveredQuality = consumed.length > 0
+      ? consumed.reduce((min, c) => Math.min(min, c.quality), consumed[0].quality)
+      : order.quality;
+
+    // Calculate revenue including qualityBonus:
+    // revenue = baseRevenue + baseRevenue * quality * qualityBonus / 100
+    const { maxPrice } = getAuthoritativeRetailPrice(order.resourceKind, deliveredQuality, undefined, 0.5, getEconomyPhase(ctx.realmId).state);
+    const effectivePrice = Math.min(order.unitPrice, maxPrice);
+    const baseRevenue = Math.round(order.units * effectivePrice * 100) / 100;
+    const qualityMultiplierBonus = (deliveredQuality * (order.qualityBonus || 0)) / 100;
+    const bonusRevenue = Math.round(baseRevenue * qualityMultiplierBonus * 100) / 100;
+    const revenue = Math.round((baseRevenue + bonusRevenue) * 100) / 100;
+
     const consumedCost = consumed.reduce((total, transaction) => total + transaction.cost * transaction.amount, 0);
     const transactionAmount = -order.units;
     const transactionCost = consumedCost || order.cost;
 
     const moneyBalance = companyRepository.creditMoney(ctx.companyId, revenue);
-    // Legacy parity: updateCompanyMoney recorded a generic 'g' (GAME) row;
-    // the repository credit is ledger-silent, so the use case reproduces the
-    // exact observable row the legacy path produced.
+    const resDef = typeof getResourceDef === 'function' ? getResourceDef(order.resourceKind) : null;
+    const resName = resDef?.name || `Resource #${order.resourceKind}`;
     recordCashLedger({
       companyId: ctx.companyId,
       amount: revenue,
-      category: 'g',
-      description: 'Company money change',
-      descriptionKey: ''
+      category: isSalesOffice ? 't' : 's',
+      description: isSalesOffice ? `Sales order fulfilled: ${order.units}x ${resName}` : `Retail sales: ${resName}`,
+      descriptionKey: isSalesOffice ? '1-sofull' : `retail-${order.resourceKind}`,
+      details: {
+        buildingId: order.buildingId,
+        orderId: order.id,
+        resourceKind: order.resourceKind,
+        resourceName: resName,
+        quality: deliveredQuality,
+        qualityBonus: order.qualityBonus || 0,
+        bonusRevenue,
+        baseRevenue,
+        units: order.units,
+        unitPrice: effectivePrice
+      }
     });
     retailRepository.recordSale({
-      realmId: ctx.realmId,
+      realmId: ctx.realmId ?? 0,
       companyId: ctx.companyId,
       resourceKind: order.resourceKind,
       quality: order.quality,
@@ -325,7 +381,12 @@ const SALES_OFFICE_KIND = 'B';
  * discounts are 0 without the matching skills.
  */
 const CUSTOMER_SEARCH_FEE_PER_LEVEL = Math.floor(345 * 1.7 * 47);
-const CUSTOMER_SEARCH_DURATION_SECONDS = 47 * 3600;
+export const BASE_CUSTOMER_SEARCH_DURATION_SECONDS = 47 * 3600;
+export function getCustomerSearchDurationSeconds(): number {
+  const multiplier = Number(CONFIG.PRODUCTION_SPEED_MULTIPLIER) || 1;
+  return Math.max(3, Math.round(BASE_CUSTOMER_SEARCH_DURATION_SECONDS / multiplier));
+}
+export const CUSTOMER_SEARCH_DURATION_SECONDS = getCustomerSearchDurationSeconds();
 
 export function getSalesOfficeSearchFee(buildingSize: number): number {
   return CUSTOMER_SEARCH_FEE_PER_LEVEL * Math.max(1, Math.floor(buildingSize || 1));
@@ -351,11 +412,9 @@ export async function findSalesOfficeCustomerUseCase(
   if (building.busyUntil && new Date(building.busyUntil).getTime() > virtualClock.nowMs()) {
     throw new ValidationError('Building is currently busy');
   }
-
   // Prefer an aerospace product the company stocks so the contract is
-  // immediately deliverable; otherwise the base composite (76) — deliverable
-  // once produced.
-  let resourceKind = 76;
+  // immediately deliverable; otherwise pick one of the canonical aerospace end products.
+  let resourceKind: number | undefined;
   for (const kind of AEROSPACE_PRODUCTS) {
     const item = warehouseRepository.findByCompanyAndResource(ctx.companyId, kind, 0);
     if (item && item.amount > 0) {
@@ -363,10 +422,14 @@ export async function findSalesOfficeCustomerUseCase(
       break;
     }
   }
+  if (!resourceKind) {
+    const idx = Math.floor(Math.random() * AEROSPACE_PRODUCTS.length);
+    resourceKind = AEROSPACE_PRODUCTS[idx];
+  }
 
   const { unitPrice } = getAuthoritativeRetailPrice(resourceKind, 0, undefined, 0.5, getEconomyPhase(ctx.realmId).state);
   const fee = getSalesOfficeSearchFee(building.size || 1);
-  const finishedAt = new Date(virtualClock.nowMs() + CUSTOMER_SEARCH_DURATION_SECONDS * 1000).toISOString();
+  const finishedAt = new Date(virtualClock.nowMs() + getCustomerSearchDurationSeconds() * 1000).toISOString();
   const createdAt = virtualClock.nowIso();
 
   return runInTransaction(async (): Promise<FindSalesOfficeCustomerResult> => {
@@ -379,11 +442,15 @@ export async function findSalesOfficeCustomerUseCase(
       description: 'Customer search',
       descriptionKey: '1-sosearch'
     });
+    // Generate qualityBonus between 0.8% and 2.0% (rounded to 2 decimal places, e.g. 1.25)
+    const qualityBonus = Math.round((0.8 + Math.random() * (2.0 - 0.8)) * 100) / 100;
+
     const order = retailRepository.insert({
       buildingId: building.id,
       companyId: ctx.companyId,
       resourceKind,
       quality: 0,
+      qualityBonus,
       units: 1,
       unitPrice,
       cost: 0,

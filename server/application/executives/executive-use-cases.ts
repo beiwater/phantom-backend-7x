@@ -21,6 +21,10 @@ import {
   EXECUTIVE_TRAINING_COST,
   EXECUTIVE_TRAINING_MONEY_COST,
   EXECUTIVE_TRAINING_WINDOW_S,
+  BASE_EXECUTIVE_TRAINING_WINDOW_S,
+  BASE_SETTLE_IN_WINDOW_S,
+  getExecutiveTrainingWindowSeconds,
+  getSettleInWindowSeconds,
   AgencyTier,
   academySkillBonus,
   generateDeterministicGenome,
@@ -29,7 +33,6 @@ import {
   parseAgencyTier,
   validIsoOrNull
 } from '../../domain/executives.ts';
-import { recordCashLedger } from '../../game/cash-ledger.ts';
 import { runInTransaction } from '../../db/transaction.ts';
 import { virtualClock } from '../../core/virtual-clock.ts';
 import { ForbiddenError } from '../../errors/domain-error.ts';
@@ -47,11 +50,19 @@ export function formatExecutive(e: ExecutiveRow) {
   const comm = Number(e.skill_communication) || 0;
   const avatar = e.avatar || 'images/avatars/male_01.png';
   const gen = generateDeterministicGenome(e.id || e.name, avatar, e.name);
-  const createdAtMs = Date.parse(validIsoOrNull(e.created_at) || '') || (virtualClock.nowMs() - 86400000);
-  const workStart = new Date(createdAtMs).toISOString();
-  const training = executiveRepository.findActiveTraining(e.id);
-  const daysActive = Math.max(0, Math.floor((virtualClock.nowMs() - new Date(workStart).getTime()) / 86400000));
+  const rawCreatedMs = Date.parse(validIsoOrNull(e.created_at) || '') || (virtualClock.nowMs() - 86400000);
+  // Scale down 3h settling-in window to client:
+  // Client calculates settleEndTime = workStart + 3h (10800s).
+  // Real scaled settle duration is getSettleInWindowSeconds() (e.g. 5.4s at 2000x).
+  // To make client's (workStart + 3h) land exactly at (rawCreatedMs + scaledSettleSeconds),
+  // we project workStart = rawCreatedMs + scaledSettleSeconds - 3h:
+  const scaledSettleSeconds = getSettleInWindowSeconds();
+  const settleFinishedMs = rawCreatedMs + scaledSettleSeconds * 1000;
+  const projectedWorkStartMs = settleFinishedMs - BASE_SETTLE_IN_WINDOW_S * 1000;
+  const workStart = new Date(projectedWorkStartMs).toISOString();
 
+  const training = executiveRepository.findActiveTraining(e.id);
+  const daysActive = Math.max(0, Math.floor((virtualClock.nowMs() - rawCreatedMs) / 86400000));
   let trainingsList: Array<{ id: number; datetime: string; accelerated: boolean; covered: boolean }> = [];
   try {
     const rawTrainings = executiveRepository.listTrainingsByExecutive(e.id);
@@ -100,11 +111,21 @@ export function formatExecutive(e: ExecutiveRow) {
     expectedSalary: salaryNum,
     strikeUntil: validIsoOrNull(e.strike_until),
     plansToRetire: Boolean(e.plans_to_retire),
-    currentTraining: training ? {
-      id: training.id,
-      datetime: validIsoOrNull(training.datetime) || workStart,
-      accelerated: Boolean(training.accelerated)
-    } : undefined,
+    currentTraining: training ? (() => {
+      // Scale down 27h training window to client:
+      // Client calculates trainingEndTime = datetime + 27h (97200s).
+      // Real scaled training duration is getExecutiveTrainingWindowSeconds() (e.g. 48.6s at 2000x).
+      // Projected datetime = rawTrainingStart + scaledTrainingSeconds - 27h:
+      const rawStartMs = Date.parse(validIsoOrNull(training.datetime) || '') || virtualClock.nowMs();
+      const scaledTrainingSeconds = getExecutiveTrainingWindowSeconds();
+      const trainingFinishMs = rawStartMs + scaledTrainingSeconds * 1000;
+      const projectedTrainingDatetime = new Date(trainingFinishMs - BASE_EXECUTIVE_TRAINING_WINDOW_S * 1000).toISOString();
+      return {
+        id: training.id,
+        datetime: projectedTrainingDatetime,
+        accelerated: Boolean(training.accelerated)
+      };
+    })() : undefined,
     salary: salaryNum,
     status: e.status || (isCandidate ? 'candidate' : 'employed'),
     trainingFinishAt: validIsoOrNull(e.training_finish_at) || undefined,
@@ -204,9 +225,10 @@ export function formatHostileOffer(offer: ExecutiveOfferRow, exec: ExecutiveRow 
 
 // --- Lazy training resolution (read path applies due trainings) ----------------
 
-/** Apply skill gains for every training whose 27h window has elapsed. */
+/** Apply skill gains for every training whose window has elapsed. */
 function resolveCompletedTrainings(companyId: number) {
-  const cutoff = new Date(virtualClock.nowMs() - EXECUTIVE_TRAINING_WINDOW_S * 1000).toISOString();
+  const windowSeconds = getExecutiveTrainingWindowSeconds();
+  const cutoff = new Date(virtualClock.nowMs() - windowSeconds * 1000).toISOString();
   const due = executiveRepository.listDueTrainings(companyId, cutoff);
   for (const row of due) {
     const applied = executiveRepository.applyTrainingSkillUp(row.executive_id);
@@ -343,12 +365,11 @@ function updateExecutive(
     // marking the work history accelerated so the client-side window
     // (which excludes accelerated executives) closes.
     if (updates.rushSettle === true) {
-      const startMs = new Date(validIsoOrNull(exec.created_at) || virtualClock.nowIso()).getTime();
-      const settleEndMs = startMs + 3 * 3600000;
+      const rawCreatedMs = Date.parse(validIsoOrNull(exec.created_at) || '') || virtualClock.nowMs();
+      const settleEndMs = rawCreatedMs + getSettleInWindowSeconds() * 1000;
       const alreadySettled = Boolean(exec.work_history_accelerated) || settleEndMs <= virtualClock.nowMs();
       if (!alreadySettled) {
         const cost = Math.max(1, Math.ceil((settleEndMs - virtualClock.nowMs()) / 360000));
-        const comp = companyRepository.findById(companyId);
         if (!comp || Number(comp.simboosts) < cost) {
           throw new Error(`Not enough SimBoosts to rush settling in (requires ${cost})`);
         }
@@ -408,9 +429,8 @@ function rushExecutiveTraining(companyId: number, executiveId: number, trainingI
     const training = executiveRepository.findUnfinishedTraining(trainingId, executiveId, companyId);
     if (!training) throw new Error('Training not found or already finished');
 
-    const finishMs = new Date(training.datetime).getTime() + EXECUTIVE_TRAINING_WINDOW_S * 1000;
+    const finishMs = new Date(training.datetime).getTime() + getExecutiveTrainingWindowSeconds() * 1000;
     const cost = Math.max(1, Math.ceil((finishMs - virtualClock.nowMs()) / 360000));
-    const comp = companyRepository.findById(companyId);
     if (!comp || Number(comp.simboosts) < cost) {
       throw new Error(`Not enough SimBoosts to rush training (requires ${cost})`);
     }

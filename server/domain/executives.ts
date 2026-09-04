@@ -6,9 +6,9 @@
  * offer-status normalizers, deterministic avatar genome generation, academy
  * bonus cadence and training cost/window constants.
  */
+import { CONFIG } from '../config.ts';
 
 export const EXECUTIVE_TRAINING_COST = 30000;
-
 export const AgencyTier = {
   IN_HOUSE: 1,
   STAFFING_AGENCY: 2,
@@ -23,14 +23,23 @@ export const AGENCY_FEE_MULTIPLIERS: Record<number, number> = {
   [AgencyTier.GOOD_AGENCY]: 2.0,     // 2.0x expected salary
   [AgencyTier.TOP_TALENT_AGENCY]: 5.0 // 5.0x expected salary
 };
+export const BASE_EXECUTIVE_TRAINING_WINDOW_S = 97200; // 27h (client constant Y$)
+export function getExecutiveTrainingWindowSeconds(): number {
+  const multiplier = Number(CONFIG.PRODUCTION_SPEED_MULTIPLIER) || 1;
+  return Math.max(3, Math.round(BASE_EXECUTIVE_TRAINING_WINDOW_S / multiplier));
+}
+export const EXECUTIVE_TRAINING_WINDOW_S = getExecutiveTrainingWindowSeconds();
 
-export const EXECUTIVE_TRAINING_WINDOW_S = 97200; // 27h (client constant Y$)
+export const BASE_SETTLE_IN_WINDOW_S = 3 * 3600; // 3h settling in
+export function getSettleInWindowSeconds(): number {
+  const multiplier = Number(CONFIG.PRODUCTION_SPEED_MULTIPLIER) || 1;
+  return Math.max(3, Math.round(BASE_SETTLE_IN_WINDOW_S / multiplier));
+}
 
 // Issue #165: the original client schedules a training for $10,000 (client
 // constant gPt) that completes 27h later, with a SimBoosts rush priced at
 // ceil(remaining / 6min) — the same pricing formula used for settling in.
 export const EXECUTIVE_TRAINING_MONEY_COST = 10000;
-
 export function parseAgencyTier(agency: number | string | undefined): number {
   if (typeof agency === 'string') {
     const norm = agency.trim().toUpperCase();

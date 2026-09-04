@@ -11,6 +11,7 @@ export interface RetailOrderEntity {
   companyId: number;
   resourceKind: number;
   quality: number;
+  qualityBonus: number;
   units: number;
   unitPrice: number;
   cost: number;
@@ -28,6 +29,7 @@ export interface RetailOrderDbRow {
   company_id: number;
   resource_kind: number;
   quality: number;
+  quality_bonus?: number | null;
   units: number;
   unit_price: number;
   cost: number;
@@ -46,6 +48,7 @@ export function mapRetailOrderRow(row: RetailOrderDbRow): RetailOrderEntity {
     companyId: row.company_id,
     resourceKind: row.resource_kind,
     quality: Number(row.quality) || 0,
+    qualityBonus: Number(row.quality_bonus) || 0,
     units: Number(row.units),
     unitPrice: Number(row.unit_price),
     cost: Number(row.cost),
@@ -63,21 +66,21 @@ export interface RetailDailySalesSummary {
   units: number;
   revenue: number;
 }
-
 export interface InsertRetailOrderInput {
   buildingId: number;
   companyId: number;
   resourceKind: number;
-  quality: number;
+  quality?: number;
+  qualityBonus?: number;
   units: number;
   unitPrice: number;
-  cost: number;
-  finishedAt: string;
-  createdAt: string;
+  cost?: number;
+  revenueCredited?: boolean;
+  finishedAt?: string | null;
+  createdAt?: string;
   economyPhase?: number;
   economyPhaseStartedAt?: string | null;
   economySource?: string;
-  revenueCredited?: boolean;
 }
 
 export class RetailRepository {
@@ -113,17 +116,18 @@ export class RetailRepository {
   insert(input: InsertRetailOrderInput): RetailOrderEntity {
     const result = this.database.prepare(`
       INSERT INTO retail_orders
-        (building_id, company_id, resource_kind, quality, units, unit_price, cost, revenue_credited,
+        (building_id, company_id, resource_kind, quality, quality_bonus, units, unit_price, cost, revenue_credited,
          finished_at, created_at, economy_phase, economy_phase_started_at, economy_source)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       input.buildingId,
       input.companyId,
       input.resourceKind,
-      input.quality,
+      input.quality ?? 0,
+      input.qualityBonus ?? 0,
       input.units,
       input.unitPrice,
-      input.cost,
+      input.cost ?? 0,
       input.revenueCredited ? 1 : 0,
       input.finishedAt,
       input.createdAt,

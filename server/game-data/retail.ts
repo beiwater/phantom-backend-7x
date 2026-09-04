@@ -238,16 +238,20 @@ export function calculateRetailDuration(
         const timeToSellSeconds = numerator / denominator;
         if (Number.isFinite(timeToSellSeconds) && timeToSellSeconds > 0) {
           const adjustedTime = (timeToSellSeconds / Math.max(1, buildingSize)) * (1 - salesModifier / 100);
-          return Math.max(5, Math.min(86400 * 7, Math.ceil(adjustedTime)));
+          const speedMultiplier = Number(CONFIG.PRODUCTION_SPEED_MULTIPLIER) || 1;
+          const scaledTime = adjustedTime / speedMultiplier;
+          return Math.max(3, Math.min(86400 * 7, Math.ceil(scaledTime)));
         }
       }
     }
   }
 
   // Fallback speed based on adjDemand, building size, and salesModifier
+  const speedMultiplier = Number(CONFIG.PRODUCTION_SPEED_MULTIPLIER) || 1;
   const speed = adjDemand * Math.max(1, buildingSize) * (1 + salesModifier / 100);
   const duration = Math.max(5, Math.ceil((units / Math.max(0.01, speed)) * 3600));
-  return Math.min(duration, 86400 * 7); // Max 7 days
+  const scaledDuration = duration / speedMultiplier;
+  return Math.max(3, Math.min(86400 * 7, Math.ceil(scaledDuration)));
 }
 
 /**
