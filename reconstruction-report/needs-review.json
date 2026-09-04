@@ -1,0 +1,23 @@
+[
+  {
+    "symbol": "api_v1_rush",
+    "proposedName": "rushSalesOfficeOrder",
+    "confidence": 0.78,
+    "issue": "Need confirmation whether rush token format is numeric ID or UUID token string.",
+    "action": "Verify server route implementation in server/routes/production-routes.ts."
+  },
+  {
+    "symbol": "seasonal_retail_saturation_threshold",
+    "proposedName": "G9 (0.8)",
+    "confidence": 0.85,
+    "issue": "Whether non-active seasonal shops completely disappear from construction menu or remain visible as disabled.",
+    "action": "Check frontend landscape construction slot filter logic."
+  },
+  {
+    "symbol": "restaurant_rating_calculation",
+    "proposedName": "calculateRestaurantRatingDelta",
+    "confidence": 0.82,
+    "issue": "Exact staff skill vs menu variety weight in restaurant rating delta is partially calculated on server side.",
+    "action": "Audit server/application/retail/restaurant logic in phantom-backend."
+  }
+]

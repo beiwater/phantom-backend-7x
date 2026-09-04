@@ -1,6 +1,7 @@
 import puppeteer from 'puppeteer';
 import fs from 'node:fs';
 import path from 'node:path';
+import { attachBrowserAudit, assertBusinessInvariants } from './e2e/support/browser-audit.ts';
 
 const SCREENSHOT_DIR = path.resolve('screenshots');
 fs.mkdirSync(SCREENSHOT_DIR, { recursive: true });
@@ -17,37 +18,7 @@ async function runE2E() {
 
   const page = await browser.newPage();
   await page.setViewport({ width: 1440, height: 900 });
-
-  const consoleLogs: string[] = [];
-  const pageErrors: string[] = [];
-  const failedRequests: string[] = [];
-  const httpErrors: string[] = [];
-
-  page.on('console', msg => {
-    const text = msg.text();
-    if (msg.type() === 'error' || text.includes('Error') || text.includes('Uncaught')) {
-      consoleLogs.push(`[${msg.type()}] ${text}`);
-    }
-  });
-
-  page.on('pageerror', err => {
-    pageErrors.push(err.toString());
-  });
-
-  page.on('requestfailed', req => {
-    // Ignore analytics / telemetry aborts if any
-    const url = req.url();
-    if (!url.includes('google-analytics') && !url.includes('amplitude') && !url.includes('facebook')) {
-      failedRequests.push(`${req.method()} ${url} (${req.failure()?.errorText})`);
-    }
-  });
-
-  page.on('response', res => {
-    if (res.status() >= 400) {
-      httpErrors.push(`[${res.status()}] ${res.request().method()} ${res.url()}`);
-    }
-  });
-
+  const audit = attachBrowserAudit(page);
   try {
     // ----------------------------------------------------
     // STEP 1: Load Dashboard / Map
@@ -147,23 +118,19 @@ async function runE2E() {
   } catch (err) {
     console.error('\n[TEST ERROR]:', err);
     await page.screenshot({ path: path.join(SCREENSHOT_DIR, 'error_state.png'), fullPage: true });
+    process.exitCode = 1;
+    throw err;
   } finally {
     console.log('\n====================================================');
     console.log(' E2E Execution Summary & Error Audit');
     console.log('====================================================');
-    console.log(`Page Errors: ${pageErrors.length}`);
-    pageErrors.forEach(e => console.log(`  - ${e}`));
-
-    console.log(`Failed Requests: ${failedRequests.length}`);
-    failedRequests.forEach(r => console.log(`  - ${r}`));
-
-    console.log(`HTTP 4xx/5xx Errors: ${httpErrors.length}`);
-    httpErrors.forEach(h => console.log(`  - ${h}`));
-
-    console.log(`Console Errors/Warnings: ${consoleLogs.length}`);
-    consoleLogs.slice(0, 15).forEach(l => console.log(`  - ${l}`));
-
+    const summary = audit.getSummary();
+    console.log(`Page Errors: ${summary.pageErrors}`);
+    console.log(`Failed Requests: ${summary.requestFailures}`);
+    console.log(`HTTP Errors: ${summary.httpFailures}`);
+    console.log(`Console Errors: ${summary.consoleErrors}`);
     await browser.close();
+    audit.assertClean('e2e-suite.ts');
   }
 }
 

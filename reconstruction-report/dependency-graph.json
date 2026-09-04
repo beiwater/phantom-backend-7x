@@ -1,0 +1,32 @@
+{
+  "nodes": [
+    { "id": "router", "label": "Route Definitions (Routes)", "layer": "infrastructure" },
+    { "id": "http-client", "label": "HTTP Client (HttpClient)", "layer": "infrastructure" },
+    { "id": "redux-store", "label": "Redux Store & Slices", "layer": "state" },
+    { "id": "game-constants", "label": "Game Constants & Formulas", "layer": "domain" },
+    { "id": "sales-api", "label": "Sales API Service", "layer": "service" },
+    { "id": "encyclopedia-api", "label": "Encyclopedia API Service", "layer": "service" },
+    { "id": "use-sales-building", "label": "useSalesBuilding Hook", "layer": "feature-hook" },
+    { "id": "use-encyclopedia", "label": "useEncyclopedia Hook", "layer": "feature-hook" },
+    { "id": "generic-retail-view", "label": "GenericRetailBuilding Component", "layer": "ui" },
+    { "id": "sales-office-view", "label": "SalesOfficeBuilding Component", "layer": "ui" },
+    { "id": "restaurant-view", "label": "RestaurantBuilding Component", "layer": "ui" },
+    { "id": "encyclopedia-view", "label": "EncyclopediaPage & Detail Views", "layer": "ui" }
+  ],
+  "edges": [
+    { "from": "sales-api", "to": "http-client", "relation": "calls HTTP methods" },
+    { "from": "sales-api", "to": "router", "relation": "resolves API paths" },
+    { "from": "encyclopedia-api", "to": "http-client", "relation": "calls HTTP methods" },
+    { "from": "encyclopedia-api", "to": "router", "relation": "resolves API paths" },
+    { "from": "use-sales-building", "to": "sales-api", "relation": "fetches and mutates sales data" },
+    { "from": "use-sales-building", "to": "game-constants", "relation": "maps building kinds to categories" },
+    { "from": "use-encyclopedia", "to": "encyclopedia-api", "relation": "loads dynamic saturation & ticker" },
+    { "from": "use-encyclopedia", "to": "game-constants", "relation": "calculates unit costs and wages" },
+    { "from": "generic-retail-view", "to": "use-sales-building", "relation": "consumed by" },
+    { "from": "sales-office-view", "to": "use-sales-building", "relation": "consumed by" },
+    { "from": "restaurant-view", "to": "use-sales-building", "relation": "consumed by" },
+    { "from": "encyclopedia-view", "to": "use-encyclopedia", "relation": "consumed by" },
+    { "from": "redux-store", "to": "sales-api", "relation": "updates user.money, warehouse, queues" },
+    { "from": "redux-store", "to": "encyclopedia-api", "relation": "stores constants.resourceRetail" }
+  ]
+}

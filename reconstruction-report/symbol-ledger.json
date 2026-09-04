@@ -1,0 +1,128 @@
+[
+  {
+    "minifiedSymbol": "Wcr",
+    "proposedName": "RoutesTableEnglish",
+    "domain": "routing",
+    "role": "Master URL routing and endpoint generator dictionary (English)",
+    "bundleOffset": 660840,
+    "confidence": 1.0,
+    "evidence": "1026 route generator functions mapping to UI and API paths"
+  },
+  {
+    "minifiedSymbol": "Ycr",
+    "proposedName": "RoutesTableI18n",
+    "domain": "routing",
+    "role": "Master URL routing dictionary with language prefix",
+    "bundleOffset": 689000,
+    "confidence": 1.0,
+    "evidence": "Mirrors Wcr with localized path interpolations"
+  },
+  {
+    "minifiedSymbol": "oe()",
+    "proposedName": "getHttpClient",
+    "domain": "network",
+    "role": "Axios/Fetch HTTP client singleton provider",
+    "bundleOffset": 659800,
+    "confidence": 0.98,
+    "evidence": "Returns client instance with .get, .post, .put, .patch, .delete methods"
+  },
+  {
+    "minifiedSymbol": "L()",
+    "proposedName": "useRoutes",
+    "domain": "routing",
+    "role": "Hook/helper returning the active Routes table based on realm and language",
+    "bundleOffset": 660500,
+    "confidence": 0.98,
+    "evidence": "Called before every api endpoint call (e.g. L().api_v2_companies_buildings_sales_orders)"
+  },
+  {
+    "minifiedSymbol": "n1i",
+    "proposedName": "fetchSalesOrders",
+    "domain": "sales",
+    "role": "API service fetching active sales office orders",
+    "bundleOffset": 4918500,
+    "confidence": 0.95,
+    "evidence": "calls oe().get(L().api_v2_companies_buildings_sales_orders(e)).then(t=>t.data)"
+  },
+  {
+    "minifiedSymbol": "r1i",
+    "proposedName": "rushSalesOfficeOrder",
+    "domain": "sales",
+    "role": "API service using SimBoosts to fast-forward customer search",
+    "bundleOffset": 4918450,
+    "confidence": 0.95,
+    "evidence": "calls oe().post(L().api_v1_rush(e))"
+  },
+  {
+    "minifiedSymbol": "b1i",
+    "proposedName": "collectAccumulatorOutput",
+    "domain": "production",
+    "role": "API service collecting accumulator energy/items",
+    "bundleOffset": 4918600,
+    "confidence": 0.95,
+    "evidence": "calls oe().post(L().api_v1_accumulator_collect(e))"
+  },
+  {
+    "minifiedSymbol": "gur",
+    "proposedName": "configureReduxStore",
+    "domain": "state",
+    "role": "Redux store creator function",
+    "bundleOffset": "entry.js:62035",
+    "confidence": 0.99,
+    "evidence": "redux_store.json documented store initialization"
+  },
+  {
+    "minifiedSymbol": "Xia",
+    "proposedName": "rootReducersMap",
+    "domain": "state",
+    "role": "Map of 22 slice reducers passed to combineReducers",
+    "bundleOffset": "entry.js:61987",
+    "confidence": 0.99,
+    "evidence": "Combines user, buildings, constants, warehouse, market, hints, etc."
+  },
+  {
+    "minifiedSymbol": "Rdr",
+    "proposedName": "buildingsReducer",
+    "domain": "buildings",
+    "role": "Buildings and queues state slice reducer",
+    "bundleOffset": "chunk_oX.js",
+    "confidence": 0.98,
+    "evidence": "Handles refreshBuildings, addBuilding, setBuildingBusy, abundance"
+  },
+  {
+    "minifiedSymbol": "tBr",
+    "proposedName": "constantsReducer",
+    "domain": "constants",
+    "role": "Static game constants and retail information slice reducer",
+    "bundleOffset": "chunk_zjr.js",
+    "confidence": 0.98,
+    "evidence": "Maintains resourceRetail, resourceDetails, and static lookups"
+  },
+  {
+    "minifiedSymbol": "dpr",
+    "proposedName": "RETAIL_BUILDING_RESOURCES",
+    "domain": "sales",
+    "role": "Mapping table between building dbLetters and sellable resource IDs",
+    "bundleOffset": "chunk_oX.js",
+    "confidence": 1.0,
+    "evidence": "Maps G->food, C->electronics, A->petrol, H->fashion, d->hardware, 2->cars"
+  },
+  {
+    "minifiedSymbol": "kle",
+    "proposedName": "calculateRetailSalesDuration",
+    "domain": "sales",
+    "role": "Core retail duration formula with saturation and quadratic price penalty",
+    "bundleOffset": "formulas_retail.md",
+    "confidence": 0.98,
+    "evidence": "Evaluates sales hours based on unitsSoldAnHour, quality, weather, and price"
+  },
+  {
+    "minifiedSymbol": "s5t",
+    "proposedName": "calculateExecutiveSkillEffective",
+    "domain": "executives",
+    "role": "Piecewise linear formula calculating effective skill from raw sum",
+    "bundleOffset": "formulas_admin.md",
+    "confidence": 1.0,
+    "evidence": "x<=60->x, 60<x<=80->60+(x-60)/2, x>80->70+(x-80)/2"
+  }
+]

@@ -1,0 +1,60 @@
+{
+  "bundleFile": "frontend-original/static/bundle/assets/index-cgzgptQ8.js",
+  "bundleSize": "6.5MB",
+  "modules": [
+    {
+      "id": "router-wcr",
+      "semanticName": "RoutesTableEnglish",
+      "sourceRegion": "660840 - 688900",
+      "purpose": "All English and canonical UI and API route definitions (1026 entries)"
+    },
+    {
+      "id": "router-ycr",
+      "semanticName": "RoutesTableI18n",
+      "sourceRegion": "689000 - 718000",
+      "purpose": "Localized multi-language UI and API route definitions"
+    },
+    {
+      "id": "http-client",
+      "semanticName": "HttpClientWrapper",
+      "sourceRegion": "659800 - 660800",
+      "purpose": "Request header builder (CSRF, timezone, bot protection) and axios wrapper"
+    },
+    {
+      "id": "redux-store-init",
+      "semanticName": "ReduxStoreConfiguration",
+      "sourceRegion": "entry.js:61980 - 62050",
+      "purpose": "combineReducers for 22 state slices and middleware setup"
+    },
+    {
+      "id": "sales-office-component",
+      "semanticName": "SalesOfficeBuilding",
+      "sourceRegion": "4918000 - 4925000, 4983000 - 4985000",
+      "purpose": "Aerospace customer contract search, rejection, rush, and order delivery"
+    },
+    {
+      "id": "restaurant-component",
+      "semanticName": "RestaurantBuilding",
+      "sourceRegion": "4899500 - 4902000",
+      "purpose": "Restaurant properties, menu pricing, staff/seating, and shift run management"
+    },
+    {
+      "id": "generic-retail-queue",
+      "semanticName": "GenericRetailBuilding",
+      "sourceRegion": "4918500 - 4921000",
+      "purpose": "Shared retail store queue management and order launching"
+    },
+    {
+      "id": "encyclopedia-components",
+      "semanticName": "EncyclopediaPortal",
+      "sourceRegion": "4068000 - 4085000",
+      "purpose": "Encyclopedia browsing, resource recipe calculation, and building specs"
+    },
+    {
+      "id": "retail-info-loader",
+      "semanticName": "ResourceRetailInfoService",
+      "sourceRegion": "2543000 - 2544000",
+      "purpose": "Fetches realm retail saturation and prices via /api/v4/:realm/resources-retail-info/"
+    }
+  ]
+}

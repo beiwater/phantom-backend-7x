@@ -1,0 +1,274 @@
+[
+  {
+    "buildingId": null,
+    "internalType": "G",
+    "proposedName": "GroceryStore",
+    "displayName": "Grocery Store",
+    "category": "sales",
+    "route": "/b/:id/",
+    "mainComponent": "GenericRetailBuilding",
+    "api": [
+      "GET /api/v2/companies/buildings/:id/queue/",
+      "POST /api/v2/companies/buildings/:id/queue/",
+      "DELETE /api/v2/companies/buildings/:id/queue/:taskId/"
+    ],
+    "store": ["buildings.queues", "constants.resourceRetail", "warehouse.resources"],
+    "sellableResources": [3, 4, 5, 7, 8, 9, 119, 122, 123, 124, 125, 126, 127, 140, 152],
+    "sharedModules": ["GenericRetailBuilding", "salesApi.retailQueue", "useSalesBuilding"],
+    "uniqueModules": [],
+    "confidence": 0.99,
+    "evidence": [
+      "buildings.json dbLetter G with category sales",
+      "formulas_retail.md Ji.SALES dpr mapping G to food resource IDs",
+      "index-cgzgptQ8.js queue API consumers"
+    ]
+  },
+  {
+    "buildingId": null,
+    "internalType": "C",
+    "proposedName": "ElectronicsStore",
+    "displayName": "Electronics Store",
+    "category": "sales",
+    "route": "/b/:id/",
+    "mainComponent": "GenericRetailBuilding",
+    "api": [
+      "GET /api/v2/companies/buildings/:id/queue/",
+      "POST /api/v2/companies/buildings/:id/queue/",
+      "DELETE /api/v2/companies/buildings/:id/queue/:taskId/"
+    ],
+    "store": ["buildings.queues", "constants.resourceRetail", "warehouse.resources"],
+    "sellableResources": [11, 12, 24, 25, 26, 27, 28, 98],
+    "sharedModules": ["GenericRetailBuilding", "salesApi.retailQueue", "useSalesBuilding"],
+    "uniqueModules": [],
+    "confidence": 0.99,
+    "evidence": [
+      "buildings.json dbLetter C with category sales",
+      "dpr mapping C to electronics resources (tablets, phones, TVs)",
+      "Shared queue retail loop"
+    ]
+  },
+  {
+    "buildingId": null,
+    "internalType": "A",
+    "proposedName": "GasStation",
+    "displayName": "Gas Station",
+    "category": "sales",
+    "route": "/b/:id/",
+    "mainComponent": "GenericRetailBuilding",
+    "api": [
+      "GET /api/v2/companies/buildings/:id/queue/",
+      "POST /api/v2/companies/buildings/:id/queue/",
+      "DELETE /api/v2/companies/buildings/:id/queue/:taskId/"
+    ],
+    "store": ["buildings.queues", "constants.resourceRetail", "warehouse.resources"],
+    "sellableResources": [11, 12],
+    "sharedModules": ["GenericRetailBuilding", "salesApi.retailQueue", "useSalesBuilding"],
+    "uniqueModules": [],
+    "confidence": 0.99,
+    "evidence": [
+      "buildings.json dbLetter A with category sales",
+      "dpr mapping A to Petrol and Diesel (11, 12)",
+      "Standard retail queue mechanism"
+    ]
+  },
+  {
+    "buildingId": null,
+    "internalType": "H",
+    "proposedName": "FashionStore",
+    "displayName": "Fashion Store",
+    "category": "sales",
+    "route": "/b/:id/",
+    "mainComponent": "GenericRetailBuilding",
+    "api": [
+      "GET /api/v2/companies/buildings/:id/queue/",
+      "POST /api/v2/companies/buildings/:id/queue/",
+      "DELETE /api/v2/companies/buildings/:id/queue/:taskId/"
+    ],
+    "store": ["buildings.queues", "constants.resourceRetail", "warehouse.resources"],
+    "sellableResources": [60, 61, 62, 63, 64, 65, 70, 71],
+    "sharedModules": ["GenericRetailBuilding", "salesApi.retailQueue", "useSalesBuilding"],
+    "uniqueModules": [],
+    "confidence": 0.99,
+    "evidence": [
+      "buildings.json dbLetter H with category sales",
+      "dpr mapping H to apparel, underwear, gloves, handbags"
+    ]
+  },
+  {
+    "buildingId": null,
+    "internalType": "d",
+    "proposedName": "HardwareStore",
+    "displayName": "Hardware Store",
+    "category": "sales",
+    "route": "/b/:id/",
+    "mainComponent": "GenericRetailBuilding",
+    "api": [
+      "GET /api/v2/companies/buildings/:id/queue/",
+      "POST /api/v2/companies/buildings/:id/queue/",
+      "DELETE /api/v2/companies/buildings/:id/queue/:taskId/"
+    ],
+    "store": ["buildings.queues", "constants.resourceRetail", "warehouse.resources"],
+    "sellableResources": [91, 94, 95, 96, 97, 99],
+    "sharedModules": ["GenericRetailBuilding", "salesApi.retailQueue", "useSalesBuilding"],
+    "uniqueModules": [],
+    "confidence": 0.99,
+    "evidence": [
+      "buildings.json dbLetter d with category sales",
+      "dpr mapping d to tools, bricks, planks, windows"
+    ]
+  },
+  {
+    "buildingId": null,
+    "internalType": "2",
+    "proposedName": "CarDealership",
+    "displayName": "Car Dealership",
+    "category": "sales",
+    "route": "/b/:id/",
+    "mainComponent": "GenericRetailBuilding",
+    "api": [
+      "GET /api/v2/companies/buildings/:id/queue/",
+      "POST /api/v2/companies/buildings/:id/queue/",
+      "DELETE /api/v2/companies/buildings/:id/queue/:taskId/"
+    ],
+    "store": ["buildings.queues", "constants.resourceRetail", "warehouse.resources"],
+    "sellableResources": [53, 54, 55, 56, 57],
+    "sharedModules": ["GenericRetailBuilding", "salesApi.retailQueue", "useSalesBuilding"],
+    "uniqueModules": [],
+    "confidence": 0.99,
+    "evidence": [
+      "buildings.json dbLetter 2 with category sales",
+      "dpr mapping 2 to economy cars, luxury cars, electric cars, trucks"
+    ]
+  },
+  {
+    "buildingId": null,
+    "internalType": "B",
+    "proposedName": "SalesOffice",
+    "displayName": "Sales Offices",
+    "category": "sales",
+    "route": "/b/:id/",
+    "mainComponent": "SalesOfficeBuilding",
+    "api": [
+      "GET /api/v2/companies/buildings/:id/sales-orders/",
+      "POST /api/v2/companies/buildings/:id/sales-orders/",
+      "PUT /api/v2/companies/buildings/:id/sales-orders/:orderId/",
+      "DELETE /api/v2/companies/buildings/:id/sales-orders/:orderId/",
+      "POST /api/v1/rush/:token/"
+    ],
+    "store": ["user.money", "warehouse.resources", "warehouse.resourceTransactions"],
+    "sellableResources": "Aerospace products via contract generation",
+    "sharedModules": [],
+    "uniqueModules": ["SalesOfficeBuilding", "salesApi.salesOrders", "lowestQualityFirstSelector"],
+    "confidence": 1.0,
+    "evidence": [
+      "buildings.json dbLetter B with category sales and costUnits 18",
+      "index-cgzgptQ8.js offset 4918500-4925000 and 4983192-4984048",
+      "PUT endpoint consuming { lowestQualityFirst: boolean }"
+    ]
+  },
+  {
+    "buildingId": null,
+    "internalType": "r",
+    "proposedName": "Restaurant",
+    "displayName": "Restaurant",
+    "category": "sales",
+    "route": "/b/:id/",
+    "mainComponent": "RestaurantBuilding",
+    "api": [
+      "GET /api/v2/companies/buildings/:id/restaurant-properties/",
+      "POST /api/v2/companies/buildings/:id/restaurant-properties/",
+      "GET /api/v2/companies/buildings/:id/restaurant-runs/",
+      "POST /api/v2/companies/buildings/:id/restaurant-runs/"
+    ],
+    "store": ["buildings.buildings", "user.money"],
+    "sellableResources": [117, 119, 121, 122, 123, 124, 125, 126, 129, 130, 131, 132, 134, 142, 143, 149],
+    "sharedModules": [],
+    "uniqueModules": ["RestaurantBuilding", "salesApi.restaurant"],
+    "confidence": 1.0,
+    "evidence": [
+      "buildings.json dbLetter r with category sales and costUnits 26",
+      "index-cgzgptQ8.js offset 4899500-4902000",
+      "Unique menu, seating, staff, pricing, and restaurant-runs management"
+    ]
+  },
+  {
+    "buildingId": null,
+    "internalType": "t",
+    "proposedName": "HalloweenShop",
+    "displayName": "Halloween Shop",
+    "category": "seasonal",
+    "route": "/b/:id/",
+    "mainComponent": "GenericRetailBuilding",
+    "api": [
+      "GET /api/v2/companies/buildings/:id/queue/",
+      "POST /api/v2/companies/buildings/:id/queue/",
+      "DELETE /api/v2/companies/buildings/:id/queue/:taskId/"
+    ],
+    "store": ["buildings.queues", "constants.resourceRetail"],
+    "sellableResources": [146, 147, 148],
+    "sharedModules": ["GenericRetailBuilding", "salesApi.retailQueue"],
+    "uniqueModules": [],
+    "confidence": 0.95,
+    "evidence": ["buildings.json dbLetter t category seasonal", "dpr mapping to pumpkin, halloween candy, mask"]
+  },
+  {
+    "buildingId": null,
+    "internalType": "z",
+    "proposedName": "SummerShop",
+    "displayName": "Summer / Beach Market",
+    "category": "seasonal",
+    "route": "/b/:id/",
+    "mainComponent": "GenericRetailBuilding",
+    "api": [
+      "GET /api/v2/companies/buildings/:id/queue/",
+      "POST /api/v2/companies/buildings/:id/queue/",
+      "DELETE /api/v2/companies/buildings/:id/queue/:taskId/"
+    ],
+    "store": ["buildings.queues", "constants.resourceRetail"],
+    "sellableResources": [153, 154],
+    "sharedModules": ["GenericRetailBuilding", "salesApi.retailQueue"],
+    "uniqueModules": [],
+    "confidence": 0.95,
+    "evidence": ["buildings.json dbLetter z category seasonal", "dpr mapping to chocolate icecream, apple icecream"]
+  },
+  {
+    "buildingId": null,
+    "internalType": "I",
+    "proposedName": "EasterShop",
+    "displayName": "Easter Shop",
+    "category": "seasonal",
+    "route": "/b/:id/",
+    "mainComponent": "GenericRetailBuilding",
+    "api": [
+      "GET /api/v2/companies/buildings/:id/queue/",
+      "POST /api/v2/companies/buildings/:id/queue/",
+      "DELETE /api/v2/companies/buildings/:id/queue/:taskId/"
+    ],
+    "store": ["buildings.queues", "constants.resourceRetail"],
+    "sellableResources": [151, 155],
+    "sharedModules": ["GenericRetailBuilding", "salesApi.retailQueue"],
+    "uniqueModules": [],
+    "confidence": 0.95,
+    "evidence": ["buildings.json dbLetter I category seasonal", "dpr mapping to easter eggs"]
+  },
+  {
+    "buildingId": null,
+    "internalType": "u",
+    "proposedName": "XmasMarket",
+    "displayName": "Xmas Market",
+    "category": "seasonal",
+    "route": "/b/:id/",
+    "mainComponent": "GenericRetailBuilding",
+    "api": [
+      "GET /api/v2/companies/buildings/:id/queue/",
+      "POST /api/v2/companies/buildings/:id/queue/",
+      "DELETE /api/v2/companies/buildings/:id/queue/:taskId/"
+    ],
+    "store": ["buildings.queues", "constants.resourceRetail"],
+    "sellableResources": [67, 144, 150],
+    "sharedModules": ["GenericRetailBuilding", "salesApi.retailQueue"],
+    "uniqueModules": [],
+    "confidence": 0.95,
+    "evidence": ["buildings.json dbLetter u category seasonal", "dpr mapping to xmas crackers, sweater, tree"]
+  }
+]

@@ -1,6 +1,7 @@
 import puppeteer, { Page } from 'puppeteer';
 import fs from 'node:fs';
 import path from 'node:path';
+import { attachBrowserAudit, assertBusinessInvariants } from './e2e/support/browser-audit.ts';
 
 const SCREENSHOT_DIR = path.resolve('screenshots');
 fs.mkdirSync(SCREENSHOT_DIR, { recursive: true });
@@ -29,42 +30,7 @@ async function runStrictE2ESuite() {
   const page = await browser.newPage();
   await page.setViewport({ width: 1440, height: 900 });
 
-  const errors: { pageErrors: string[]; consoleErrors: string[]; httpErrors: string[]; failedReqs: string[] } = {
-    pageErrors: [],
-    consoleErrors: [],
-    httpErrors: [],
-    failedReqs: []
-  };
-
-  page.on('pageerror', err => {
-    errors.pageErrors.push(err.toString());
-  });
-
-  page.on('console', msg => {
-    if (msg.type() === 'error') {
-      const text = msg.text();
-      if (!text.includes('favicon.ico') && !text.includes('analytics')) {
-        errors.consoleErrors.push(text);
-      }
-    }
-  });
-
-  page.on('response', res => {
-    if (res.status() >= 400) {
-      const url = res.url();
-      if (!url.includes('myreviews') && !url.includes('amplitude')) {
-        errors.httpErrors.push(`[${res.status()}] ${res.request().method()} ${url}`);
-      }
-    }
-  });
-
-  page.on('requestfailed', req => {
-    const url = req.url();
-    if (!url.includes('google') && !url.includes('facebook') && !url.includes('myreviews')) {
-      errors.failedReqs.push(`${req.method()} ${url} (${req.failure()?.errorText})`);
-    }
-  });
-
+  const audit = attachBrowserAudit(page);
   try {
     // ----------------------------------------------------------------
     // Flow 1: Initial Page Load & Authentication Verification
@@ -168,21 +134,17 @@ async function runStrictE2ESuite() {
   } catch (err) {
     console.error('Fatal E2E error:', err);
     await takeStepScreenshot(page, 'fatal_error.png', 'Fatal error state');
+    process.exitCode = 1;
+    throw err;
   } finally {
     console.log('\n--- FINAL AUDIT METRICS ---');
-    console.log(`Page Errors: ${errors.pageErrors.length}`);
-    errors.pageErrors.forEach(e => console.log(`  [PAGE_ERR] ${e}`));
-
-    console.log(`Console Errors: ${errors.consoleErrors.length}`);
-    errors.consoleErrors.forEach(e => console.log(`  [CONSOLE_ERR] ${e}`));
-
-    console.log(`HTTP 4xx/5xx Errors: ${errors.httpErrors.length}`);
-    errors.httpErrors.forEach(e => console.log(`  [HTTP_ERR] ${e}`));
-
-    console.log(`Failed Requests: ${errors.failedReqs.length}`);
-    errors.failedReqs.forEach(e => console.log(`  [REQ_FAIL] ${e}`));
-
+    const summary = audit.getSummary();
+    console.log(`Page Errors: ${summary.pageErrors}`);
+    console.log(`Console Errors: ${summary.consoleErrors}`);
+    console.log(`HTTP Errors: ${summary.httpFailures}`);
+    console.log(`Failed Requests: ${summary.requestFailures}`);
     await browser.close();
+    audit.assertClean('strict-e2e.ts');
   }
 }
 
