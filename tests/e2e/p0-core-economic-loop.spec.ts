@@ -81,8 +81,20 @@ test('fresh account completes and persists the core economic loop', async ({ pag
   const productionAmount = page.locator('input[name="amount"]').first();
   await expect(productionAmount).toBeVisible();
   await productionAmount.fill('1');
+  const productionResponse = page.waitForResponse(response => {
+    const pathname = new URL(response.url()).pathname;
+    return response.request().method() === 'POST'
+      && /^\/api\/v1\/(?:busy|buildings\/\d+\/busy)\/?$/.test(pathname);
+  });
   await page.getByRole('button', { name: '生产', exact: true }).first().click();
-  await expect(page.locator('body')).toContainText(/\d+秒/);
+  const response = await productionResponse;
+  expect(response.status()).toBe(200);
+  const payload = await response.json() as {
+    duration?: number;
+    queueItem?: { duration?: number };
+  };
+  expect(payload.duration).toBeGreaterThan(0);
+  expect(payload.queueItem?.duration).toBe(payload.duration);
 
   await page.waitForTimeout(6_500);
   await clickNavigation(page, '地图');

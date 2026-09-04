@@ -114,9 +114,20 @@ test('real player core loop keeps UI and persisted state coherent', async ({ pag
   const firstProductionAmount = page.locator('input[name="amount"]').first();
   await expect(firstProductionAmount).toBeVisible();
   await firstProductionAmount.fill('1');
+  const productionResponse = page.waitForResponse(response => {
+    const pathname = new URL(response.url()).pathname;
+    return response.request().method() === 'POST'
+      && /^\/api\/v1\/(?:busy|buildings\/\d+\/busy)\/?$/.test(pathname);
+  });
   await page.getByRole('button', { name: '生产', exact: true }).first().click();
-  // The original UI renders an active job as a visible seconds countdown.
-  await expect(page.locator('body')).toContainText(/\d+秒/);
+  const response = await productionResponse;
+  expect(response.status()).toBe(200);
+  const payload = await response.json() as {
+    duration?: number;
+    queueItem?: { duration?: number };
+  };
+  expect(payload.duration).toBeGreaterThan(0);
+  expect(payload.queueItem?.duration).toBe(payload.duration);
   await page.screenshot({ path: testInfo.outputPath('03-production-started.png') });
 
   await page.waitForTimeout(6_500);
