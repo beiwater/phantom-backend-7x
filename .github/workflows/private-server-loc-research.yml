@@ -1,0 +1,86 @@
+name: Private Server LOC Research
+
+on:
+  push:
+    branches:
+      - analysis/clash-private-server-loc
+  workflow_dispatch:
+
+jobs:
+  count-loc:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Install cloc
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y cloc
+
+      - name: Clone public research repositories
+        run: |
+          set -euxo pipefail
+          mkdir -p /tmp/clash-loc && cd /tmp/clash-loc
+          git clone --depth 1 https://github.com/retroroyale/ClashRoyale.git retro
+          git clone --depth 1 https://github.com/BerkanYildiz/ClashRoyale.git berkan
+          git clone --depth 1 https://github.com/matbest1/UCR.git ucr
+          git clone --depth 1 https://github.com/jeanbmar/UCS.git ucs
+          git clone --depth 1 --branch rewrite https://github.com/FICTURE7/CoCSharp.git cocsharp
+          git clone --depth 1 https://github.com/ogclash/ultrapower-clash-server.git ultrapower
+
+      - name: Count backend code
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT=/tmp/clash-loc
+          OUT="$GITHUB_WORKSPACE/private-server-loc.txt"
+          : > "$OUT"
+
+          count_path() {
+            local label="$1"
+            local path="$2"
+            if [ ! -e "$path" ]; then
+              printf '%s | MISSING\n' "$label" | tee -a "$OUT"
+              return
+            fi
+            local cs all
+            cs=$(cloc "$path" --quiet --json --include-lang='C#' --exclude-dir=.git,bin,obj,packages,node_modules,vendor,third_party 2>/dev/null | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d.get("SUM",{}).get("code",0))')
+            all=$(cloc "$path" --quiet --json --exclude-dir=.git,bin,obj,packages,node_modules,vendor,third_party 2>/dev/null | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d.get("SUM",{}).get("code",0))')
+            printf '%s | CSharp=%s | AllCode=%s\n' "$label" "$cs" "$all" | tee -a "$OUT"
+          }
+
+          echo '=== Clash Royale ===' | tee -a "$OUT"
+          count_path 'RetroRoyale repo' "$ROOT/retro"
+          count_path 'RetroRoyale src' "$ROOT/retro/src"
+          for d in "$ROOT"/retro/src/*; do [ -d "$d" ] && count_path "RetroRoyale/$(basename "$d")" "$d"; done
+
+          count_path 'Berkan repo' "$ROOT/berkan"
+          count_path 'Berkan Server' "$ROOT/berkan/ClashRoyale.Server"
+          count_path 'Berkan Shared/Core' "$ROOT/berkan/ClashRoyale"
+          count_path 'Berkan CSV' "$ROOT/berkan/ClashRoyale.CSV"
+          count_path 'Berkan Proxy' "$ROOT/berkan/ClashRoyale.Proxy"
+          count_path 'Berkan Client' "$ROOT/berkan/ClashRoyale.Client"
+
+          count_path 'UCR repo' "$ROOT/ucr"
+          count_path 'UCR Server' "$ROOT/ucr/Ultrapowa Royale Server"
+          count_path 'UCR Proxy' "$ROOT/ucr/Ultrapowa Royale Proxy"
+
+          echo '=== Clash of Clans ===' | tee -a "$OUT"
+          count_path 'UCS repo' "$ROOT/ucs"
+          count_path 'UCS Server' "$ROOT/ucs/Ultrapowa Clash Server"
+
+          count_path 'CoCSharp rewrite repo' "$ROOT/cocsharp"
+          for d in "$ROOT"/cocsharp/*; do [ -d "$d" ] && count_path "CoCSharp/$(basename "$d")" "$d"; done
+
+          count_path 'Ultrapower repo' "$ROOT/ultrapower"
+          count_path 'Ultrapower Server' "$ROOT/ultrapower/Ultrapowa Clash Server"
+          count_path 'Ultrapower Proxy' "$ROOT/ultrapower/Ultrapowa Clash Proxy"
+
+          echo '--- result file ---'
+          cat "$OUT"
+
+      - name: Upload LOC report
+        uses: actions/upload-artifact@v4
+        with:
+          name: private-server-loc
+          path: private-server-loc.txt
+          retention-days: 1
