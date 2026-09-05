@@ -390,7 +390,7 @@ export class FixtureService {
   static async setMarketPricingMode(
     mode: 'realistic' | 'test',
     database: typeof db = db,
-    options?: { targetProfit?: number; volatility?: number }
+    options?: { targetProfit?: number; volatility?: number; maxQuality?: number }
   ): Promise<{
     mode: string;
     targetProfit: number;
@@ -403,6 +403,7 @@ export class FixtureService {
     const { CONFIG } = await import('../config.ts');
     const { CONSTANTS_RESOURCES } = await import('../game/constants.ts');
     const { getPriceTickSize } = await import('../domain/market/market-rules.ts');
+    const { NpcMarketService } = await import('./npc-market-service.ts');
 
     let economyModels: Record<string, any> = {};
     try {
@@ -426,6 +427,9 @@ export class FixtureService {
 
     const targetProfit = options?.targetProfit ?? Number(CONFIG.TARGET_BUILDING_PROFIT) ?? 300;
     const volatility = options?.volatility ?? Number(CONFIG.MARKET_PRICE_VOLATILITY) ?? 0.05;
+    const maxQuality = options?.maxQuality !== undefined
+      ? options.maxQuality
+      : (CONFIG.NPC_MARKET_Q0_ONLY ? 0 : Number(CONFIG.NPC_MARKET_MAX_QUALITY));
 
     const nowIso = new Date().toISOString();
     const samplePrices: Array<{ resource: string; q0: number; q2: number; estHourlyProfit: number }> = [];
@@ -446,7 +450,7 @@ export class FixtureService {
 
       const insertStmt = database.prepare(`
         INSERT INTO market_orders (seller_id, kind, quality, quantity, price, fees, posted_at, active)
-        VALUES (999900, ?, ?, 100000, ?, 0, ?, 1)
+        VALUES (999900, ?, ?, ?, ?, 0, ?, 1)
       `);
 
       for (const [k, def] of Object.entries(CONSTANTS_RESOURCES)) {
@@ -474,7 +478,7 @@ export class FixtureService {
         let q0Price = 1.0;
         let q2Price = 1.02;
 
-        for (let q = 0; q <= 12; q++) {
+        for (let q = 0; q <= maxQuality; q++) {
           let unitPrice = 1.0 + q;
           if (mode === 'realistic') {
             // Natural price volatility floating within [-volatility, +volatility]
@@ -490,7 +494,8 @@ export class FixtureService {
           if (q === 0) q0Price = unitPrice;
           if (q === 2) q2Price = unitPrice;
 
-          insertStmt.run(kind, q, unitPrice, nowIso);
+          const dynamicQty = NpcMarketService.calculateDynamicBatch(kind, q, database).adjustedBatch;
+          insertStmt.run(kind, q, dynamicQty, unitPrice, nowIso);
           ordersUpdated++;
         }
         if (samplePrices.length < 6) {

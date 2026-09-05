@@ -8,7 +8,7 @@ interface ChatMessage {
   id: number;
   chatroom: string;
   sender: { id: number; company: string; logo: string; certificates?: number; supporter: boolean; realmId: number };
-  text: string;
+  body: string;
   datetime: string;
   pinned?: boolean;
 }
@@ -91,7 +91,8 @@ async function runTests(): Promise<void> {
   });
   assert.equal(response.status, 200, `bundle-shaped message rejected: ${response.status}`);
   const bundleMessage = await response.json() as ChatMessage;
-  assert.equal(bundleMessage.text, `bundle shape message ${stamp}`);
+  assert.equal(bundleMessage.body, `bundle shape message ${stamp}`);
+  assert.equal(Object.hasOwn(bundleMessage, 'enc'), false, 'chat payload must omit unsupported encrypted data');
 
   console.log('[C-2] legacy {chatroom, text} shape still accepted...');
   response = await fetch(`${baseUrl}/api/v2/message/`, {

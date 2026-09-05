@@ -202,6 +202,7 @@ export async function handleRequest(req: IncomingMessage, res: ServerResponse) {
 
     res.writeHead(200, {
       'Content-Type': 'text/html; charset=utf-8',
+      'Cache-Control': 'no-store',
       'Set-Cookie': setCookieHeaders
     });
     res.end(htmlContent);

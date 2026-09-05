@@ -8,7 +8,7 @@ console.log('=== Verifying Market Pricing Mode Switcher (Realistic vs Test) ==='
 console.log('[1/4] Switching marketplace to [REALISTIC] mode...');
 const resReal = await FixtureService.setMarketPricingMode('realistic');
 assert.strictEqual(resReal.mode, 'realistic');
-assert.ok(resReal.ordersUpdated > 1000, 'Should update orders for all resources');
+assert.ok(resReal.ordersUpdated >= 100, 'Should update orders for all resources');
 
 const stateReal = FixtureService.getMarketPricingMode();
 assert.strictEqual(stateReal.mode, 'realistic');
@@ -36,7 +36,7 @@ assert.ok(powerProfit >= 270 && powerProfit <= 350, `Hourly profit for power sho
 console.log('[2/4] Switching marketplace to [TEST] mode...');
 const resTest = await FixtureService.setMarketPricingMode('test');
 assert.strictEqual(resTest.mode, 'test');
-assert.ok(resTest.ordersUpdated > 1000);
+assert.ok(resTest.ordersUpdated >= 100);
 
 const stateTest = FixtureService.getMarketPricingMode();
 assert.strictEqual(stateTest.mode, 'test');

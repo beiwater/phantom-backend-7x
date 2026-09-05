@@ -680,5 +680,22 @@
 
 
 
+  <script>
+    window.addEventListener('load', function () {
+      var worker = navigator.serviceWorker && navigator.serviceWorker.controller;
+      console.info('[SimCompanies 启动诊断]', JSON.stringify({
+        diagnosticVersion: '2026-09-05-cache-policy-1',
+        origin: window.location.origin,
+        pathname: window.location.pathname,
+        loadedAt: new Date().toISOString(),
+        scripts: Array.from(document.scripts)
+          .filter(function (script) { return Boolean(script.src); })
+          .map(function (script) { return script.src; }),
+        serviceWorkerController: worker ? worker.scriptURL : null,
+        note: '此标识仅代表页面诊断版本，不是主脚本内容哈希或后端版本。'
+      }, null, 2));
+    }, { once: true });
+  </script>
+  <script src="/static/js/realm-company-switch.js?v=3" defer></script>
   </body>
 </html>

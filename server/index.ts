@@ -8,6 +8,7 @@ import { setupWebSocket } from './ws/websocket.ts';
 import { startExpiredSessionCleanup } from './auth/session.ts';
 import { startScheduler, stopScheduler } from './scheduler/timetable.ts';
 import { wireGameNotifications } from './application/notifications.ts';
+import { startNpcMarketRestocker, stopNpcMarketRestocker } from './services/npc-market-service.ts';
 import { db } from './db/database.ts';
 import './scheduler/scheduler-routes.ts';
 
@@ -19,6 +20,9 @@ startExpiredSessionCleanup();
 
 // Issue #98: daily UTC timetable engine. Persists scheduler_state so restarts never double-fire.
 startScheduler();
+
+// NPC market restocker engine with time acceleration support
+startNpcMarketRestocker();
 const server = http.createServer(async (req, res) => {
   try {
     await handleRequest(req, res);
@@ -64,6 +68,13 @@ async function gracefulShutdown(signal: string): Promise<void> {
     logger.info('Timetable scheduler stopped.');
   } catch (err) {
     logger.error('Error stopping scheduler:', err);
+  }
+
+  try {
+    stopNpcMarketRestocker();
+    logger.info('NPC market restocker stopped.');
+  } catch (err) {
+    logger.error('Error stopping NPC market restocker:', err);
   }
 
   try {

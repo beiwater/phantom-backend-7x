@@ -13,6 +13,7 @@ import { bondRepository, type BondRow } from '../../repositories/bond-repository
 import { companyRepository } from '../../repositories/company-repository.ts';
 
 // --- Bond queries ------------------------------------------------------------
+import { RealmPhaseService } from '../../services/realm-phase-service.ts';
 
 export function getBondsOwnedQuery(companyId: number) {
   return bondRepository.listOwnedRows(companyId).map(bondRepository.formatBond.bind(bondRepository));
@@ -39,6 +40,10 @@ export function getOutstandingSoldBondLiability(companyId: number): number {
 export function issueBondsUseCase(ctx: GameContext, amount: number, interestRate: number = 0.005) {
   const comp = companyRepository.findById(ctx.companyId);
   if (!comp) throw new Error('Company not found');
+  const realmConfig = RealmPhaseService.getActiveRealmConfig();
+  if (!realmConfig.bonds) {
+    throw new Error(`Corporate bonds are not unlocked in ${realmConfig.name} (Unlocked in Phase 3)`);
+  }
   if (!Number.isFinite(amount) || amount <= 0) {
     throw new Error('Bond amount must be greater than zero');
   }

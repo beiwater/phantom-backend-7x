@@ -29,6 +29,13 @@ async function runIssue42BondsTest() {
   console.log(' Starting Issue #42 Bonds Lifecycle Verification');
   console.log('================================================================');
 
+  // Ensure bonds are enabled via debug endpoint if testing in early realm phases
+  await fetch(`${baseUrl}/api/v2/debug/realm-phase/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ bonds: true })
+  });
+
   const seller = await register('seller');
   const buyer = await register('buyer');
   const sellerHeaders = { 'Content-Type': 'application/json', Cookie: seller.cookie };
@@ -105,6 +112,12 @@ async function runIssue42BondsTest() {
   console.log('================================================================');
   console.log(' ✅ ISSUE #42 BONDS PASSED ALL CHECKS');
   console.log('================================================================\n');
+  // Restore phase_1 preset if configured
+  await fetch(`${baseUrl}/api/v2/debug/realm-phase/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ preset: 'phase_1' })
+  });
 }
 
 runIssue42BondsTest().catch(err => {

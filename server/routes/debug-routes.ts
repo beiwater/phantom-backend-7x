@@ -14,6 +14,8 @@ import { FixtureService, type ScenarioInput } from '../services/fixture-service.
 import { buildSessionCookie } from '../auth/session.ts';
 import { RouteRegistry, globalRouteRegistry, type HttpMethod } from '../http/route-registry.ts';
 import { CHATROOM_PRESETS } from './social-routes.ts';
+import { NpcMarketService } from '../services/npc-market-service.ts';
+import { RealmPhaseService, REALM_PHASE_PRESETS } from '../services/realm-phase-service.ts';
 
 export async function handleDebugRoutes(
   req: IncomingMessage,
@@ -93,6 +95,97 @@ export async function handleDebugRoutes(
         }
         const result = await FixtureService.setMarketPricingMode(body.mode);
         sendJson(res, { success: true, ...result });
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        sendJson(res, { error: msg }, 500);
+      }
+      return true;
+    }
+    sendJson(res, { error: 'Method not allowed' }, 405);
+    return true;
+  }
+
+  // 2.15. GET /api/v2/debug/npc-market/ and POST /api/v2/debug/npc-market/restock/
+  if (pathname === '/api/v2/debug/npc-market/' || pathname === '/api/debug/npc-market/') {
+    if (method !== 'GET') {
+      sendJson(res, { error: 'Method not allowed' }, 405);
+      return true;
+    }
+    sendJson(res, NpcMarketService.getNpcMarketStatus());
+    return true;
+  }
+  if (pathname === '/api/v2/debug/npc-market/restock/' || pathname === '/api/debug/npc-market/restock/') {
+    if (method !== 'POST') {
+      sendJson(res, { error: 'Method not allowed' }, 405);
+      return true;
+    }
+    try {
+      const result = await NpcMarketService.restock({ force: true });
+      sendJson(res, { success: true, ...result });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      sendJson(res, { error: msg }, 500);
+    }
+    return true;
+  }
+
+  // 2.16. GET & POST /api/v2/debug/realm-phase/
+  if (pathname === '/api/v2/debug/realm-phase/' || pathname === '/api/debug/realm-phase/') {
+    if (method === 'GET') {
+      const config = RealmPhaseService.getActiveRealmConfig();
+      const unlockedBuildings = RealmPhaseService.getUnlockedBuildings();
+      const unlockedResources = RealmPhaseService.getUnlockedResources();
+      sendJson(res, {
+        config,
+        availablePresets: Object.entries(REALM_PHASE_PRESETS).map(([k, p]) => ({
+          preset: k,
+          name: p.name,
+          phase: p.phase,
+          researchLimit: p.researchLimit,
+          bonds: p.bonds,
+          govOrders: p.govOrders,
+          executives: p.executives,
+          description: p.description
+        })),
+        unlockedBuildingsCount: unlockedBuildings.length,
+        unlockedResourcesCount: unlockedResources.length,
+        unlockedBuildings: unlockedBuildings.slice(0, 15),
+        unlockedResourcesSample: unlockedResources.slice(0, 15)
+      });
+      return true;
+    }
+    if (method === 'POST') {
+      try {
+        const body = await readJsonBody<{
+          preset?: string;
+          phase?: number;
+          researchLimit?: number;
+          bonds?: boolean;
+          govOrders?: boolean;
+          executives?: boolean;
+          recBuildings?: boolean;
+          collectibles?: boolean;
+          robots?: boolean;
+          restockNpc?: boolean;
+        }>(req);
+
+        const targetPreset = body.preset || (body.phase !== undefined ? `phase_${body.phase + 1}` : 'custom');
+        const updated = RealmPhaseService.setPreset(targetPreset, {
+          phase: body.phase,
+          researchLimit: body.researchLimit,
+          bonds: body.bonds,
+          govOrders: body.govOrders,
+          executives: body.executives,
+          recBuildings: body.recBuildings,
+          collectibles: body.collectibles,
+          robots: body.robots
+        });
+
+        if (body.restockNpc !== false) {
+          await NpcMarketService.restock({ force: true });
+        }
+
+        sendJson(res, { success: true, config: updated });
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
         sendJson(res, { error: msg }, 500);

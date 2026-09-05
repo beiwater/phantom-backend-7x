@@ -15,6 +15,7 @@ import { marketRepository, marketTradeRepository } from '../../repositories/mark
 import { warehouseRepository } from '../../repositories/warehouse-repository.ts';
 import { companyRepository } from '../../repositories/company-repository.ts';
 import { virtualClock } from '../../core/virtual-clock.ts';
+import { NpcMarketService, NPC_SELLER_ID } from '../../services/npc-market-service.ts';
 
 export interface TakeMarketOrderInput {
   resource: number;
@@ -175,6 +176,9 @@ export async function takeMarketOrder(ctx: GameContext, input: TakeMarketOrderIn
         sellerId: fill.sellerId,
         tradedAt
       });
+      if (fill.sellerId === NPC_SELLER_ID) {
+        NpcMarketService.recordPlayerPurchase(fill.kind, fill.amount);
+      }
     }
 
     tx.addAfterCommitHook(() => {

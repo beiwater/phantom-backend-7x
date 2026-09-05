@@ -38,7 +38,7 @@ const thirdId = socialRepository.insertChatMessage(room, firstCompany.companyId,
 // Higher id but older server time: timestamp is primary, id is the tie-breaker.
 const olderId = socialRepository.insertChatMessage(room, secondCompany.companyId, 'Sender B', 'older', '2043-01-02T09:59:59.000Z');
 
-const expectedIds = [olderId, firstId, secondId, thirdId];
+const expectedIds = [thirdId, secondId, firstId, olderId];
 const firstView = await invoke(`/api/v2/chatroom/${room}/`, firstCompany.companyId);
 const secondView = await invoke(`/api/v2/chatroom/${room}/`, secondCompany.companyId);
 assert.equal(firstView.status, 200);
@@ -50,8 +50,8 @@ assert.deepEqual(idsFrom(secondView.body), expectedIds);
 const incremental = await invoke(`/api/v2/chatroom/${room}/from-id/${firstId}/`, firstCompany.companyId);
 assert.equal(incremental.status, 200);
 const incrementalRows = incremental.body as Array<{ id: number; body: string; datetime: string }>;
-assert.deepEqual(idsFrom(incremental.body), [olderId, secondId, thirdId]);
-assert.deepEqual(incrementalRows.map(message => message.body), ['older', 'second', 'third']);
+assert.deepEqual(idsFrom(incremental.body), [thirdId, secondId, olderId]);
+assert.deepEqual(incrementalRows.map(message => message.body), ['third', 'second', 'older']);
 assert.ok(incrementalRows.every(message => message.datetime));
 
-console.log('PASS chat history and from-id use timestamp ASC plus id ASC for every client (#189)');
+console.log('PASS chat history and from-id use timestamp DESC plus id DESC for production parity (#189)');

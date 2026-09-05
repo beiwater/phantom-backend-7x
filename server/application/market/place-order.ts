@@ -17,6 +17,7 @@ import { warehouseRepository } from '../../repositories/warehouse-repository.ts'
 import { companyRepository } from '../../repositories/company-repository.ts';
 import { getResourceDef } from '../../game-data/resources.ts';
 import { virtualClock } from '../../core/virtual-clock.ts';
+import { formatMarketOrder, type MarketOrderDTO } from '../../compatibility/simcompanies/market-dto.ts';
 
 export interface PlaceMarketOrderInput {
   resourceId?: number;
@@ -27,16 +28,7 @@ export interface PlaceMarketOrderInput {
 }
 
 /** Compatibility shape consumed by market-routes / the original frontend. */
-export interface PlacedSellOrderDTO {
-  id: number;
-  kind: number;
-  quantity: number;
-  quality: number;
-  price: number;
-  datetimeDecayUpdated: string;
-  posted: string;
-  fees: number;
-}
+export type PlacedSellOrderDTO = MarketOrderDTO;
 
 export interface PlaceMarketOrderResult {
   sellOrder: PlacedSellOrderDTO;
@@ -47,16 +39,7 @@ export interface PlaceMarketOrderResult {
 
 /** Compatibility mapping for the original frontend (kept out of repository). */
 function toCompatibilityShape(order: MarketOrderEntity): PlacedSellOrderDTO {
-  return {
-    id: order.id,
-    kind: order.kind,
-    quantity: order.quantity,
-    quality: order.quality,
-    price: order.price,
-    datetimeDecayUpdated: order.postedAt,
-    posted: order.postedAt,
-    fees: order.fees
-  };
+  return formatMarketOrder(order);
 }
 
 export async function placeMarketOrder(ctx: GameContext, input: PlaceMarketOrderInput): Promise<PlaceMarketOrderResult> {

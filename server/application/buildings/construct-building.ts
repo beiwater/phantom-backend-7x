@@ -19,6 +19,7 @@ import { getTierForLevel } from '../../domain/leveling/level-rules.ts';
 import { getBuildingMeta } from '../../game-data/buildings.ts';
 import { ConflictError, ValidationError, NotFoundError } from '../../errors/domain-error.ts';
 import { initialAbundanceForKind } from '../../game/buildings.ts';
+import { RealmPhaseService } from '../../services/realm-phase-service.ts';
 
 export interface ConstructBuildingInput {
   kind: string;
@@ -44,6 +45,12 @@ export async function constructBuildingUseCase(
 
   return runInTransaction(async txCtx => {
     // 0. Validate building slot limits and locked positions
+    // Realm Phase Gate (realms-guide)
+    if (!RealmPhaseService.isBuildingUnlocked(kind)) {
+      const activeCfg = RealmPhaseService.getActiveRealmConfig();
+      throw new ValidationError(`Building '${kind}' is not unlocked in ${activeCfg.name}`);
+    }
+
     const comp = companyRepository.findById(ctx.companyId);
     if (!comp) throw new NotFoundError(`Company ${ctx.companyId} not found`);
     // Issue #71: canonical slot policy lives in the leveling domain

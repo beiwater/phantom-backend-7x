@@ -68,11 +68,23 @@ export function toSimCompaniesBuildingDTO(
   companyLogo: string = ''
 ): SimCompaniesBuildingDTO {
   const meta = getBuildingMeta(building.kind);
+  const nowMs = virtualClock.nowMs();
   const busyUntilMs = building.busyUntil ? new Date(building.busyUntil).getTime() : 0;
-  const isConstructingOrUpgrading = busyUntilMs > virtualClock.nowMs();
+  const activeQueue = productionRepository.findLatestActiveByBuilding(building.id, building.companyId);
+  const isRetailBuilding = (building.category === 'sales' || building.category === 'seasonal')
+    && building.kind !== 'B';
+  const latestRetailOrder = isRetailBuilding
+    ? retailRepository.findByCompanyAndBuilding(building.companyId, building.id)[0] ?? null
+    : null;
+  const retailFinishedAtMs = latestRetailOrder?.finishedAt
+    ? new Date(latestRetailOrder.finishedAt).getTime()
+    : Number.POSITIVE_INFINITY;
+  const hasActiveRetailOrder = latestRetailOrder !== null && retailFinishedAtMs > nowMs;
+  const isConstructingOrUpgrading = busyUntilMs > nowMs
+    && activeQueue === null
+    && !hasActiveRetailOrder;
 
   let busyObj: Record<string, unknown> | null = null;
-  const activeQueue = productionRepository.findLatestActiveByBuilding(building.id, building.companyId);
 
   if (activeQueue) {
     const launchRocketKind = building.kind === 'l' && activeQueue.kind === 100
@@ -86,7 +98,7 @@ export function toSimCompaniesBuildingDTO(
     const busyKind = launchRocketKind === null ? displayKind : activeQueue.kind;
     const busyResource = launchRocketKind === null ? displayResource : getResourceDef(busyKind);
     const displayAmount = launchRocketKind === null ? Number(activeQueue.amount) || 0 : 1;
-    const canFetch = new Date(activeQueue.finishesAt).getTime() <= virtualClock.nowMs();
+    const canFetch = new Date(activeQueue.finishesAt).getTime() <= nowMs;
     const isSales = building.category === 'sales';
     const isAccumulatorQueue = building.kind === 'v' && activeQueue.kind === 150;
     const accumulatorState = isAccumulatorQueue
@@ -95,6 +107,14 @@ export function toSimCompaniesBuildingDTO(
     busyObj = {
       id: activeQueue.id,
       started: activeQueue.startedAt,
+      duration: finiteOr(activeQueue.durationSeconds, 0),
+      // The original busy contract uses this as a rush-cost multiplier, not
+      // as the production speed. Queue duration is already persisted in
+      // effective seconds, so production uses the contract's default of 1.
+      accelerationFactor: 1,
+      category: isSales ? 's' : 'r',
+      canFetch: isSales ? false : canFetch,
+      manualResolve: false,
       resource: {
         kind: busyKind,
         name: getResourceName(busyKind),
@@ -128,12 +148,11 @@ export function toSimCompaniesBuildingDTO(
     resolveDueRestaurantRunsSync(building.id, building.companyId);
     const restaurantBusy = getRestaurantBusy(building.id);
     if (restaurantBusy) busyObj = restaurantBusy;
-  } else if ((building.category === 'sales' || building.category === 'seasonal') && building.kind !== 'B') {
-    const retailOrders = retailRepository.findByCompanyAndBuilding(building.companyId, building.id);
-    const latestOrder = retailOrders[0];
+  } else if (isRetailBuilding) {
+    const latestOrder = latestRetailOrder;
     if (latestOrder) {
       const finishedAtMs = latestOrder.finishedAt ? new Date(latestOrder.finishedAt).getTime() : 0;
-      const canFetch = finishedAtMs > 0 && finishedAtMs <= virtualClock.nowMs();
+      const canFetch = finishedAtMs > 0 && finishedAtMs <= nowMs;
       const resDef = getResourceDef(latestOrder.resourceKind);
       const revenue = Math.round(latestOrder.units * latestOrder.unitPrice * 100) / 100;
       const startedMs = new Date(latestOrder.createdAt).getTime();

@@ -115,6 +115,7 @@ export class VirtualClock {
     completedRetailOrders: number;
     resolvedRestaurants: number;
     settledAuctions: number;
+    restockedNpcMarket: boolean;
   }> {
     const { db } = await import('../db/database.ts');
     const { settleDueAuctions } = await import('../game/building-auctions.ts');
@@ -182,12 +183,22 @@ export class VirtualClock {
       // ignore
     }
 
+    // 6. Resolve due NPC market restocking
+    let restockedNpcMarket = false;
+    try {
+      const { NpcMarketService } = await import('../services/npc-market-service.ts');
+      restockedNpcMarket = await NpcMarketService.checkAndRestockIfNeeded();
+    } catch {
+      // ignore
+    }
+
     return {
       completedConstructions,
       completedProductions,
       completedRetailOrders,
       resolvedRestaurants,
-      settledAuctions
+      settledAuctions,
+      restockedNpcMarket
     };
   }
 }

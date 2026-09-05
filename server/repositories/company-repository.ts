@@ -1,9 +1,12 @@
 import type { DatabaseSync } from 'node:sqlite';
 import { virtualClock } from '../core/virtual-clock.ts';
 import { db } from '../db/connection.ts';
-import { InsufficientFundsError, NotFoundError } from '../errors/domain-error.ts';
+import { ConflictError, InsufficientFundsError, NotFoundError } from '../errors/domain-error.ts';
 import { getXpRequiredForLevel } from '../domain/leveling/level-rules.ts';
 import { recordCashLedger, refreshDailyFinanceSnapshot } from '../game/cash-ledger.ts';
+import { getInitialCompanySettings } from '../config.ts';
+import { seedDefaultDisplayCase } from '../db/seed/index.ts';
+import { executiveRepository } from './executive-repository.ts';
 
 export interface CompanyEntity {
   id: number;
@@ -47,7 +50,7 @@ export interface CompanyDbRow {
   created_at: string;
 }
 
-function mapCompanyRow(row: CompanyDbRow): CompanyEntity {
+export function mapCompanyRow(row: CompanyDbRow): CompanyEntity {
   return {
     id: row.id,
     companyId: row.company_id,
@@ -105,6 +108,8 @@ export class CompanyRepository {
 
     return row ? mapCompanyRow(row) : null;
   }
+
+
   findByName(name: string): CompanyEntity | null {
     const row = this.database.prepare(
       'SELECT * FROM companies WHERE name = ? COLLATE NOCASE ORDER BY id ASC LIMIT 1'
@@ -497,6 +502,58 @@ export class CompanyRepository {
   isPlayerAdmin(playerId: number): boolean {
     const row = this.database.prepare('SELECT is_admin FROM players WHERE player_id = ?').get(playerId) as { is_admin?: number } | undefined;
     return Boolean(row && row.is_admin === 1);
+  }
+
+  /** Authoritative creation of a new company row and default progression state. */
+  createCompany(playerId: number, name: string, realmId: number = 0, maxOwnedCompanies?: number): CompanyEntity {
+    const companyId = Math.floor(4000000 + Math.random() * 6000000);
+    const now = virtualClock.nowIso();
+    const init = getInitialCompanySettings();
+    this.database.exec('BEGIN IMMEDIATE');
+    try {
+      if (maxOwnedCompanies !== undefined) {
+        const row = this.database.prepare(
+          'SELECT COUNT(*) AS count FROM companies WHERE player_id = ?'
+        ).get(playerId) as { count?: number } | undefined;
+        if ((Number(row?.count) || 0) >= maxOwnedCompanies) {
+          throw new ConflictError(
+            `Company limit reached: the same-login selector allows at most ${maxOwnedCompanies} companies`
+          );
+        }
+      }
+      this.database.prepare(`
+        INSERT INTO companies (company_id, player_id, name, money, simboosts, level, rating, experience, extra_building_slots, realm_id, logo, personal_assistant, note, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, 'BBB', ?, ?, ?, '', 'old', 'Private Server Company', ?)
+      `).run(companyId, playerId, name, init.money, init.simboosts, init.level, init.experience, init.extraBuildingSlots, realmId, now);
+      seedDefaultDisplayCase(companyId, this.database);
+      executiveRepository.seedDefaults(companyId, this.database);
+
+      this.database.prepare(`
+        INSERT INTO buildings (company_id, position, kind, size, name, cost, category, created_at)
+        VALUES (?, '0', 'P', 1, 'Farm', 6900, 'production', ?)
+      `).run(companyId, now);
+
+      this.database.prepare(`
+        INSERT INTO buildings (company_id, position, kind, size, name, cost, category, created_at)
+        VALUES (?, '1', 'G', 1, 'Grocery store', 10350, 'sales', ?)
+      `).run(companyId, now);
+
+      for (const s of init.warehouseStock) {
+        this.database.prepare(`
+          INSERT INTO warehouse (company_id, kind, quality, amount, cost_workers, cost_admin, cost_material1, cost_material2, cost_market, updated_at)
+          VALUES (?, ?, ?, ?, 0, 0, 0, 0, 1.0, ?)
+        `).run(companyId, s.kind, s.quality || 0, s.amount, now);
+      }
+      this.database.exec('COMMIT');
+      const created = this.findById(companyId);
+      if (!created) {
+        throw new NotFoundError(`Created company #${companyId} could not be loaded`);
+      }
+      return created;
+    } catch (err) {
+      this.database.exec('ROLLBACK');
+      throw err;
+    }
   }
 }
 

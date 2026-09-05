@@ -1,7 +1,7 @@
 import type { DatabaseSync } from 'node:sqlite';
 import crypto from 'node:crypto';
 import { db } from '../connection.ts';
-import { CONFIG } from '../../config.ts';
+import { CONFIG, getInitialCompanySettings } from '../../config.ts';
 import { CONSTANTS_RESOURCES } from '../../game/constants.ts';
 import { hashPassword, verifyPassword } from '../migrations/index.ts';
 import { executiveRepository } from '../../repositories/executive-repository.ts';
@@ -78,9 +78,10 @@ export function registerPlayer(
     INSERT INTO players (player_id, email, password_hash, is_admin, created_at)
     VALUES (?, ?, ?, 0, ?)
   `);
+  const init = getInitialCompanySettings();
   const insertCompany = database.prepare(`
-    INSERT INTO companies (company_id, player_id, name, money, simboosts, level, rating, experience, realm_id, logo, personal_assistant, note, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, 'BBB', 0, 0, '', 'old', 'Private Server Company', ?)
+    INSERT INTO companies (company_id, player_id, name, money, simboosts, level, rating, experience, extra_building_slots, realm_id, logo, personal_assistant, note, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, 'BBB', ?, ?, 0, '', 'old', 'Private Server Company', ?)
   `);
   const insertBuilding = database.prepare(`
     INSERT INTO buildings (company_id, position, kind, size, name, cost, category, created_at)
@@ -88,21 +89,9 @@ export function registerPlayer(
   `);
   const insertSeedStock = database.prepare(`
     INSERT INTO warehouse (company_id, kind, quality, amount, cost_workers, cost_admin, cost_material1, cost_material2, cost_market, updated_at)
-    VALUES (?, ?, 0, ?, 0, 0, 0, 0, 1.0, ?)
+    VALUES (?, ?, ?, ?, 0, 0, 0, 0, 1.0, ?)
   `);
-  const seedStock = [
-    { kind: 1, amount: 20000 },
-    { kind: 2, amount: 20000 },
-    { kind: 66, amount: 10000 },
-    { kind: 13, amount: 20000 },
-    { kind: 3, amount: 5000 },
-    { kind: 4, amount: 5000 },
-    { kind: 119, amount: 5000 },
-    { kind: 101, amount: 5000 },
-    { kind: 102, amount: 5000 },
-    { kind: 108, amount: 5000 },
-    { kind: 111, amount: 5000 }
-  ];
+  const seedStock = init.warehouseStock;
 
   for (let attempt = 1; ; attempt++) {
     const playerId = Math.floor(2000000 + Math.random() * 8000000);
@@ -110,13 +99,13 @@ export function registerPlayer(
     database.exec('BEGIN');
     try {
       insertPlayer.run(playerId, email, hashPassword(password), now);
-      insertCompany.run(companyId, playerId, cName, CONFIG.INITIAL_MONEY, CONFIG.INITIAL_SIMBOOSTS, CONFIG.INITIAL_LEVEL, now);
+      insertCompany.run(companyId, playerId, cName, init.money, init.simboosts, init.level, init.experience, init.extraBuildingSlots, now);
       seedDefaultDisplayCase(companyId, database);
       executiveRepository.seedDefaults(companyId, database);
       insertBuilding.run(companyId, '0', 'P', 'Farm', 6900, 'production', now);
       insertBuilding.run(companyId, '1', 'G', 'Grocery store', 10350, 'sales', now);
       for (const s of seedStock) {
-        insertSeedStock.run(companyId, s.kind, s.amount, now);
+        insertSeedStock.run(companyId, s.kind, s.quality || 0, s.amount, now);
       }
       database.exec('COMMIT');
       return { playerId, companyId, created: true };
@@ -212,10 +201,11 @@ export function seedInitialDatabase(database: DatabaseSync = db): void {
       VALUES (?, ?, ?, 1, ?)
     `).run(2920233, 'admin@simcompanies.local', hashPassword(adminPassword), now);
 
+    const seedInit = getInitialCompanySettings();
     database.prepare(`
-      INSERT INTO companies (company_id, player_id, name, money, simboosts, level, rating, experience, realm_id, logo, personal_assistant, note, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, 'BBB', 0, 0, '', 'old', 'Private Server Company', ?)
-    `).run(4259175, 2920233, 'lifeline', CONFIG.INITIAL_MONEY, CONFIG.INITIAL_SIMBOOSTS, CONFIG.INITIAL_LEVEL, now);
+      INSERT INTO companies (company_id, player_id, name, money, simboosts, level, rating, experience, extra_building_slots, realm_id, logo, personal_assistant, note, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, 'BBB', ?, ?, 0, '', 'old', 'Private Server Company', ?)
+    `).run(4259175, 2920233, 'lifeline', seedInit.money, seedInit.simboosts, seedInit.level, seedInit.experience, seedInit.extraBuildingSlots, now);
     seedDefaultDisplayCase(4259175, database);
     executiveRepository.seedDefaults(4259175, database);
 
@@ -229,22 +219,11 @@ export function seedInitialDatabase(database: DatabaseSync = db): void {
       VALUES (?, '1', 'G', 1, 'Grocery store', 10350, 'sales', ?)
     `).run(4259175, now);
 
-    const seedStock = [
-      { kind: 1, amount: 20000, quality: 0 },
-      { kind: 2, amount: 20000, quality: 0 },
-      { kind: 66, amount: 10000, quality: 0 },
-      { kind: 13, amount: 20000, quality: 0 },
-      { kind: 3, amount: 5000, quality: 0 },
-      { kind: 101, amount: 5000, quality: 0 },
-      { kind: 102, amount: 5000, quality: 0 },
-      { kind: 108, amount: 5000, quality: 0 },
-      { kind: 111, amount: 5000, quality: 0 }
-    ];
-    for (const s of seedStock) {
+    for (const s of seedInit.warehouseStock) {
       database.prepare(`
         INSERT INTO warehouse (company_id, kind, quality, amount, cost_workers, cost_admin, cost_material1, cost_material2, cost_market, updated_at)
         VALUES (?, ?, ?, ?, 0, 0, 0, 0, 1.0, ?)
-      `).run(4259175, s.kind, s.quality, s.amount, now);
+      `).run(4259175, s.kind, s.quality || 0, s.amount, now);
     }
 
     seedMarketOrders(database);

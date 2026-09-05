@@ -48,9 +48,9 @@ const sent = await invoke('/api/v2/message/', 'POST', companyId, {
   body: 'server timestamp'
 });
 assert.equal(sent.status, 200);
-const sentMessage = sent.body as { id: number; datetime: string; body: string; text: string };
+const sentMessage = sent.body as { id: number; datetime: string; body: string };
 assert.equal(sentMessage.body, 'server timestamp');
-assert.equal(sentMessage.text, 'server timestamp');
+assert.equal(Object.hasOwn(sentMessage, 'enc'), false, 'POST chat payload must omit unsupported encrypted data');
 const sentAt = sentMessage.datetime;
 assert.ok(Date.parse(sentAt) >= Date.parse('2042-05-06T12:00:00.000Z'));
 assert.equal(

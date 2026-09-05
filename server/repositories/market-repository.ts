@@ -7,6 +7,7 @@
 import type { DatabaseSync } from 'node:sqlite';
 import { db } from '../db/connection.ts';
 import { NotFoundError } from '../errors/domain-error.ts';
+import { CONFIG } from '../config.ts';
 
 export interface MarketOrderEntity {
   id: number;
@@ -163,8 +164,9 @@ export class MarketRepository {
    * concurrently inside this transaction (caller may skip the fill).
    */
   applyFill(orderId: number, takeAmount: number, remaining: number): boolean {
+    const isNpc = this.findById(orderId)?.sellerId === 999900;
     const updated = remaining <= 0
-      ? (this.findById(orderId)?.sellerId === 999900
+      ? (isNpc && CONFIG.NPC_MARKET_INFINITE
         ? this.database.prepare('UPDATE market_orders SET quantity = 100000 WHERE id = ? AND active = 1 AND quantity >= ?')
           .run(orderId, takeAmount)
         : this.database.prepare('UPDATE market_orders SET quantity = 0, active = 0 WHERE id = ? AND active = 1 AND quantity >= ?')

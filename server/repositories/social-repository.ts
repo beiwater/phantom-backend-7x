@@ -285,25 +285,22 @@ export class SocialRepository {
 
   // --- Chat messages -------------------------------------------------------
 
-  listChatMessages(room: string): ChatMessageRow[] {
-    return this.database.prepare(`
-      SELECT * FROM (
-        SELECT * FROM chat_messages
-        WHERE room = ? OR room = 'N' OR room = '1'
-        ORDER BY sent_at DESC, id DESC
-        LIMIT 50
-      )
-      ORDER BY sent_at ASC, id ASC
-    `).all(room) as ChatMessageRow[];
-  }
-
-  listChatMessagesFromId(room: string, fromId: number): ChatMessageRow[] {
+  listChatMessages(room: string, limit: number = 30): ChatMessageRow[] {
     return this.database.prepare(`
       SELECT * FROM chat_messages
-      WHERE (room = ? OR room = 'N' OR room = '1') AND id > ?
-      ORDER BY sent_at ASC, id ASC
-      LIMIT 50
-    `).all(room, fromId) as ChatMessageRow[];
+      WHERE room = ?
+      ORDER BY sent_at DESC, id DESC
+      LIMIT ?
+    `).all(room, limit) as ChatMessageRow[];
+  }
+
+  listChatMessagesFromId(room: string, fromId: number, limit: number = 30): ChatMessageRow[] {
+    return this.database.prepare(`
+      SELECT * FROM chat_messages
+      WHERE room = ? AND id > ?
+      ORDER BY sent_at DESC, id DESC
+      LIMIT ?
+    `).all(room, fromId, limit) as ChatMessageRow[];
   }
 
   insertChatMessage(room: string, senderId: number, senderCompany: string, text: string, sentAt: string): number {

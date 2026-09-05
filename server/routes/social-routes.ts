@@ -4,6 +4,7 @@ import { readJsonBody, sendJson } from './utils.ts';
 import { gameNotificationsRepository } from '../repositories/game-notifications-repository.ts';
 import { referralsRepository } from '../repositories/referrals-repository.ts';
 import { socialRepository } from '../repositories/social-repository.ts';
+import { companyRepository } from '../repositories/company-repository.ts';
 import { getCompanyById } from '../game/company.ts';
 import { checkRateLimit } from '../security/rate-limiter.ts';
 import { virtualClock } from '../core/virtual-clock.ts';
@@ -129,6 +130,133 @@ function loadChatroomSubscriptions(companyId: number): Array<ChatroomSubscriptio
     return unsubscribed.includes(entry.db_letter) ? { ...withStamp, notSubscribed: true } : withStamp;
   });
 }
+function getChatroomMetadata(roomCode: string): { chatroom_name: string; chatroom_logo: string; realms_shared: boolean } {
+  const rooms = getConfiguredChatrooms();
+  const found = rooms.find(r => r.db_letter === roomCode);
+  if (found) {
+    return {
+      chatroom_name: found.name,
+      chatroom_logo: found.image,
+      realms_shared: found.realmsShared
+    };
+  }
+  if (roomCode === 'z') {
+    return {
+      chatroom_name: '[ZH_] 社交',
+      chatroom_logo: '/chat-icon/234B8B/social.png',
+      realms_shared: true
+    };
+  }
+  if (roomCode === 'n') {
+    return {
+      chatroom_name: '[ZH] 社交',
+      chatroom_logo: '/chat-icon/234B8B/social.png',
+      realms_shared: true
+    };
+  }
+  if (roomCode === 'N') {
+    return {
+      chatroom_name: '[ZH] 游戏',
+      chatroom_logo: '/chat-icon/234B8B/game.png',
+      realms_shared: true
+    };
+  }
+  if (roomCode === 'k') {
+    return {
+      chatroom_name: '[ZH] 交易',
+      chatroom_logo: '/chat-icon/234B8B/sales.png',
+      realms_shared: false
+    };
+  }
+  if (roomCode === 'C') {
+    return {
+      chatroom_name: 'Social',
+      chatroom_logo: '/chat-icon/005F73/social.png',
+      realms_shared: true
+    };
+  }
+  if (roomCode === 'G') {
+    return {
+      chatroom_name: 'Game',
+      chatroom_logo: '/chat-icon/005F73/game.png',
+      realms_shared: true
+    };
+  }
+  if (roomCode === 'H') {
+    return {
+      chatroom_name: 'Help',
+      chatroom_logo: '/chat-icon/005F73/help.png',
+      realms_shared: true
+    };
+  }
+  if (roomCode === 'S') {
+    return {
+      chatroom_name: 'Sales',
+      chatroom_logo: '/chat-icon/005F73/sales.png',
+      realms_shared: false
+    };
+  }
+  if (roomCode === 'X') {
+    return {
+      chatroom_name: 'Aerospace sales',
+      chatroom_logo: '/chat-icon/005F73/sales-as.png',
+      realms_shared: false
+    };
+  }
+  return {
+    chatroom_name: `Room ${roomCode}`,
+    chatroom_logo: '/chat-icon/005F73/game.png',
+    realms_shared: true
+  };
+}
+
+function formatChatMessage(
+  m: { id: number; room: string; sender_id: number; sender_company: string; text: string; sent_at: string },
+  companyMap?: Map<number, { logo?: string; realmId?: number; supporter?: boolean }>
+) {
+  const meta = getChatroomMetadata(m.room);
+  let comp = companyMap?.get(m.sender_id);
+  if (!comp) {
+    const fromRepo = companyRepository.findById(m.sender_id);
+    if (fromRepo) {
+      comp = {
+        logo: fromRepo.logo || '',
+        realmId: fromRepo.realmId ?? 0
+      };
+    }
+  }
+  // History passes any `enc` value through the frontend AES-CFB decoder.
+  // This route serves the renderer's plaintext `body`, so omit optional
+  // ciphertext until a real auth-key format can be produced.
+
+  return {
+    id: m.id,
+    sender: {
+      id: m.sender_id,
+      company: m.sender_company,
+      realmId: comp?.realmId ?? 0,
+      logo: comp?.logo ?? '',
+      moderatorSign: false,
+      certificates: 0,
+      contest_wins: 0,
+      supporter: Boolean(comp?.supporter),
+      justStarted: false
+    },
+    chatroom: m.room,
+    chatroom_name: meta.chatroom_name,
+    realms_shared: meta.realms_shared,
+    datetime: m.sent_at,
+    body: m.text,
+    chatroom_logo: meta.chatroom_logo,
+    ban_notification: false,
+    pinned: false,
+    invisible: false,
+    retracted: false,
+    deleted: false,
+    isHtml: false
+  };
+}
+
 
 export async function handleSocialRoutes(
   req: IncomingMessage,
@@ -333,20 +461,8 @@ export async function handleSocialRoutes(
   if (chatFromIdMatch) {
     const room = decodeURIComponent(chatFromIdMatch[1]);
     const fromId = Number(chatFromIdMatch[2]) || 0;
-    const messages = socialRepository.listChatMessagesFromId(room, fromId);
-    const realmByCompanyId = new Map<number, number>(
-      socialRepository.listCompanyRealms().map(row => [row.company_id, row.realm_id])
-    );
-
-    sendJson(res, messages.map(m => ({
-      id: m.id,
-      chatroom: m.room,
-      sender: { id: m.sender_id, company: m.sender_company, logo: '', certificates: 0, supporter: false, realmId: realmByCompanyId.get(m.sender_id) ?? 0 },
-      body: m.text,
-      text: m.text,
-      datetime: m.sent_at,
-      pinned: false
-    })));
+    const messages = socialRepository.listChatMessagesFromId(room, fromId, 30);
+    sendJson(res, messages.map(m => formatChatMessage(m)));
     return true;
   }
 
@@ -354,21 +470,8 @@ export async function handleSocialRoutes(
   const chatroomMatch = pathname.match(/^\/api\/v2\/chatroom\/([^/]+)\/$/);
   if (chatroomMatch) {
     const room = decodeURIComponent(chatroomMatch[1]);
-    const messages = socialRepository.listChatMessages(room);
-    const realmByCompanyId = new Map<number, number>(
-      socialRepository.listCompanyRealms().map(row => [row.company_id, row.realm_id])
-    );
-    sendJson(res, messages.map(m => ({
-      id: m.id,
-      chatroom: m.room,
-      // C-3: frontend resolves the realm badge via Kt[sender.realmId]; a
-      // missing realmId crashes the messages page with a TypeError.
-      sender: { id: m.sender_id, company: m.sender_company, logo: '', certificates: 0, supporter: false, realmId: realmByCompanyId.get(m.sender_id) ?? 0 },
-      body: m.text,
-      text: m.text,
-      datetime: m.sent_at,
-      pinned: false
-    })));
+    const messages = socialRepository.listChatMessages(room, 30);
+    sendJson(res, messages.map(m => formatChatMessage(m)));
     return true;
   }
 
@@ -409,14 +512,14 @@ export async function handleSocialRoutes(
     const now = virtualClock.nowIso();
     const messageId = socialRepository.insertChatMessage(room, comp.company_id, comp.name, text, now);
 
-    sendJson(res, {
+    sendJson(res, formatChatMessage({
       id: messageId,
-      chatroom: room,
-      sender: { id: comp.company_id, company: comp.name, logo: '', supporter: false, realmId: comp.realm_id ?? 0 },
-      body: text,
+      room,
+      sender_id: comp.company_id,
+      sender_company: comp.name,
       text,
-      datetime: now
-    });
+      sent_at: now
+    }));
     return true;
   }
 

@@ -39,9 +39,9 @@ const mockPostRes: any = {
 const postHandled = await handleSocialRoutes(mockPostReq, mockPostRes, '/api/v2/message/', 'POST', 1, testCompany.company_id);
 assert.strictEqual(postHandled, true, 'POST /api/v2/message/ must be handled');
 assert.strictEqual(postPayload.body, 'Hello SimCompanies World 2026', 'POST response must contain body field');
-assert.strictEqual(postPayload.text, 'Hello SimCompanies World 2026', 'POST response must contain text field');
+assert.equal(Object.hasOwn(postPayload, 'enc'), false, 'POST response must omit unsupported encrypted payload');
 assert.ok(postPayload.id > 0, 'Message ID must be positive');
-console.log('  -> POST message returned body & text successfully.');
+console.log('  -> POST message returned production schema successfully.');
 
 // [2/3] Test GET /api/v2/chatroom/:room/
 console.log('[2/3] Testing GET /api/v2/chatroom/TEST_ROOM/ history schema...');
@@ -60,7 +60,7 @@ assert.ok(Array.isArray(getPayload), 'Payload must be an array');
 const foundMsg = getPayload.find((m: any) => m.id === postPayload.id);
 assert.ok(foundMsg, 'Created message must be in chat history');
 assert.strictEqual(foundMsg.body, 'Hello SimCompanies World 2026', 'History message must include body for frontend renderer');
-assert.strictEqual(foundMsg.text, 'Hello SimCompanies World 2026', 'History message must include text');
+assert.equal(Object.hasOwn(foundMsg, 'enc'), false, 'History response must omit unsupported encrypted payload');
 console.log('  -> Chatroom history includes body field on reload.');
 
 // [3/3] Test GET /api/v2/chatroom/:room/from-id/:id/
@@ -79,6 +79,7 @@ assert.strictEqual(fromIdHandled, true, 'from-id query must be handled');
 const foundFromId = fromIdPayload.find((m: any) => m.id === postPayload.id);
 assert.ok(foundFromId, 'Created message must be returned in from-id query');
 assert.strictEqual(foundFromId.body, 'Hello SimCompanies World 2026', 'from-id message must have body field');
+assert.equal(Object.hasOwn(foundFromId, 'enc'), false, 'from-id response must omit unsupported encrypted payload');
 console.log('================================================================');
 console.log(' [OK] ISSUE #151 CHAT PERSISTENCE CHECKS PASSED ALL TESTS');
 console.log('================================================================');

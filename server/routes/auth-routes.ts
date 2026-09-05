@@ -1,5 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { readJsonBody, sendJson, setPreparsedBody } from './utils.ts';
+import { sendDomainError } from '../compatibility/simcompanies/response-helpers.ts';
 import { RouteRegistry, globalRouteRegistry, type HttpMethod } from '../http/route-registry.ts';
 import {
   extractSessionToken,
@@ -28,11 +29,36 @@ import {
 } from '../game/company.ts';
 import { getCompanyBuildings } from '../game/buildings.ts';
 import { getTierForLevel } from '../domain/leveling/level-rules.ts';
+import {
+  createRealmZeroCompanyUseCase,
+  migrateOwnedCompanyToRealmZeroUseCase
+} from '../application/account/company-account-use-cases.ts';
 
 const COMPANY_NAME_COLORS = ['Aero', 'Almond', 'Amaranth', 'Amber', 'Amethyst', 'Apricot', 'Auburn', 'Azure', 'Beige', 'Bistre', 'Blue', 'Brass', 'Bronze', 'Cedar', 'Cerulean', 'Cobalt', 'Copper', 'Coral', 'Crimson', 'Cyan'];
 const COMPANY_NAME_SIZES = ['Big', 'Colossal', 'Gigantic', 'Great', 'Huge', 'Immense', 'Little', 'Mighty', 'Mini', 'Vast'];
 const COMPANY_NAME_ADJECTIVES = ['Abundant', 'Excellent', 'Outstanding', 'Superb', 'Superior', 'Supreme', 'Splendid', 'Magnificent', 'Wonderful', 'Dynamic'];
 const COMPANY_NAME_TRADES = ['Aerospace', 'Agriculture', 'Agro', 'Automotive', 'Bank', 'Carbon', 'Construction', 'Design', 'Electronics', 'Energy', 'Factory', 'Farms', 'Food', 'Innovations', 'Labs', 'Materials', 'Mining', 'Motors', 'Ore', 'Trade', 'Trading'];
+// RouteRegistry parameters are wildcard strings, so validate the decimal
+// company-id contract before any ownership or session lookup.
+function parseCompanyId(raw: string): number | null {
+  if (!/^\d+$/.test(raw)) return null;
+  const companyId = Number(raw);
+  return Number.isSafeInteger(companyId) && companyId > 0 ? companyId : null;
+}
+
+function isCrossOriginRequest(req: IncomingMessage): boolean {
+  const origin = req.headers.origin;
+  const host = req.headers.host;
+  if (typeof origin !== 'string' || origin.trim() === '') return false;
+  if (!host) return true;
+  return origin !== `http://${host}` && origin !== `https://${host}`;
+}
+
+function rejectCrossOriginRequest(req: IncomingMessage, res: ServerResponse): boolean {
+  if (!isCrossOriginRequest(req)) return false;
+  sendJson(res, { error: 'Cross-origin request rejected' }, 403);
+  return true;
+}
 
 /**
  * P1-04: naming-flow conflict suggestions, mirroring the original
@@ -439,6 +465,70 @@ export async function handleAuthRoutes(
     return true;
   }
 
+  // Same-login company selector endpoints. These intentionally do not reuse
+  // the realm-indexed APIs below: a player may own multiple companies in the
+  // same realm, so the companyId is the only unambiguous selector.
+  if (/^\/api\/v2\/companies\/create\/?$/.test(pathname) && method === 'POST') {
+    if (rejectCrossOriginRequest(req, res)) return true;
+    if (!currentPlayerId) {
+      sendJson(res, { error: 'Unauthorized' }, 401);
+      return true;
+    }
+    const body = await readJsonBody<{ name?: unknown; company?: unknown }>(req);
+    try {
+      const company = createRealmZeroCompanyUseCase(
+        currentPlayerId,
+        body.name ?? body.company
+      );
+      sendJson(res, {
+        status: 'ok',
+        companyId: company.companyId,
+        playerId: company.playerId,
+        realmId: company.realmId,
+        company: company.name
+      });
+    } catch (err: unknown) {
+      sendDomainError(res, err);
+    }
+    return true;
+  }
+
+  const realmZeroMigrationMatch = pathname.match(
+    /^\/api\/v2\/companies\/migrate\/([^/]+)\/realm0\/?$/
+  );
+  if (realmZeroMigrationMatch && method === 'POST') {
+    const targetCompanyId = parseCompanyId(realmZeroMigrationMatch[1]);
+    if (targetCompanyId === null) {
+      sendJson(res, { error: 'Invalid company ID' }, 400);
+      return true;
+    }
+    if (rejectCrossOriginRequest(req, res)) return true;
+    if (!currentPlayerId) {
+      sendJson(res, { error: 'Unauthorized' }, 401);
+      return true;
+    }
+    const body = await readJsonBody<{ confirm?: unknown }>(req);
+    try {
+      const result = await migrateOwnedCompanyToRealmZeroUseCase(
+        currentPlayerId,
+        targetCompanyId,
+        body.confirm === true
+      );
+      sendJson(res, {
+        status: 'ok',
+        companyId: result.company.companyId,
+        playerId: result.company.playerId,
+        fromRealmId: result.fromRealmId,
+        realmId: result.toRealmId,
+        company: result.company.name,
+        updatedRows: result.updatedRows
+      });
+    } catch (err: unknown) {
+      sendDomainError(res, err);
+    }
+    return true;
+  }
+
   // Realm Switch & Realm Create Company
   const realmSwitchMatch = pathname.match(/^\/api\/v1\/realm\/(\d+)\/switch\/?$/);
   const realmCreateMatch = pathname.match(/^\/api\/v1\/realm-create-company\/(\d+)\/?$/);
@@ -450,15 +540,54 @@ export async function handleAuthRoutes(
     const targetRealm = Number((realmSwitchMatch || realmCreateMatch)![1]);
     const comps = getPlayerCompanies(currentPlayerId);
     const targetComp = comps.find(c => c.realmId === targetRealm);
-
     if (targetComp && realmSwitchMatch) {
       if (sessionToken) switchSessionCompany(sessionToken, targetComp.id);
-      sendJson(res, { status: 'ok', companyId: targetComp.id, realmId: targetRealm });
+      sendJson(res, {
+        status: 'redirect',
+        redirectUrl: '/zh-cn/landscape/',
+        companyId: targetComp.id,
+        realmId: targetRealm
+      });
     } else {
-      const newComp = createCompanyForPlayer(currentPlayerId, `Co-Realm${targetRealm}`, targetRealm);
+      const defaultName = targetRealm === 1 ? `Sub-Co-R${targetRealm}` : `Co-Realm${targetRealm}`;
+      const newComp = createCompanyForPlayer(currentPlayerId, defaultName, targetRealm);
       if (newComp && sessionToken) switchSessionCompany(sessionToken, newComp.company_id);
-      sendJson(res, { status: 'ok', companyId: newComp?.company_id, realmId: targetRealm });
+      sendJson(res, {
+        status: 'redirect',
+        redirectUrl: '/zh-cn/create/',
+        companyId: newComp?.company_id,
+        realmId: targetRealm
+      });
     }
+    return true;
+  }
+
+  // Company Switch: /api/v2/companies/switch/:companyId/
+  const companySwitchMatch = pathname.match(/^\/api\/v2\/companies\/switch\/([^/]+)\/?$/);
+  if (companySwitchMatch && method === 'POST') {
+    const targetCompId = parseCompanyId(companySwitchMatch[1]);
+    if (targetCompId === null) {
+      sendJson(res, { error: 'Invalid company ID' }, 400);
+      return true;
+    }
+    if (rejectCrossOriginRequest(req, res)) return true;
+    if (!currentPlayerId) {
+      sendJson(res, { error: 'Unauthorized' }, 401);
+      return true;
+    }
+    const comps = getPlayerCompanies(currentPlayerId);
+    const targetComp = comps.find(c => c.id === targetCompId);
+    if (!targetComp) {
+      sendJson(res, { error: 'Company not found or does not belong to player' }, 404);
+      return true;
+    }
+    if (sessionToken) switchSessionCompany(sessionToken, targetComp.id);
+    sendJson(res, {
+      status: 'redirect',
+      redirectUrl: '/zh-cn/landscape/',
+      companyId: targetComp.id,
+      realmId: targetComp.realmId
+    });
     return true;
   }
   // Realm Sync
@@ -816,7 +945,8 @@ export function registerAuthRoutes(registry: RouteRegistry = globalRouteRegistry
   register('GET', '/api/v3/companies/:companyId/');
   register('PATCH', '/api/v3/companies/:companyId/');
   register('GET', '/api/v2/companies/:companyId/administration-overhead/');
-  register('GET', '/api/v2/companies/:companyId/administration-overhead/plus-one/');
+  register('POST', '/api/v2/companies/create/');
+  register('POST', '/api/v2/companies/migrate/:companyId/realm0/');
+  register('POST', '/api/v2/companies/switch/:companyId/');
 }
-
 registerAuthRoutes(globalRouteRegistry);

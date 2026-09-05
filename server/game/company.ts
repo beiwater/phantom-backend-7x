@@ -1,7 +1,7 @@
 import { db, seedDefaultDisplayCase } from '../db/database.ts';
 import { virtualClock } from '../core/virtual-clock.ts';
-import { CONFIG } from '../config.ts';
-import { computeLevelInfo, getXpRequiredForLevel } from '../domain/leveling/level-rules.ts';
+import { CONFIG, getInitialCompanySettings } from '../config.ts';
+import { computeLevelInfo, getXpRequiredForLevel, getTierForLevel } from '../domain/leveling/level-rules.ts';
 import { executiveRepository } from '../repositories/executive-repository.ts';
 import { getCompanyBoostSettings, getExchangedToday } from './simboost-settings.ts';
 import { recordCashLedger, refreshDailyFinanceSnapshot } from './cash-ledger.ts';
@@ -76,60 +76,11 @@ export function updateCompanySimBoosts(companyId: number, delta: number): number
 }
 
 export function createCompanyForPlayer(playerId: number, name: string, realmId: number = 0) {
-  const companyId = Math.floor(4000000 + Math.random() * 6000000);
-  const now = virtualClock.nowIso();
-  const initialMoney = CONFIG.INITIAL_MONEY || 100000;
-  const initialSimboosts = CONFIG.INITIAL_SIMBOOSTS || 250;
-  const initialLevel = typeof CONFIG.INITIAL_LEVEL === 'number' ? CONFIG.INITIAL_LEVEL : 0;
-  db.exec('BEGIN IMMEDIATE');
-  try {
-
-  db.prepare(`
-    INSERT INTO companies (company_id, player_id, name, money, simboosts, level, rating, experience, realm_id, logo, personal_assistant, note, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, 'BBB', 0, ?, '', 'old', 'Private Server Company', ?)
-  `).run(companyId, playerId, name, initialMoney, initialSimboosts, initialLevel, realmId, now);
-  seedDefaultDisplayCase(companyId);
-  executiveRepository.seedDefaults(companyId);
-
-  // Seed default Farm and Grocery store
-  db.prepare(`
-    INSERT INTO buildings (company_id, position, kind, size, name, cost, category, created_at)
-    VALUES (?, '0', 'P', 1, 'Farm', 6900, 'production', ?)
-  `).run(companyId, now);
-
-  db.prepare(`
-    INSERT INTO buildings (company_id, position, kind, size, name, cost, category, created_at)
-    VALUES (?, '1', 'G', 1, 'Grocery store', 10350, 'sales', ?)
-  `).run(companyId, now);
-
-  // Seed generous initial warehouse stock including construction materials
-  const seedStock = [
-    { kind: 1, amount: 20000 },   // Power
-    { kind: 2, amount: 20000 },   // Water
-    { kind: 66, amount: 10000 },  // Seeds
-    { kind: 13, amount: 20000 },  // Transport
-    { kind: 3, amount: 5000 },    // Apples
-    { kind: 4, amount: 5000 },    // Oranges
-    { kind: 119, amount: 5000 },  // Coffee
-    { kind: 101, amount: 5000 },  // Planks
-    { kind: 102, amount: 5000 },  // Bricks
-    { kind: 108, amount: 5000 },  // Reinforced concrete
-    { kind: 111, amount: 5000 }   // Construction units
-  ];
-
-  for (const s of seedStock) {
-    db.prepare(`
-      INSERT INTO warehouse (company_id, kind, quality, amount, cost_workers, cost_admin, cost_material1, cost_material2, cost_market, updated_at)
-      VALUES (?, ?, 0, ?, 0, 0, 0, 0, 1.0, ?)
-    `).run(companyId, s.kind, s.amount, now);
-  }
-    db.exec('COMMIT');
-    return getCompanyById(companyId);
-  } catch (err) {
-    db.exec('ROLLBACK');
-    throw err;
-  }
-  return comp;
+  // Issue #179: single authoritative implementation lives in
+  // CompanyRepository.createCompany — this wrapper keeps the game-layer
+  // call signature for legacy callers.
+  const entity = companyRepository.createCompany(playerId, name, realmId);
+  return getCompanyById(entity.companyId);
 }
 
 export function addCompanyExperience(companyId: number, xpGain: number) {
@@ -411,7 +362,8 @@ export function getAuthData(playerId?: number | null, targetCompanyId?: number |
         theme: 'light'
       },
       encKey: "private-server-local-key",
-      courses: []
+      courses: [],
+      companies: []
     };
   }
 
@@ -469,7 +421,8 @@ export function getAuthData(playerId?: number | null, targetCompanyId?: number |
       soundEnabled: false,
       buildingAnimationsEnabled: false,
       autoDisableAnimations: true,
-      source: ""
+      source: "",
+      companies: playerId ? getPlayerCompanies(playerId) : []
     },
     authCompany: {
       id: company.company_id,
@@ -529,7 +482,8 @@ export function getAuthData(playerId?: number | null, targetCompanyId?: number |
       theme: player.theme || 'light'
     },
     encKey: "private-server-local-key",
-    courses: []
+    courses: [],
+    companies: getPlayerCompanies(player.player_id)
   };
 }
 
