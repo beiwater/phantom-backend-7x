@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { CONFIG } from './config.ts';
 import { serveOrFetchAsset } from './proxy/asset-fetcher.ts';
+import { getFrontendVersion, renderFrontendHtml } from './proxy/asset-version.ts';
 import { sendJson } from './routes/utils.ts';
 import { extractSessionToken, getSession, buildSessionCookie } from './auth/session.ts';
 import { globalRouteRegistry } from './http/route-registry.ts';
@@ -137,7 +138,24 @@ export async function handleRequest(req: IncomingMessage, res: ServerResponse) {
     }
     return;
   }
-  // Health endpoints self-register in the declarative registry.
+  // The frontend version endpoint is intentionally unauthenticated and
+  // read-only. Keep it ahead of session resolution and the generic API 404.
+  if (pathname === '/api/frontend-version/') {
+    if (method !== 'GET') {
+      sendJson(res, {
+        error: 'Method not allowed',
+        code: 'METHOD_NOT_ALLOWED',
+        method,
+        path: pathname
+      }, 405, { Allow: 'GET' });
+      return;
+    }
+    sendJson(res, getFrontendVersion(), 200, {
+      'Cache-Control': 'no-store',
+      'X-Content-Type-Options': 'nosniff'
+    });
+    return;
+  }
 
   // System version and time endpoints
   if (pathname === '/version/' && method === 'GET') {
@@ -192,7 +210,8 @@ export async function handleRequest(req: IncomingMessage, res: ServerResponse) {
   }
   const htmlPath = path.join(CONFIG.HTML_DIR, 'index.html');
   if (fs.existsSync(htmlPath)) {
-    const htmlContent = fs.readFileSync(htmlPath, 'utf-8');
+    const htmlTemplate = fs.readFileSync(htmlPath, 'utf-8');
+    const htmlContent = renderFrontendHtml(htmlTemplate, getFrontendVersion().version);
     const setCookieHeaders = (session && sessionToken) ? [
       buildSessionCookie(sessionToken),
       'django_language=zh-cn; Path=/; SameSite=Lax'

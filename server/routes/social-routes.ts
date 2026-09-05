@@ -46,6 +46,7 @@ export const DEFAULT_CHATROOMS: Array<ChatroomSubscriptionEntry> = [
 
 export const CHATROOM_PRESETS: Record<string, Array<ChatroomSubscriptionEntry>> = {
   default: DEFAULT_CHATROOMS,
+  single: DEFAULT_CHATROOMS.filter(room => room.name === 'Game'),
   minimal: [
     { name: 'Game', language: 'en', category: 'game', image: '/chat-icon/005F73/game.png', db_letter: 'G', realmsShared: true, protectedForCountry: null, show_rules: true, unread: 0 },
     { name: 'Help', language: 'en', category: 'help', image: '/chat-icon/005F73/help.png', db_letter: 'H', realmsShared: true, protectedForCountry: null, show_rules: true, unread: 0 },
@@ -82,7 +83,8 @@ export function getConfiguredChatrooms(): Array<ChatroomSubscriptionEntry> {
     return DEFAULT_CHATROOMS.slice(0, envCount);
   }
 
-  return DEFAULT_CHATROOMS;
+  // Keep the fresh-start fallback usable: Supporters is intentionally not subscribed.
+  return CHATROOM_PRESETS.single;
 }
 
 export function setConfiguredChatrooms(options: {
@@ -97,7 +99,7 @@ export function setConfiguredChatrooms(options: {
     return { success: true, count: chatrooms.length, chatrooms };
   }
 
-  let finalRooms: Array<ChatroomSubscriptionEntry> = DEFAULT_CHATROOMS;
+  let finalRooms: Array<ChatroomSubscriptionEntry> = CHATROOM_PRESETS.single;
 
   if (Array.isArray(options.rooms) && options.rooms.length > 0) {
     finalRooms = options.rooms;

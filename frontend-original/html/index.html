@@ -681,20 +681,184 @@
 
 
   <script>
-    window.addEventListener('load', function () {
-      var worker = navigator.serviceWorker && navigator.serviceWorker.controller;
-      console.info('[SimCompanies 启动诊断]', JSON.stringify({
-        diagnosticVersion: '2026-09-05-cache-policy-1',
-        origin: window.location.origin,
-        pathname: window.location.pathname,
-        loadedAt: new Date().toISOString(),
-        scripts: Array.from(document.scripts)
-          .filter(function (script) { return Boolean(script.src); })
-          .map(function (script) { return script.src; }),
-        serviceWorkerController: worker ? worker.scriptURL : null,
-        note: '此标识仅代表页面诊断版本，不是主脚本内容哈希或后端版本。'
-      }, null, 2));
-    }, { once: true });
+    window.__simCompaniesFrontendVersion = '__SIMCOMPANIES_FRONTEND_VERSION__';
+    (function installFrontendVersionCheck() {
+      'use strict';
+
+      var loadedPageBaseline = window.__simCompaniesFrontendVersion;
+      var validVersionPattern = /^[a-f0-9]{64}$/i;
+      var endpoint = '/api/frontend-version/';
+      var reloadGuardKey = 'simcompanies.frontend-version.reload';
+      var reloadGuardWindowMs = 60000;
+      var latestVersion = null;
+      var lastCheck = null;
+      var checkInFlight = null;
+      var lastCheckAt = 0;
+      var loadedAt = new Date().toISOString();
+
+      if (!validVersionPattern.test(loadedPageBaseline || '')) {
+        loadedPageBaseline = null;
+      }
+
+      function diagnosticPayload() {
+        var worker = navigator.serviceWorker && navigator.serviceWorker.controller;
+        return {
+          loadedPageBaseline: loadedPageBaseline,
+          latestCheckedVersion: latestVersion,
+          latestCheck: lastCheck,
+          origin: window.location.origin,
+          pathname: window.location.pathname,
+          loadedAt: loadedAt,
+          scripts: Array.from(document.scripts)
+            .filter(function (script) { return Boolean(script.src); })
+            .map(function (script) { return script.src; }),
+          serviceWorkerController: worker ? worker.scriptURL : null,
+          note: '版本值是本地资源变更检测用的 SHA-256，不是服务器真实性或安全性证明。'
+        };
+      }
+
+      function logStartupDiagnostic() {
+        console.info('[SimCompanies 启动诊断]', JSON.stringify(diagnosticPayload(), null, 2));
+      }
+
+      function logVersionCheck(reason) {
+        console.info('[SimCompanies 版本检查]', JSON.stringify({
+          reason: reason,
+          loadedPageBaseline: loadedPageBaseline,
+          latestCheckedVersion: latestVersion,
+          latestCheck: lastCheck
+        }, null, 2));
+      }
+
+      function hasFocusedEditor() {
+        var active = document.activeElement;
+        if (!active || !active.tagName) return false;
+        var tagName = active.tagName.toLowerCase();
+        return tagName === 'input' ||
+          tagName === 'textarea' ||
+          tagName === 'select' ||
+          active.isContentEditable === true;
+      }
+
+      function readReloadGuard() {
+        try {
+          var raw = window.sessionStorage.getItem(reloadGuardKey);
+          return raw ? JSON.parse(raw) : null;
+        } catch (error) {
+          console.warn('[SimCompanies 版本检查] 无法读取刷新保护标记。', error);
+          return null;
+        }
+      }
+
+      function clearCompletedReloadGuard() {
+        var guard = readReloadGuard();
+        if (guard && guard.target === loadedPageBaseline) {
+          try {
+            window.sessionStorage.removeItem(reloadGuardKey);
+          } catch (error) {
+            console.warn('[SimCompanies 版本检查] 无法清理刷新保护标记。', error);
+          }
+        }
+      }
+
+      function recordReloadAttempt(targetVersion) {
+        var now = Date.now();
+        var guard = readReloadGuard();
+        if (guard && guard.source === loadedPageBaseline && guard.target === targetVersion) {
+          return false;
+        }
+        if (guard && typeof guard.at === 'number' && now - guard.at < reloadGuardWindowMs) {
+          return false;
+        }
+        try {
+          window.sessionStorage.setItem(reloadGuardKey, JSON.stringify({
+            at: now,
+            source: loadedPageBaseline,
+            target: targetVersion
+          }));
+          return true;
+        } catch (error) {
+          console.warn('[SimCompanies 版本检查] 无法写入刷新保护标记，跳过自动刷新。', error);
+          return false;
+        }
+      }
+
+      function reloadForVersion(targetVersion) {
+        if (hasFocusedEditor()) {
+          console.warn('[SimCompanies 版本检查] 检测到正在编辑的表单，暂不刷新页面。');
+          return;
+        }
+        if (!recordReloadAttempt(targetVersion)) {
+          console.warn('[SimCompanies 版本检查] 已跳过重复版本刷新，避免循环。');
+          return;
+        }
+        window.location.reload();
+      }
+
+      function checkLatestVersion(reason) {
+        if (checkInFlight) return checkInFlight;
+        if (reason !== 'startup' && Date.now() - lastCheckAt < 1000) {
+          return Promise.resolve();
+        }
+
+        lastCheckAt = Date.now();
+        checkInFlight = Promise.resolve().then(function () {
+          return fetch(endpoint, {
+            cache: 'no-store',
+            credentials: 'same-origin',
+            headers: { Accept: 'application/json' }
+          });
+        }).then(function (response) {
+          if (!response.ok) {
+            throw new Error('version endpoint returned HTTP ' + response.status);
+          }
+          return response.json();
+        }).then(function (payload) {
+          var candidate = payload && (
+            typeof payload.version === 'string' ? payload.version : payload.sha256
+          );
+          if (!validVersionPattern.test(candidate || '')) {
+            throw new Error('version endpoint returned an invalid SHA-256 token');
+          }
+          latestVersion = candidate;
+          lastCheck = {
+            status: 'ok',
+            checkedAt: new Date().toISOString(),
+            version: candidate
+          };
+          if (loadedPageBaseline && candidate !== loadedPageBaseline) {
+            reloadForVersion(candidate);
+          } else if (loadedPageBaseline) {
+            clearCompletedReloadGuard();
+          }
+          logVersionCheck(reason);
+        }).catch(function (error) {
+          lastCheck = {
+            status: 'error',
+            checkedAt: new Date().toISOString(),
+            error: String(error && error.message ? error.message : error)
+          };
+          console.warn('[SimCompanies 版本检查] 检查失败，继续使用当前页面。', error);
+          logVersionCheck(reason);
+        }).then(function () {
+          checkInFlight = null;
+        });
+        return checkInFlight;
+      }
+
+      window.addEventListener('load', logStartupDiagnostic, { once: true });
+      window.addEventListener('pageshow', function () {
+        if (document.visibilityState !== 'hidden') {
+          checkLatestVersion('pageshow');
+        }
+      });
+      document.addEventListener('visibilitychange', function () {
+        if (document.visibilityState === 'visible') {
+          checkLatestVersion('visible');
+        }
+      });
+      checkLatestVersion('startup');
+    })();
   </script>
   <script src="/static/js/realm-company-switch.js?v=3" defer></script>
   </body>

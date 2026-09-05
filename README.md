@@ -1,229 +1,62 @@
-> [!IMPORTANT]
-> ## AI AGENT BOOTSTRAP — COMPLETE THIS BEFORE REPOSITORY WORK
->
-> If you are an AI coding agent, this block is an operational repository instruction, not optional documentation. Before searching the repository, reading implementation files, modifying code, running tests, reviewing changes, or proposing implementation details:
->
-> 1. Read and follow [`AGENTS.md`](./AGENTS.md).
-> 2. Read [`.codex/README.md`](./.codex/README.md) completely.
-> 3. Load every task-relevant `.codex/skills/*/SKILL.md` file before implementation.
-> 4. For any debugging, bug fixing, investigation, or code-change task, load `.codex/skills/evidence-first-investigation/SKILL.md` by default.
-> 5. Only then begin targeted repository inspection, implementation, or testing.
->
-> Do **not** start by reading the whole repository or enumerating directories to understand the architecture. Do **not** bypass the skill bootstrap because the task appears simple. If the required instruction files cannot be read, report the blockage instead of silently inventing a replacement workflow. Higher-priority platform/system/developer/user instructions remain controlling.
+# SimCompanies Private Server
 
-# SimCompanies Private Server (phantom-backend-7x)
+这是一个面向本机运行的 SimCompanies 私有服务器：使用仓库内的原版前端连接本地后端，便于离线体验、开发和兼容性重建。项目仍在持续重建中，个别功能可能尚未完整，不把本 README 视为“所有已知问题均已解决”的保证。
 
-A compatibility / protocol re-implementation server for the original SimCompanies
-frontend. The goal is not merely returning HTTP 200 — the bundled original
-frontend must be genuinely playable against this backend: observable behaviors,
-state machines, response schemas, economic constraints, and persistence semantics
-must match the official server.
+## 快速开始
 
-## Quick Start
+### 环境要求
+
+- Node.js：`start.command` 会检查 22.12 或更新版本；服务器需要支持 `node --experimental-strip-types` 和内置 `node:sqlite`。
+- npm：`start.command` 会检查 7 或更新版本，用于首次启动时按锁文件安装 `package.json` 中的依赖。
+- 能访问本机地址的现代浏览器。
+
+### 安装并启动
+
+在仓库根目录执行：
 
 ```bash
-# Start the server (Node 22+, type stripping enabled)
-PORT=3100 node --experimental-strip-types server/index.ts
-
-# Open the game
-# http://127.0.0.1:3100/zh-cn/
+./start.command
 ```
 
-Environment flags:
+在 macOS 中也可以双击 `start.command`。脚本会以脚本所在目录为项目目录；依赖缺失时，存在 `package-lock.json` 就使用 `npm ci`，否则使用 `npm install`。服务器以前台进程运行，启动后打开：
 
-| Variable | Default | Purpose |
+<http://127.0.0.1:3100/zh-cn/>
+
+首次启动或前端版本刚更新后，如果浏览器仍显示旧页面，按提示手动刷新一次即可。不要在表单编辑过程中反复刷新。
+
+`HOST`、`PORT` 可由 shell 或 `.env` 显式指定；没有显式值时脚本使用 `127.0.0.1:3100`。修改端口后，请使用对应地址访问。
+
+## `start.command` 默认游戏预设
+
+每次运行脚本都会在该次服务器进程中强制提供以下游玩预设；脚本不会为了套用预设而改写 `.env`：
+
+| 项目 | 进程环境值 | 说明 |
 | --- | --- | --- |
-| `PORT` | `3000` | HTTP listen port |
-| `DATA_DIR` | `./data` | SQLite database directory |
-| `SPEED_MULTIPLIER` | `1` | Game time acceleration (dev/test) |
-| `PAYMENTS_DISABLED` | unset | `1` makes all payment routes answer `501` with zero state change |
-| `COOKIE_SECURE` | unset | `1` adds `Secure` to session cookies (HTTPS deployments) |
-| `INITIAL_LEVEL` | `0` | Initial company level for new registrations |
-| `ADMIN_PASSWORD` | random | Admin bootstrap password (generated & logged when absent) |
+| Realm 阶段 | `REALM_PHASE_PRESET=full` | 全部阶段开放 |
+| 游戏速度 | `SPEED_MULTIPLIER=1.0` | `1x` |
+| 建造速度 | `CONSTRUCTION_SPEED_MULTIPLIER=1.0` | 不额外加速 |
+| 建造与升级时间 | `CONSTRUCTION_TIME_MODE=realistic` | 按真实建造时长 |
+| 市场价格 | `MARKET_PRICING_MODE=realistic` | 项目现有正常定价模式（realistic） |
+| 聊天室 | `CHATROOM_PRESET=single` | 仅 `Game` 房间（single Game） |
+| 新公司 SimBoosts | `INITIAL_SIMBOOSTS=50` | 仅新建公司 |
+| 新公司现金 | `INITIAL_MONEY=100000` | `$100000`，仅新建公司 |
 
-## Architecture
+最后两项是**新建公司**的初始现金和 SimBoosts，不是现有公司的重置，也不是公司的总资产估值。现有账户、公司余额、仓库、建筑和其他数据都会保留。
 
-Layered design (Issue #68) — Compatibility → Application → Domain → Repository:
+## 数据、安全停止与重启
 
-```
-frontend-original/          Bundled original frontend (compatibility target)
-server/
-  router.ts                 Request entry; legacy handler dispatch chain
-  http/route-registry.ts    Declarative route registry (strangler-fig migration)
-  routes/                   HTTP handlers (compatibility DTO assembly)
-  application/              Use cases (production, buildings, retail …)
-  domain/                   Pure business rules (leveling, research, realms)
-  game/                     Core game logic / repositories (market, warehouse …)
-  game-data/                Canonical decompiled data tables
-  db/                       SQLite connection, migrations, seed
-  auth/                     Session lifecycle, password hashing
-tests/                      Layered regression suites (unit + API + E2E)
-scripts/                    Ops helpers (test gates, browser discovery …)
-```
+- 默认数据目录是仓库根目录下的 `data/`；请备份该目录后再进行迁移或实验。
+- `.env` 是本地配置文件，包含密码、会话或管理员设置时不要提交、分享或写入截图。可参考 `.env.example`，但请替换其中的敏感值。
+- 服务器运行在前台时使用 `Ctrl-C` 停止。脚本和服务器会执行正常关闭流程并写回 SQLite；看到进程退出后再重新执行 `./start.command`。不要为释放端口而批量终止其他进程，也不要用强制终止代替正常停止。
+- 重启不会删除数据库；登录原有账户即可继续原来的公司。初始值只在创建新公司时读取。
 
-Core economic mutations (money, inventory, production, market orders, retail,
-bonds, contracts, SimBoost spend) are synchronous, authoritative, and wrapped in
-SQLite transactions. The event bus only carries after-commit side effects
-(achievements, notifications, statistics, WebSocket projections).
+## 浏览器与当前服务器的 SHA 更新
 
-## Testing
+浏览器可通过同源的 `/api/frontend-version/` 获取当前服务器前端的 SHA-256 版本标识；检测到版本标识变化时，页面会在合适的时机刷新一次，以避免继续使用旧资源。当前校验范围包括 HTML 入口、转换后的主 JS、bundle/CACHE5 CSS、浏览器翻译脚本、realm/company 切换适配器、中英文语言 JSON 和 `manifest.json`。
 
-```bash
-npm test          # layered gate: unit + API suites, then Playwright E2E
-npm run test:unit # fast backend suites only
-npm run test:api  # API/REST contract suites only
-npm run e2e       # Playwright browser tests
-```
+这个机制只把入口所绑定的前端版本与服务器当前版本进行对比，并在合法版本标识不同时按条件刷新；它不是浏览器逐文件验签，不是从 GitHub、官方服务器或其他远端拉取代码，也不会修复后端 API、游戏逻辑或数据库中的问题。未列入上述范围的资源、已有业务数据及正在编辑的表单不因 SHA 变化而自动迁移；若页面正在编辑重点表单，先保存或取消编辑再刷新。SHA 不是签名，不能保证资源来源真实性；版本接口失败时只记录警告，不会替用户下载远端内容。
 
-Each `tests/verify-issue-*.test.ts` file defends one GitHub issue's contract and
-is runnable standalone (`node --experimental-strip-types tests/verify-issue-N-…test.ts`);
-most spawn an isolated server on a dedicated port with their own `DATA_DIR`.
+## 旧版文档
 
-## Issue Workflow
+- [旧版 README（原文存档）](docs/archive/README.previous.md)
 
-GitHub Issues are the long-lived work orders. Each fix lands with:
-
-1. Reproduction against the real frontend behavior (not just API shapes).
-2. A regression suite in `tests/` named after the issue.
-3. Independent verification, then a small focused commit referencing the issue.
-
-Continuous exploratory E2E and the AI debug workflow are described in
-Issue #57 and the `.omp/` project workflow configuration.
-
-## Compatibility Notes
-
-- The original frontend is the compatibility target; the backend never patches
-  `frontend-original/` to tolerate broken contracts. Legacy fields
-  (`moneyUpdate`, `dbLetter`, v1/v2 aliases) are confined to compatibility DTO
-  builders under `server/compatibility/` / route handlers.
-- Unknown API routes answer `404 { code: 'API_NOT_FOUND' }`; wrong methods
-  answer `405` with `Allow` headers. We never fake `200 []` for unimplemented
-  endpoints.
-- Decompile reference data lives in `server/data/decompile/` and
-  `server/game-data/` and is the canonical source for formulas.
-
-## Virtual Time
-
-- Time-gated business logic reads `server/core/virtual-clock.ts`; production,
-  construction, launches, retail, contracts, restaurants, auctions, and
-  government orders therefore observe the same virtual timestamp as
-  `/api/v2/time-millis/`.
-- The offset is process-wide and intentionally shared by all realms served by
-  that process. Separate service instances have separate offsets; target the
-  intended instance with `TIME_WARP_URL` (or `BASE_URL`).
-- `scripts/dev-tool.ts warp` calls the running instance's
-  `POST /api/v2/debug/time-warp/`; it never mutates a different process's
-  in-memory clock. A restart resets the offset unless `CLOCK_OFFSET_MS` is
-  supplied during startup.
-- The landscape/map layout is static data. It does not change after a time
-  warp; completion, queue, deadline, and settlement APIs are the authoritative
-  observable state.
-
-
-## API Endpoints
-
-All core REST endpoints implemented across compatibility route handlers:
-
-### Authentication & Profile (`/api/v1/auth/`, `/api/v2/auth/`, `/api/v1/companies/`)
-- `POST /api/v2/auth/email/connect/` — Register / login with email & password
-- `POST /api/v2/auth/logout/` — End current session
-- `GET /api/v1/auth/user/` — Current logged-in user profile & state
-- `GET /api/v1/companies/me/` — Active company profile, level, money, simboosts
-- `PATCH /api/v1/companies/me/` — Update company settings, notes, theme
-
-### Buildings & Production (`/api/v1/buildings/`, `/api/v2/order/`)
-- `GET /api/v1/buildings/` — List all company buildings
-- `POST /api/v1/buildings/` — Construct new building
-- `POST /api/v1/buildings/:id/upgrade/` — Upgrade existing building
-- `POST /api/v1/buildings/:id/demolish/` — Demolish building
-- `POST /api/v2/order/start/` — Start production queue
-- `POST /api/v2/order/cancel/:id/` — Cancel queued production
-- `POST /api/v2/order/take/:id/` — Collect finished goods into warehouse
-- `POST /api/v2/order/rush/:id/` — Rush production using SimBoosts
-
-### Warehouse & Inventory (`/api/v1/warehouse/`)
-- `GET /api/v1/warehouse/` — Query inventory resources and quantities
-- `GET /api/v1/warehouse/:id/` — Detail for specific inventory slot
-
-### Market & Exchange (`/api/v1/market/`, `/api/v2/market/`, `/api/v3/market/`)
-- `GET /api/v3/market/:realm/:resource/` — Market listings for a given resource kind
-- `POST /api/v2/market/orders/` — Post market sell order
-- `POST /api/v2/market/buy/` — Buy order fulfillment
-- `DELETE /api/v2/market/orders/:id/` — Cancel active market order
-
-### Contracts (`/api/v1/contracts/`, `/api/v2/contracts/`)
-- `GET /api/v1/contracts/` — List incoming & outgoing contracts
-- `POST /api/v1/contracts/` — Send contract to another company
-- `POST /api/v1/contracts/:id/accept/` — Accept contract
-- `POST /api/v1/contracts/:id/reject/` — Reject/cancel contract
-
-### Bonds & Banking (`/api/v1/bonds/`)
-- `GET /api/v1/bonds/` — List company bonds & market bonds
-- `POST /api/v1/bonds/issue/` — Issue new bonds
-- `POST /api/v1/bonds/:id/buy/` — Buy bonds from exchange
-- `POST /api/v1/bonds/:id/call/` — Call (repay) issued bonds
-
-### Executives & Board (`/api/v1/executives/`)
-- `GET /api/v1/executives/` — List company executives
-- `POST /api/v1/executives/hire/` — Hire new executive candidate
-- `POST /api/v1/executives/:id/assign/` — Assign executive to position (COO, CFO, CMO, CTO)
-- `POST /api/v1/executives/:id/train/` — Train executive skill
-- `DELETE /api/v1/executives/:id/` — Fire executive
-
-### Research & Patents (`/api/v1/research/`)
-- `GET /api/v1/research/` — Query company research disciplines and patent levels
-- `POST /api/v1/research/apply/` — Apply research points to unlock patent tier
-
-### Achievements & Rewards (`/api/v1/achievements/`)
-- `GET /api/v1/achievements/` — List player achievement progression
-- `POST /api/v1/achievements/:id/claim/` — Claim unlocked achievement rewards
-
-### Social, Newspaper & Chat (`/api/v1/social/`, `/api/v1/newspaper/`, `/api/v1/chat/`)
-- `GET /api/v1/newspaper/:realm/latest/` — Latest newspaper issue and articles
-- `GET /api/v1/chat/messages/` — Query chat history for channel
-- `POST /api/v1/chat/messages/` — Send chat message
-
-## Cookies and Session Management
-
-The test suite includes session cookie helpers:
-
-```bash
-# Save/verify session cookie
-npm run test:cookie
-```
-
-Session tokens are stored in `tests/cookies.json` as:
-```json
-[
-  {
-    "name": "sessionid",
-    "value": "<session_token>",
-    "domain": "127.0.0.1",
-    "path": "/"
-  }
-]
-```
-Browser E2E scripts load this cookie to bypass the login screen and resume active player sessions directly.
-
-## Database Structure
-
-Core SQLite tables (`simcompanies.sqlite`):
-
-| Table | Key Fields | Description |
-| --- | --- | --- |
-| `players` | `id`, `player_id`, `email`, `password_hash`, `is_admin` | Player accounts and credentials |
-| `sessions` | `session_token`, `player_id`, `active_company_id`, `expires_at` | Active authentication sessions |
-| `companies` | `company_id`, `player_id`, `name`, `money`, `simboosts`, `level` | Company profiles and economic state |
-| `buildings` | `id`, `company_id`, `position`, `kind`, `size`, `busy_until` | Physical buildings constructed on map |
-| `production_queues` | `id`, `building_id`, `company_id`, `kind`, `cost`, `amount`, `finishes_at` | In-flight and completed production |
-| `retail_orders` | `id`, `building_id`, `company_id`, `resource_kind`, `units`, `unit_price` | Active retail sales queues |
-| `warehouse` | `id`, `company_id`, `kind`, `quality`, `amount`, `cost_workers` | Company resource inventories |
-| `market_orders` | `id`, `seller_id`, `kind`, `quality`, `quantity`, `price`, `active` | Active and fulfilled market listings |
-| `contracts` | `id`, `sender_company_id`, `recipient_company_id`, `kind`, `amount`, `price`, `status` | Direct B2B contracts |
-| `bonds` | `id`, `seller_company_id`, `buyer_company_id`, `amount`, `interest_rate`, `status` | Financial bonds and liabilities |
-| `executives` | `id`, `company_id`, `name`, `position`, `skill_management`, `salary`, `status` | Hired company management team |
-| `research` | `id`, `company_id`, `discipline`, `points`, `patents` | Research investment and quality levels |
-
-## License
-
-MIT License. Free and open source for private, educational, and self-hosted compatibility use.
