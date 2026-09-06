@@ -14,6 +14,7 @@ export interface ExecutiveRow {
   company_id: number | null;
   name: string;
   avatar: string | null;
+  gender?: string | null;
   position: string | null;
   skill_management: number;
   skill_accounting: number;
@@ -28,21 +29,53 @@ export interface ExecutiveRow {
   created_at: string | null;
 }
 
+export interface ExecutiveEmployer {
+  id: number;
+  company: string;
+  logo: string;
+  realmId: number;
+}
+
+export interface ExecutiveEmploymentHistoryRow {
+  id: number;
+  executive_id: number;
+  company_id: number;
+  position: string;
+  started_at: string;
+  ended_at: string | null;
+  accelerated: number;
+  created_at: string;
+  employer_id: number | null;
+  employer_name: string | null;
+  employer_logo: string | null;
+  employer_realm_id: number | null;
+}
+
+export interface ExecutiveNoteRow {
+  id: number;
+  company_id: number;
+  executive_id: number;
+  note: string;
+  datetime: string;
+}
+
 export interface ExecutiveTrainingRow {
   id: number;
   executive_id: number;
   company_id: number;
   datetime: string;
+  training: string | null;
   accelerated: number;
   skills_applied: number;
+  covered: number;
   created_at: string;
 }
 
 export interface ExecutiveOfferRow {
   id: number;
   poacher_company_id: number;
-  target_company_id: number;
-  target_executive_id: number;
+  target_company_id: number | null;
+  target_executive_id: number | null;
   slot_position: string | null;
   skill_position: string | null;
   agency: number;
@@ -54,8 +87,25 @@ export interface ExecutiveOfferRow {
   research_poacher: string | null;
   research_employer: string | null;
   extended_at: string | null;
+  age_range: string | null;
+  has_trainings: number;
+  only_unemployed: number;
+  search_until: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface ExecutiveFormerRow extends ExecutiveRow {
+  history_id: number;
+  history_company_id: number;
+  history_position: string;
+  history_started_at: string;
+  history_ended_at: string;
+  history_accelerated: number;
+  employer_id: number | null;
+  employer_name: string | null;
+  employer_logo: string | null;
+  employer_realm_id: number | null;
 }
 
 // --- Executives --------------------------------------------------------------
@@ -64,7 +114,7 @@ export const executiveRepository = {
   listByCompany(companyId: number): ExecutiveRow[] {
     return db.prepare(`
       SELECT * FROM executives
-      WHERE company_id = ? AND status != 'candidate'
+      WHERE company_id = ? AND status = 'employed'
       ORDER BY id ASC
     `).all(companyId) as unknown as ExecutiveRow[];
   },
@@ -108,8 +158,51 @@ export const executiveRepository = {
     return updated.changes;
   },
 
-  deleteEmployed(executiveId: number, companyId: number): number {
-    return db.prepare("DELETE FROM executives WHERE id = ? AND company_id = ? AND status = 'employed'").run(executiveId, companyId).changes;
+  beginEmploymentHistory(
+    executiveId: number,
+    companyId: number,
+    position: string,
+    startedAt: string,
+    accelerated = 0
+  ): ExecutiveEmploymentHistoryRow {
+    const inserted = db.prepare(`
+      INSERT OR IGNORE INTO executive_employment_history
+        (executive_id, company_id, position, started_at, ended_at, accelerated, created_at)
+      VALUES (?, ?, ?, ?, NULL, ?, ?)
+    `).run(executiveId, companyId, position || 'unassigned', startedAt, accelerated ? 1 : 0, startedAt);
+    return db.prepare(`
+      SELECT h.*, c.company_id AS employer_id, c.name AS employer_name,
+             c.logo AS employer_logo, c.realm_id AS employer_realm_id
+      FROM executive_employment_history h
+      LEFT JOIN companies c ON c.company_id = h.company_id
+      WHERE h.id = (
+        SELECT id FROM executive_employment_history
+        WHERE executive_id = ? AND company_id = ? AND started_at = ?
+        ORDER BY id DESC LIMIT 1
+      )
+    `).get(executiveId, companyId, startedAt) as unknown as ExecutiveEmploymentHistoryRow;
+  },
+
+  closeEmploymentHistory(executiveId: number, companyId: number, endedAt: string): number {
+    return db.prepare(`
+      UPDATE executive_employment_history
+      SET ended_at = ?
+      WHERE executive_id = ? AND company_id = ? AND ended_at IS NULL
+    `).run(endedAt, executiveId, companyId).changes;
+  },
+
+  markFormer(executiveId: number, companyId: number, endedAt: string): number {
+    // The legacy executives table declares company_id NOT NULL. Retain the
+    // historical owner on the row and let status/history remove active access.
+    const updated = db.prepare(`
+      UPDATE executives
+      SET status = 'former', position = 'unassigned'
+      WHERE id = ? AND company_id = ? AND status = 'employed'
+    `).run(executiveId, companyId);
+    if (updated.changes === 1) {
+      this.closeEmploymentHistory(executiveId, companyId, endedAt);
+    }
+    return updated.changes;
   },
 
   assignPosition(executiveId: number, companyId: number, position: string): number {
@@ -126,6 +219,11 @@ export const executiveRepository = {
 
   markWorkHistoryAccelerated(executiveId: number): void {
     db.prepare('UPDATE executives SET work_history_accelerated = 1 WHERE id = ?').run(executiveId);
+    db.prepare(`
+      UPDATE executive_employment_history
+      SET accelerated = 1
+      WHERE executive_id = ? AND ended_at IS NULL
+    `).run(executiveId);
   },
 
   updateStrikeUntil(executiveId: number, iso: string | null): void {
@@ -156,13 +254,96 @@ export const executiveRepository = {
     `).run(gain, gain, gain, gain, executiveId, companyId).changes;
   },
 
-  /** Hostile-offer accept: transfer the executive to the poacher company. */
-  transferToCompany(executiveId: number, poacherCompanyId: number, salary: number): void {
-    db.prepare("UPDATE executives SET company_id = ?, salary = ?, position = 'unassigned', status = 'employed' WHERE id = ?").run(
-      poacherCompanyId,
-      salary,
-      executiveId
-    );
+  /** Hostile-offer accept: transfer the executive and employment history. */
+  transferToCompany(
+    executiveId: number,
+    poacherCompanyId: number,
+    salary: number,
+    startedAt = virtualClock.nowIso(),
+    position = 'unassigned'
+  ): void {
+    const existing = db.prepare('SELECT company_id FROM executives WHERE id = ?').get(executiveId) as { company_id: number | null } | undefined;
+    if (!existing) throw new Error('Executive not found');
+    if (existing.company_id !== null) {
+      this.closeEmploymentHistory(executiveId, existing.company_id, startedAt);
+    }
+    const updated = db.prepare(`
+      UPDATE executives
+      SET company_id = ?, salary = ?, position = ?, status = 'employed'
+      WHERE id = ?
+    `).run(poacherCompanyId, salary, position, executiveId);
+    if (updated.changes !== 1) throw new Error('Executive transfer failed');
+    this.beginEmploymentHistory(executiveId, poacherCompanyId, position, startedAt);
+  },
+
+  listEmploymentHistory(executiveId: number): ExecutiveEmploymentHistoryRow[] {
+    return db.prepare(`
+      SELECT h.*, c.company_id AS employer_id, c.name AS employer_name,
+             c.logo AS employer_logo, c.realm_id AS employer_realm_id
+      FROM executive_employment_history h
+      LEFT JOIN companies c ON c.company_id = h.company_id
+      WHERE h.executive_id = ?
+      ORDER BY datetime(h.started_at) ASC, h.id ASC
+    `).all(executiveId) as unknown as ExecutiveEmploymentHistoryRow[];
+  },
+
+  listFormerByCompany(companyId: number): ExecutiveFormerRow[] {
+    return db.prepare(`
+      SELECT e.*,
+             h.id AS history_id,
+             h.company_id AS history_company_id,
+             h.position AS history_position,
+             h.started_at AS history_started_at,
+             h.ended_at AS history_ended_at,
+             h.accelerated AS history_accelerated,
+             c.company_id AS employer_id,
+             c.name AS employer_name,
+             c.logo AS employer_logo,
+             c.realm_id AS employer_realm_id
+      FROM executive_employment_history h
+      JOIN executives e ON e.id = h.executive_id
+      LEFT JOIN companies c ON c.company_id = h.company_id
+      WHERE h.company_id = ?
+        AND h.ended_at IS NOT NULL
+        AND NOT EXISTS (
+          SELECT 1
+          FROM executive_employment_history active
+          WHERE active.executive_id = h.executive_id
+            AND active.company_id = h.company_id
+            AND active.ended_at IS NULL
+        )
+        AND h.id = (
+          SELECT latest.id
+          FROM executive_employment_history latest
+          WHERE latest.executive_id = h.executive_id
+            AND latest.company_id = h.company_id
+            AND latest.ended_at IS NOT NULL
+          ORDER BY datetime(latest.ended_at) DESC, latest.id DESC
+          LIMIT 1
+        )
+      ORDER BY datetime(h.ended_at) DESC, h.id DESC
+    `).all(companyId) as unknown as ExecutiveFormerRow[];
+  },
+
+  getEmployerSummary(companyId: number): ExecutiveEmployer | null {
+    const row = db.prepare(`
+      SELECT COALESCE(company_id, id) AS id, name AS company, logo, realm_id AS realmId
+      FROM companies
+      WHERE company_id = ? OR id = ?
+      ORDER BY CASE WHEN company_id = ? THEN 0 ELSE 1 END
+      LIMIT 1
+    `).get(companyId, companyId, companyId) as ExecutiveEmployer | undefined;
+    return row || null;
+  },
+
+  getNote(companyId: number, executiveId: number): ExecutiveNoteRow | undefined {
+    return db.prepare(`
+      SELECT n.*
+      FROM executive_notes n
+      JOIN executives e ON e.id = n.executive_id
+      WHERE n.company_id = ? AND n.executive_id = ? AND e.company_id = ?
+      LIMIT 1
+    `).get(companyId, executiveId, companyId) as unknown as ExecutiveNoteRow | undefined;
   },
 
   setSalaryById(executiveId: number, salary: number): void {
@@ -184,6 +365,7 @@ export const executiveRepository = {
       salaryByTier,
       nowIso
     );
+    this.beginEmploymentHistory(Number(insertResult.lastInsertRowid), foreignCompanyId, slotPos, nowIso);
     return db.prepare('SELECT * FROM executives WHERE id = ?').get(insertResult.lastInsertRowid) as unknown as ExecutiveRow;
   },
 
@@ -249,24 +431,31 @@ export const executiveRepository = {
     db.prepare('UPDATE executive_trainings SET skills_applied = 1 WHERE id = ?').run(trainingId);
   },
 
+  markTrainingCovered(trainingId: number): void {
+    db.prepare('UPDATE executive_trainings SET covered = 1 WHERE id = ?').run(trainingId);
+  },
+
   countTrainings(executiveId: number): number {
     const row = db.prepare('SELECT COUNT(*) AS n FROM executive_trainings WHERE executive_id = ?').get(executiveId) as { n: number };
     return row.n;
   },
-  listTrainingsByExecutive(executiveId: number): Array<{ id: number; datetime: string; accelerated: number; skills_applied: number }> {
+
+  listTrainingsByExecutive(executiveId: number): ExecutiveTrainingRow[] {
     return db.prepare(`
-      SELECT id, datetime, accelerated, skills_applied
+      SELECT id, executive_id, company_id, datetime, training, accelerated,
+             skills_applied, covered, created_at
       FROM executive_trainings
       WHERE executive_id = ?
       ORDER BY id ASC
-    `).all(executiveId) as Array<{ id: number; datetime: string; accelerated: number; skills_applied: number }>;
+    `).all(executiveId) as unknown as ExecutiveTrainingRow[];
   },
 
-  insertTraining(executiveId: number, companyId: number, datetimeIso: string): ExecutiveTrainingRow {
+  insertTraining(executiveId: number, companyId: number, datetimeIso: string, training: string): ExecutiveTrainingRow {
     const inserted = db.prepare(`
-      INSERT INTO executive_trainings (executive_id, company_id, datetime, accelerated, skills_applied, created_at)
-      VALUES (?, ?, ?, 0, 0, ?)
-    `).run(executiveId, companyId, datetimeIso, datetimeIso);
+      INSERT INTO executive_trainings
+        (executive_id, company_id, datetime, training, accelerated, skills_applied, covered, created_at)
+      VALUES (?, ?, ?, ?, 0, 0, 0, ?)
+    `).run(executiveId, companyId, datetimeIso, training, datetimeIso);
     return db.prepare('SELECT * FROM executive_trainings WHERE id = ?').get(inserted.lastInsertRowid) as unknown as ExecutiveTrainingRow;
   },
 
@@ -288,6 +477,7 @@ export const executiveRepository = {
   findOfferForPoacher(offerId: number, poacherCompanyId: number): ExecutiveOfferRow | undefined {
     return db.prepare('SELECT * FROM executive_offers WHERE id = ? AND poacher_company_id = ?').get(offerId, poacherCompanyId) as unknown as ExecutiveOfferRow | undefined;
   },
+
   findOpenOfferForTarget(
     poacherCompanyId: number,
     targetExecutiveId: number,
@@ -301,7 +491,7 @@ export const executiveRepository = {
       WHERE poacher_company_id = ? AND target_executive_id = ?
         AND agency = ? AND slot_position = ? AND skill_position = ?
         AND expected_salary = ?
-        AND status IN ('f', 's', 'FOUND', 'STANDING')
+        AND status IN ('l', 'f', 's', 'LOOKING', 'FOUND', 'STANDING', 'RU.LOOKING', 'RU.FOUND', 'RU.STANDING')
       ORDER BY id DESC
       LIMIT 1
     `).get(
@@ -318,16 +508,57 @@ export const executiveRepository = {
     poacherCompanyId: number,
     agency: number,
     slotPosition: string,
-    skillPosition: string
+    skillPosition: string,
+    ageRange: string | null = null,
+    hasTrainings = false,
+    onlyUnemployed = false
   ): ExecutiveOfferRow | undefined {
     return db.prepare(`
       SELECT * FROM executive_offers
       WHERE poacher_company_id = ? AND agency = ?
         AND slot_position = ? AND skill_position = ?
-        AND status IN ('f', 's', 'FOUND', 'STANDING')
+        AND status IN ('l', 'f', 's', 'LOOKING', 'FOUND', 'STANDING', 'RU.LOOKING', 'RU.FOUND', 'RU.STANDING')
+        AND (age_range IS ? OR age_range = ?)
+        AND has_trainings = ?
+        AND only_unemployed = ?
       ORDER BY id DESC
       LIMIT 1
-    `).get(poacherCompanyId, agency, slotPosition, skillPosition) as unknown as ExecutiveOfferRow | undefined;
+    `).get(
+      poacherCompanyId,
+      agency,
+      slotPosition,
+      skillPosition,
+      ageRange,
+      ageRange,
+      hasTrainings ? 1 : 0,
+      onlyUnemployed ? 1 : 0
+    ) as unknown as ExecutiveOfferRow | undefined;
+  },
+
+  /**
+   * Return real executives an agency may discover. Employed targets must be
+   * outside the poacher's company; unemployed candidates are represented by
+   * the candidate status and may belong to the same company's candidate pool.
+   */
+  listSearchTargets(poacherCompanyId: number, onlyUnemployed: boolean): ExecutiveRow[] {
+    if (onlyUnemployed) {
+      return db.prepare(`
+        SELECT * FROM executives
+        WHERE LOWER(COALESCE(status, '')) = 'candidate'
+        ORDER BY id ASC
+      `).all() as unknown as ExecutiveRow[];
+    }
+
+    return db.prepare(`
+      SELECT * FROM executives
+      WHERE LOWER(COALESCE(status, '')) = 'candidate'
+         OR (
+           company_id IS NOT NULL
+           AND company_id != ?
+           AND LOWER(COALESCE(status, '')) = 'employed'
+         )
+      ORDER BY id ASC
+    `).all(poacherCompanyId) as unknown as ExecutiveRow[];
   },
 
   findOfferForTarget(offerId: number, targetCompanyId: number): ExecutiveOfferRow | undefined {
@@ -345,7 +576,7 @@ export const executiveRepository = {
   listHostileOffers(targetCompanyId: number): ExecutiveOfferRow[] {
     return db.prepare(`
       SELECT * FROM executive_offers
-      WHERE target_company_id = ? AND status IN ('s', 'f', 'STANDING', 'FOUND')
+      WHERE target_company_id = ? AND status IN ('s', 'f', 'STANDING', 'FOUND', 'RU.STANDING', 'RU.FOUND')
       ORDER BY id DESC
     `).all(targetCompanyId) as unknown as ExecutiveOfferRow[];
   },
@@ -356,46 +587,150 @@ export const executiveRepository = {
 
   insertOffer(input: {
     poacherCompanyId: number;
-    targetCompanyId: number;
-    targetExecutiveId: number;
+    targetCompanyId?: number | null;
+    targetExecutiveId?: number | null;
     slotPos: string;
     skillPos: string;
     agencyTier: number;
     expectedSalary: number;
     agencyFee: number;
+    ageRange?: string | null;
+    hasTrainings?: boolean;
+    onlyUnemployed?: boolean;
+    searchUntil?: string | null;
+    status?: string;
     now: string;
   }): ExecutiveOfferRow {
     const result = db.prepare(`
       INSERT INTO executive_offers (
         poacher_company_id, target_company_id, target_executive_id,
         slot_position, skill_position, agency, status,
-        expected_salary, salary, agency_fee, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, 'f', ?, NULL, ?, ?, ?)
+        expected_salary, salary, agency_fee,
+        age_range, has_trainings, only_unemployed, search_until,
+        created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       input.poacherCompanyId,
-      input.targetCompanyId,
-      input.targetExecutiveId,
+      input.targetCompanyId ?? null,
+      input.targetExecutiveId ?? null,
       input.slotPos,
       input.skillPos,
       input.agencyTier,
+      input.status || 'l',
       input.expectedSalary,
       input.agencyFee,
+      input.ageRange ?? null,
+      input.hasTrainings ? 1 : 0,
+      input.onlyUnemployed ? 1 : 0,
+      input.searchUntil ?? null,
       input.now,
       input.now
     );
     return db.prepare('SELECT * FROM executive_offers WHERE id = ?').get(result.lastInsertRowid) as unknown as ExecutiveOfferRow;
   },
 
-  updateOfferState(offerId: number, poacherCompanyId: number, nextStatus: string, salary: number | null, extendedAt: string | null, accelerated: number, now: string): void {
+  setSearchResult(
+    offerId: number,
+    poacherCompanyId: number,
+    targetCompanyId: number | null,
+    targetExecutiveId: number,
+    expectedSalary: number,
+    now: string
+  ): ExecutiveOfferRow {
     db.prepare(`
       UPDATE executive_offers
-      SET status = ?, salary = ?, extended_at = ?, accelerated = ?, updated_at = ?
+      SET status = 'f',
+          target_company_id = ?,
+          target_executive_id = ?,
+          expected_salary = ?,
+          salary = NULL,
+          agency_fee = 0,
+          search_until = NULL,
+          updated_at = ?
       WHERE id = ? AND poacher_company_id = ?
-    `).run(nextStatus, salary, extendedAt, accelerated, now, offerId, poacherCompanyId);
+    `).run(
+      targetCompanyId,
+      targetExecutiveId,
+      expectedSalary,
+      now,
+      offerId,
+      poacherCompanyId
+    );
+    return db.prepare('SELECT * FROM executive_offers WHERE id = ?').get(offerId) as unknown as ExecutiveOfferRow;
   },
 
-  refreshOffer(offerId: number, poacherCompanyId: number, now: string): ExecutiveOfferRow {
-    db.prepare("UPDATE executive_offers SET status = 'f', updated_at = ? WHERE id = ? AND poacher_company_id = ?").run(now, offerId, poacherCompanyId);
+  setSearchFailed(offerId: number, poacherCompanyId: number, now: string): ExecutiveOfferRow {
+    db.prepare(`
+      UPDATE executive_offers
+      SET status = 'x',
+          target_company_id = NULL,
+          target_executive_id = NULL,
+          salary = NULL,
+          agency_fee = 0,
+          search_until = NULL,
+          updated_at = ?
+      WHERE id = ? AND poacher_company_id = ?
+    `).run(now, offerId, poacherCompanyId);
+    return db.prepare('SELECT * FROM executive_offers WHERE id = ?').get(offerId) as unknown as ExecutiveOfferRow;
+  },
+
+  accelerateOfferSearch(
+    offerId: number,
+    poacherCompanyId: number,
+    searchUntil: string,
+    now: string
+  ): ExecutiveOfferRow {
+    db.prepare(`
+      UPDATE executive_offers
+      SET accelerated = 1, search_until = ?, updated_at = ?
+      WHERE id = ? AND poacher_company_id = ?
+        AND status IN ('l', 'LOOKING', 'RU.LOOKING')
+    `).run(searchUntil, now, offerId, poacherCompanyId);
+    return db.prepare('SELECT * FROM executive_offers WHERE id = ?').get(offerId) as unknown as ExecutiveOfferRow;
+  },
+
+  extendOffer(
+    offerId: number,
+    poacherCompanyId: number,
+    salary: number,
+    agencyFee: number,
+    extendedAt: string,
+    now: string
+  ): ExecutiveOfferRow {
+    db.prepare(`
+      UPDATE executive_offers
+      SET status = 's',
+          salary = ?,
+          agency_fee = ?,
+          extended_at = ?,
+          updated_at = ?
+      WHERE id = ? AND poacher_company_id = ?
+    `).run(salary, agencyFee, extendedAt, now, offerId, poacherCompanyId);
+    return db.prepare('SELECT * FROM executive_offers WHERE id = ?').get(offerId) as unknown as ExecutiveOfferRow;
+  },
+
+  refreshOffer(
+    offerId: number,
+    poacherCompanyId: number,
+    searchUntil: string,
+    now: string
+  ): ExecutiveOfferRow {
+    db.prepare(`
+      UPDATE executive_offers
+      SET status = 'l',
+          target_company_id = NULL,
+          target_executive_id = NULL,
+          expected_salary = 0,
+          salary = NULL,
+          agency_fee = 0,
+          accelerated = 0,
+          research_poacher = NULL,
+          research_employer = NULL,
+          extended_at = NULL,
+          search_until = ?,
+          updated_at = ?
+      WHERE id = ? AND poacher_company_id = ?
+    `).run(searchUntil, now, offerId, poacherCompanyId);
     return db.prepare('SELECT * FROM executive_offers WHERE id = ?').get(offerId) as unknown as ExecutiveOfferRow;
   },
 
@@ -436,10 +771,15 @@ export const executiveRepository = {
       { name: 'David Chen', avatar: 'images/avatars/male_02.png', pos: 'cto', mgmt: 5, acc: 3, sci: 15, comm: 4, sal: 500 }
     ];
     for (const d of defaults) {
-      database.prepare(`
+      const inserted = database.prepare(`
         INSERT INTO executives (company_id, name, avatar, position, skill_management, skill_accounting, skill_science, skill_communication, salary, status, created_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'employed', ?)
       `).run(companyId, d.name, d.avatar, d.pos, d.mgmt, d.acc, d.sci, d.comm, d.sal, now);
+      database.prepare(`
+        INSERT OR IGNORE INTO executive_employment_history
+          (executive_id, company_id, position, started_at, ended_at, accelerated, created_at)
+        VALUES (?, ?, ?, ?, NULL, 0, ?)
+      `).run(Number(inserted.lastInsertRowid), companyId, d.pos, now, now);
     }
 
     const candidates = [

@@ -1795,6 +1795,154 @@ export const MIGRATIONS: MigrationDefinition[] = [
       `).run(new Date().toISOString());
     }
   },
+  {
+    version: 31,
+    name: '031_executive_history_training_contracts',
+    // Executive identity, employment history and training state must survive
+    // dismissal/poaching. Keep this migration defensive for databases created
+    // before the executive vertical migration (#205).
+    up: (db: DatabaseSync) => {
+      const executiveColumns = new Set(
+        (db.prepare('PRAGMA table_info(executives)').all() as Array<{ name: string }>)
+          .map(column => column.name)
+      );
+      if (executiveColumns.size > 0 && !executiveColumns.has('gender')) {
+        // Gender is intentionally nullable: the legacy executive rows did not
+        // persist it, and avatar filenames are not authoritative identity data.
+        db.exec('ALTER TABLE executives ADD COLUMN gender TEXT');
+      }
+
+      const trainingColumns = new Set(
+        (db.prepare('PRAGMA table_info(executive_trainings)').all() as Array<{ name: string }>)
+          .map(column => column.name)
+      );
+      if (trainingColumns.size > 0 && !trainingColumns.has('training')) {
+        db.exec("ALTER TABLE executive_trainings ADD COLUMN training TEXT NOT NULL DEFAULT 'o'");
+      }
+      if (trainingColumns.size > 0 && !trainingColumns.has('covered')) {
+        db.exec('ALTER TABLE executive_trainings ADD COLUMN covered INTEGER NOT NULL DEFAULT 0');
+      }
+
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS executive_employment_history (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          executive_id INTEGER NOT NULL,
+          company_id INTEGER NOT NULL,
+          position TEXT NOT NULL DEFAULT 'unassigned',
+          started_at TEXT NOT NULL,
+          ended_at TEXT,
+          accelerated INTEGER NOT NULL DEFAULT 0,
+          created_at TEXT NOT NULL,
+          UNIQUE (executive_id, company_id, started_at)
+        );
+        CREATE INDEX IF NOT EXISTS idx_executive_employment_history_executive
+          ON executive_employment_history(executive_id, started_at DESC, id DESC);
+        CREATE INDEX IF NOT EXISTS idx_executive_employment_history_company
+          ON executive_employment_history(company_id, ended_at, started_at DESC);
+
+        CREATE TABLE IF NOT EXISTS executive_notes (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          company_id INTEGER NOT NULL,
+          executive_id INTEGER NOT NULL,
+          note TEXT NOT NULL DEFAULT '',
+          datetime TEXT NOT NULL,
+          UNIQUE (company_id, executive_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_executive_notes_company
+          ON executive_notes(company_id, executive_id);
+      `);
+
+      // Seed one active history row for pre-migration employed executives. This
+      // preserves their existing hire timestamp without manufacturing history
+      // for candidates or already-dismissed rows.
+      db.prepare(`
+        INSERT OR IGNORE INTO executive_employment_history
+          (executive_id, company_id, position, started_at, ended_at, accelerated, created_at)
+        SELECT id, company_id, COALESCE(position, 'unassigned'),
+               COALESCE(created_at, ?), NULL,
+               COALESCE(work_history_accelerated, 0),
+               COALESCE(created_at, ?)
+        FROM executives
+        WHERE company_id IS NOT NULL AND status = 'employed'
+      `).run(new Date().toISOString(), new Date().toISOString());
+
+      const offerColumns = db.prepare('PRAGMA table_info(executive_offers)').all() as Array<{
+        name: string;
+        notnull: number;
+      }>;
+      const offerColumnNames = new Set(offerColumns.map(column => column.name));
+      const targetColumnsNullable = offerColumns
+        .filter(column => column.name === 'target_company_id' || column.name === 'target_executive_id')
+        .every(column => column.notnull === 0);
+      const offerNeedsRebuild = offerColumns.length > 0 && (
+        !offerColumnNames.has('age_range') ||
+        !offerColumnNames.has('has_trainings') ||
+        !offerColumnNames.has('only_unemployed') ||
+        !offerColumnNames.has('search_until') ||
+        !targetColumnsNullable
+      );
+      if (offerNeedsRebuild) {
+        db.exec(`
+          ALTER TABLE executive_offers RENAME TO executive_offers_legacy;
+          CREATE TABLE executive_offers (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            poacher_company_id INTEGER NOT NULL,
+            target_company_id INTEGER,
+            target_executive_id INTEGER,
+            slot_position TEXT DEFAULT 'unassigned',
+            skill_position TEXT DEFAULT 'o',
+            agency INTEGER DEFAULT 0,
+            status TEXT NOT NULL DEFAULT 'f',
+            expected_salary REAL DEFAULT 400,
+            salary REAL DEFAULT NULL,
+            agency_fee REAL DEFAULT 0,
+            accelerated INTEGER NOT NULL DEFAULT 0,
+            research_poacher TEXT DEFAULT NULL,
+            research_employer TEXT DEFAULT NULL,
+            extended_at TEXT DEFAULT NULL,
+            age_range TEXT DEFAULT NULL,
+            has_trainings INTEGER NOT NULL DEFAULT 0,
+            only_unemployed INTEGER NOT NULL DEFAULT 0,
+            search_until TEXT DEFAULT NULL,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+          );
+          INSERT INTO executive_offers (
+            id, poacher_company_id, target_company_id, target_executive_id,
+            slot_position, skill_position, agency, status, expected_salary,
+            salary, agency_fee, accelerated, research_poacher,
+            research_employer, extended_at, age_range, has_trainings,
+            only_unemployed, search_until, created_at, updated_at
+          )
+          SELECT id, poacher_company_id, target_company_id, target_executive_id,
+                 slot_position, skill_position, agency, status, expected_salary,
+                 salary, agency_fee, accelerated, research_poacher,
+                 research_employer, extended_at, NULL, 0, 0, NULL,
+                 created_at, updated_at
+          FROM executive_offers_legacy;
+          DROP TABLE executive_offers_legacy;
+        `);
+      } else if (offerColumns.length > 0) {
+        // The rebuild above is skipped only for already-upgraded databases.
+        // Keep this branch explicit so a partially-created table gets the
+        // same durable indexes without relying on runtime DDL.
+        db.exec(`
+          CREATE INDEX IF NOT EXISTS idx_executive_offers_poacher
+            ON executive_offers(poacher_company_id, status, id DESC);
+          CREATE INDEX IF NOT EXISTS idx_executive_offers_target
+            ON executive_offers(target_company_id, status, id DESC);
+        `);
+      }
+      if (offerNeedsRebuild) {
+        db.exec(`
+          CREATE INDEX IF NOT EXISTS idx_executive_offers_poacher
+            ON executive_offers(poacher_company_id, status, id DESC);
+          CREATE INDEX IF NOT EXISTS idx_executive_offers_target
+            ON executive_offers(target_company_id, status, id DESC);
+        `);
+      }
+    }
+  },
 ];
 
 export class MigrationRunner {

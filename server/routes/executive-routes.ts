@@ -5,7 +5,8 @@ import {
   getCompanyExecutivesQuery,
   getExecutiveCandidatesQuery,
   getExecutiveByIdQuery,
-  hireExecutiveCommand,
+  getFormerExecutivesQuery,
+  getExecutiveNoteQuery,
   fireExecutiveCommand,
   assignExecutiveCommand,
   updateExecutiveCommand,
@@ -29,7 +30,7 @@ import {
   type CreatePoachingOfferInput,
   type CounterHostileOfferInput
 } from '../application/executives/executive-use-cases.ts';
-import { RouteRegistry, globalRouteRegistry, type HttpMethod } from '../http/route-registry.ts';
+import { RouteRegistry, globalRouteRegistry, type AuthRequirement, type HttpMethod } from '../http/route-registry.ts';
 
 // Executive commands require an authenticated company; build the context
 // once per request past the route-level ownership checks.
@@ -65,8 +66,7 @@ export async function handleExecutiveRoutes(
     }
     sendJson(res, {
       executives: getCompanyExecutivesQuery(currentCompanyId),
-      candidates: getExecutiveCandidatesQuery(currentCompanyId),
-      offers: getPoachingOffersQuery(currentCompanyId),
+      offers: await getPoachingOffersQuery(currentCompanyId),
       hostileOffers: getHostileOffersQuery(currentCompanyId),
       achievements: []
     });
@@ -80,7 +80,7 @@ export async function handleExecutiveRoutes(
       return true;
     }
     if (method === 'GET') {
-      sendJson(res, { offers: getPoachingOffersQuery(currentCompanyId) });
+      sendJson(res, { offers: await getPoachingOffersQuery(currentCompanyId) });
       return true;
     }
     if (method === 'POST') {
@@ -88,13 +88,7 @@ export async function handleExecutiveRoutes(
       const body = await readJsonBody<CreatePoachingOfferInput>(req);
       try {
         const offer = await createPoachingOfferCommand(gameCtx(), body);
-        sendJson(res, {
-          ...offer,
-          offer,
-          success: true,
-          offerId: offer.id,
-          status: offer.status
-        });
+        sendJson(res, offer);
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
         sendJson(res, { error: msg }, 400);
@@ -114,8 +108,8 @@ export async function handleExecutiveRoutes(
 
     if (method === 'GET') {
       try {
-        const offer = getPoachingOfferById(currentCompanyId, offerId);
-        sendJson(res, { ...offer, offer });
+        const offer = await getPoachingOfferByIdQuery(currentCompanyId, offerId);
+        sendJson(res, offer);
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
         sendJson(res, { error: msg }, 404);
@@ -273,9 +267,37 @@ export async function handleExecutiveRoutes(
     }
   }
 
-  // Former executives
-  if (pathname.startsWith('/api/') && pathname.includes('/former-executives/')) {
-    sendJson(res, { executives: [] });
+  // Former executives are scoped to the authenticated company. The v2
+  // company-id path is the only verified client contract; do not let a
+  // broad legacy matcher turn unknown API paths into an empty collection.
+  const formerExecutivesMatch = pathname.match(/^\/api\/v2\/companies\/(\d+)\/former-executives\/?$/);
+  if (formerExecutivesMatch && method === 'GET') {
+    if (!currentCompanyId || Number(formerExecutivesMatch[1]) !== currentCompanyId) {
+      sendJson(res, { error: 'Unauthorized' }, 401);
+      return true;
+    }
+    try {
+      sendJson(res, { executives: getFormerExecutivesQuery(currentCompanyId) });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      sendJson(res, { error: msg }, 400);
+    }
+    return true;
+  }
+
+  // Executive note (read-only, owner scoped).
+  const executiveNoteMatch = pathname.match(/^\/api\/v4\/executives\/(\d+)\/note\/?$/);
+  if (executiveNoteMatch && method === 'GET') {
+    if (!currentCompanyId) {
+      sendJson(res, { error: 'Unauthorized' }, 401);
+      return true;
+    }
+    try {
+      sendJson(res, getExecutiveNoteQuery(currentCompanyId, Number(executiveNoteMatch[1])));
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      sendJson(res, { error: msg }, 404);
+    }
     return true;
   }
 
@@ -376,8 +398,16 @@ export async function handleExecutiveRoutes(
     }
     if (requireCapability(res, currentCompanyId, 'executives', 'train executive')) return true;
     try {
-      const result = await scheduleExecutiveTrainingCommand(gameCtx(), Number(trainingsBaseMatch[1]));
-      sendJson(res, result);
+      const body = await readJsonBody<{ training?: string }>(req);
+      const result = await scheduleExecutiveTrainingCommand(
+        gameCtx(),
+        Number(trainingsBaseMatch[1]),
+        body.training
+      );
+      sendJson(res, {
+        training: result.training,
+        moneyDelta: result.moneyDelta
+      });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       sendJson(res, { error: msg }, 400);
@@ -416,10 +446,7 @@ export async function handleExecutiveRoutes(
     if (method === 'GET') {
       try {
         const exec = getExecutiveByIdQuery(currentCompanyId, execId);
-        sendJson(res, {
-          ...exec,
-          executive: exec
-        });
+        sendJson(res, exec);
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
         sendJson(res, { error: msg }, 404);
@@ -432,10 +459,7 @@ export async function handleExecutiveRoutes(
       const body = await readJsonBody<{ salary?: number; position?: string; strikeUntil?: string | null; plansToRetire?: boolean; rushSettle?: boolean }>(req);
       try {
         const exec = await updateExecutiveCommand(gameCtx(), execId, body);
-        sendJson(res, {
-          ...exec,
-          executive: exec
-        });
+        sendJson(res, exec);
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
         sendJson(res, { error: msg }, 400);
@@ -448,7 +472,7 @@ export async function handleExecutiveRoutes(
       if (requireCapability(res, currentCompanyId, 'executives', 'fire executive')) return true;
       try {
         const result = await fireExecutiveCommand(gameCtx(), execId);
-        sendJson(res, result);
+        sendJson(res, { moneyDelta: result.moneyDelta });
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
         sendJson(res, { error: msg }, 400);
@@ -461,11 +485,12 @@ export async function handleExecutiveRoutes(
 }
 
 export function registerExecutiveRoutes(registry: RouteRegistry = globalRouteRegistry): void {
-  const register = (method: HttpMethod, pattern: string): void => {
+  const register = (method: HttpMethod, pattern: string, auth: AuthRequirement = 'none'): void => {
     registry.register({
       method,
       pattern,
       owner: 'executives',
+      auth,
       handler: async (req, res, ctx, _params, body) => {
         if (method === 'POST' || method === 'PATCH' || method === 'PUT') {
           setPreparsedBody(req, body);
@@ -493,10 +518,7 @@ export function registerExecutiveRoutes(registry: RouteRegistry = globalRouteReg
   register('GET', '/api/v3/companies/executives/hostile-offers/:offerId/');
   register('PATCH', '/api/v3/companies/executives/hostile-offers/:offerId/');
   register('PUT', '/api/v3/companies/executives/hostile-offers/:offerId/');
-  register('DELETE', '/api/v3/companies/executives/hostile-offers/:offerId/');
-  register('GET', '/api/v3/:scope/:realmId/former-executives/');
-  register('GET', '/api/v4/:scope/:realmId/former-executives/');
-  register('GET', '/api/v2/companies/:companyId/former-executives/');
+  register('GET', '/api/v2/companies/:companyId/former-executives/', 'company');
   register('GET', '/api/v4/executives/candidates/');
   register('POST', '/api/v4/executives/hire/');
   register('POST', '/api/v4/executives/:executiveId/fire/');
@@ -507,6 +529,7 @@ export function registerExecutiveRoutes(registry: RouteRegistry = globalRouteReg
   register('DELETE', '/api/v4/executives/:executiveId/trainings/:trainingId/');
   register('GET', '/api/v4/executives/:executiveId/');
   register('PATCH', '/api/v4/executives/:executiveId/');
+  register('GET', '/api/v4/executives/:executiveId/note/', 'company');
   register('DELETE', '/api/v4/executives/:executiveId/');
 }
 
