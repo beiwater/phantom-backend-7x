@@ -30,6 +30,7 @@ import {
   type CreatePoachingOfferInput,
   type CounterHostileOfferInput
 } from '../application/executives/executive-use-cases.ts';
+import { unlockExecutiveSlot } from '../game/simboosts.ts';
 import { RouteRegistry, globalRouteRegistry, type AuthRequirement, type HttpMethod } from '../http/route-registry.ts';
 
 // Executive commands require an authenticated company; build the context
@@ -64,6 +65,24 @@ export async function handleExecutiveRoutes(
       sendJson(res, { error: 'Unauthorized' }, 401);
       return true;
     }
+
+    if (method === 'POST') {
+      // Issue: Unlock staff slot via POST /api/v3/companies/:id/executives/
+      if (requireCapability(res, currentCompanyId, 'executives', 'unlock executive slot')) return true;
+      try {
+        const result = await unlockExecutiveSlot(currentCompanyId);
+        sendJson(res, {
+          success: true,
+          simboostsDelta: -result.spent,
+          extraExecutiveSlots: result.extraExecutiveSlots
+        });
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        sendJson(res, { error: msg }, 400);
+      }
+      return true;
+    }
+
     sendJson(res, {
       executives: getCompanyExecutivesQuery(currentCompanyId),
       offers: await getPoachingOffersQuery(currentCompanyId),
@@ -504,6 +523,7 @@ export function registerExecutiveRoutes(registry: RouteRegistry = globalRouteReg
 
   register('GET', '/api/v4/executives/');
   register('GET', '/api/v3/companies/:companyId/executives/');
+  register('POST', '/api/v3/companies/:companyId/executives/');
   register('GET', '/api/v4/companies/:companyId/executives/');
   register('GET', '/api/v3/executives/company/:companyId/executives/');
   register('GET', '/api/v4/executives/company/:companyId/');

@@ -475,7 +475,11 @@ export function getExecutiveCandidates(companyId: number) {
 
 function getExecutiveById(companyId: number, executiveId: number) {
   resolveCompletedTrainings(companyId);
-  const row = executiveRepository.findByIdAndCompany(executiveId, companyId);
+  let row = executiveRepository.findByIdAndCompany(executiveId, companyId);
+  if (!row) {
+    // P1: External poaching candidate or search target check
+    row = executiveRepository.findById(executiveId) || undefined;
+  }
   if (!row) throw new Error('Executive not found');
   return formatExecutive(row);
 }
@@ -1422,13 +1426,11 @@ export function getExecutiveByIdQuery(companyId: number, executiveId: number) {
 export function getFormerExecutivesQuery(companyId: number) {
   return executiveRepository.listFormerByCompany(companyId).map(formatFormerExecutive);
 }
-
 export function getExecutiveNoteQuery(companyId: number, executiveId: number) {
-  const executive = executiveRepository.findByIdAndCompany(executiveId, companyId);
+  const executive = executiveRepository.findById(executiveId);
   if (!executive) throw new Error('Executive not found');
   const row = executiveRepository.getNote(companyId, executiveId);
   return {
-    executiveId,
     note: row?.note || '',
     datetime: validIsoOrNull(row?.datetime)
       || validIsoOrNull(executive.created_at)
