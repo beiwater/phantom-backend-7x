@@ -1943,6 +1943,20 @@ export const MIGRATIONS: MigrationDefinition[] = [
       }
     }
   },
+  {
+    version: 32,
+    name: '032_chat_messages_performance_indexes',
+    up: (db: DatabaseSync) => {
+      db.exec(`
+        CREATE INDEX IF NOT EXISTS idx_chat_messages_room_sent_id
+          ON chat_messages(room, sent_at DESC, id DESC);
+        CREATE INDEX IF NOT EXISTS idx_chat_messages_room_id
+          ON chat_messages(room, id);
+        CREATE INDEX IF NOT EXISTS idx_companies_realm_id
+          ON companies(realm_id);
+      `);
+    }
+  },
 ];
 
 export class MigrationRunner {

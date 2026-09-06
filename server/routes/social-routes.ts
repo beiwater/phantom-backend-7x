@@ -60,12 +60,18 @@ export const CHATROOM_PRESETS: Record<string, Array<ChatroomSubscriptionEntry>> 
   en: DEFAULT_CHATROOMS.filter(r => r.language === 'en')
 };
 
+let cachedConfiguredRooms: Array<ChatroomSubscriptionEntry> | null = null;
+
 export function getConfiguredChatrooms(): Array<ChatroomSubscriptionEntry> {
+  if (cachedConfiguredRooms) {
+    return cachedConfiguredRooms;
+  }
   try {
     const raw = socialRepository.getCompanySetting(0, 'configured_chatrooms');
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
+        cachedConfiguredRooms = parsed;
         return parsed;
       }
     }
@@ -77,14 +83,17 @@ export function getConfiguredChatrooms(): Array<ChatroomSubscriptionEntry> {
   const envPreset = process.env.CHATROOM_PRESET?.toLowerCase();
 
   if (envPreset && CHATROOM_PRESETS[envPreset]) {
-    return CHATROOM_PRESETS[envPreset];
+    cachedConfiguredRooms = CHATROOM_PRESETS[envPreset];
+    return cachedConfiguredRooms;
   }
   if (Number.isInteger(envCount) && envCount > 0) {
-    return DEFAULT_CHATROOMS.slice(0, envCount);
+    cachedConfiguredRooms = DEFAULT_CHATROOMS.slice(0, envCount);
+    return cachedConfiguredRooms;
   }
 
   // Keep the fresh-start fallback usable: Supporters is intentionally not subscribed.
-  return CHATROOM_PRESETS.single;
+  cachedConfiguredRooms = CHATROOM_PRESETS.single;
+  return cachedConfiguredRooms;
 }
 
 export function setConfiguredChatrooms(options: {
@@ -94,6 +103,7 @@ export function setConfiguredChatrooms(options: {
   reset?: boolean;
 }): { success: boolean; count: number; chatrooms: Array<ChatroomSubscriptionEntry> } {
   if (options.reset) {
+    cachedConfiguredRooms = null;
     socialRepository.upsertCompanySetting(0, 'configured_chatrooms', '[]');
     const chatrooms = getConfiguredChatrooms();
     return { success: true, count: chatrooms.length, chatrooms };
@@ -111,6 +121,7 @@ export function setConfiguredChatrooms(options: {
 
   socialRepository.upsertCompanySetting(0, 'configured_chatrooms', JSON.stringify(finalRooms));
 
+  cachedConfiguredRooms = null;
   return { success: true, count: finalRooms.length, chatrooms: finalRooms };
 }
 
@@ -214,9 +225,10 @@ function getChatroomMetadata(roomCode: string): { chatroom_name: string; chatroo
 
 function formatChatMessage(
   m: { id: number; room: string; sender_id: number; sender_company: string; text: string; sent_at: string },
-  companyMap?: Map<number, { logo?: string; realmId?: number; supporter?: boolean }>
+  companyMap?: Map<number, { logo?: string; realmId?: number; supporter?: boolean }>,
+  chatroomMeta?: { chatroom_name: string; chatroom_logo: string; realms_shared: boolean }
 ) {
-  const meta = getChatroomMetadata(m.room);
+  const meta = chatroomMeta ?? getChatroomMetadata(m.room);
   let comp = companyMap?.get(m.sender_id);
   if (!comp) {
     const fromRepo = companyRepository.findById(m.sender_id);
@@ -464,7 +476,10 @@ export async function handleSocialRoutes(
     const room = decodeURIComponent(chatFromIdMatch[1]);
     const fromId = Number(chatFromIdMatch[2]) || 0;
     const messages = socialRepository.listChatMessagesFromId(room, fromId, 30);
-    sendJson(res, messages.map(m => formatChatMessage(m)));
+    const senderIds = Array.from(new Set(messages.map(m => m.sender_id)));
+    const companyMap = companyRepository.findBatchBasic(senderIds);
+    const meta = getChatroomMetadata(room);
+    sendJson(res, messages.map(m => formatChatMessage(m, companyMap, meta)));
     return true;
   }
 
@@ -473,7 +488,10 @@ export async function handleSocialRoutes(
   if (chatroomMatch) {
     const room = decodeURIComponent(chatroomMatch[1]);
     const messages = socialRepository.listChatMessages(room, 30);
-    sendJson(res, messages.map(m => formatChatMessage(m)));
+    const senderIds = Array.from(new Set(messages.map(m => m.sender_id)));
+    const companyMap = companyRepository.findBatchBasic(senderIds);
+    const meta = getChatroomMetadata(room);
+    sendJson(res, messages.map(m => formatChatMessage(m, companyMap, meta)));
     return true;
   }
 
@@ -514,6 +532,8 @@ export async function handleSocialRoutes(
     const now = virtualClock.nowIso();
     const messageId = socialRepository.insertChatMessage(room, comp.company_id, comp.name, text, now);
 
+    const meta = getChatroomMetadata(room);
+    const compMap = new Map([[comp.company_id, { logo: comp.logo || '', realmId: comp.realm_id ?? 0 }]]);
     sendJson(res, formatChatMessage({
       id: messageId,
       room,
@@ -521,7 +541,7 @@ export async function handleSocialRoutes(
       sender_company: comp.name,
       text,
       sent_at: now
-    }));
+    }, compMap, meta));
     return true;
   }
 

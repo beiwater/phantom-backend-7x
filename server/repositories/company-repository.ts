@@ -100,6 +100,19 @@ export class CompanyRepository {
 
     return row ? mapCompanyRow(row) : null;
   }
+  findBatchBasic(companyIds: number[]): Map<number, { logo: string; realmId: number }> {
+    if (companyIds.length === 0) return new Map();
+    const uniqueIds = Array.from(new Set(companyIds));
+    const placeholders = uniqueIds.map(() => '?').join(',');
+    const rows = this.database.prepare(
+      `SELECT company_id, logo, realm_id FROM companies WHERE company_id IN (${placeholders})`
+    ).all(...uniqueIds) as Array<{ company_id: number; logo: string | null; realm_id: number | null }>;
+    const map = new Map<number, { logo: string; realmId: number }>();
+    for (const r of rows) {
+      map.set(r.company_id, { logo: r.logo || '', realmId: r.realm_id ?? 0 });
+    }
+    return map;
+  }
 
   findByPlayerId(playerId: number): CompanyEntity | null {
     const row = this.database.prepare(
