@@ -13,6 +13,7 @@ import { NotPurchasableError, listSimboostUse, listUnlockedHqs, listUnlockedPas,
 import { getActivePoll, getContestView, getPollById, getPollView, votePoll } from '../application/social/polls.ts';
 import { getActiveChallenge, getChallengeLeaderboard, getCurrentChallengeState, restartAttempt, startAttempt } from '../application/social/challenges.ts';
 import { createCourse, deleteCourse, getCourse, joinCourse, listCourses, updateCourse } from '../application/social/courses.ts';
+import { broadcastAll } from '../ws/websocket.ts';
 
 interface ChatroomSubscriptionEntry {
   name: string;
@@ -534,14 +535,16 @@ export async function handleSocialRoutes(
 
     const meta = getChatroomMetadata(room);
     const compMap = new Map([[comp.company_id, { logo: comp.logo || '', realmId: comp.realm_id ?? 0 }]]);
-    sendJson(res, formatChatMessage({
+    const formatted = formatChatMessage({
       id: messageId,
       room,
       sender_id: comp.company_id,
       sender_company: comp.name,
       text,
       sent_at: now
-    }, compMap, meta));
+    }, compMap, meta);
+    broadcastAll('NEW_MESSAGE', formatted);
+    sendJson(res, formatted);
     return true;
   }
 
