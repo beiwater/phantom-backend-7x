@@ -1576,8 +1576,13 @@
       "normalizedUrl": "/api/v1/rush/:e/",
       "bundleSourceOffset": 664843,
       "confidence": "verified_bundle_static",
-      "backendStatus": "unimplemented",
-      "backendImplementation": null
+      "backendStatus": "implemented",
+      "backendImplementation": [
+        {
+          "method": "POST",
+          "path": "/api/v1/rush/:buildingId/"
+        }
+      ]
     },
     {
       "name": "api_v2_admin_purchase_details",

@@ -85,6 +85,7 @@ ADMITTED_TESTS=(
   tests/verify-security-hardening.test.ts
   tests/verify-warehouse-statistics.test.ts
   tests/verify-unlocked-hqs.test.ts
+  tests/verify-followers-sync-and-v1-rush.test.ts
 )
 
 # Browser/diagnostic suites are intentionally not part of this backend gate.

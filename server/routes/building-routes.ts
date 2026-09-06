@@ -42,6 +42,7 @@ import {
 } from '../compatibility/simcompanies/building-dto.ts';
 import { normalizePosition } from '../domain/buildings/building-rules.ts';
 import { addFollower, listFollowers, removeFollower } from '../application/buildings/followers.ts';
+import { socialRepository } from '../repositories/social-repository.ts';
 import {
   getBuildingAbundance,
   prospectBuildingAbundance
@@ -176,8 +177,11 @@ export function registerBuildingRoutes(registry: RouteRegistry = globalRouteRegi
     method: 'GET',
     pattern: '/api/v3/companies/buildings/:id/followers/',
     auth: 'none',
-    handler: async (_req, res, _ctx, params) => {
-      sendJson(res, { linking: listFollowers(Number(params.id)) });
+    handler: async (_req, res, ctx, params) => {
+      const linking = ctx?.companyId
+        ? socialRepository.listCompanyBuildingFollowers(ctx.companyId)
+        : listFollowers(Number(params.id));
+      sendJson(res, { linking });
     }
   });
 
@@ -192,7 +196,8 @@ export function registerBuildingRoutes(registry: RouteRegistry = globalRouteRegi
       }
       const followerId = Number((body as Record<string, unknown>)?.follower);
       try {
-        sendJson(res, { linking: addFollower(Number(params.id), followerId, ctx.companyId) });
+        const linking = await addFollower(Number(params.id), followerId, ctx.companyId);
+        sendJson(res, { linking });
       } catch (err) {
         sendJson(res, { error: err instanceof Error ? err.message : String(err) }, 400);
       }
@@ -203,14 +208,16 @@ export function registerBuildingRoutes(registry: RouteRegistry = globalRouteRegi
     method: 'DELETE',
     pattern: '/api/v3/companies/buildings/:id/followers/',
     auth: 'company',
-    handler: async (req, res, _ctx, params) => {
-      const body = await readJsonBody(req).catch(() => ({}) as Record<string, unknown>);
-      const followerId = Number((body as Record<string, unknown>).follower);
-      if (!Number.isFinite(followerId)) {
-        sendJson(res, { error: 'follower id required' }, 400);
+    handler: async (req, res, ctx, params) => {
+      if (!ctx?.companyId) {
+        sendJson(res, { error: 'Unauthorized' }, 401);
         return;
       }
-      sendJson(res, { linking: removeFollower(Number(params.id), followerId) });
+      const body = await readJsonBody(req).catch(() => ({}) as Record<string, unknown>);
+      const rawFollower = (body as Record<string, unknown>)?.follower;
+      const followerId = rawFollower !== undefined && rawFollower !== null ? Number(rawFollower) : null;
+      const linking = await removeFollower(Number(params.id), followerId, ctx.companyId);
+      sendJson(res, { linking });
     }
   });
 

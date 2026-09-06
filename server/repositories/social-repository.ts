@@ -111,9 +111,36 @@ export class SocialRepository {
 
   // --- Building followers (logistics links) --------------------------------
 
-  listBuildingFollowers(buildingId: number): Array<{ id: number }> {
-    return this.database.prepare('SELECT follower_building_id AS id FROM building_followers WHERE building_id = ? ORDER BY follower_building_id')
-      .all(buildingId) as Array<{ id: number }>;
+  listBuildingFollowers(buildingId: number): Array<{ id: number; controllerId: number; followerId: number }> {
+    const building = this.database.prepare(
+      'SELECT company_id FROM buildings WHERE id = ?'
+    ).get(buildingId) as { company_id: number | null } | undefined;
+    if (building?.company_id !== null && building?.company_id !== undefined) {
+      return this.listCompanyBuildingFollowers(building.company_id);
+    }
+
+    return this.database.prepare(`
+      SELECT
+        bf.follower_building_id AS id,
+        bf.building_id AS controllerId,
+        bf.follower_building_id AS followerId
+      FROM building_followers bf
+      WHERE bf.building_id = ?
+      ORDER BY bf.building_id, bf.follower_building_id
+    `).all(buildingId) as Array<{ id: number; controllerId: number; followerId: number }>;
+  }
+
+  listCompanyBuildingFollowers(companyId: number): Array<{ id: number; controllerId: number; followerId: number }> {
+    return this.database.prepare(`
+      SELECT
+        bf.follower_building_id AS id,
+        bf.building_id AS controllerId,
+        bf.follower_building_id AS followerId
+      FROM building_followers bf
+      JOIN buildings b ON b.id = bf.building_id
+      WHERE b.company_id = ?
+      ORDER BY bf.building_id, bf.follower_building_id
+    `).all(companyId) as Array<{ id: number; controllerId: number; followerId: number }>;
   }
 
   /** Both buildings must belong to companyId; returns false otherwise. */
@@ -123,13 +150,25 @@ export class SocialRepository {
   }
 
   linkBuildingFollower(buildingId: number, followerBuildingId: number): void {
+    this.database.prepare('DELETE FROM building_followers WHERE follower_building_id = ?')
+      .run(followerBuildingId);
     this.database.prepare('INSERT OR IGNORE INTO building_followers (building_id, follower_building_id, created_at) VALUES (?, ?, ?)')
       .run(buildingId, followerBuildingId, virtualClock.nowIso());
   }
 
-  unlinkBuildingFollower(buildingId: number, followerBuildingId: number): void {
-    this.database.prepare('DELETE FROM building_followers WHERE building_id = ? AND follower_building_id = ?')
-      .run(buildingId, followerBuildingId);
+  unlinkBuildingFollower(buildingId: number, followerBuildingId?: number): void {
+    if (followerBuildingId !== undefined && Number.isFinite(followerBuildingId)) {
+      this.database.prepare('DELETE FROM building_followers WHERE building_id = ? AND follower_building_id = ?')
+        .run(buildingId, followerBuildingId);
+      return;
+    }
+    this.database.prepare('DELETE FROM building_followers WHERE follower_building_id = ?')
+      .run(buildingId);
+  }
+
+  unlinkFollower(followerBuildingId: number): void {
+    this.database.prepare('DELETE FROM building_followers WHERE follower_building_id = ?')
+      .run(followerBuildingId);
   }
 
   // --- Polls --------------------------------------------------------------

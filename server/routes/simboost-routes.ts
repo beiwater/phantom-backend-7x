@@ -19,11 +19,15 @@ import {
   PAYMENT_PACKAGES
 } from '../game/simboosts.ts';
 import { createGameContext } from '../context/game-context.ts';
+import { virtualClock } from '../core/virtual-clock.ts';
 import { rushProductionUseCase } from '../application/production/rush-production.ts';
 import { rushBuildingConstructionUseCase } from '../application/buildings/rush-construction.ts';
+import { buildingRepository } from '../repositories/building-repository.ts';
+import { companyRepository } from '../repositories/company-repository.ts';
 import { productionRepository } from '../repositories/production-repository.ts';
 import { getResourceDef } from '../game-data/resources.ts';
 import { formatBuilding } from '../game/buildings.ts';
+import { computeLevelInfo } from '../domain/leveling/level-rules.ts';
 import { getCompanyBoostSettings } from '../game/simboost-settings.ts';
 import {
   activateSupporter,
@@ -529,6 +533,102 @@ export async function handleSimboostRoutes(
     }
     return true;
   }
+
+  // Legacy v1 rush endpoint: the original client uses one path for both
+  // construction/upgrade and active production queue rushes.
+  const legacyRushMatch = pathname.match(/^\/api\/v1\/rush\/(\d+)\/$/);
+  if (legacyRushMatch && method === 'POST') {
+    if (!currentCompanyId) {
+      sendJson(res, { error: 'Unauthorized' }, 401);
+      return true;
+    }
+
+    const buildingId = Number(legacyRushMatch[1]);
+    const building = buildingRepository.findById(buildingId);
+    if (!building) {
+      sendJson(res, { error: 'Building not found' }, 404);
+      return true;
+    }
+    if (building.companyId !== currentCompanyId) {
+      sendJson(res, { error: 'You do not own this building' }, 403);
+      return true;
+    }
+
+    const queueItem = productionRepository.findLatestActiveByBuilding(buildingId, currentCompanyId);
+    const busyUntilMs = building.busyUntil ? new Date(building.busyUntil).getTime() : 0;
+    let cost = 0;
+    let simboostsRemaining = 0;
+    let updatedBuilding = building;
+
+    try {
+      const ctx = createGameContext(currentCompanyId, currentCompanyId, 0);
+      // Production sets busy_until to its finish time too, so an active queue
+      // takes precedence over the shared building busy marker.
+      if (queueItem && !queueItem.resolved) {
+        const finishMs = new Date(queueItem.finishesAt).getTime();
+        const remainingSec = Math.max(0, Math.ceil((finishMs - virtualClock.nowMs()) / 1000));
+        cost = Math.max(1, Math.ceil(remainingSec / 360));
+        const result = await rushProductionUseCase(ctx, {
+          buildingId,
+          queueId: queueItem.id,
+          simboostsCost: cost
+        });
+        simboostsRemaining = result.simboostsRemaining;
+        updatedBuilding = result.building;
+      } else if (busyUntilMs > virtualClock.nowMs()) {
+        const remainingSec = Math.max(0, Math.ceil((busyUntilMs - virtualClock.nowMs()) / 1000));
+        cost = Math.max(1, Math.ceil(remainingSec / 360));
+        const result = await rushBuildingConstructionUseCase(ctx, {
+          buildingId,
+          simboostsCost: cost
+        });
+        simboostsRemaining = result.simboostsRemaining;
+        updatedBuilding = result.building;
+      } else {
+        sendJson(res, { error: 'Building is not busy' }, 400);
+        return true;
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      sendJson(res, { error: msg }, 400);
+      return true;
+    }
+
+    const comp = companyRepository.findById(currentCompanyId);
+    const supporterCompany = getCompanyById(currentCompanyId);
+    const supporter = supporterCompany ? getSupporterState(supporterCompany) : { supporterActive: false };
+    const extraBuildingSlots = (Number(comp?.extraBuildingSlots) || 0) + (supporter.supporterActive ? 1 : 0);
+    const levelInfo = computeLevelInfo({
+      level: comp?.level ?? 1,
+      experience: comp?.experience ?? 0,
+      rating: comp?.rating,
+      extra_building_slots: extraBuildingSlots
+    });
+
+    sendJson(res, {
+      success: true,
+      message: 'Rushed successfully',
+      sim_boosts_spend: cost,
+      simBoosts: simboostsRemaining,
+      newBusy: null,
+      achievements: [],
+      levelInfo,
+      building: formatBuilding({
+        id: updatedBuilding.id,
+        company_id: updatedBuilding.companyId,
+        position: updatedBuilding.position,
+        kind: updatedBuilding.kind,
+        size: updatedBuilding.size,
+        name: updatedBuilding.name,
+        cost: updatedBuilding.cost,
+        category: updatedBuilding.category,
+        created_at: '',
+        busy_until: updatedBuilding.busyUntil
+      })
+    });
+    return true;
+  }
+
   // 12. Rush Construction / Upgrade: POST /api/v2/companies/buildings/:id/construction-rush/
   const rushConstructMatch = pathname.match(/^\/api\/v2\/companies\/buildings\/(\d+)\/construction-rush\/$/);
   if (rushConstructMatch && method === 'POST') {
@@ -613,6 +713,7 @@ export function registerSimboostRoutes(registry: RouteRegistry = globalRouteRegi
   register('POST', '/api/v2/companies/buildings/:buildingId/rush/');
   register('POST', '/api/v2/companies/buildings/:buildingId/queue/:queueId/rush/');
   register('POST', '/api/v2/companies/buildings/:buildingId/construction-rush/');
+  register('POST', '/api/v1/rush/:buildingId/');
 }
 
 registerSimboostRoutes(globalRouteRegistry);
