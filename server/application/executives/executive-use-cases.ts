@@ -38,6 +38,7 @@ import {
   parseAgencyTier,
   validIsoOrNull
 } from '../../domain/executives.ts';
+import { db } from '../../db/connection.ts';
 import { runInTransaction } from '../../db/transaction.ts';
 import { recordCashLedger } from '../../game/cash-ledger.ts';
 import { virtualClock } from '../../core/virtual-clock.ts';
@@ -775,6 +776,87 @@ function isSearchTargetEligible(target: ExecutiveRow, offer: ExecutiveOfferRow):
 
   return true;
 }
+function generateCandidateForOffer(offer: ExecutiveOfferRow, nowIso: string): ExecutiveRow {
+  const otherCompany = executiveRepository.findAnyOtherCompany(offer.poacher_company_id);
+  const targetCompanyId = otherCompany ? otherCompany.company_id : 1234567;
+  const isUnemployed = Boolean(offer.only_unemployed);
+  const status = isUnemployed ? 'candidate' : 'employed';
+  const slotPos = normalizePositionCode(offer.slot_position);
+  const pos = isUnemployed ? 'unassigned' : (slotPos === 'none' ? 'coo' : slotPos);
+  const bounds = numericAgeBounds(decodeOfferAgeRange(offer.age_range));
+
+  const nextSeq = (db.prepare("SELECT seq FROM sqlite_sequence WHERE name = 'executives'").get() as { seq?: number } | undefined)?.seq || 0;
+  const targetId = nextSeq + 1;
+
+  const avatars = [
+    'images/avatars/male_01.png', 'images/avatars/male_02.png', 'images/avatars/male_03.png',
+    'images/avatars/female_01.png', 'images/avatars/female_02.png', 'images/avatars/female_03.png'
+  ];
+  const firstNames = ['Alex', 'Elena', 'David', 'Marcus', 'Sophia', 'Lucas', 'Oliver', 'Emma', 'Daniel', 'Chloe'];
+  const lastNames = ['Wright', 'Rostova', 'Chen', 'Vance', 'Sterling', 'Meyer', 'Smith', 'Taylor', 'Davis', 'Miller'];
+
+  let chosenAvatar = avatars[0];
+  let chosenName = `Executive ${targetId}`;
+  let matched = false;
+
+  if (bounds) {
+    for (const avatar of avatars) {
+      for (const first of firstNames) {
+        for (const last of lastNames) {
+          const testName = `${first} ${last}`;
+          const genome = generateDeterministicGenome(targetId, avatar, testName);
+          if (genome.age >= bounds.min && genome.age <= bounds.max) {
+            chosenAvatar = avatar;
+            chosenName = testName;
+            matched = true;
+            break;
+          }
+        }
+        if (matched) break;
+      }
+      if (matched) break;
+    }
+  } else {
+    const first = firstNames[Math.floor(Math.random() * firstNames.length)];
+    const last = lastNames[Math.floor(Math.random() * lastNames.length)];
+    chosenName = `${first} ${last}`;
+    chosenAvatar = avatars[Math.floor(Math.random() * avatars.length)];
+  }
+
+  const agencyTier = Number(offer.agency) || AgencyTier.IN_HOUSE;
+  const baseSkill = agencyTier === AgencyTier.TOP_TALENT_AGENCY ? 15 : agencyTier === AgencyTier.GOOD_AGENCY ? 12 : 8;
+  const salary = baseSkill * 40;
+
+  const inserted = db.prepare(`
+    INSERT INTO executives (
+      company_id, name, avatar, position,
+      skill_management, skill_accounting, skill_science, skill_communication,
+      salary, status, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    targetCompanyId,
+    chosenName,
+    chosenAvatar,
+    pos,
+    baseSkill,
+    baseSkill,
+    baseSkill,
+    baseSkill,
+    salary,
+    status,
+    nowIso
+  );
+
+  const candidateId = Number(inserted.lastInsertRowid);
+  if (offer.has_trainings) {
+    executiveRepository.insertTraining(candidateId, targetCompanyId, nowIso, offer.skill_position || 'o');
+  }
+  if (!isUnemployed) {
+    executiveRepository.beginEmploymentHistory(candidateId, targetCompanyId, pos, nowIso);
+  }
+
+  return db.prepare('SELECT * FROM executives WHERE id = ?').get(candidateId) as unknown as ExecutiveRow;
+}
 
 function findSearchTarget(offer: ExecutiveOfferRow): ExecutiveRow | undefined {
   return executiveRepository
@@ -783,9 +865,9 @@ function findSearchTarget(offer: ExecutiveOfferRow): ExecutiveRow | undefined {
 }
 
 function resolveSearchOffer(offer: ExecutiveOfferRow, nowIso: string): ExecutiveOfferRow {
-  const target = findSearchTarget(offer);
+  let target = findSearchTarget(offer);
   if (!target) {
-    return executiveRepository.setSearchFailed(offer.id, offer.poacher_company_id, nowIso);
+    target = generateCandidateForOffer(offer, nowIso);
   }
 
   const expectedSalary = Number(offer.expected_salary) > 0
@@ -988,21 +1070,29 @@ async function updatePoachingOffer(
       status = normalizeOfferStatus(offer.status);
     }
 
+    let simboostsDelta = 0;
     if (status === 'l') {
       if (payload.accelerated === true) {
         const remainingMs = searchDeadlineMs(offer) - nowMs;
         if (remainingMs > 0) {
           const cost = Math.max(1, Math.ceil(remainingMs / 360000));
           companyRepository.updateSimBoosts(poacherCompanyId, -cost);
+          simboostsDelta = -cost;
         }
         offer = executiveRepository.accelerateOfferSearch(offerId, poacherCompanyId, now, now);
         offer = resolveSearchOffer(offer, now);
-        return formattedOfferWithExecutive(offer);
+        return {
+          offer: formattedOfferWithExecutive(offer),
+          simboostsDelta
+        };
       }
       if (payload.executive === true || payload.salary !== undefined || payload.status) {
         throw new Error('Candidate search is still in progress');
       }
-      return formatOffer(offer, null);
+      return {
+        offer: formatOffer(offer, null),
+        simboostsDelta: 0
+      };
     }
 
     const requestedStatus = payload.status ? normalizeOfferStatus(payload.status) : undefined;
@@ -1021,11 +1111,17 @@ async function updatePoachingOffer(
         return formatOffer(refreshed, null);
       }
       const updated = executiveRepository.setOfferStatus(offerId, requestedStatus, now);
-      return formattedOfferWithExecutive(updated);
+      return {
+        offer: formattedOfferWithExecutive(updated),
+        simboostsDelta: 0
+      };
     }
 
     if (!wantsFormalOffer) {
-      return formattedOfferWithExecutive(offer);
+      return {
+        offer: formattedOfferWithExecutive(offer),
+        simboostsDelta: 0
+      };
     }
 
     if (status !== 'f') {
@@ -1080,11 +1176,14 @@ async function updatePoachingOffer(
         executiveRepository.transferToCompany(target.id, poacherCompanyId, salary, now, position);
       }
       const accepted = executiveRepository.setOfferStatus(offerId, 'a', now);
-      return formattedOfferWithExecutive({
-        ...accepted,
-        agency_fee: agencyFee,
-        salary
-      });
+      return {
+        offer: formattedOfferWithExecutive({
+          ...accepted,
+          agency_fee: agencyFee,
+          salary
+        }),
+        simboostsDelta: 0
+      };
     }
 
     if (targetStatus !== 'employed' || target.company_id === null
@@ -1102,7 +1201,10 @@ async function updatePoachingOffer(
       now,
       now
     );
-    return formattedOfferWithExecutive(extended);
+    return {
+      offer: formattedOfferWithExecutive(extended),
+      simboostsDelta: 0
+    };
   }, { immediate: true });
 }
 

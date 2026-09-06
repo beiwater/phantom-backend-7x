@@ -121,14 +121,15 @@ export async function handleExecutiveRoutes(
       if (requireCapability(res, currentCompanyId, 'executives', 'update poaching offer')) return true;
       const body = await readJsonBody<{ status?: string; executive?: boolean; salary?: number; accelerated?: boolean }>(req);
       try {
-        const offer = await updatePoachingOfferCommand(gameCtx(), offerId, body);
+        const result = await updatePoachingOfferCommand(gameCtx(), offerId, body);
+        const offer = result.offer;
         sendJson(res, {
           ...offer,
           offer,
+          simboostsDelta: result.simboostsDelta,
           success: true,
           offerId: offer.id,
-          status: offer.status,
-          moneyDelta: 0
+          status: offer.status
         });
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
