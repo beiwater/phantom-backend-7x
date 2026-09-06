@@ -513,14 +513,20 @@ export async function handleSocialRoutes(
 
     // C-2: the original frontend bundle posts {chatroom, body}; older
     // callers/tests use {chatroom, text}. Accept both spellings.
-    const body = await readJsonBody<{ chatroom?: string; text?: string; body?: string; recipient?: number }>(req);
-    const room = typeof body.chatroom === 'string' && body.chatroom.trim()
-      ? body.chatroom.trim()
-      : 'N';
+    // C-2: the original frontend bundle posts {chatroom, body} for public rooms,
+    // and {companyId, body} (or {recipient, body}) for private direct messages.
+    const body = await readJsonBody<{
+      chatroom?: string;
+      text?: string;
+      body?: string;
+      recipient?: number;
+      companyId?: number | string;
+    }>(req);
+
     const rawText = typeof body.text === 'string' ? body.text : typeof body.body === 'string' ? body.body : '';
     const text = rawText.trim();
-    if (room.length > 100 || text.length === 0 || text.length > 2000) {
-      sendJson(res, { error: 'Chatroom and message text are invalid' }, 400);
+    if (text.length === 0 || text.length > 2000) {
+      sendJson(res, { error: 'Message text is invalid' }, 400);
       return true;
     }
 
@@ -531,8 +537,58 @@ export async function handleSocialRoutes(
     }
 
     const now = virtualClock.nowIso();
-    const messageId = socialRepository.insertChatMessage(room, comp.company_id, comp.name, text, now);
+    const recipientId = body.companyId !== undefined && body.companyId !== null && String(body.companyId).trim() !== ''
+      ? Number(body.companyId)
+      : body.recipient !== undefined && body.recipient !== null
+        ? Number(body.recipient)
+        : null;
 
+    // Private Direct Message Flow
+    if (recipientId !== null && !isNaN(recipientId) && recipientId > 0) {
+      const recipientComp = companyRepository.findById(recipientId);
+      if (!recipientComp) {
+        sendJson(res, { error: 'Recipient company not found' }, 404);
+        return true;
+      }
+      const messageId = socialRepository.insertDirectMessage(comp.company_id, recipientComp.companyId, text, now);
+      const formatted = {
+        id: messageId,
+        sender: {
+          id: comp.company_id,
+          company: comp.name,
+          logo: comp.logo || '',
+          certificates: 0,
+          supporter: false,
+          realmId: comp.realm_id ?? 0
+        },
+        receiver: {
+          id: recipientComp.companyId,
+          company: recipientComp.name,
+          logo: recipientComp.logo || '',
+          certificates: 0,
+          supporter: false,
+          realmId: recipientComp.realmId ?? 0
+        },
+        body: text,
+        text,
+        datetime: now,
+        pinned: false
+      };
+      broadcastAll('NEW_MESSAGE', formatted);
+      sendJson(res, formatted);
+      return true;
+    }
+
+    // Public Chatroom Message Flow
+    const room = typeof body.chatroom === 'string' && body.chatroom.trim()
+      ? body.chatroom.trim()
+      : 'N';
+    if (room.length > 100) {
+      sendJson(res, { error: 'Chatroom is invalid' }, 400);
+      return true;
+    }
+
+    const messageId = socialRepository.insertChatMessage(room, comp.company_id, comp.name, text, now);
     const meta = getChatroomMetadata(room);
     const compMap = new Map([[comp.company_id, { logo: comp.logo || '', realmId: comp.realm_id ?? 0 }]]);
     const formatted = formatChatMessage({
@@ -548,8 +604,100 @@ export async function handleSocialRoutes(
     return true;
   }
 
-  if (pathname === '/api/messages/' || pathname === '/api/messages_by_company/') {
-    sendJson(res, { messages: [], contacts: [], unreadMessages: [] });
+  // 8a. Private Direct Messages by Company: /api/messages_by_company/
+  if (pathname === '/api/messages_by_company/' && method === 'GET') {
+    const parsedUrl = new URL(req.url || '', 'http://127.0.0.1');
+    const companyName = parsedUrl.searchParams.get('company')?.trim() || '';
+    const companyIdStr = parsedUrl.searchParams.get('company_id')?.trim();
+    const companyId = companyIdStr && companyIdStr !== 'undefined' ? Number(companyIdStr) : null;
+    const lastIdStr = parsedUrl.searchParams.get('last_id')?.trim();
+    const lastId = lastIdStr && lastIdStr !== 'undefined' ? Number(lastIdStr) : undefined;
+
+    let targetComp = companyId ? companyRepository.findById(companyId) : null;
+    if (!targetComp && companyName) {
+      targetComp = companyRepository.findByName(companyName);
+    }
+
+    if (!targetComp) {
+      sendJson(res, { status: 'error', error: 'Company not found' }, 404);
+      return true;
+    }
+
+    const privateNote = currentCompanyId ? (socialRepository.getCompanyNote(currentCompanyId, targetComp.companyId) || '') : '';
+    let messagesList: unknown[] = [];
+    let lastMessageId: number | null = null;
+    if (currentCompanyId) {
+      const rows = socialRepository.listDirectMessages(currentCompanyId, targetComp.companyId, lastId, 30);
+      const currentComp = getCompanyById(currentCompanyId);
+      messagesList = rows.map(r => ({
+        id: r.id,
+        sender: r.sender_company_id === currentCompanyId ? {
+          id: currentComp?.company_id ?? currentCompanyId,
+          company: currentComp?.name || '',
+          logo: currentComp?.logo || '',
+          certificates: 0,
+          supporter: false,
+          realmId: currentComp?.realm_id ?? 0
+        } : {
+          id: targetComp!.companyId,
+          company: targetComp!.name,
+          logo: targetComp!.logo || '',
+          certificates: 0,
+          supporter: false,
+          realmId: targetComp!.realmId ?? 0
+        },
+        receiver: r.recipient_company_id === targetComp!.companyId ? {
+          id: targetComp!.companyId,
+          company: targetComp!.name,
+          logo: targetComp!.logo || '',
+          certificates: 0,
+          supporter: false,
+          realmId: targetComp!.realmId ?? 0
+        } : {
+          id: currentComp?.company_id ?? currentCompanyId,
+          company: currentComp?.name || '',
+          logo: currentComp?.logo || '',
+          certificates: 0,
+          supporter: false,
+          realmId: currentComp?.realm_id ?? 0
+        },
+        body: r.message,
+        text: r.message,
+        datetime: r.created_at,
+        pinned: false
+      }));
+      if (rows.length > 0) {
+        lastMessageId = rows[rows.length - 1].id;
+      }
+    }
+
+    sendJson(res, {
+      status: 'ok',
+      messages: messagesList,
+      contact: {
+        company: targetComp.name,
+        logo: targetComp.logo || '',
+        certificates: 0,
+        companyId: targetComp.companyId,
+        lastMessageId,
+        chatBlocked: false,
+        unread: 0,
+        pinned: false,
+        realm: targetComp.realmId ?? 0,
+        supporter: false,
+        privateNote,
+        online: 'offline'
+      }
+    });
+    return true;
+  }
+
+  if (pathname === '/api/messages/') {
+    if (method === 'PATCH') {
+      sendJson(res, { status: 'ok', success: true });
+      return true;
+    }
+    sendJson(res, { messages: [], contacts: [], unreadMessages: 0 });
     return true;
   }
 

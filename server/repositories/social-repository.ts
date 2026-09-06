@@ -23,6 +23,7 @@ const SIMBOOST_ACTION_CODES: Record<string, string> = {
 export interface PollRow { [key: string]: unknown }
 
 export interface ChatMessageRow { id: number; room: string; sender_id: number; sender_company: string; text: string; sent_at: string }
+export interface DirectMessageRow { id: number; sender_company_id: number; recipient_company_id: number; message: string; created_at: string }
 
 export interface CompanyRealmRow { company_id: number; realm_id: number }
 
@@ -308,6 +309,35 @@ export class SocialRepository {
       INSERT INTO chat_messages (room, sender_id, sender_company, text, sent_at)
       VALUES (?, ?, ?, ?, ?)
     `).run(room, senderId, senderCompany, text, sentAt);
+    return Number(result.lastInsertRowid);
+  }
+  // --- Direct messages (private chat between companies) ---------------------
+
+  listDirectMessages(companyA: number, companyB: number, lastId?: number, limit: number = 30): DirectMessageRow[] {
+    if (typeof lastId === 'number' && Number.isFinite(lastId) && lastId > 0) {
+      return this.database.prepare(`
+        SELECT * FROM direct_messages
+        WHERE ((sender_company_id = ? AND recipient_company_id = ?)
+            OR (sender_company_id = ? AND recipient_company_id = ?))
+          AND id > ?
+        ORDER BY id ASC
+        LIMIT ?
+      `).all(companyA, companyB, companyB, companyA, lastId, limit) as DirectMessageRow[];
+    }
+    return this.database.prepare(`
+      SELECT * FROM direct_messages
+      WHERE (sender_company_id = ? AND recipient_company_id = ?)
+         OR (sender_company_id = ? AND recipient_company_id = ?)
+      ORDER BY id ASC
+      LIMIT ?
+    `).all(companyA, companyB, companyB, companyA, limit) as DirectMessageRow[];
+  }
+
+  insertDirectMessage(senderCompanyId: number, recipientCompanyId: number, message: string, createdAt: string): number {
+    const result = this.database.prepare(`
+      INSERT INTO direct_messages (sender_company_id, recipient_company_id, message, created_at)
+      VALUES (?, ?, ?, ?)
+    `).run(senderCompanyId, recipientCompanyId, message, createdAt);
     return Number(result.lastInsertRowid);
   }
 

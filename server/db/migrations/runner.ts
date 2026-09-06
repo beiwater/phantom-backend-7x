@@ -1957,6 +1957,18 @@ export const MIGRATIONS: MigrationDefinition[] = [
       `);
     }
   },
+  {
+    version: 33,
+    name: '033_direct_messages_indexes',
+    up: (db: DatabaseSync) => {
+      db.exec(`
+        CREATE INDEX IF NOT EXISTS idx_direct_messages_participants
+          ON direct_messages(sender_company_id, recipient_company_id, id);
+        CREATE INDEX IF NOT EXISTS idx_direct_messages_recipient_sender
+          ON direct_messages(recipient_company_id, sender_company_id, id);
+      `);
+    }
+  },
 ];
 
 export class MigrationRunner {
