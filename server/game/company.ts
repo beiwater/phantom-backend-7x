@@ -312,6 +312,11 @@ export function getPersonalData(playerId: number) {
   };
 }
 
+export function getCompanyHqImage(companyId: number): string {
+  const row = db.prepare('SELECT value FROM company_settings WHERE company_id = ? AND key = ?').get(companyId, 'hqImage') as { value?: string | null } | undefined;
+  return row?.value ?? '';
+}
+
 export function getAuthData(playerId?: number | null, targetCompanyId?: number | null) {
   if (!playerId) {
     return {
@@ -428,7 +433,7 @@ export function getAuthData(playerId?: number | null, targetCompanyId?: number |
       id: company.company_id,
       companyId: company.company_id,
       money: safeMoney,
-      hqImage: "",
+      hqImage: getCompanyHqImage(company.company_id),
       company: toSafeCompanyName(company.name),
       personalAssistant: company.personal_assistant || "old",
       moderatorSign: Boolean(company.moderator_sign),

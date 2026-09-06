@@ -49,7 +49,7 @@ export class SocialRepository {
   }
 
   insertUnlockedHq(companyId: number, idx: number): void {
-    this.database.prepare('INSERT INTO player_unlocked_hqs (company_id, idx, created_at) VALUES (?, ?, ?)')
+    this.database.prepare('INSERT OR IGNORE INTO player_unlocked_hqs (company_id, idx, created_at) VALUES (?, ?, ?)')
       .run(companyId, idx, virtualClock.nowIso());
   }
 

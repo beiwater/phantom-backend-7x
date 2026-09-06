@@ -25,7 +25,8 @@ import {
   resetCompany,
   updatePlayerPreferences,
   updateCompanySettings,
-  getPersonalData
+  getPersonalData,
+  getCompanyHqImage
 } from '../game/company.ts';
 import { getCompanyBuildings } from '../game/buildings.ts';
 import { getTierForLevel } from '../domain/leveling/level-rules.ts';
@@ -670,7 +671,7 @@ export async function handleAuthRoutes(
         moderatorSign: false,
         level,
         levelKind: tier.kind,
-        hqImage: '',
+        hqImage: getCompanyHqImage(comp.company_id),
         note: comp.note || '',
         maxBuildings,
         rank: null,

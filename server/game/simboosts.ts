@@ -1,7 +1,8 @@
- import { db } from '../db/database.ts';
- import { runInTransaction } from '../db/transaction.ts';
+import { db } from '../db/database.ts';
+import { runInTransaction } from '../db/transaction.ts';
 import { virtualClock } from '../core/virtual-clock.ts';
- import { getCompanyById, updateCompanyMoney, updateCompanySimBoosts } from './company.ts';
+import { getCompanyById, updateCompanyMoney, updateCompanySimBoosts } from './company.ts';
+import { socialRepository } from '../repositories/social-repository.ts';
  import { getBuildingById, formatBuilding } from './buildings.ts';
  import { addResource } from './warehouse.ts';
  import {
@@ -59,7 +60,11 @@ export const PAYMENT_PACKAGES: PaymentPackage[] = [
   { sku: "sb-sb3800", simBoosts: 3800, price: "89.95", currency: "USD", starting: false, isSupporter: false, supporterOnly: false, image: "images/sb-stacks/professional-stack-dark.png", wideFrame: false, googleSku: "simcompanies.simboosts.professional.1", appleSku: "simcompanies.simboosts.professional.1", steamSku: "130000", approximateCurrency: { code: "AUD", value: "125.52" } },
   { sku: "sb-s-sb3800", simBoosts: 3800, price: "79.95", currency: "USD", starting: false, isSupporter: false, supporterOnly: true, image: "images/sb-stacks/professional-stack-dark.png", wideFrame: false, googleSku: "simcompanies.simboosts.professional.discounted.1", appleSku: "simcompanies.simboosts.professional.discounted.1", steamSku: "130001", approximateCurrency: { code: "AUD", value: "111.57" } },
   { sku: "sb-sb6300", simBoosts: 6300, price: "139.95", currency: "USD", starting: false, isSupporter: false, supporterOnly: false, image: "images/sb-stacks/executive-stack-dark.png", wideFrame: false, googleSku: "simcompanies.simboosts.executive.1", appleSku: "simcompanies.simboosts.executive.3", steamSku: "150000", approximateCurrency: { code: "AUD", value: "195.29" } },
-  { sku: "sb-s-sb6300", simBoosts: 6300, price: "125.95", currency: "USD", starting: false, isSupporter: false, supporterOnly: true, image: "images/sb-stacks/executive-stack-dark.png", wideFrame: false, googleSku: "simcompanies.simboosts.executive.discounted.1", appleSku: "simcompanies.simboosts.executive.discounted.1", steamSku: "150001", approximateCurrency: { code: "AUD", value: "175.76" } }
+  { sku: "sb-s-sb6300", simBoosts: 6300, price: "125.95", currency: "USD", starting: false, isSupporter: false, supporterOnly: true, image: "images/sb-stacks/executive-stack-dark.png", wideFrame: false, googleSku: "simcompanies.simboosts.executive.discounted.1", appleSku: "simcompanies.simboosts.executive.discounted.1", steamSku: "150001", approximateCurrency: { code: "AUD", value: "175.76" } },
+  { sku: "sb-hqcybert1", simBoosts: 0, price: "99.95", currency: "USD", starting: false, isSupporter: false, supporterOnly: false, image: "", wideFrame: true, hq: 12, limit: 200, certificate: 58, googleSku: "simcompanies.hq.cyber.1", appleSku: "simcompanies.hq.cyber.1", steamSku: "199120", approximateCurrency: { code: "AUD", value: "138.84" } },
+  { sku: "s-sb-hqcybert1", simBoosts: 0, price: "89.95", currency: "USD", starting: false, isSupporter: false, supporterOnly: true, image: "", wideFrame: true, hq: 12, limit: 200, certificate: 58, googleSku: "simcompanies.hq.cyber.discounted.1", appleSku: "simcompanies.hq.cyber.discounted.1", steamSku: "199121", approximateCurrency: { code: "AUD", value: "124.95" } },
+  { sku: "sb-hqcybert2", simBoosts: 0, price: "599.95", currency: "USD", starting: false, isSupporter: false, supporterOnly: false, image: "", wideFrame: true, hq: 13, limit: 10, certificate: 59, appleSku: "simcompanies.hq.cyber.tower.1", steamSku: "199130", approximateCurrency: { code: "AUD", value: "833.38" } },
+  { sku: "s-sb-hqcybert2", simBoosts: 0, price: "539.95", currency: "USD", starting: false, isSupporter: false, supporterOnly: true, image: "", wideFrame: true, hq: 13, limit: 10, certificate: 59, appleSku: "simcompanies.hq.cyber.tower.discounted.1", steamSku: "199131", approximateCurrency: { code: "AUD", value: "750.03" } }
 ];
 
 export const PAYMENT_PACKAGES_PREFERRED_CURRENCY = 'USD';
@@ -144,6 +149,9 @@ export async function purchasePaymentPackage(companyId: number, sku: string, now
     }
     const newSimBoosts = updateCompanySimBoosts(companyId, pkg.simBoosts);
     recordPurchase(companyId, new Date(now));
+    if (pkg.hq !== undefined) {
+      socialRepository.insertUnlockedHq(companyId, pkg.hq);
+    }
     return {
       payment: {
         id: Math.floor(now),

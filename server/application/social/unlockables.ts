@@ -16,8 +16,30 @@ export const HQ_SKINS: Array<{ idx: number; simboosts: number | null; image: str
   { idx: 8, simboosts: null, image: 'images/landscape/hq/hq-winter.png' },
   { idx: 9, simboosts: 0, image: 'images/landscape/hq/hq-uk-bell-tower.png' },
   { idx: 10, simboosts: null, image: 'images/landscape/hq/hq-town-hall-xmas.png' },
-  { idx: 11, simboosts: null, image: 'images/landscape/hq/hq-obsidian.png' }
+  { idx: 11, simboosts: null, image: 'images/landscape/hq/hq-obsidian.png' },
+  { idx: 12, simboosts: null, image: 'images/buildings/other/hq_cyberpunk_tier01.png' },
+  { idx: 13, simboosts: null, image: 'images/buildings/other/hq_cyberpunk_tier02.png' },
+  { idx: 14, simboosts: 190, image: 'images/buildings/other/hq_haunted.png' },
+  { idx: 15, simboosts: 290, image: 'images/buildings/other/hq_disco_nuke.png' },
+  { idx: 16, simboosts: 190, image: 'images/buildings/other/hq_frozen.png' },
+  { idx: 17, simboosts: 250, image: 'images/buildings/other/hq_industrial_resources.png' },
+  { idx: 18, simboosts: 250, image: 'images/buildings/other/hq_aerospace.png' },
+  { idx: 19, simboosts: 190, image: 'images/buildings/other/hq_mosque.png' },
+  { idx: 20, simboosts: 190, image: 'images/buildings/other/hq_spring.png' },
+  { idx: 21, simboosts: 250, image: 'images/buildings/other/hq_electronics.png' },
+  { idx: 22, simboosts: 250, image: 'images/buildings/other/hq_construction.png' },
+  { idx: 23, simboosts: 190, image: 'images/buildings/other/hq_summer.png' },
+  { idx: 24, simboosts: 250, image: 'images/buildings/other/hq_green_tower.png' },
+  { idx: 25, simboosts: null, image: 'images/buildings/other/hq_atc_tower.png' },
+  { idx: 26, simboosts: 290, image: 'images/buildings/other/hq_banana.png' }
 ];
+
+export interface UnlockedHqItem {
+  idx: number;
+  simboosts: number;
+  image: string;
+  unlocked: boolean;
+}
 
 /** Official PA catalog with SimBoost unlock costs (frontend UP map). */
 export const PA_KINDS = ['vicky', 'jane', 'old', 'lakshmi', 'paige'] as const;
@@ -32,21 +54,44 @@ export const PA_COSTS: Record<PaKind, number> = {
 
 export class NotPurchasableError extends Error {}
 
-export function listUnlockedHqs(companyId: number): Array<{ idx: number }> {
-  return socialRepository.listUnlockedHqs(companyId);
+export function listUnlockedHqs(companyId: number): UnlockedHqItem[] {
+  const unlockedRows = socialRepository.listUnlockedHqs(companyId);
+  const unlockedSet = new Set(unlockedRows.map(r => r.idx));
+  unlockedSet.add(0);
+
+  return HQ_SKINS
+    .filter(skin => skin.simboosts !== null || unlockedSet.has(skin.idx))
+    .map(skin => ({
+      idx: skin.idx,
+      simboosts: skin.simboosts ?? 0,
+      image: skin.image,
+      unlocked: unlockedSet.has(skin.idx)
+    }));
 }
 
-export async function unlockHq(companyId: number, idx: number): Promise<Array<{ idx: number }>> {
+export async function unlockHq(companyId: number, idx: number): Promise<UnlockedHqItem[]> {
   const skin = HQ_SKINS.find(entry => entry.idx === idx);
   if (!skin) throw new NotPurchasableError('Unknown HQ skin idx ' + idx);
+  if (idx === 0 || socialRepository.isHqUnlocked(companyId, idx)) {
+    selectHq(companyId, skin.image);
+    return listUnlockedHqs(companyId);
+  }
   if (skin.simboosts === null) throw new NotPurchasableError('HQ skin ' + idx + ' is not purchasable');
-  if (socialRepository.isHqUnlocked(companyId, idx)) return listUnlockedHqs(companyId);
   await runInTransaction(() => {
     companyRepository.debitSimboosts(companyId, skin.simboosts!);
     socialRepository.insertUnlockedHq(companyId, idx);
     socialRepository.recordSimboostSpend(companyId, 'HQ_UNLOCK', skin.simboosts!);
+    selectHq(companyId, skin.image);
   });
   return listUnlockedHqs(companyId);
+}
+
+export function selectHq(companyId: number, image: string): void {
+  socialRepository.upsertCompanySetting(companyId, 'hqImage', image);
+}
+
+export function getSelectedHq(companyId: number): string {
+  return socialRepository.getCompanySetting(companyId, 'hqImage') ?? '';
 }
 
 export function listUnlockedPas(companyId: number): Array<{ kind: string }> {
