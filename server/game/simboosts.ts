@@ -90,10 +90,14 @@ export function canPurchasePaymentPackage(sku: string) {
 
 export interface CompletedPurchase {
   payment: {
+    id?: number;
     sku: string;
     simBoosts: number;
+    simBoostsPurchased?: number;
     price: string;
+    paid?: string;
     currency: string;
+    currencyCode?: string;
   };
   simBoosts: number;
   companySimboosts: number;
@@ -142,10 +146,14 @@ export async function purchasePaymentPackage(companyId: number, sku: string, now
     recordPurchase(companyId, new Date(now));
     return {
       payment: {
+        id: Math.floor(now),
         sku: pkg.sku,
         simBoosts: pkg.simBoosts,
+        simBoostsPurchased: pkg.simBoosts,
         price: pkg.price,
-        currency: pkg.currency
+        paid: pkg.price,
+        currency: pkg.currency,
+        currencyCode: pkg.currency
       },
       simBoosts: pkg.simBoosts,
       companySimboosts: newSimBoosts,

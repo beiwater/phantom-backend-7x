@@ -7,6 +7,7 @@ import {
   getPaymentPricingInfo,
   getPlayerBonusesList,
   canPurchasePaymentPackage,
+  purchasePaymentPackage,
   exchangeCashForSimboosts,
   realignProductionSalesBonus,
   getCompanyBonusModifiers,
@@ -81,6 +82,15 @@ function buildPaymentPackagesView(platform: string, companyId: number | null) {
  * purchase never extends the term or mints a second certificate.
  */
 const supporterActivations = new WeakMap<object, SupporterState>();
+
+interface StripePurchaseSession {
+  companyId: number;
+  result: Record<string, unknown>;
+  at: number;
+}
+const stripePurchaseSessions = new Map<string, StripePurchaseSession>();
+const latestCompanyStripePurchases = new Map<number, StripePurchaseSession>();
+
 
 async function purchaseWithSupporterState(companyId: number, sku: string, now: number = Date.now()) {
   // The 10% discount applies to the term held BEFORE this purchase: buying
@@ -259,8 +269,16 @@ export async function handleSimboostRoutes(
       const body = await readJsonBody<{ sku?: string }>(req);
       const sku = body.sku || 'sb-sb150';
       const result = await purchaseWithSupporterState(currentCompanyId, sku);
+      const clientSecret = `pi_local_${Date.now()}_secret_${Math.random().toString(36).slice(2)}`;
+      const sessionEntry: StripePurchaseSession = {
+        companyId: currentCompanyId,
+        result: result as unknown as Record<string, unknown>,
+        at: Date.now()
+      };
+      stripePurchaseSessions.set(clientSecret, sessionEntry);
+      latestCompanyStripePurchases.set(currentCompanyId, sessionEntry);
       sendJson(res, {
-        clientSecret: `pi_local_${Date.now()}_secret_${Math.random().toString(36).slice(2)}`,
+        clientSecret,
         ...result
       });
     } catch (err: unknown) {
@@ -280,10 +298,14 @@ export async function handleSimboostRoutes(
       sendJson(res, { error: 'Unauthorized' }, 401);
       return true;
     }
-    await readJsonBody<{ sessionId?: string }>(req);
+    const body = await readJsonBody<{ sessionId?: string }>(req);
+    const sessionEntry = (body.sessionId ? stripePurchaseSessions.get(body.sessionId) : null)
+      || latestCompanyStripePurchases.get(currentCompanyId);
+    const extra = (sessionEntry && sessionEntry.companyId === currentCompanyId) ? sessionEntry.result : {};
     sendJson(res, {
       receiptUrl: '/zh-cn/landscape/',
-      message: 'Your transaction has been processed. Thanks for your support!'
+      message: 'Your transaction has been processed. Thanks for your support!',
+      ...extra
     });
     return true;
   }

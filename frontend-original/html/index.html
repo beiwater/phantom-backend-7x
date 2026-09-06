@@ -26,9 +26,37 @@
       }
     </script>
     <script>
+      // 私服本地化打桩：拦截所有第三方分析/遥测/追踪动态创建的 script 标签
+      const _origCreateElement = document.createElement.bind(document);
+      document.createElement = function(tagName, options) {
+        const el = _origCreateElement(tagName, options);
+        if (tagName && String(tagName).toLowerCase() === 'script') {
+          const _origSetAttribute = el.setAttribute.bind(el);
+          el.setAttribute = function(name, val) {
+            if (name === 'src' && typeof val === 'string' && /facebook|stripe|google-analytics|googletagmanager/.test(val)) {
+              return;
+            }
+            return _origSetAttribute(name, val);
+          };
+          Object.defineProperty(el, 'src', {
+            set(val) {
+              if (typeof val === 'string' && /facebook|stripe|google-analytics|googletagmanager/.test(val)) {
+                return;
+              }
+              _origSetAttribute('src', val);
+            },
+            get() {
+              return el.getAttribute('src') || '';
+            }
+          });
+        }
+        return el;
+      };
+
       window.dataLayer = window.dataLayer || [];
       window.gtag = function() { window.dataLayer.push(arguments); };
       window.fbq = function() {};
+      window.FB = { init: function() {}, AppEvents: { logPageView: function() {} } };
       window.amplitude = { getInstance: function() { return { init: function() {}, logEvent: function() {}, setUserProperties: function() {}, setUserId: function() {} }; } };
       window.Rollbar = { error: function() {}, info: function() {}, warning: function() {} };
       window.addEventListener('unhandledrejection', function(event) {
@@ -37,6 +65,94 @@
           event.stopPropagation();
         }
       });
+
+      // 私服本地化打桩：拦截 @stripe/stripe-js，阻止向 *.stripe.com 发送任何外部请求，解决表单 404 死锁无限转圈
+      window.Stripe = function(publishableKey, options) {
+        return {
+          version: '3',
+          _registerWrapper: function() {},
+          registerAppInfo: function() {},
+          elements: function() {
+            return {
+              create: function() {
+                return { mount: function() {}, on: function() {}, destroy: function() {}, update: function() {} };
+              },
+              getElement: function() { return null; }
+            };
+          },
+          createToken: async function() { return { token: { id: 'tok_local' } }; },
+          createPaymentMethod: async function() { return { paymentMethod: { id: 'pm_local' } }; },
+          confirmCardPayment: async function() { return { paymentIntent: { status: 'succeeded' } }; },
+          initCheckout: async function(checkoutOptions) {
+            let clientSecret = '';
+            if (typeof checkoutOptions?.fetchClientSecret === 'function') {
+              try {
+                clientSecret = await checkoutOptions.fetchClientSecret();
+              } catch (e) {}
+            }
+            const listeners = {};
+            const checkoutSdk = {
+              currency: 'USD',
+              total: { total: { minorUnitsAmount: 0 } },
+              session: function() {
+                return this;
+              },
+              on: function(event, handler) {
+                listeners[event] = listeners[event] || [];
+                listeners[event].push(handler);
+              },
+              off: function(event, handler) {
+                if (listeners[event]) {
+                  listeners[event] = listeners[event].filter(h => h !== handler);
+                }
+              },
+              changeAppearance: function() {},
+              createPaymentElement: function(elementOptions) {
+                const elListeners = {};
+                return {
+                  on: function(event, handler) {
+                    elListeners[event] = elListeners[event] || [];
+                    elListeners[event].push(handler);
+                    if (event === 'ready') setTimeout(handler, 0);
+                    if (event === 'change') setTimeout(() => handler({ complete: true }), 0);
+                  },
+                  off: function(event, handler) {
+                    if (elListeners[event]) {
+                      elListeners[event] = elListeners[event].filter(h => h !== handler);
+                    }
+                  },
+                  mount: function(domNode) {
+                    if (domNode) {
+                      domNode.innerHTML = '<div style="padding: 18px; margin: 12px 0; background: rgba(40, 167, 69, 0.08); border: 1px solid rgba(40, 167, 69, 0.25); border-radius: 8px; text-align: center;">' +
+                        '<div style="font-size: 15px; font-weight: bold; color: #28a745; margin-bottom: 6px;">⚡ 私服沙盒免支付通道</div>' +
+                        '<div style="font-size: 13px; color: #888;">SimBoosts / 支持者特权已核销发放，点击下方确认完成订单即可。</div>' +
+                        '</div>';
+                    }
+                    setTimeout(() => {
+                      (elListeners['ready'] || []).forEach(fn => fn());
+                      (elListeners['change'] || []).forEach(fn => fn({ complete: true }));
+                    }, 10);
+                  },
+                  update: function() {},
+                  destroy: function() {
+                    if (domNode) domNode.innerHTML = '';
+                  }
+                };
+              },
+              confirm: async function() {
+                return {
+                  type: 'success',
+                  session: {
+                    id: clientSecret || ('sess_local_' + Date.now())
+                  }
+                };
+              }
+            };
+            return checkoutSdk;
+          }
+        };
+      };
+      window.Stripe.version = 3;
     </script>
     <!-- The above 3 meta tags *must* come first in the head; any other head content must come *after* these tags -->
 
@@ -583,17 +699,7 @@
   <body resize>
   
 
-  <script>
-    
-
-    (function(d, s, id){
-      var js, fjs = d.getElementsByTagName(s)[0];
-      if (d.getElementById(id)) {return;}
-      js = d.createElement(s); js.id = id;
-      js.src = "https://connect.facebook.net/en_US/sdk.js";
-      fjs.parentNode.insertBefore(js, fjs);
-    }(document, 'script', 'facebook-jssdk'));
-  </script>
+  <!-- 移除外部 facebook-jssdk 注入，由顶部 window.FB 统一提供本地 stub -->
 
     
     
@@ -648,7 +754,7 @@
           environment: 'production',
           rollbarToken: '5e35bde6ea6d428cace5ab01d4217492',
           googleTagManager: 'GTM-NBD5DQ',
-          stripePublishableKey: 'pk_live_51Q24JaCmqWhiFws0cpqU3h2C0mvb7z8ZU4MEeFOgIYAvBg2eulJYeHYsIrH8hZN98vRekC5OyEhGa2e1mTwdSejo00akBvQjTH',
+          stripePublishableKey: 'pk_local_simcompanies_sandbox',
           googlePlayPackageName: 'com.simcompanies.simcompaniespwa',
         },
       };
