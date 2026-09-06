@@ -11,12 +11,12 @@ export const HQ_SKINS: Array<{ idx: number; simboosts: number | null; image: str
   { idx: 3, simboosts: null, image: 'images/landscape/hq/hq-green-tower.png' },
   { idx: 4, simboosts: null, image: 'images/landscape/hq/hq-banana.png' },
   { idx: 5, simboosts: 300, image: 'images/landscape/hq/hq-vintage.png' },
-  { idx: 6, simboosts: null, image: 'images/landscape/hq/hq-ariake.png' },
+  { idx: 6, simboosts: 200, image: 'images/landscape/hq/hq-ariake.png' },
   { idx: 7, simboosts: null, image: 'images/landscape/hq/hq-haunted.svg' },
-  { idx: 8, simboosts: null, image: 'images/landscape/hq/hq-winter.png' },
+  { idx: 8, simboosts: 150, image: 'images/landscape/hq/hq-winter.png' },
   { idx: 9, simboosts: 0, image: 'images/landscape/hq/hq-uk-bell-tower.png' },
-  { idx: 10, simboosts: null, image: 'images/landscape/hq/hq-town-hall-xmas.png' },
-  { idx: 11, simboosts: null, image: 'images/landscape/hq/hq-obsidian.png' },
+  { idx: 10, simboosts: 190, image: 'images/landscape/hq/hq-town-hall-xmas.png' },
+  { idx: 11, simboosts: 250, image: 'images/landscape/hq/hq-obsidian.png' },
   { idx: 12, simboosts: null, image: 'images/buildings/other/hq_cyberpunk_tier01.png' },
   { idx: 13, simboosts: null, image: 'images/buildings/other/hq_cyberpunk_tier02.png' },
   { idx: 14, simboosts: 190, image: 'images/buildings/other/hq_haunted.png' },
@@ -30,7 +30,7 @@ export const HQ_SKINS: Array<{ idx: number; simboosts: number | null; image: str
   { idx: 22, simboosts: 250, image: 'images/buildings/other/hq_construction.png' },
   { idx: 23, simboosts: 190, image: 'images/buildings/other/hq_summer.png' },
   { idx: 24, simboosts: 250, image: 'images/buildings/other/hq_green_tower.png' },
-  { idx: 25, simboosts: null, image: 'images/buildings/other/hq_atc_tower.png' },
+  { idx: 25, simboosts: 250, image: 'images/buildings/other/hq_atc_tower.png' },
   { idx: 26, simboosts: 290, image: 'images/buildings/other/hq_banana.png' }
 ];
 
