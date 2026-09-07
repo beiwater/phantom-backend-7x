@@ -7,7 +7,7 @@ import { getCompanyBoostSettings, getExchangedToday } from './simboost-settings.
 import { recordCashLedger, refreshDailyFinanceSnapshot } from './cash-ledger.ts';
 import { companyRepository } from '../repositories/company-repository.ts';
 import { runInTransaction } from '../db/transaction.ts';
-import { getEconomyPhase } from '../application/scheduler/daily-jobs.ts';
+import { getEconomyPhase } from './economy-phase.ts';
 
 export interface CompanyRow {
   id: number;
