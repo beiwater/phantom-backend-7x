@@ -106,10 +106,6 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 /** Issue #98: timetable engine heartbeat. */
 export const SCHEDULER_TICK_INTERVAL_MS = 60 * 1000;
 
-function round2(value: number): number {
-  return Math.round(value * 100) / 100;
-}
-
 function utcDayStartMs(date: Date): number {
   return Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
 }
@@ -279,7 +275,7 @@ export function isSchedulerRunning(): boolean {
  * Serialized through a promise queue so the heartbeat interval and an admin
  * tick can never interleave two runs.
  */
-let schedulerRunQueue: Promise<unknown> = Promise.resolve();
+const schedulerRunQueue: Promise<unknown> = Promise.resolve();
 
 export function runDueSchedulerTasks(
   now: Date = new Date(),

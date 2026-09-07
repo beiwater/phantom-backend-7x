@@ -28,7 +28,6 @@ import { productionRepository } from '../repositories/production-repository.ts';
 import { getResourceDef } from '../game-data/resources.ts';
 import { formatBuilding } from '../game/buildings.ts';
 import { computeLevelInfo } from '../domain/leveling/level-rules.ts';
-import { getCompanyBoostSettings } from '../game/simboost-settings.ts';
 import {
   activateSupporter,
   applySupporterDiscount,
@@ -227,7 +226,7 @@ export async function handleSimboostRoutes(
   // into an explicit 501 with zero balance mutation (production posture for
   // a server that intentionally does not integrate real payment providers).
   // Default (unset) keeps the P0-03 local-direct-purchase behavior.
-  const tronPatchMatch = pathname.match(/^\/api\/v2\/payment-crypto\/tron\/([^\/]+)\/([^\/]+)\/?$/);
+  const tronPatchMatch = pathname.match(/^\/api\/v2\/payment-crypto\/tron\/([^/]+)\/([^/]+)\/?$/);
   if (CONFIG.PAYMENTS_DISABLED && (
     (method === 'POST' && (
       pathname === '/api/v2/payment/' ||
@@ -556,9 +555,9 @@ export async function handleSimboostRoutes(
 
     const queueItem = productionRepository.findLatestActiveByBuilding(buildingId, currentCompanyId);
     const busyUntilMs = building.busyUntil ? new Date(building.busyUntil).getTime() : 0;
-    let cost = 0;
-    let simboostsRemaining = 0;
-    let updatedBuilding = building;
+    let cost: number;
+    let simboostsRemaining: number;
+    let updatedBuilding: typeof building;
 
     try {
       const ctx = createGameContext(currentCompanyId, currentCompanyId, 0);

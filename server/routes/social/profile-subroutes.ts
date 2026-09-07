@@ -110,11 +110,14 @@ export async function handleProfileSubroutes(
         sendJson(res, { error: "Unknown notification category" }, 400);
         return true;
       }
-      const { category: _drop, ...rest } = body ?? {};
-      void _drop;
+      const { category: _ignoredCategory, ...rest } = body ?? {};
       const flags = rest[category] ?? {};
-      const column = category === "emailNotifications" ? "email_json"
-        : category === "popupNotifications" ? "popup_json" : "push_json";
+      const columnMap: Record<string, string> = {
+        emailNotifications: 'email_json',
+        popupNotifications: 'popup_json',
+        pushNotifications: 'push_json'
+      };
+      const column = columnMap[category] ?? 'push_json';
       socialRepository.upsertNotificationPreferences(currentCompanyId, column, JSON.stringify(flags), virtualClock.nowIso());
       sendJson(res, loadRow());
       return true;

@@ -198,7 +198,7 @@ export class NpcMarketService {
     const purchasedVolume = this.getRecentPlayerPurchases(kind, database);
     const elasticity = Math.max(0.1, Number(CONFIG.NPC_RESTOCK_DEMAND_ELASTICITY) || 1.0);
 
-    let demandFactor = 1.0;
+    let demandFactor: number;
     if (purchasedVolume > 0) {
       const demandRatio = purchasedVolume / Math.max(1, baseBatch);
       // Scaling factor: if players bought 100% of base stock, demandFactor = 1.5x (up to 3.5x)
@@ -279,7 +279,7 @@ export class NpcMarketService {
     const floatDelta = (deterministicFloat(kind * 137 + quality * 29 + 17) - 0.5) * 2 * volatility;
     const floatPrice = targetQ0BasePrice * (1 + floatDelta);
     const qualityMultiplier = 1.0 + quality * 0.10;
-    let unitPrice = roundToTick(floatPrice * qualityMultiplier);
+    const unitPrice = roundToTick(floatPrice * qualityMultiplier);
     return Math.max(getPriceTickSize(unitPrice), unitPrice);
   }
 
@@ -303,7 +303,6 @@ export class NpcMarketService {
         CONFIG.NPC_MARKET_Q0_ONLY ? 0 : Number(CONFIG.NPC_MARKET_MAX_QUALITY),
         realmConfig.researchLimit
       );
-      let ordersDeactivated = 0;
       let ordersUpdated = 0;
       let ordersCreated = 0;
 
@@ -313,7 +312,7 @@ export class NpcMarketService {
         SET active = 0, quantity = 0
         WHERE seller_id = ? AND quality > ? AND active = 1
       `).run(NPC_SELLER_ID, effectiveMaxQuality);
-      ordersDeactivated = Number(deactRes.changes) || 0;
+      const ordersDeactivated = Number(deactRes.changes) || 0;
 
       const nowIso = virtualClock.nowIso();
       const findExistingStmt = database.prepare(`

@@ -268,7 +268,7 @@ export async function handleChatSubroutes(
     sendJson(res, {
       chatrooms: loadChatroomSubscriptions(currentCompanyId ?? -1)
         .filter(room => !room.notSubscribed)
-        .map(({ notSubscribed, ...room }) => ({
+        .map(({ notSubscribed: _notSubscribed, ...room }) => ({
           ...room,
           protectedForCountry: room.protectedForCountry ?? null
         })),
@@ -392,11 +392,12 @@ export async function handleChatSubroutes(
     }
 
     const now = virtualClock.nowIso();
-    const recipientId = body.companyId !== undefined && body.companyId !== null && String(body.companyId).trim() !== ""
-      ? Number(body.companyId)
-      : body.recipient !== undefined && body.recipient !== null
-        ? Number(body.recipient)
-        : null;
+    let recipientId: number | null = null;
+    if (body.companyId !== undefined && body.companyId !== null && String(body.companyId).trim() !== "") {
+      recipientId = Number(body.companyId);
+    } else if (body.recipient !== undefined && body.recipient !== null) {
+      recipientId = Number(body.recipient);
+    }
 
     // Private Direct Message Flow
     if (recipientId !== null && !isNaN(recipientId) && recipientId > 0) {
