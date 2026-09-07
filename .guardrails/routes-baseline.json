@@ -1,0 +1,2352 @@
+{
+  "declarativeCount": 449,
+  "legacyCount": 14,
+  "declarative": [
+    {
+      "method": "DELETE",
+      "pattern": "/api/v1/article/:articleId/reaction/:type/",
+      "owner": "newspaper"
+    },
+    {
+      "method": "DELETE",
+      "pattern": "/api/v1/buildings/:id/busy/",
+      "owner": "unattributed"
+    },
+    {
+      "method": "DELETE",
+      "pattern": "/api/v1/busy/:id/",
+      "owner": "unattributed"
+    },
+    {
+      "method": "DELETE",
+      "pattern": "/api/v1/launch-pad/:buildingId/launch/",
+      "owner": "aerospace"
+    },
+    {
+      "method": "DELETE",
+      "pattern": "/api/v1/launch-pad/:buildingId/launch/:launchId/",
+      "owner": "aerospace"
+    },
+    {
+      "method": "DELETE",
+      "pattern": "/api/v1/sales-orders/:orderId/",
+      "owner": "retail"
+    },
+    {
+      "method": "DELETE",
+      "pattern": "/api/v2/articles/:articleId/reactions/",
+      "owner": "newspaper"
+    },
+    {
+      "method": "DELETE",
+      "pattern": "/api/v2/building-auctions/bids/:companyId/:bidId/",
+      "owner": "building-auctions"
+    },
+    {
+      "method": "DELETE",
+      "pattern": "/api/v2/companies/:companyId/buildings/:id/",
+      "owner": "unattributed"
+    },
+    {
+      "method": "DELETE",
+      "pattern": "/api/v2/companies/:companyId/display-case/:slot/",
+      "owner": "achievements"
+    },
+    {
+      "method": "DELETE",
+      "pattern": "/api/v2/companies/achievements/:achievementId/",
+      "owner": "achievements"
+    },
+    {
+      "method": "DELETE",
+      "pattern": "/api/v2/companies/buildings/:buildingId/sales-orders/:orderId/",
+      "owner": "retail"
+    },
+    {
+      "method": "DELETE",
+      "pattern": "/api/v2/companies/buildings/:id/",
+      "owner": "unattributed"
+    },
+    {
+      "method": "DELETE",
+      "pattern": "/api/v2/companies/buildings/:id/queue/:queueId/",
+      "owner": "unattributed"
+    },
+    {
+      "method": "DELETE",
+      "pattern": "/api/v2/companies/buildings/:id/robots/",
+      "owner": "unattributed"
+    },
+    {
+      "method": "DELETE",
+      "pattern": "/api/v2/companies/executives/my-offers/:offerId/",
+      "owner": "executives"
+    },
+    {
+      "method": "DELETE",
+      "pattern": "/api/v2/companies/me/buildings/:id/",
+      "owner": "unattributed"
+    },
+    {
+      "method": "DELETE",
+      "pattern": "/api/v2/companies/tags/:tagId/",
+      "owner": "auth"
+    },
+    {
+      "method": "DELETE",
+      "pattern": "/api/v2/contracts/:contractId/",
+      "owner": "contracts"
+    },
+    {
+      "method": "DELETE",
+      "pattern": "/api/v2/fpa/custom-reports/:reportId/",
+      "owner": "finance"
+    },
+    {
+      "method": "DELETE",
+      "pattern": "/api/v2/gift-baskets/:companyId/outgoing/:year/:basketId/",
+      "owner": "achievements"
+    },
+    {
+      "method": "DELETE",
+      "pattern": "/api/v2/gift-baskets/:companyId/received/:year/:basketId/",
+      "owner": "achievements"
+    },
+    {
+      "method": "DELETE",
+      "pattern": "/api/v2/market-order/:orderId/",
+      "owner": "market"
+    },
+    {
+      "method": "DELETE",
+      "pattern": "/api/v2/market-order/buy/:orderId/",
+      "owner": "market"
+    },
+    {
+      "method": "DELETE",
+      "pattern": "/api/v2/no-cache/companies/achievements/:achievementId/",
+      "owner": "achievements"
+    },
+    {
+      "method": "DELETE",
+      "pattern": "/api/v2/sales-orders/:orderId/",
+      "owner": "retail"
+    },
+    {
+      "method": "DELETE",
+      "pattern": "/api/v3/companies/buildings/:id/followers/",
+      "owner": "unattributed"
+    },
+    {
+      "method": "DELETE",
+      "pattern": "/api/v3/contracts/:contractId/",
+      "owner": "contracts"
+    },
+    {
+      "method": "DELETE",
+      "pattern": "/api/v3/government-orders/bids/:secret/",
+      "owner": "government"
+    },
+    {
+      "method": "DELETE",
+      "pattern": "/api/v3/government-orders/bids/:secret/blocked-companies/:companyId/",
+      "owner": "government"
+    },
+    {
+      "method": "DELETE",
+      "pattern": "/api/v3/government-orders/bids/:secret/contractors/:contractorId/",
+      "owner": "government"
+    },
+    {
+      "method": "DELETE",
+      "pattern": "/api/v4/executives/:executiveId/",
+      "owner": "executives"
+    },
+    {
+      "method": "DELETE",
+      "pattern": "/api/v4/executives/:executiveId/trainings/:trainingId/",
+      "owner": "executives"
+    },
+    {
+      "method": "GET",
+      "pattern": "/:locale/signout/",
+      "owner": "auth"
+    },
+    {
+      "method": "GET",
+      "pattern": "/:locale/tutorial/",
+      "owner": "auth"
+    },
+    {
+      "method": "GET",
+      "pattern": "/:locale/tutorial/:step/",
+      "owner": "auth"
+    },
+    {
+      "method": "GET",
+      "pattern": "/admin-xSwwtH67Cr/",
+      "owner": "pages"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/:version/companies/:companyId/balance-sheet/",
+      "owner": "finance"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/:version/companies/:companyId/balance-sheet/:from/:to/",
+      "owner": "finance"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/:version/companies/:companyId/cashflow-statement/",
+      "owner": "finance"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/:version/companies/:companyId/cashflow-statement/:from/:to/",
+      "owner": "finance"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/:version/companies/:companyId/income-statement/",
+      "owner": "finance"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/:version/companies/:companyId/income-statement/:from/:to/",
+      "owner": "finance"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/bonds/",
+      "owner": "bonds"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/bonds/:bondId/",
+      "owner": "bonds"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/bonds/rating/:rating/",
+      "owner": "bonds"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/csrf/",
+      "owner": "encyclopedia"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/debug/chatrooms/",
+      "owner": "debug"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/debug/construction-mode/",
+      "owner": "debug"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/debug/economy/",
+      "owner": "debug"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/debug/market-mode/",
+      "owner": "debug"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/debug/presets/",
+      "owner": "debug"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/debug/state/",
+      "owner": "debug"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/health/",
+      "owner": "health"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/health/live/",
+      "owner": "health"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/health/ready/",
+      "owner": "health"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v1/:scope/:realmId/government-orders/",
+      "owner": "government"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v1/aerospace-launches/",
+      "owner": "aerospace"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v1/gift-baskets/",
+      "owner": "achievements"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v1/gift-baskets/:companyId/draft/",
+      "owner": "achievements"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v1/government-orders/",
+      "owner": "government"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v1/government-orders/:realmId/",
+      "owner": "government"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v1/government-orders/projects/:projectId/",
+      "owner": "government"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v1/government-orders/realm/:realmId/",
+      "owner": "government"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v1/newspaper/:issueId/reaction/",
+      "owner": "newspaper"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v1/realm/:realmId/sync/",
+      "owner": "auth"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v1/realms/:realmId/government-orders/",
+      "owner": "government"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v1/sales-orders/",
+      "owner": "retail"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v1/sales-orders/:orderId/",
+      "owner": "retail"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/:scope/:realmId/articles/top-by-reaction/:metric/",
+      "owner": "newspaper"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/:scope/:realmId/certificates-explorer/",
+      "owner": "encyclopedia"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/:scope/:realmId/certificates-explorer/latest/",
+      "owner": "encyclopedia"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/:scope/:realmId/certificates-explorer/rarest/",
+      "owner": "encyclopedia"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/:scope/:realmId/certificates/",
+      "owner": "encyclopedia"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/:scope/:realmId/encyclopedia/events/",
+      "owner": "encyclopedia"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/:scope/:realmId/encyclopedia/existing-resource-quality/",
+      "owner": "encyclopedia"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/:scope/:realmId/encyclopedia/supporters/",
+      "owner": "encyclopedia"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/:scope/:realmId/gift-baskets/",
+      "owner": "achievements"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/:scope/:realmId/government-orders/",
+      "owner": "achievements"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/:scope/:realmId/industry-modifiers/",
+      "owner": "encyclopedia"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/:scope/:realmId/production-modifiers/",
+      "owner": "encyclopedia"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/:scope/:realmId/realm-modifiers/",
+      "owner": "encyclopedia"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/:scope/:realmId/resources-retail-info/",
+      "owner": "encyclopedia"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/:scope/:realmId/tags/",
+      "owner": "auth"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/:scope/:realmId/unlocked-pas/",
+      "owner": "achievements"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/building-auctions/",
+      "owner": "building-auctions"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/building-auctions/:auctionId/",
+      "owner": "building-auctions"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/building-auctions/active-unlocks/",
+      "owner": "building-auctions"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/building-auctions/bids/:companyOrAuction/",
+      "owner": "building-auctions"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/building-auctions/research-by-building/:buildingId/",
+      "owner": "building-auctions"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/certificates-explorer/:realmId/catalog/",
+      "owner": "achievements"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/certificates-explorer/:realmId/certificate/:kind/:level/:resourceKind/",
+      "owner": "achievements"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/certificates-explorer/:realmId/latest/",
+      "owner": "achievements"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/certificates-explorer/:realmId/rarest/",
+      "owner": "achievements"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/companies/:companyId/",
+      "owner": "auth"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/companies/:companyId/achievements/",
+      "owner": "achievements"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/companies/:companyId/achievements/sync-3rd-party/",
+      "owner": "achievements"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/companies/:companyId/administration-overhead/",
+      "owner": "auth"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/companies/:companyId/bonds/owned/",
+      "owner": "bonds"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/companies/:companyId/bonds/sold/",
+      "owner": "bonds"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/companies/:companyId/building-auctions/",
+      "owner": "building-auctions"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/companies/:companyId/buildings/",
+      "owner": "unattributed"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/companies/:companyId/buildings/:id/",
+      "owner": "unattributed"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/companies/:companyId/cashflow/:range/",
+      "owner": "finance"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/companies/:companyId/certificates/",
+      "owner": "achievements"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/companies/:companyId/display-case/",
+      "owner": "achievements"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/companies/:companyId/former-executives/",
+      "owner": "executives"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/companies/:companyId/loans/",
+      "owner": "finance"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/companies/:companyId/market-buy-orders/",
+      "owner": "market"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/companies/:companyId/market-orders/",
+      "owner": "market"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/companies/:companyId/past-finances-overview/",
+      "owner": "finance"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/companies/:companyId/push-devices/",
+      "owner": "auth"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/companies/:companyId/recent-resources/",
+      "owner": "market"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/companies/:companyId/referral/",
+      "owner": "auth"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/companies/:companyId/resource-ability/:resourceKind/",
+      "owner": "research"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/companies/:companyId/tags/",
+      "owner": "auth"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/companies/:companyId/warehouse/tags/",
+      "owner": "warehouse"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/companies/buildings/:buildingId/restaurant-properties/",
+      "owner": "restaurant"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/companies/buildings/:buildingId/restaurant-runs/",
+      "owner": "restaurant"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/companies/buildings/:buildingId/sales-orders/",
+      "owner": "retail"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/companies/buildings/:buildingId/sales-orders/:orderId/",
+      "owner": "retail"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/companies/buildings/:id/",
+      "owner": "unattributed"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/companies/buildings/:id/abundance/",
+      "owner": "unattributed"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/companies/buildings/:id/history/",
+      "owner": "unattributed"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/companies/buildings/:id/queue/",
+      "owner": "unattributed"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/companies/executives/my-offers/",
+      "owner": "executives"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/companies/executives/my-offers/:offerId/",
+      "owner": "executives"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/companies/me/buildings/",
+      "owner": "unattributed"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/companies/me/buildings/:id/",
+      "owner": "unattributed"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/company-lookup/:companyId/:realmId/:name/",
+      "owner": "auth"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/constants/buildings/",
+      "owner": "encyclopedia"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/constants/core/",
+      "owner": "encyclopedia"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/constants/resources/",
+      "owner": "encyclopedia"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/contracts-history-incoming/",
+      "owner": "contracts"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/contracts-history-incoming/:companyId/",
+      "owner": "contracts"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/contracts-history-outgoing/",
+      "owner": "contracts"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/contracts-history-outgoing/:companyId/",
+      "owner": "contracts"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/contracts-history/:contractId/",
+      "owner": "contracts"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/contracts-incoming/",
+      "owner": "contracts"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/contracts-outgoing/",
+      "owner": "contracts"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/debug/chatrooms/",
+      "owner": "debug"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/debug/construction-mode/",
+      "owner": "debug"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/debug/economy/",
+      "owner": "debug"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/debug/market-mode/",
+      "owner": "debug"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/debug/presets/",
+      "owner": "debug"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/debug/state/",
+      "owner": "debug"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/economy/:realmId/",
+      "owner": "economy"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/economy/:realmId/history/",
+      "owner": "economy"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/economy/:realmId/phase/",
+      "owner": "economy"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/economy/:realmId/statistics/",
+      "owner": "economy"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/economy/:realmId/stats/",
+      "owner": "economy"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/egg-collection/",
+      "owner": "warehouse"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/egg-swaps/",
+      "owner": "warehouse"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/fpa/custom-reports/",
+      "owner": "finance"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/gift-baskets/:companyId/outgoing/:year/",
+      "owner": "achievements"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/gift-baskets/:companyId/outgoing/:year/:basketId/",
+      "owner": "achievements"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/gift-baskets/:companyId/received/:year/",
+      "owner": "achievements"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/gift-baskets/:companyId/received/:year/:basketId/",
+      "owner": "achievements"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/government-orders/",
+      "owner": "achievements"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/industry-modifiers/:realmId/",
+      "owner": "encyclopedia"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/launch-queue/",
+      "owner": "aerospace"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/launch-queue/:buildingId/",
+      "owner": "aerospace"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/market-collectibles-sbs/",
+      "owner": "collectibles"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/market-collectibles/",
+      "owner": "collectibles"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/market-ticker/",
+      "owner": "market"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/market/bonds/",
+      "owner": "bonds"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/market/limits/:realmId/:kind/:quality/",
+      "owner": "market"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/market/recent-resources/:realmId/",
+      "owner": "market"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/market/reference-prices/",
+      "owner": "market"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/market/reference-prices/:realmId/",
+      "owner": "market"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/moderators/",
+      "owner": "pages"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/newspaper/:issueId/sponsor/:slot/",
+      "owner": "newspaper"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/newspaper/:realmName/:realmId/sponsor/",
+      "owner": "newspaper"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/newspaper/articles-by-author/:authorId/",
+      "owner": "social"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/newspaper/sponsor-params/",
+      "owner": "newspaper"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/nfts/assets/:assetId/",
+      "owner": "collectibles"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/nfts/assets/:assetId/trades/",
+      "owner": "collectibles"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/nfts/collectors/",
+      "owner": "collectibles"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/no-cache/companies/:companyId/achievements/",
+      "owner": "achievements"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/payment-pricing/",
+      "owner": "simboost"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/payment/can-purchase/:sku/",
+      "owner": "simboost"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/player-bonuses/",
+      "owner": "simboost"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/players/:playerId/companies/",
+      "owner": "auth"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/players/:playerId/personal-data/",
+      "owner": "auth"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/players/bonuses/",
+      "owner": "simboost"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/players/push-devices/",
+      "owner": "auth"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/production-modifiers/:realmId/",
+      "owner": "encyclopedia"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/realm-modifiers/:realmId/",
+      "owner": "encyclopedia"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/realms/:realmId/phases/",
+      "owner": "economy"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/recent-resources/",
+      "owner": "market"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/referral/",
+      "owner": "auth"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/resources-transactions-summary/:param1/:param2/",
+      "owner": "warehouse"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/resources-transactions/:param1/:param2/",
+      "owner": "warehouse"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/resources/:companyId/",
+      "owner": "warehouse"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/restaurant-menu/",
+      "owner": "restaurant"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/restaurants/",
+      "owner": "restaurant"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/restaurants/:buildingId/",
+      "owner": "restaurant"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/restaurants/:buildingId/ratings/",
+      "owner": "restaurant"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/restaurants/:buildingId/runs/",
+      "owner": "restaurant"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/sales-orders/",
+      "owner": "retail"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/sales-orders/:orderId/",
+      "owner": "retail"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/time-millis/",
+      "owner": "encyclopedia"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/warehouse-contracts-summary/:companyId/:type/",
+      "owner": "warehouse"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/warehouse-tags/",
+      "owner": "warehouse"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/warehouse/tags/",
+      "owner": "warehouse"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/weather/:realmId/",
+      "owner": "encyclopedia"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v3/:locale/pages/:slug/",
+      "owner": "pages"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v3/:scope/:realmId/newspaper/",
+      "owner": "newspaper"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v3/:scope/:realmId/newspaper/:issueId/",
+      "owner": "newspaper"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v3/certificates-explorer/:realmId/catalog/",
+      "owner": "achievements"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v3/certificates-explorer/:realmId/certificate/:kind/:level/:resourceKind/",
+      "owner": "achievements"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v3/certificates-explorer/:realmId/latest/",
+      "owner": "achievements"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v3/certificates-explorer/:realmId/rarest/",
+      "owner": "achievements"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v3/companies-by-company/:realmId/:name/",
+      "owner": "auth"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v3/companies/:companyId/",
+      "owner": "auth"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v3/companies/:companyId/certificates/",
+      "owner": "achievements"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v3/companies/:companyId/collectibles/",
+      "owner": "achievements"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v3/companies/:companyId/executives/",
+      "owner": "executives"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v3/companies/:companyId/past-finances/",
+      "owner": "finance"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v3/companies/:companyId/recent-resources/",
+      "owner": "market"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v3/companies/auth-data/",
+      "owner": "auth"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v3/companies/buildings/:id/followers/",
+      "owner": "unattributed"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v3/companies/executives/hostile-offers/",
+      "owner": "executives"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v3/companies/executives/hostile-offers/:offerId/",
+      "owner": "executives"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v3/contracts-incoming/:companyId/",
+      "owner": "contracts"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v3/contracts-incoming/:realm/:companyId/",
+      "owner": "contracts"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v3/contracts-outgoing/:companyId/",
+      "owner": "contracts"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v3/contracts-outgoing/:realm/:companyId/",
+      "owner": "contracts"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v3/economy/:realmId/",
+      "owner": "economy"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v3/economy/:realmId/history/",
+      "owner": "economy"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v3/economy/:realmId/phase/",
+      "owner": "economy"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v3/economy/:realmId/statistics/",
+      "owner": "economy"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v3/economy/:realmId/stats/",
+      "owner": "economy"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v3/encyclopedia/events/:realmId/",
+      "owner": "encyclopedia"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v3/encyclopedia/supporters/:realmId/",
+      "owner": "encyclopedia"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v3/executives/company/:companyId/executives/",
+      "owner": "executives"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v3/government-orders/",
+      "owner": "government"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v3/government-orders/:realmId/",
+      "owner": "government"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v3/government-orders/bids/",
+      "owner": "government"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v3/government-orders/bids/:secret/",
+      "owner": "government"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v3/government-orders/bids/:secret/blocked-companies/",
+      "owner": "government"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v3/government-orders/bids/:secret/contractors/",
+      "owner": "government"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v3/government-orders/company/:companyId/",
+      "owner": "government"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v3/government-orders/company/:companyId/bids/",
+      "owner": "government"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v3/government-orders/projects/:projectId/",
+      "owner": "government"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v3/government-orders/realm/:realmId/",
+      "owner": "government"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v3/government-orders/realm/:realmId/bids/",
+      "owner": "government"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v3/government-orders/tier/",
+      "owner": "government"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v3/market-ticker/",
+      "owner": "market"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v3/market/:realmId/:kind/",
+      "owner": "market"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v3/market/all/:realmId/:kind/",
+      "owner": "market"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v3/market/bids/:realmId/:kind/:quality/",
+      "owner": "market"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v3/market/buy/:realmId/:kind/",
+      "owner": "market"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v3/market/recent-resources/:realmId/",
+      "owner": "market"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v3/newspaper/:newspaperId/article/:articleId/",
+      "owner": "newspaper"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v3/newspaper/:newspaperId/sponsor/",
+      "owner": "newspaper"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v3/newspaper/articles/:articleId/",
+      "owner": "newspaper"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v3/pages/:locale/:slug/",
+      "owner": "pages"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v3/players/push-devices/",
+      "owner": "auth"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v3/players/research/",
+      "owner": "research"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v3/players/research/:companyId/",
+      "owner": "research"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v3/realms/:realmId/government-orders/",
+      "owner": "government"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v3/realms/:realmId/phases/",
+      "owner": "economy"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v3/recent-resources/",
+      "owner": "market"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v3/resources/:companyId/",
+      "owner": "warehouse"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v3/rocket-launches/:realmId/:companyId/",
+      "owner": "aerospace"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v4/:realmId/resources-retail-info/",
+      "owner": "encyclopedia"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v4/:scope/:realmId/encyclopedia/eva-ranking/:blobIndex/",
+      "owner": "encyclopedia"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v4/:scope/:realmId/encyclopedia/ranking/:blobIndex/",
+      "owner": "encyclopedia"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v4/:scope/:realmId/encyclopedia/resources/:kind/",
+      "owner": "encyclopedia"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v4/:scope/:realmId/encyclopedia/resources/:kind/:quality/",
+      "owner": "encyclopedia"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v4/:scope/:realmId/stats/top/:stat/",
+      "owner": "encyclopedia"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v4/companies/:companyId/executives/",
+      "owner": "executives"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v4/encyclopedia/eva-ranking/:realmId/",
+      "owner": "encyclopedia"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v4/encyclopedia/eva-ranking/:realmId/:blobIndex/",
+      "owner": "encyclopedia"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v4/encyclopedia/ranking/:realmId/",
+      "owner": "encyclopedia"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v4/encyclopedia/ranking/:realmId/:blobIndex/",
+      "owner": "encyclopedia"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v4/executives/",
+      "owner": "executives"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v4/executives/:executiveId/",
+      "owner": "executives"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v4/executives/:executiveId/note/",
+      "owner": "executives"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v4/executives/candidates/",
+      "owner": "executives"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v4/executives/company/:companyId/",
+      "owner": "executives"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v4/payment-packages/:type/",
+      "owner": "simboost"
+    },
+    {
+      "method": "GET",
+      "pattern": "/health/",
+      "owner": "health"
+    },
+    {
+      "method": "GET",
+      "pattern": "/health/live/",
+      "owner": "health"
+    },
+    {
+      "method": "GET",
+      "pattern": "/health/ready/",
+      "owner": "health"
+    },
+    {
+      "method": "GET",
+      "pattern": "/logout/",
+      "owner": "auth"
+    },
+    {
+      "method": "GET",
+      "pattern": "/signout/",
+      "owner": "auth"
+    },
+    {
+      "method": "GET",
+      "pattern": "/tutorial/",
+      "owner": "auth"
+    },
+    {
+      "method": "GET",
+      "pattern": "/zh-cn/signout/",
+      "owner": "auth"
+    },
+    {
+      "method": "PATCH",
+      "pattern": "/api/bonds/",
+      "owner": "bonds"
+    },
+    {
+      "method": "PATCH",
+      "pattern": "/api/bonds/:bondId/",
+      "owner": "bonds"
+    },
+    {
+      "method": "PATCH",
+      "pattern": "/api/v1/article/:articleId/reaction/:type/",
+      "owner": "newspaper"
+    },
+    {
+      "method": "PATCH",
+      "pattern": "/api/v1/companies/me/executive-slots/",
+      "owner": "simboost"
+    },
+    {
+      "method": "PATCH",
+      "pattern": "/api/v1/gift-baskets/:companyId/draft/",
+      "owner": "achievements"
+    },
+    {
+      "method": "PATCH",
+      "pattern": "/api/v2/companies/:companyId/",
+      "owner": "auth"
+    },
+    {
+      "method": "PATCH",
+      "pattern": "/api/v2/companies/:companyId/buildings/:id/",
+      "owner": "unattributed"
+    },
+    {
+      "method": "PATCH",
+      "pattern": "/api/v2/companies/:companyId/display-case/",
+      "owner": "simboost"
+    },
+    {
+      "method": "PATCH",
+      "pattern": "/api/v2/companies/:companyId/tags/",
+      "owner": "auth"
+    },
+    {
+      "method": "PATCH",
+      "pattern": "/api/v2/companies/buildings/:buildingId/restaurant-properties/",
+      "owner": "restaurant"
+    },
+    {
+      "method": "PATCH",
+      "pattern": "/api/v2/companies/buildings/:id/",
+      "owner": "unattributed"
+    },
+    {
+      "method": "PATCH",
+      "pattern": "/api/v2/companies/executives/my-offers/:offerId/",
+      "owner": "executives"
+    },
+    {
+      "method": "PATCH",
+      "pattern": "/api/v2/companies/me/buildings/:id/",
+      "owner": "unattributed"
+    },
+    {
+      "method": "PATCH",
+      "pattern": "/api/v2/companies/me/display-case/",
+      "owner": "simboost"
+    },
+    {
+      "method": "PATCH",
+      "pattern": "/api/v2/companies/me/executive-slots/",
+      "owner": "simboost"
+    },
+    {
+      "method": "PATCH",
+      "pattern": "/api/v2/gift-baskets/:companyId/outgoing/:year/:basketId/",
+      "owner": "achievements"
+    },
+    {
+      "method": "PATCH",
+      "pattern": "/api/v2/gift-baskets/:companyId/received/:year/:basketId/",
+      "owner": "achievements"
+    },
+    {
+      "method": "PATCH",
+      "pattern": "/api/v2/market-collectibles/:listingId/",
+      "owner": "collectibles"
+    },
+    {
+      "method": "PATCH",
+      "pattern": "/api/v2/newspaper/:issueId/sponsor/:slot/",
+      "owner": "newspaper"
+    },
+    {
+      "method": "PATCH",
+      "pattern": "/api/v2/payment-crypto/tron/:driver/:invoiceId/",
+      "owner": "simboost"
+    },
+    {
+      "method": "PATCH",
+      "pattern": "/api/v2/restaurants/:buildingId/",
+      "owner": "restaurant"
+    },
+    {
+      "method": "PATCH",
+      "pattern": "/api/v3/companies/:companyId/",
+      "owner": "auth"
+    },
+    {
+      "method": "PATCH",
+      "pattern": "/api/v3/companies/executives/hostile-offers/:offerId/",
+      "owner": "executives"
+    },
+    {
+      "method": "PATCH",
+      "pattern": "/api/v3/government-orders/bids/:secret/",
+      "owner": "government"
+    },
+    {
+      "method": "PATCH",
+      "pattern": "/api/v3/government-orders/bids/:secret/contractors/:contractorId/",
+      "owner": "government"
+    },
+    {
+      "method": "PATCH",
+      "pattern": "/api/v4/executives/:executiveId/",
+      "owner": "executives"
+    },
+    {
+      "method": "PATCH",
+      "pattern": "/api/v4/executives/:executiveId/trainings/:trainingId/",
+      "owner": "executives"
+    },
+    {
+      "method": "POST",
+      "pattern": "/:locale/tutorial/",
+      "owner": "auth"
+    },
+    {
+      "method": "POST",
+      "pattern": "/:locale/tutorial/:step/",
+      "owner": "auth"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/debug/chatrooms/",
+      "owner": "debug"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/debug/construction-mode/",
+      "owner": "debug"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/debug/economy/",
+      "owner": "debug"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/debug/fixture/",
+      "owner": "debug"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/debug/market-mode/",
+      "owner": "debug"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/debug/time-warp/",
+      "owner": "debug"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v1/buildings/:id/accumulator/collect/",
+      "owner": "unattributed"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v1/buildings/:id/busy/",
+      "owner": "unattributed"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v1/busy/:id/",
+      "owner": "unattributed"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v1/companies/me/executive-slots/",
+      "owner": "simboost"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v1/launch-pad/:buildingId/launch/",
+      "owner": "aerospace"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v1/realm-create-company/:realmId/",
+      "owner": "auth"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v1/realm/:realmId/switch/",
+      "owner": "auth"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v1/rush/:buildingId/",
+      "owner": "simboost"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v1/sales-orders/",
+      "owner": "retail"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/articles/:articleId/reactions/",
+      "owner": "newspaper"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/auth/device/auth/",
+      "owner": "auth"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/auth/device/connect/",
+      "owner": "auth"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/auth/email/auth/",
+      "owner": "auth"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/auth/email/connect/",
+      "owner": "auth"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/auth/email/reset/",
+      "owner": "auth"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/bonds/:bondId/buy/",
+      "owner": "bonds"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/bonds/:bondId/call/",
+      "owner": "bonds"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/bonds/sell/",
+      "owner": "bonds"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/building-auctions/",
+      "owner": "building-auctions"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/building-auctions/:auctionId/",
+      "owner": "building-auctions"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/building-auctions/:auctionId/promote/",
+      "owner": "building-auctions"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/building-auctions/bids/:companyOrAuction/",
+      "owner": "building-auctions"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/building-auctions/research-by-auction/:auctionId/",
+      "owner": "building-auctions"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/companies/:companyId/achievements/sync-3rd-party/",
+      "owner": "achievements"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/companies/:companyId/buildings/",
+      "owner": "unattributed"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/companies/:companyId/display-case/",
+      "owner": "achievements"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/companies/:companyId/loans/",
+      "owner": "finance"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/companies/:companyId/loans/:loanId/repay/",
+      "owner": "finance"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/companies/:companyId/push-devices/",
+      "owner": "auth"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/companies/:companyId/resource-ability/:resourceKind/",
+      "owner": "research"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/companies/:companyId/tags/",
+      "owner": "auth"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/companies/:companyId/warehouse/tags/",
+      "owner": "warehouse"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/companies/buildings/:buildingId/construction-rush/",
+      "owner": "simboost"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/companies/buildings/:buildingId/queue/:queueId/rush/",
+      "owner": "simboost"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/companies/buildings/:buildingId/restaurant-properties/",
+      "owner": "restaurant"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/companies/buildings/:buildingId/restaurant-runs/",
+      "owner": "restaurant"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/companies/buildings/:buildingId/rush/",
+      "owner": "simboost"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/companies/buildings/:buildingId/sales-orders/",
+      "owner": "retail"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/companies/buildings/:id/install-robots/",
+      "owner": "unattributed"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/companies/buildings/:id/prospect/",
+      "owner": "unattributed"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/companies/buildings/:id/queue/",
+      "owner": "unattributed"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/companies/buildings/:id/robots/",
+      "owner": "unattributed"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/companies/buildings/:id/uninstall-robots/",
+      "owner": "unattributed"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/companies/create/",
+      "owner": "auth"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/companies/executives/my-offers/",
+      "owner": "executives"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/companies/executives/my-offers/:offerId/",
+      "owner": "executives"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/companies/me/bonus/",
+      "owner": "simboost"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/companies/me/building-slots/",
+      "owner": "simboost"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/companies/me/buildings/",
+      "owner": "unattributed"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/companies/me/executive-slots/",
+      "owner": "simboost"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/companies/me/simboosts/exchange/",
+      "owner": "simboost"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/companies/me/slots/",
+      "owner": "simboost"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/companies/me/tags/",
+      "owner": "simboost"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/companies/migrate/:companyId/realm0/",
+      "owner": "auth"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/companies/switch/:companyId/",
+      "owner": "auth"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/contracts/",
+      "owner": "contracts"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/contracts/:contractId/accept/",
+      "owner": "contracts"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/contracts/:contractId/reject/",
+      "owner": "contracts"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/debug/chatrooms/",
+      "owner": "debug"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/debug/construction-mode/",
+      "owner": "debug"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/debug/economy/",
+      "owner": "debug"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/debug/fixture/",
+      "owner": "debug"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/debug/market-mode/",
+      "owner": "debug"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/debug/time-warp/",
+      "owner": "debug"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/exchange/",
+      "owner": "simboost"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/fpa/custom-reports/",
+      "owner": "finance"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/gift-baskets/:companyId/outgoing/:year/",
+      "owner": "achievements"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/google/purchase/",
+      "owner": "simboost"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/market-collectibles/",
+      "owner": "collectibles"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/market-collectibles/:listingId/buy/",
+      "owner": "collectibles"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/market-order/",
+      "owner": "market"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/market-order/buy/",
+      "owner": "market"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/market-order/sell-to-bid/",
+      "owner": "market"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/market-order/take/",
+      "owner": "market"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/newspaper/:issueId/sponsor/:slot/",
+      "owner": "newspaper"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/newspaper/:realmName/:realmId/sponsor/:slot/",
+      "owner": "newspaper"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/no-cache/companies/level-bonus/:companyId/",
+      "owner": "simboost"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/order/take/:id/",
+      "owner": "unattributed"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/pa-action/fair/:offer/",
+      "owner": "simboost"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/payment-crypto/tron/",
+      "owner": "simboost"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/payment-stripe/",
+      "owner": "simboost"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/payment-stripe/sync",
+      "owner": "simboost"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/payment/",
+      "owner": "simboost"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/player-preferences/",
+      "owner": "auth"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/players/:playerId/preferences/",
+      "owner": "auth"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/players/language/",
+      "owner": "auth"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/players/push-devices/",
+      "owner": "auth"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/report/",
+      "owner": "pages"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/restaurants/:buildingId/",
+      "owner": "restaurant"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/restaurants/:buildingId/runs/",
+      "owner": "restaurant"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/sales-orders/",
+      "owner": "retail"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/simboosts/exchange/",
+      "owner": "simboost"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/unlock/",
+      "owner": "simboost"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/warehouse-tags/",
+      "owner": "warehouse"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/warehouse/tags/",
+      "owner": "warehouse"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v3/companies/:companyId/executives/",
+      "owner": "executives"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v3/companies/buildings/:id/followers/",
+      "owner": "unattributed"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v3/companies/executives/hostile-offers/:offerId/counter/",
+      "owner": "executives"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v3/contracts/:contractId/accept/",
+      "owner": "contracts"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v3/contracts/:contractId/reject/",
+      "owner": "contracts"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v3/contracts/:recipient/",
+      "owner": "contracts"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v3/government-orders/bids/",
+      "owner": "government"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v3/government-orders/bids/:secret/blocked-companies/",
+      "owner": "government"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v3/government-orders/bids/:secret/contractors/",
+      "owner": "government"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v3/government-orders/realm/:realmId/bids/",
+      "owner": "government"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v3/players/push-devices/",
+      "owner": "auth"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v3/players/research/apply/",
+      "owner": "research"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v4/executives/:executiveId/assign/",
+      "owner": "executives"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v4/executives/:executiveId/fire/",
+      "owner": "executives"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v4/executives/:executiveId/train/",
+      "owner": "executives"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v4/executives/:executiveId/trainings/",
+      "owner": "executives"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v4/executives/hire/",
+      "owner": "executives"
+    },
+    {
+      "method": "POST",
+      "pattern": "/tutorial/",
+      "owner": "auth"
+    },
+    {
+      "method": "PUT",
+      "pattern": "/api/bonds/:bondId/",
+      "owner": "bonds"
+    },
+    {
+      "method": "PUT",
+      "pattern": "/api/v1/sales-orders/:orderId/",
+      "owner": "retail"
+    },
+    {
+      "method": "PUT",
+      "pattern": "/api/v2/companies/:companyId/warehouse/tags/",
+      "owner": "warehouse"
+    },
+    {
+      "method": "PUT",
+      "pattern": "/api/v2/companies/buildings/:buildingId/restaurant-properties/",
+      "owner": "restaurant"
+    },
+    {
+      "method": "PUT",
+      "pattern": "/api/v2/companies/buildings/:buildingId/sales-orders/:orderId/",
+      "owner": "retail"
+    },
+    {
+      "method": "PUT",
+      "pattern": "/api/v2/companies/executives/my-offers/:offerId/",
+      "owner": "executives"
+    },
+    {
+      "method": "PUT",
+      "pattern": "/api/v2/restaurants/:buildingId/",
+      "owner": "restaurant"
+    },
+    {
+      "method": "PUT",
+      "pattern": "/api/v2/sales-orders/:orderId/",
+      "owner": "retail"
+    },
+    {
+      "method": "PUT",
+      "pattern": "/api/v2/warehouse-tags/",
+      "owner": "warehouse"
+    },
+    {
+      "method": "PUT",
+      "pattern": "/api/v2/warehouse/tags/",
+      "owner": "warehouse"
+    },
+    {
+      "method": "PUT",
+      "pattern": "/api/v3/companies/executives/hostile-offers/:offerId/",
+      "owner": "executives"
+    }
+  ],
+  "legacy": [
+    {
+      "methods": [
+        "GET"
+      ],
+      "pattern": "^\\/api\\/time\\/$",
+      "owner": "legacy:time"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "pattern": "^\\/api\\/v2\\/auth\\/device\\/(?:auth|connect)\\/$",
+      "owner": "legacy:auth"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "pattern": "^\\/api\\/v2\\/auth\\/email\\/(?:auth|connect|reset)\\/$",
+      "owner": "legacy:auth"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "pattern": "^\\/api\\/v2\\/bonds\\/\\d+\\/buy\\/$",
+      "owner": "legacy:bonds"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "pattern": "^\\/api\\/v2\\/bonds\\/\\d+\\/call\\/$",
+      "owner": "legacy:bonds"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "pattern": "^\\/api\\/v2\\/bonds\\/sell\\/$",
+      "owner": "legacy:bonds"
+    },
+    {
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "pattern": "^\\/api\\/v2\\/companies\\/me\\/buildings\\/$",
+      "owner": "legacy:buildings"
+    },
+    {
+      "methods": [
+        "GET"
+      ],
+      "pattern": "^\\/api\\/v2\\/constants\\/resources\\/$",
+      "owner": "legacy:encyclopedia"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "pattern": "^\\/api\\/v2\\/market-order\\/(?:take\\/)?$",
+      "owner": "legacy:market"
+    },
+    {
+      "methods": [
+        "GET"
+      ],
+      "pattern": "^\\/api\\/v2\\/market\\/bonds\\/$",
+      "owner": "legacy:bonds"
+    },
+    {
+      "methods": [
+        "GET"
+      ],
+      "pattern": "^\\/api\\/v3\\/companies\\/auth-data\\/$",
+      "owner": "legacy:auth"
+    },
+    {
+      "methods": [
+        "GET"
+      ],
+      "pattern": "^\\/api\\/v4\\/executives\\/$",
+      "owner": "legacy:executives"
+    },
+    {
+      "methods": [
+        "GET"
+      ],
+      "pattern": "^\\/api\\/v4\\/executives\\/candidates\\/$",
+      "owner": "legacy:executives"
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "pattern": "^\\/api\\/v4\\/executives\\/hire\\/$",
+      "owner": "legacy:executives"
+    }
+  ]
+}

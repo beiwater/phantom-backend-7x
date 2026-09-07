@@ -1,0 +1,667 @@
+[
+  {
+    "type": "index",
+    "name": "idx_accumulator_states_company",
+    "sql": "CREATE INDEX idx_accumulator_states_company ON accumulator_states(company_id, resource_kind)"
+  },
+  {
+    "type": "index",
+    "name": "idx_audits_target",
+    "sql": "CREATE INDEX idx_audits_target ON audits(target_company_id, created_at)"
+  },
+  {
+    "type": "index",
+    "name": "idx_bonds_status_buyer_seller",
+    "sql": "CREATE INDEX idx_bonds_status_buyer_seller ON bonds(status, buyer_company_id, seller_company_id)"
+  },
+  {
+    "type": "index",
+    "name": "idx_building_followers_follower",
+    "sql": "CREATE INDEX idx_building_followers_follower ON building_followers (follower_building_id)"
+  },
+  {
+    "type": "index",
+    "name": "idx_buildings_company_id",
+    "sql": "CREATE INDEX idx_buildings_company_id ON buildings(company_id)"
+  },
+  {
+    "type": "index",
+    "name": "idx_buildings_company_position",
+    "sql": "CREATE INDEX idx_buildings_company_position ON buildings(company_id, position)"
+  },
+  {
+    "type": "index",
+    "name": "idx_cash_ledger_company_created",
+    "sql": "CREATE INDEX idx_cash_ledger_company_created ON cash_ledger(company_id, created_at)"
+  },
+  {
+    "type": "index",
+    "name": "idx_certificates_realm_issued",
+    "sql": "CREATE INDEX idx_certificates_realm_issued ON certificates(realm_id, datetime DESC, id DESC)"
+  },
+  {
+    "type": "index",
+    "name": "idx_certificates_realm_kind",
+    "sql": "CREATE INDEX idx_certificates_realm_kind ON certificates(realm_id, kind, id DESC)"
+  },
+  {
+    "type": "index",
+    "name": "idx_challenge_attempts_challenge_id",
+    "sql": "CREATE INDEX idx_challenge_attempts_challenge_id ON challenge_attempts(challenge_id)"
+  },
+  {
+    "type": "index",
+    "name": "idx_challenge_milestones_challenge_id",
+    "sql": "CREATE INDEX idx_challenge_milestones_challenge_id ON challenge_milestones(challenge_id)"
+  },
+  {
+    "type": "index",
+    "name": "idx_chat_messages_room_id",
+    "sql": "CREATE INDEX idx_chat_messages_room_id ON chat_messages(room, id)"
+  },
+  {
+    "type": "index",
+    "name": "idx_chat_messages_room_sent_id",
+    "sql": "CREATE INDEX idx_chat_messages_room_sent_id ON chat_messages(room, sent_at DESC, id DESC)"
+  },
+  {
+    "type": "index",
+    "name": "idx_companies_player_id",
+    "sql": "CREATE INDEX idx_companies_player_id ON companies(player_id)"
+  },
+  {
+    "type": "index",
+    "name": "idx_companies_realm_id",
+    "sql": "CREATE INDEX idx_companies_realm_id ON companies(realm_id)"
+  },
+  {
+    "type": "index",
+    "name": "idx_companies_supporter_until",
+    "sql": "CREATE INDEX idx_companies_supporter_until ON companies(realm_id, supporter_until)"
+  },
+  {
+    "type": "index",
+    "name": "idx_company_notes_owner",
+    "sql": "CREATE INDEX idx_company_notes_owner ON company_notes(company_id, about_company_id)"
+  },
+  {
+    "type": "index",
+    "name": "idx_contest_participants_contest_id",
+    "sql": "CREATE INDEX idx_contest_participants_contest_id ON contest_participants(contest_id)"
+  },
+  {
+    "type": "index",
+    "name": "idx_contracts_recipient_company_id",
+    "sql": "CREATE INDEX idx_contracts_recipient_company_id ON contracts(recipient_company_id)"
+  },
+  {
+    "type": "index",
+    "name": "idx_contracts_recipient_status",
+    "sql": "CREATE INDEX idx_contracts_recipient_status ON contracts(recipient_company_id, status)"
+  },
+  {
+    "type": "index",
+    "name": "idx_contracts_sender_company_id",
+    "sql": "CREATE INDEX idx_contracts_sender_company_id ON contracts(sender_company_id)"
+  },
+  {
+    "type": "index",
+    "name": "idx_course_students_course_id",
+    "sql": "CREATE INDEX idx_course_students_course_id ON course_students(course_id)"
+  },
+  {
+    "type": "index",
+    "name": "idx_direct_messages_participants",
+    "sql": "CREATE INDEX idx_direct_messages_participants ON direct_messages(sender_company_id, recipient_company_id, id)"
+  },
+  {
+    "type": "index",
+    "name": "idx_direct_messages_recipient_sender",
+    "sql": "CREATE INDEX idx_direct_messages_recipient_sender ON direct_messages(recipient_company_id, sender_company_id, id)"
+  },
+  {
+    "type": "index",
+    "name": "idx_economy_phase_history_realm_phase",
+    "sql": "CREATE INDEX idx_economy_phase_history_realm_phase ON economy_phase_history (realm_id, phase)"
+  },
+  {
+    "type": "index",
+    "name": "idx_economy_phase_history_realm_start",
+    "sql": "CREATE INDEX idx_economy_phase_history_realm_start ON economy_phase_history (realm_id, start_at DESC)"
+  },
+  {
+    "type": "index",
+    "name": "idx_encyclopedia_resource_events_active",
+    "sql": "CREATE INDEX idx_encyclopedia_resource_events_active ON encyclopedia_resource_events(realm_id, since, until)"
+  },
+  {
+    "type": "index",
+    "name": "idx_executive_employment_history_company",
+    "sql": "CREATE INDEX idx_executive_employment_history_company ON executive_employment_history(company_id, ended_at, started_at DESC)"
+  },
+  {
+    "type": "index",
+    "name": "idx_executive_employment_history_executive",
+    "sql": "CREATE INDEX idx_executive_employment_history_executive ON executive_employment_history(executive_id, started_at DESC, id DESC)"
+  },
+  {
+    "type": "index",
+    "name": "idx_executive_notes_company",
+    "sql": "CREATE INDEX idx_executive_notes_company ON executive_notes(company_id, executive_id)"
+  },
+  {
+    "type": "index",
+    "name": "idx_executive_offers_poacher",
+    "sql": "CREATE INDEX idx_executive_offers_poacher ON executive_offers(poacher_company_id, status, id DESC)"
+  },
+  {
+    "type": "index",
+    "name": "idx_executive_offers_target",
+    "sql": "CREATE INDEX idx_executive_offers_target ON executive_offers(target_company_id, status, id DESC)"
+  },
+  {
+    "type": "index",
+    "name": "idx_executive_trainings_executive",
+    "sql": "CREATE INDEX idx_executive_trainings_executive ON executive_trainings(executive_id)"
+  },
+  {
+    "type": "index",
+    "name": "idx_finance_snapshots_company",
+    "sql": "CREATE INDEX idx_finance_snapshots_company ON finance_daily_snapshots(company_id, snapshot_date)"
+  },
+  {
+    "type": "index",
+    "name": "idx_gift_baskets_recipient",
+    "sql": "CREATE INDEX idx_gift_baskets_recipient ON gift_baskets(recipient_company_id, year)"
+  },
+  {
+    "type": "index",
+    "name": "idx_gift_baskets_sender",
+    "sql": "CREATE INDEX idx_gift_baskets_sender ON gift_baskets(sender_company_id, year)"
+  },
+  {
+    "type": "index",
+    "name": "idx_market_orders_active",
+    "sql": "CREATE INDEX idx_market_orders_active ON market_orders(active)"
+  },
+  {
+    "type": "index",
+    "name": "idx_market_orders_active_kind_quality_price",
+    "sql": "CREATE INDEX idx_market_orders_active_kind_quality_price ON market_orders(active, kind, quality, price)"
+  },
+  {
+    "type": "index",
+    "name": "idx_market_orders_seller_id",
+    "sql": "CREATE INDEX idx_market_orders_seller_id ON market_orders(seller_id)"
+  },
+  {
+    "type": "index",
+    "name": "idx_players_email",
+    "sql": "CREATE INDEX idx_players_email ON players(email)"
+  },
+  {
+    "type": "index",
+    "name": "idx_production_queues_company_building_resolved",
+    "sql": "CREATE INDEX idx_production_queues_company_building_resolved ON production_queues(company_id, building_id, resolved)"
+  },
+  {
+    "type": "index",
+    "name": "idx_production_queues_company_id",
+    "sql": "CREATE INDEX idx_production_queues_company_id ON production_queues(company_id)"
+  },
+  {
+    "type": "index",
+    "name": "idx_referrals_referrer",
+    "sql": "CREATE INDEX idx_referrals_referrer ON referrals(referrer_company_id)"
+  },
+  {
+    "type": "index",
+    "name": "idx_retail_sales_history_realm_date",
+    "sql": "CREATE INDEX idx_retail_sales_history_realm_date ON retail_sales_history(realm_id, sold_at, resource_kind)"
+  },
+  {
+    "type": "index",
+    "name": "idx_rocket_launches_comp_realm",
+    "sql": "CREATE INDEX idx_rocket_launches_comp_realm ON rocket_launches(realm_id, company_id)"
+  },
+  {
+    "type": "index",
+    "name": "idx_simboost_use_history_company_datetime",
+    "sql": "CREATE INDEX idx_simboost_use_history_company_datetime ON simboost_use_history (company_id, datetime DESC)"
+  },
+  {
+    "type": "index",
+    "name": "idx_warehouse_company_id",
+    "sql": "CREATE INDEX idx_warehouse_company_id ON warehouse(company_id)"
+  },
+  {
+    "type": "index",
+    "name": "idx_warehouse_company_kind_quality",
+    "sql": "CREATE INDEX idx_warehouse_company_kind_quality ON warehouse(company_id, kind, quality)"
+  },
+  {
+    "type": "index",
+    "name": "uq_company_notes_owner",
+    "sql": "CREATE UNIQUE INDEX uq_company_notes_owner ON company_notes(company_id, about_company_id)"
+  },
+  {
+    "type": "index",
+    "name": "uq_newspaper_sponsors_issue_position",
+    "sql": "CREATE UNIQUE INDEX uq_newspaper_sponsors_issue_position ON newspaper_sponsors (newspaper_id, position)"
+  },
+  {
+    "type": "index",
+    "name": "uq_nft_listings_active_asset",
+    "sql": "CREATE UNIQUE INDEX uq_nft_listings_active_asset ON nft_listings (nft_id) WHERE status = 'active'"
+  },
+  {
+    "type": "table",
+    "name": "accumulator_states",
+    "sql": "CREATE TABLE accumulator_states ( building_id INTEGER PRIMARY KEY, company_id INTEGER NOT NULL, resource_kind INTEGER NOT NULL, value REAL NOT NULL DEFAULT 0, cost_total REAL NOT NULL DEFAULT 0, updated_at TEXT NOT NULL )"
+  },
+  {
+    "type": "table",
+    "name": "achievements",
+    "sql": "CREATE TABLE achievements ( id INTEGER PRIMARY KEY AUTOINCREMENT, company_id INTEGER, achievement_id INTEGER, level INTEGER DEFAULT 1, progress REAL DEFAULT 100, unlocked_at TEXT )"
+  },
+  {
+    "type": "table",
+    "name": "aerospace_sales_orders",
+    "sql": "CREATE TABLE aerospace_sales_orders ( id INTEGER PRIMARY KEY AUTOINCREMENT, company_id INTEGER, building_id INTEGER, resources_json TEXT, search_cost REAL DEFAULT 750, payout REAL DEFAULT 15000, created_at TEXT, expires_at TEXT, fulfilled INTEGER DEFAULT 0 )"
+  },
+  {
+    "type": "table",
+    "name": "audit_logs",
+    "sql": "CREATE TABLE audit_logs ( id INTEGER PRIMARY KEY AUTOINCREMENT, moderator_player_id INTEGER, target_player_id INTEGER, target_company_id INTEGER, action TEXT NOT NULL, details_json TEXT DEFAULT '{}', ip_address TEXT, created_at TEXT NOT NULL )"
+  },
+  {
+    "type": "table",
+    "name": "audits",
+    "sql": "CREATE TABLE audits ( id INTEGER PRIMARY KEY AUTOINCREMENT, actor_company_id INTEGER, target_company_id INTEGER, target_player_id INTEGER, action TEXT NOT NULL, reason TEXT DEFAULT '', created_at TEXT NOT NULL )"
+  },
+  {
+    "type": "table",
+    "name": "balance_sheet_snapshots",
+    "sql": "CREATE TABLE balance_sheet_snapshots ( id INTEGER PRIMARY KEY AUTOINCREMENT, company_id INTEGER NOT NULL, snapshot_date TEXT NOT NULL, cash REAL NOT NULL DEFAULT 0, inventory_value REAL NOT NULL DEFAULT 0, buildings_value REAL NOT NULL DEFAULT 0, patents_value REAL NOT NULL DEFAULT 0, bonds_bought_value REAL NOT NULL DEFAULT 0, bonds_issued_value REAL NOT NULL DEFAULT 0, total_assets REAL NOT NULL DEFAULT 0, total_liabilities REAL NOT NULL DEFAULT 0, equity REAL NOT NULL DEFAULT 0, created_at TEXT NOT NULL, UNIQUE (company_id, snapshot_date) )"
+  },
+  {
+    "type": "table",
+    "name": "bonds",
+    "sql": "CREATE TABLE bonds ( id INTEGER PRIMARY KEY AUTOINCREMENT, seller_company_id INTEGER, buyer_company_id INTEGER, interest_rate REAL DEFAULT 0.005, amount REAL DEFAULT 5000, status TEXT DEFAULT 'active', created_at TEXT, maturity_date TEXT, settled INTEGER DEFAULT 0 )"
+  },
+  {
+    "type": "table",
+    "name": "building_auction_bids",
+    "sql": "CREATE TABLE building_auction_bids ( id INTEGER PRIMARY KEY AUTOINCREMENT, auction_id INTEGER NOT NULL, company_id INTEGER NOT NULL, amount REAL NOT NULL, escrowed REAL NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'active', created_at TEXT NOT NULL, updated_at TEXT, UNIQUE (auction_id, company_id) )"
+  },
+  {
+    "type": "table",
+    "name": "building_auctions",
+    "sql": "CREATE TABLE building_auctions ( id INTEGER PRIMARY KEY AUTOINCREMENT, building_id INTEGER NOT NULL, building_kind TEXT NOT NULL, building_size INTEGER NOT NULL, building_cost REAL NOT NULL DEFAULT 0, building_name TEXT, building_category TEXT, realm INTEGER NOT NULL DEFAULT 0, seller_id INTEGER NOT NULL, min_bid REAL NOT NULL, guaranteed_return REAL NOT NULL, promoted INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'active', winner_id INTEGER, final_price REAL, seller_proceeds REAL, settled_at TEXT, robots_installed INTEGER NOT NULL DEFAULT 0, robots_quality INTEGER NOT NULL DEFAULT 0, locked_product INTEGER, abundance REAL, original_abundance REAL, started_at TEXT NOT NULL, closes_at TEXT NOT NULL, created_at TEXT NOT NULL )"
+  },
+  {
+    "type": "table",
+    "name": "building_followers",
+    "sql": "CREATE TABLE building_followers ( building_id INTEGER NOT NULL, follower_building_id INTEGER NOT NULL, created_at TEXT NOT NULL, PRIMARY KEY (building_id, follower_building_id), FOREIGN KEY (building_id) REFERENCES buildings(id), FOREIGN KEY (follower_building_id) REFERENCES buildings(id) )"
+  },
+  {
+    "type": "table",
+    "name": "buildings",
+    "sql": "CREATE TABLE buildings ( id INTEGER PRIMARY KEY AUTOINCREMENT, company_id INTEGER, position TEXT, kind TEXT, size INTEGER DEFAULT 1, name TEXT, cost REAL DEFAULT 0, category TEXT DEFAULT 'production', busy_until TEXT, created_at TEXT , abundance REAL DEFAULT 100, original_abundance REAL DEFAULT 100, upkeep_active INTEGER NOT NULL DEFAULT 0, robots_installed INTEGER NOT NULL DEFAULT 0, robots_quality INTEGER NOT NULL DEFAULT 0, locked_product INTEGER)"
+  },
+  {
+    "type": "table",
+    "name": "cash_ledger",
+    "sql": "CREATE TABLE cash_ledger ( id INTEGER PRIMARY KEY AUTOINCREMENT, company_id INTEGER NOT NULL, amount REAL NOT NULL, category TEXT NOT NULL, description TEXT, description_key TEXT, details TEXT DEFAULT '{}', created_at TEXT NOT NULL )"
+  },
+  {
+    "type": "table",
+    "name": "certificate_kinds",
+    "sql": "CREATE TABLE certificate_kinds ( kind INTEGER PRIMARY KEY, name TEXT NOT NULL, description TEXT NOT NULL, default_rarity REAL NOT NULL DEFAULT 0.05, award_rule TEXT NOT NULL DEFAULT 'cycle', period TEXT NOT NULL DEFAULT 'month', resource_kind INTEGER )"
+  },
+  {
+    "type": "table",
+    "name": "certificates",
+    "sql": "CREATE TABLE certificates ( id INTEGER PRIMARY KEY AUTOINCREMENT, realm_id INTEGER DEFAULT 0, kind INTEGER, place INTEGER DEFAULT 1, name TEXT, company_id INTEGER, company_name TEXT, value REAL DEFAULT 0, rarity REAL DEFAULT 0.05, year_started INTEGER, resource_kind INTEGER, datetime TEXT , quantity REAL NOT NULL DEFAULT 0, cycle_key TEXT, cycle_start_at TEXT, cycle_end_at TEXT, rank INTEGER, issued_at TEXT)"
+  },
+  {
+    "type": "table",
+    "name": "challenge_attempts",
+    "sql": "CREATE TABLE challenge_attempts ( id INTEGER PRIMARY KEY AUTOINCREMENT, challenge_id INTEGER NOT NULL, company_id INTEGER NOT NULL, company_name TEXT, company_logo TEXT, company_realm_id INTEGER DEFAULT 0, started TEXT NOT NULL, best_goal_duration_s REAL, goal_duration_s REAL, goal_completed_at TEXT, UNIQUE(challenge_id, company_id) )"
+  },
+  {
+    "type": "table",
+    "name": "challenge_milestones",
+    "sql": "CREATE TABLE challenge_milestones ( id INTEGER PRIMARY KEY AUTOINCREMENT, challenge_id INTEGER NOT NULL, position INTEGER DEFAULT 0, kind TEXT, value REAL, building_kind INTEGER )"
+  },
+  {
+    "type": "table",
+    "name": "challenges",
+    "sql": "CREATE TABLE challenges ( id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, description TEXT, active INTEGER DEFAULT 1, start TEXT NOT NULL, end TEXT NOT NULL, goal_kind TEXT, goal_amount REAL, created_at TEXT NOT NULL )"
+  },
+  {
+    "type": "table",
+    "name": "chat_messages",
+    "sql": "CREATE TABLE chat_messages ( id INTEGER PRIMARY KEY AUTOINCREMENT, room TEXT, sender_id INTEGER, sender_company TEXT, text TEXT, sent_at TEXT )"
+  },
+  {
+    "type": "table",
+    "name": "collectible_trades",
+    "sql": "CREATE TABLE collectible_trades ( id INTEGER PRIMARY KEY AUTOINCREMENT, buyer_id INTEGER NOT NULL, seller_id INTEGER NOT NULL, collectible_id INTEGER NOT NULL, price REAL NOT NULL, traded_at TEXT NOT NULL )"
+  },
+  {
+    "type": "table",
+    "name": "collectibles",
+    "sql": "CREATE TABLE collectibles ( id INTEGER PRIMARY KEY AUTOINCREMENT, company_id INTEGER NOT NULL, collectible_kind INTEGER NOT NULL, rarity REAL NOT NULL DEFAULT 0, in_vault INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL )"
+  },
+  {
+    "type": "table",
+    "name": "companies",
+    "sql": "CREATE TABLE companies ( id INTEGER PRIMARY KEY AUTOINCREMENT, company_id INTEGER UNIQUE, player_id INTEGER, name TEXT, money REAL DEFAULT 100000, simboosts INTEGER DEFAULT 250, level INTEGER DEFAULT 0, rating TEXT DEFAULT 'BBB', experience INTEGER DEFAULT 0, realm_id INTEGER DEFAULT 0, logo TEXT DEFAULT '', personal_assistant TEXT DEFAULT 'old', note TEXT DEFAULT '', extra_building_slots INTEGER DEFAULT 0, extra_executive_slots INTEGER DEFAULT 0, display_case_slots INTEGER DEFAULT 1, max_tags INTEGER DEFAULT 1, show_online_indicator INTEGER DEFAULT 1, moderator_sign INTEGER DEFAULT 0, created_at TEXT , supporter_until TEXT, supporter_certificates INTEGER NOT NULL DEFAULT 0, supporter_started_at TEXT)"
+  },
+  {
+    "type": "table",
+    "name": "company_achievements",
+    "sql": "CREATE TABLE company_achievements ( company_id INTEGER NOT NULL, achievement_id TEXT NOT NULL, collected_at TEXT NOT NULL, PRIMARY KEY (company_id, achievement_id) )"
+  },
+  {
+    "type": "table",
+    "name": "company_boost_settings",
+    "sql": "CREATE TABLE company_boost_settings ( company_id INTEGER PRIMARY KEY, production_modifier INTEGER DEFAULT 0, sales_modifier INTEGER DEFAULT 0, exchanged_today INTEGER DEFAULT 0, exchange_date TEXT DEFAULT '', purchases_today INTEGER DEFAULT 0, purchase_date TEXT DEFAULT '' )"
+  },
+  {
+    "type": "table",
+    "name": "company_notes",
+    "sql": "CREATE TABLE company_notes ( id INTEGER PRIMARY KEY AUTOINCREMENT, company_id INTEGER NOT NULL, about_company_id INTEGER NOT NULL, note TEXT DEFAULT '', priority INTEGER DEFAULT 0, created_at TEXT, updated_at TEXT, UNIQUE (company_id, about_company_id) )"
+  },
+  {
+    "type": "table",
+    "name": "company_settings",
+    "sql": "CREATE TABLE company_settings ( company_id INTEGER NOT NULL, key TEXT NOT NULL, value TEXT, PRIMARY KEY (company_id, key) )"
+  },
+  {
+    "type": "table",
+    "name": "company_tags",
+    "sql": "CREATE TABLE company_tags ( id INTEGER PRIMARY KEY AUTOINCREMENT, company_id INTEGER NOT NULL, resource_kind INTEGER NOT NULL, kind TEXT NOT NULL, buy_sell TEXT NOT NULL, created_at TEXT NOT NULL, expires_at TEXT NOT NULL )"
+  },
+  {
+    "type": "table",
+    "name": "contest_participants",
+    "sql": "CREATE TABLE contest_participants ( id INTEGER PRIMARY KEY AUTOINCREMENT, contest_id INTEGER NOT NULL, company_id INTEGER NOT NULL, company_name TEXT, points REAL DEFAULT 0, amount REAL DEFAULT 0, rank INTEGER, UNIQUE(contest_id, company_id) )"
+  },
+  {
+    "type": "table",
+    "name": "contests",
+    "sql": "CREATE TABLE contests ( id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, rules TEXT, realm_id INTEGER DEFAULT 0, start TEXT NOT NULL, end TEXT NOT NULL, active INTEGER DEFAULT 1 )"
+  },
+  {
+    "type": "table",
+    "name": "contracts",
+    "sql": "CREATE TABLE contracts ( id INTEGER PRIMARY KEY AUTOINCREMENT, sender_company_id INTEGER, recipient_company_id INTEGER, kind INTEGER, quality INTEGER DEFAULT 0, amount REAL, price REAL, status TEXT DEFAULT 'pending', created_at TEXT )"
+  },
+  {
+    "type": "table",
+    "name": "course_students",
+    "sql": "CREATE TABLE course_students ( id INTEGER PRIMARY KEY AUTOINCREMENT, course_id INTEGER NOT NULL, company_id INTEGER NOT NULL, company_name TEXT, company_logo TEXT, company_realm_id INTEGER DEFAULT 0, joined_at TEXT NOT NULL, UNIQUE(course_id, company_id) )"
+  },
+  {
+    "type": "table",
+    "name": "courses",
+    "sql": "CREATE TABLE courses ( id INTEGER PRIMARY KEY AUTOINCREMENT, teacher_company_id INTEGER, teacher_name TEXT, teacher_level INTEGER DEFAULT 0, teacher_email TEXT, name TEXT NOT NULL, start TEXT, started INTEGER DEFAULT 0, max_students INTEGER DEFAULT 10, indicated_students INTEGER DEFAULT 0, months_paid INTEGER DEFAULT 0, paid_usd REAL DEFAULT 0, students_paying INTEGER DEFAULT 0, public_chatrooms_disabled INTEGER DEFAULT 0, html TEXT, created_at TEXT NOT NULL )"
+  },
+  {
+    "type": "table",
+    "name": "direct_messages",
+    "sql": "CREATE TABLE direct_messages ( id INTEGER PRIMARY KEY AUTOINCREMENT, sender_company_id INTEGER NOT NULL, recipient_company_id INTEGER NOT NULL, message TEXT NOT NULL, created_at TEXT NOT NULL )"
+  },
+  {
+    "type": "table",
+    "name": "display_case",
+    "sql": "CREATE TABLE display_case ( id INTEGER PRIMARY KEY AUTOINCREMENT, company_id INTEGER, slot INTEGER, resource_kind INTEGER, quality INTEGER DEFAULT 0, title TEXT DEFAULT '' )"
+  },
+  {
+    "type": "table",
+    "name": "economy_phase_history",
+    "sql": "CREATE TABLE economy_phase_history ( id INTEGER PRIMARY KEY AUTOINCREMENT, realm_id INTEGER NOT NULL, phase INTEGER NOT NULL CHECK (phase IN (0, 1, 2)), start_at TEXT NOT NULL, end_at TEXT, source TEXT NOT NULL DEFAULT 'scheduler', production_modifier REAL NOT NULL DEFAULT 0, modifier_kind TEXT NOT NULL DEFAULT 'neutral', modifier_seed INTEGER NOT NULL DEFAULT 0, generated_at TEXT NOT NULL, UNIQUE (realm_id, start_at) )"
+  },
+  {
+    "type": "table",
+    "name": "economy_state",
+    "sql": "CREATE TABLE economy_state ( realm_id INTEGER PRIMARY KEY, state INTEGER NOT NULL DEFAULT 1, updated_at TEXT , phase_started_at TEXT, phase_ends_at TEXT, source TEXT DEFAULT 'scheduler')"
+  },
+  {
+    "type": "table",
+    "name": "encyclopedia_resource_events",
+    "sql": "CREATE TABLE encyclopedia_resource_events ( id INTEGER PRIMARY KEY, realm_id INTEGER NOT NULL, kind INTEGER NOT NULL, speed_modifier REAL NOT NULL, since TEXT NOT NULL, until TEXT NOT NULL )"
+  },
+  {
+    "type": "table",
+    "name": "executive_employment_history",
+    "sql": "CREATE TABLE executive_employment_history ( id INTEGER PRIMARY KEY AUTOINCREMENT, executive_id INTEGER NOT NULL, company_id INTEGER NOT NULL, position TEXT NOT NULL DEFAULT 'unassigned', started_at TEXT NOT NULL, ended_at TEXT, accelerated INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL, UNIQUE (executive_id, company_id, started_at) )"
+  },
+  {
+    "type": "table",
+    "name": "executive_notes",
+    "sql": "CREATE TABLE executive_notes ( id INTEGER PRIMARY KEY AUTOINCREMENT, company_id INTEGER NOT NULL, executive_id INTEGER NOT NULL, note TEXT NOT NULL DEFAULT '', datetime TEXT NOT NULL, UNIQUE (company_id, executive_id) )"
+  },
+  {
+    "type": "table",
+    "name": "executive_offers",
+    "sql": "CREATE TABLE executive_offers ( id INTEGER PRIMARY KEY AUTOINCREMENT, poacher_company_id INTEGER NOT NULL, target_company_id INTEGER, target_executive_id INTEGER, slot_position TEXT DEFAULT 'unassigned', skill_position TEXT DEFAULT 'o', agency INTEGER DEFAULT 0, status TEXT NOT NULL DEFAULT 'f', expected_salary REAL DEFAULT 400, salary REAL DEFAULT NULL, agency_fee REAL DEFAULT 0, accelerated INTEGER NOT NULL DEFAULT 0, research_poacher TEXT DEFAULT NULL, research_employer TEXT DEFAULT NULL, extended_at TEXT DEFAULT NULL, age_range TEXT DEFAULT NULL, has_trainings INTEGER NOT NULL DEFAULT 0, only_unemployed INTEGER NOT NULL DEFAULT 0, search_until TEXT DEFAULT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL )"
+  },
+  {
+    "type": "table",
+    "name": "executive_trainings",
+    "sql": "CREATE TABLE executive_trainings ( id INTEGER PRIMARY KEY AUTOINCREMENT, executive_id INTEGER NOT NULL, company_id INTEGER NOT NULL, datetime TEXT NOT NULL, accelerated INTEGER DEFAULT 0, skills_applied INTEGER DEFAULT 0, created_at TEXT NOT NULL , training TEXT NOT NULL DEFAULT 'o', covered INTEGER NOT NULL DEFAULT 0)"
+  },
+  {
+    "type": "table",
+    "name": "executives",
+    "sql": "CREATE TABLE executives ( id INTEGER PRIMARY KEY AUTOINCREMENT, company_id INTEGER, name TEXT, avatar TEXT, position TEXT DEFAULT 'unassigned', skill_management INTEGER DEFAULT 5, skill_accounting INTEGER DEFAULT 5, skill_science INTEGER DEFAULT 5, skill_communication INTEGER DEFAULT 5, salary REAL DEFAULT 250, status TEXT DEFAULT 'employed', training_finish_at TEXT, work_history_accelerated INTEGER DEFAULT 0, plans_to_retire INTEGER DEFAULT 0, strike_until TEXT, created_at TEXT , gender TEXT)"
+  },
+  {
+    "type": "table",
+    "name": "finance_daily_snapshots",
+    "sql": "CREATE TABLE finance_daily_snapshots ( company_id INTEGER NOT NULL, snapshot_date TEXT NOT NULL, total REAL DEFAULT 0, current_assets REAL DEFAULT 0, non_current_assets REAL DEFAULT 0, liabilities REAL DEFAULT 0, economic_value_added REAL DEFAULT 0, eva_profit REAL DEFAULT 0, eva_rank INTEGER DEFAULT 0, rank INTEGER DEFAULT 0, cash_and_receivables REAL DEFAULT 0, inventory REAL DEFAULT 0, buildings REAL DEFAULT 0, patents REAL DEFAULT 0, investment_in_bonds REAL DEFAULT 0, deposits REAL DEFAULT 0, created_at TEXT, PRIMARY KEY (company_id, snapshot_date) )"
+  },
+  {
+    "type": "table",
+    "name": "fpa_custom_reports",
+    "sql": "CREATE TABLE fpa_custom_reports ( id INTEGER PRIMARY KEY AUTOINCREMENT, company_id INTEGER NOT NULL, name TEXT NOT NULL, category TEXT NOT NULL DEFAULT 'Financial', config_json TEXT DEFAULT '{}', created_at TEXT NOT NULL )"
+  },
+  {
+    "type": "table",
+    "name": "game_notifications",
+    "sql": "CREATE TABLE game_notifications ( id INTEGER PRIMARY KEY AUTOINCREMENT, company_id INTEGER NOT NULL, type TEXT NOT NULL, payload_json TEXT DEFAULT '{}', read INTEGER DEFAULT 0, created_at TEXT NOT NULL )"
+  },
+  {
+    "type": "table",
+    "name": "gift_basket_drafts",
+    "sql": "CREATE TABLE gift_basket_drafts ( company_id INTEGER NOT NULL, year INTEGER NOT NULL, draft_json TEXT, updated_at TEXT, PRIMARY KEY (company_id, year) )"
+  },
+  {
+    "type": "table",
+    "name": "gift_baskets",
+    "sql": "CREATE TABLE gift_baskets ( id INTEGER PRIMARY KEY AUTOINCREMENT, sender_company_id INTEGER NOT NULL, recipient_company_id INTEGER NOT NULL, kind TEXT NOT NULL, simboosts INTEGER DEFAULT 0, quality INTEGER, collectible_id INTEGER, message TEXT, year INTEGER NOT NULL, sent INTEGER DEFAULT 0, simboosts_claimed INTEGER DEFAULT 0, created_at TEXT, sent_at TEXT )"
+  },
+  {
+    "type": "table",
+    "name": "government_bid_blocked_companies",
+    "sql": "CREATE TABLE government_bid_blocked_companies ( id INTEGER PRIMARY KEY AUTOINCREMENT, bid_secret TEXT, company_id INTEGER, blocked_at TEXT )"
+  },
+  {
+    "type": "table",
+    "name": "government_bid_contractors",
+    "sql": "CREATE TABLE government_bid_contractors ( id INTEGER PRIMARY KEY AUTOINCREMENT, bid_secret TEXT, company_id INTEGER, is_main INTEGER DEFAULT 0, tier_index INTEGER DEFAULT 1, tier_multiplier REAL DEFAULT 1.0, deposit_paid REAL DEFAULT 0, fulfilled INTEGER DEFAULT 0, joined_at TEXT )"
+  },
+  {
+    "type": "table",
+    "name": "government_bids",
+    "sql": "CREATE TABLE government_bids ( id INTEGER PRIMARY KEY AUTOINCREMENT, secret TEXT UNIQUE, template_id INTEGER, realm_id INTEGER DEFAULT 0, creator_company_id INTEGER, max_contractors INTEGER DEFAULT 5, is_public INTEGER DEFAULT 1, min_tier_index INTEGER DEFAULT 1, price_breakdown_json TEXT, note TEXT, status TEXT DEFAULT 'OPEN', created_at TEXT )"
+  },
+  {
+    "type": "table",
+    "name": "government_order_bids",
+    "sql": "CREATE TABLE government_order_bids ( id INTEGER PRIMARY KEY AUTOINCREMENT, order_id INTEGER NOT NULL, company_id INTEGER NOT NULL, price_per_unit REAL NOT NULL, deposit_amount REAL NOT NULL DEFAULT 0, delivered_quantity REAL NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'active', created_at TEXT NOT NULL, UNIQUE (order_id, company_id), FOREIGN KEY (order_id) REFERENCES government_orders(id), FOREIGN KEY (company_id) REFERENCES companies(company_id) )"
+  },
+  {
+    "type": "table",
+    "name": "government_orders",
+    "sql": "CREATE TABLE government_orders ( id INTEGER PRIMARY KEY AUTOINCREMENT, realm_id INTEGER NOT NULL DEFAULT 0, project_key TEXT, agency TEXT, estimated_base_value REAL, days_to_fulfill INTEGER, resource_multiplier_awarded REAL, required_resources_json TEXT, unit_compensation_price REAL DEFAULT 0, start_date TEXT, deadline TEXT, created_at TEXT )"
+  },
+  {
+    "type": "table",
+    "name": "launchpad_flights",
+    "sql": "CREATE TABLE launchpad_flights ( id INTEGER PRIMARY KEY AUTOINCREMENT, building_id INTEGER NOT NULL, company_id INTEGER NOT NULL, rocket_kind INTEGER NOT NULL, rocket_quality INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'queued', success_rate REAL NOT NULL DEFAULT 1.0, outcome TEXT, rewards_json TEXT, fuel_consumed REAL DEFAULT 0, launch_started_at TEXT NOT NULL, launch_completed_at TEXT NOT NULL, claimed_at TEXT, created_at TEXT NOT NULL, FOREIGN KEY (building_id) REFERENCES buildings(id), FOREIGN KEY (company_id) REFERENCES companies(company_id) )"
+  },
+  {
+    "type": "table",
+    "name": "loans",
+    "sql": "CREATE TABLE loans ( id INTEGER PRIMARY KEY AUTOINCREMENT, company_id INTEGER, principal REAL, interest_rate REAL DEFAULT 0.1, remaining REAL, status TEXT DEFAULT 'active', created_at TEXT, due_at TEXT )"
+  },
+  {
+    "type": "table",
+    "name": "login_attempts",
+    "sql": "CREATE TABLE login_attempts ( id INTEGER PRIMARY KEY AUTOINCREMENT, ip_address TEXT NOT NULL, email TEXT, success INTEGER NOT NULL, attempted_at TEXT NOT NULL )"
+  },
+  {
+    "type": "table",
+    "name": "market_orders",
+    "sql": "CREATE TABLE market_orders ( id INTEGER PRIMARY KEY AUTOINCREMENT, seller_id INTEGER, kind INTEGER, quality INTEGER DEFAULT 0, quantity REAL, price REAL, fees REAL DEFAULT 0, posted_at TEXT, active INTEGER DEFAULT 1, is_npc INTEGER DEFAULT 0, cost_workers REAL DEFAULT 0, cost_admin REAL DEFAULT 0, cost_material1 REAL DEFAULT 0, cost_material2 REAL DEFAULT 0, cost_market REAL DEFAULT 0, is_buy INTEGER DEFAULT 0 )"
+  },
+  {
+    "type": "table",
+    "name": "market_trades",
+    "sql": "CREATE TABLE market_trades ( id INTEGER PRIMARY KEY AUTOINCREMENT, kind INTEGER NOT NULL, quality INTEGER NOT NULL DEFAULT 0, price REAL NOT NULL, amount REAL NOT NULL, fee REAL NOT NULL DEFAULT 0, buyer_id INTEGER, seller_id INTEGER, trade_date TEXT NOT NULL, traded_at TEXT NOT NULL )"
+  },
+  {
+    "type": "table",
+    "name": "newspaper_article_reactions",
+    "sql": "CREATE TABLE newspaper_article_reactions ( id INTEGER PRIMARY KEY AUTOINCREMENT, article_id INTEGER NOT NULL, company_id INTEGER NOT NULL, reaction_type TEXT NOT NULL, simboosts_amount INTEGER DEFAULT 0, created_at TEXT NOT NULL, UNIQUE (article_id, company_id, reaction_type) )"
+  },
+  {
+    "type": "table",
+    "name": "newspaper_articles",
+    "sql": "CREATE TABLE newspaper_articles ( id INTEGER PRIMARY KEY AUTOINCREMENT, newspaper_id INTEGER, realm_id INTEGER DEFAULT 0, title TEXT, type TEXT DEFAULT 'CUSTOM', copy1 TEXT, copy2 TEXT, copy3 TEXT, author_company_id INTEGER, author_company_name TEXT, translated_by_id INTEGER, translated_by_name TEXT, position INTEGER DEFAULT 0, reactions_json TEXT DEFAULT '{}', reaction_count INTEGER DEFAULT 0, charts_json TEXT DEFAULT '[]', outdated INTEGER DEFAULT 0, created_at TEXT )"
+  },
+  {
+    "type": "table",
+    "name": "newspaper_issues",
+    "sql": "CREATE TABLE newspaper_issues ( id INTEGER PRIMARY KEY AUTOINCREMENT, realm_id INTEGER NOT NULL DEFAULT 0, issue_id INTEGER NOT NULL, -- NULL represents a draft issue; the original client distinguishes -- it from a published timestamp. published TEXT, publish_date TEXT, articles_json TEXT DEFAULT '[]', created_at TEXT NOT NULL, UNIQUE (realm_id, issue_id) )"
+  },
+  {
+    "type": "table",
+    "name": "newspaper_reactions",
+    "sql": "CREATE TABLE newspaper_reactions ( id INTEGER PRIMARY KEY AUTOINCREMENT, newspaper_id INTEGER, article_id INTEGER, company_id INTEGER, reaction TEXT, created_at TEXT )"
+  },
+  {
+    "type": "table",
+    "name": "newspaper_sponsors",
+    "sql": "CREATE TABLE newspaper_sponsors ( id INTEGER PRIMARY KEY AUTOINCREMENT, newspaper_id INTEGER, position INTEGER, company_id INTEGER, company_name TEXT, text TEXT, logo TEXT, created_at TEXT )"
+  },
+  {
+    "type": "table",
+    "name": "nft_assets",
+    "sql": "CREATE TABLE nft_assets ( id INTEGER PRIMARY KEY AUTOINCREMENT, definition_id TEXT NOT NULL, name TEXT NOT NULL, image TEXT NOT NULL, realm INTEGER NOT NULL DEFAULT 0, rarity TEXT NOT NULL DEFAULT 'COMMON', description TEXT NOT NULL DEFAULT '', current_owner_id INTEGER, minted_at TEXT NOT NULL )"
+  },
+  {
+    "type": "table",
+    "name": "nft_listings",
+    "sql": "CREATE TABLE nft_listings ( id INTEGER PRIMARY KEY AUTOINCREMENT, nft_id INTEGER NOT NULL, seller_id INTEGER, price_simboosts INTEGER NOT NULL, status TEXT NOT NULL DEFAULT 'active', created_at TEXT NOT NULL, updated_at TEXT )"
+  },
+  {
+    "type": "table",
+    "name": "nft_trades",
+    "sql": "CREATE TABLE nft_trades ( id INTEGER PRIMARY KEY AUTOINCREMENT, nft_id INTEGER NOT NULL, listing_id INTEGER, seller_id INTEGER, buyer_id INTEGER NOT NULL, price_simboosts INTEGER NOT NULL, datetime TEXT NOT NULL )"
+  },
+  {
+    "type": "table",
+    "name": "notification_preferences",
+    "sql": "CREATE TABLE notification_preferences ( company_id INTEGER PRIMARY KEY, email_json TEXT DEFAULT '{}', popup_json TEXT DEFAULT '{}', push_json TEXT DEFAULT '{}', updated_at TEXT )"
+  },
+  {
+    "type": "table",
+    "name": "player_devices",
+    "sql": "CREATE TABLE player_devices ( id INTEGER PRIMARY KEY AUTOINCREMENT, player_id INTEGER, device_uuid TEXT, device_name TEXT, last_login TEXT )"
+  },
+  {
+    "type": "table",
+    "name": "player_unlocked_hqs",
+    "sql": "CREATE TABLE player_unlocked_hqs ( company_id INTEGER NOT NULL, idx INTEGER NOT NULL, created_at TEXT, PRIMARY KEY (company_id, idx) )"
+  },
+  {
+    "type": "table",
+    "name": "player_unlocked_pas",
+    "sql": "CREATE TABLE player_unlocked_pas ( company_id INTEGER NOT NULL, kind TEXT NOT NULL, created_at TEXT, PRIMARY KEY (company_id, kind) )"
+  },
+  {
+    "type": "table",
+    "name": "players",
+    "sql": "CREATE TABLE players ( id INTEGER PRIMARY KEY AUTOINCREMENT, player_id INTEGER UNIQUE, email TEXT UNIQUE, password_hash TEXT, password TEXT, is_admin INTEGER DEFAULT 0, theme TEXT DEFAULT 'light', language TEXT DEFAULT 'zh-cn', created_at TEXT )"
+  },
+  {
+    "type": "table",
+    "name": "production_queues",
+    "sql": "CREATE TABLE production_queues ( id INTEGER PRIMARY KEY AUTOINCREMENT, building_id INTEGER, company_id INTEGER, kind INTEGER, quality INTEGER DEFAULT 0, cost REAL, amount REAL, duration_seconds REAL, started_at TEXT, finishes_at TEXT, resolved INTEGER DEFAULT 0 , economy_phase INTEGER DEFAULT 1, economy_phase_started_at TEXT, economy_source TEXT DEFAULT 'migration', production_modifier REAL DEFAULT 0, production_output_multiplier REAL DEFAULT 1, launch_consumes_research INTEGER NOT NULL DEFAULT 1)"
+  },
+  {
+    "type": "table",
+    "name": "referrals",
+    "sql": "CREATE TABLE referrals ( id INTEGER PRIMARY KEY AUTOINCREMENT, referrer_company_id INTEGER NOT NULL, referred_company_id INTEGER UNIQUE NOT NULL, code TEXT NOT NULL, claimed_bonus INTEGER DEFAULT 0, rewards_paid_json TEXT DEFAULT '{}', created_at TEXT NOT NULL )"
+  },
+  {
+    "type": "table",
+    "name": "research",
+    "sql": "CREATE TABLE research ( id INTEGER PRIMARY KEY AUTOINCREMENT, company_id INTEGER, discipline INTEGER, points INTEGER DEFAULT 0, patents INTEGER DEFAULT 0 )"
+  },
+  {
+    "type": "table",
+    "name": "restaurant_properties",
+    "sql": "CREATE TABLE restaurant_properties ( building_id INTEGER PRIMARY KEY, company_id INTEGER, good_service INTEGER DEFAULT 0, is_luxury INTEGER DEFAULT 0, keep_open INTEGER DEFAULT 1, menu_json TEXT DEFAULT '[]', menu_price REAL DEFAULT 60, rating REAL DEFAULT 0, occupancy REAL DEFAULT 0, updated_at TEXT, professional_staff INTEGER DEFAULT 0, last_cycle_at TEXT, reconstruction_started_at TEXT, reconstruction_until TEXT, rating_penalty_applied INTEGER DEFAULT 0 )"
+  },
+  {
+    "type": "table",
+    "name": "restaurant_runs",
+    "sql": "CREATE TABLE restaurant_runs ( id INTEGER PRIMARY KEY AUTOINCREMENT, building_id INTEGER, company_id INTEGER, datetime TEXT, rating REAL, new_rating REAL, rating_before REAL, rating_after REAL, rating_delta REAL, occupied INTEGER, capacity INTEGER, occupancy REAL, revenue REAL, cost REAL, profit REAL, menu_price REAL, review TEXT, menu_json TEXT, good_service INTEGER, is_luxury INTEGER, resolved INTEGER DEFAULT 0, cycle_start TEXT, cycle_end TEXT, prepared INTEGER DEFAULT 0, served INTEGER, spoiled INTEGER, food_cost REAL DEFAULT 0, wages REAL DEFAULT 0 )"
+  },
+  {
+    "type": "table",
+    "name": "retail_orders",
+    "sql": "CREATE TABLE retail_orders ( id INTEGER PRIMARY KEY AUTOINCREMENT, building_id INTEGER, company_id INTEGER, resource_kind INTEGER, quality INTEGER DEFAULT 0, units REAL, unit_price REAL, cost REAL, revenue_credited INTEGER NOT NULL DEFAULT 0, finished_at TEXT, created_at TEXT , economy_phase INTEGER DEFAULT 1, economy_phase_started_at TEXT, economy_source TEXT DEFAULT 'migration', quality_bonus REAL DEFAULT 0)"
+  },
+  {
+    "type": "table",
+    "name": "retail_sales_history",
+    "sql": "CREATE TABLE retail_sales_history ( id INTEGER PRIMARY KEY AUTOINCREMENT, realm_id INTEGER NOT NULL, company_id INTEGER NOT NULL, resource_kind INTEGER NOT NULL, quality INTEGER NOT NULL DEFAULT 0, units REAL NOT NULL, unit_price REAL NOT NULL, revenue REAL NOT NULL, sold_at TEXT NOT NULL )"
+  },
+  {
+    "type": "table",
+    "name": "retail_saturation",
+    "sql": "CREATE TABLE retail_saturation ( date TEXT NOT NULL, kind INTEGER NOT NULL, saturation REAL NOT NULL, updated_at TEXT, PRIMARY KEY (date, kind) )"
+  },
+  {
+    "type": "table",
+    "name": "rocket_launches",
+    "sql": "CREATE TABLE rocket_launches ( id INTEGER PRIMARY KEY AUTOINCREMENT, company_id INTEGER NOT NULL, realm_id INTEGER DEFAULT 0, building_id INTEGER, rocket_kind INTEGER NOT NULL, quality INTEGER DEFAULT 0, success INTEGER DEFAULT 1, launched_at TEXT NOT NULL )"
+  },
+  {
+    "type": "table",
+    "name": "scheduler_state",
+    "sql": "CREATE TABLE scheduler_state ( task_name TEXT PRIMARY KEY, last_run_utc TEXT, last_scheduled_for_utc TEXT, updated_at TEXT , last_status TEXT NOT NULL DEFAULT 'ok', last_error TEXT, runs INTEGER NOT NULL DEFAULT 0)"
+  },
+  {
+    "type": "table",
+    "name": "sessions",
+    "sql": "CREATE TABLE sessions ( session_token TEXT PRIMARY KEY, player_id INTEGER, active_company_id INTEGER, created_at TEXT, expires_at TEXT )"
+  },
+  {
+    "type": "table",
+    "name": "simboost_use_history",
+    "sql": "CREATE TABLE simboost_use_history ( id INTEGER PRIMARY KEY AUTOINCREMENT, company_id INTEGER NOT NULL, action TEXT NOT NULL, spend_simboosts INTEGER NOT NULL, datetime TEXT NOT NULL )"
+  },
+  {
+    "type": "table",
+    "name": "warehouse",
+    "sql": "CREATE TABLE warehouse ( id INTEGER PRIMARY KEY AUTOINCREMENT, company_id INTEGER, kind INTEGER, quality INTEGER DEFAULT 0, amount REAL DEFAULT 0, cost_workers REAL DEFAULT 0, cost_admin REAL DEFAULT 0, cost_material1 REAL DEFAULT 0, cost_material2 REAL DEFAULT 0, cost_market REAL DEFAULT 0, updated_at TEXT )"
+  }
+]

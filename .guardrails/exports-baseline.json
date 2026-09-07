@@ -1,0 +1,1445 @@
+{
+  "server/application/account/company-account-use-cases.ts": [
+    "createRealmZeroCompanyUseCase",
+    "migrateOwnedCompanyToRealmZeroUseCase"
+  ],
+  "server/application/buildings/construct-building.ts": [
+    "ConstructBuildingInput",
+    "ConstructBuildingResult",
+    "constructBuildingUseCase"
+  ],
+  "server/application/buildings/demolish-building.ts": [
+    "DemolishBuildingResult",
+    "demolishBuildingUseCase"
+  ],
+  "server/application/buildings/downgrade-building.ts": [
+    "DowngradeBuildingInput",
+    "DowngradeBuildingResult",
+    "downgradeBuildingUseCase"
+  ],
+  "server/application/buildings/followers.ts": [
+    "addFollower",
+    "listFollowers",
+    "removeFollower"
+  ],
+  "server/application/buildings/get-building-details.ts": [
+    "getBuildingDetailsUseCase"
+  ],
+  "server/application/buildings/get-buildings.ts": [
+    "getCompanyBuildingsUseCase"
+  ],
+  "server/application/buildings/install-robots.ts": [
+    "InstallRobotsInput",
+    "InstallRobotsResult",
+    "RoboticsState",
+    "installRobotsUseCase"
+  ],
+  "server/application/buildings/place-building.ts": [
+    "PlaceBuildingInput",
+    "liftBuildingUseCase",
+    "placeBuildingUseCase"
+  ],
+  "server/application/buildings/rename-building.ts": [
+    "renameBuildingUseCase"
+  ],
+  "server/application/buildings/rush-construction.ts": [
+    "RushConstructionInput",
+    "RushConstructionResult",
+    "rushBuildingConstructionUseCase"
+  ],
+  "server/application/buildings/start-recreation-upkeep.ts": [
+    "RECREATION_UPKEEP_COSTS",
+    "RECREATION_UPKEEP_DURATION_SECONDS",
+    "StartRecreationUpkeepResult",
+    "startRecreationUpkeepUseCase"
+  ],
+  "server/application/buildings/uninstall-robots.ts": [
+    "UninstallRobotsResult",
+    "uninstallRobotsUseCase"
+  ],
+  "server/application/buildings/upgrade-building.ts": [
+    "UpgradeBuildingInput",
+    "UpgradeBuildingResult",
+    "upgradeBuildingUseCase"
+  ],
+  "server/application/encyclopedia/encyclopedia-queries.ts": [
+    "getEncyclopediaEvents",
+    "getEncyclopediaProductionModifiers",
+    "getEncyclopediaResourceDetail",
+    "getEncyclopediaRetailInfo",
+    "getEncyclopediaSupporters"
+  ],
+  "server/application/executives/executive-inputs.ts": [
+    "CounterHostileOfferInput",
+    "CreatePoachingOfferInput",
+    "UpdateExecutiveInput"
+  ],
+  "server/application/executives/executive-use-cases.ts": [
+    "EXECUTIVE_TRAINING_CODES",
+    "ExecutiveTrainingCode",
+    "assertExecutiveOwned",
+    "assignExecutiveCommand",
+    "cancelExecutiveTrainingCommand",
+    "counterHostileOfferCommand",
+    "createPoachingOffer",
+    "createPoachingOfferCommand",
+    "dismissPoachingOfferCommand",
+    "fireExecutiveCommand",
+    "formatExecutive",
+    "formatFormerExecutive",
+    "formatHostileOffer",
+    "formatOffer",
+    "formatTraining",
+    "getAcademyLevels",
+    "getCompanyExecutives",
+    "getCompanyExecutivesQuery",
+    "getExecutiveByIdQuery",
+    "getExecutiveCandidates",
+    "getExecutiveCandidatesQuery",
+    "getExecutiveNoteQuery",
+    "getFormerExecutivesQuery",
+    "getHostileOfferByIdQuery",
+    "getHostileOffersQuery",
+    "getPoachingOfferByIdQuery",
+    "getPoachingOffers",
+    "getPoachingOffersQuery",
+    "hireExecutiveCommand",
+    "letGoHostileOfferCommand",
+    "normalizeExecutiveTrainingCode",
+    "refreshPoachingOfferCommand",
+    "rejectHostileOfferCommand",
+    "researchEmployerCommand",
+    "researchPoacherCommand",
+    "rushExecutiveTrainingCommand",
+    "scheduleExecutiveTrainingCommand",
+    "trainExecutiveCommand",
+    "updateExecutiveCommand",
+    "updatePoachingOfferCommand"
+  ],
+  "server/application/finance/bond-use-cases.ts": [
+    "buyBondsUseCase",
+    "callBondsUseCase",
+    "getBondMarketListingsQuery",
+    "getBondsOwnedQuery",
+    "getBondsSoldQuery",
+    "getOutstandingSoldBondLiability",
+    "issueBondsUseCase",
+    "settleMaturedBondsUseCase"
+  ],
+  "server/application/finance/contract-use-cases.ts": [
+    "FormattedContract",
+    "SendContractInput",
+    "acceptContractUseCase",
+    "cancelContractUseCase",
+    "formatContract",
+    "getContractHistory",
+    "getContractHistoryDetail",
+    "getIncomingContracts",
+    "getOutgoingContracts",
+    "getWarehouseContractsSummary",
+    "rejectContractUseCase",
+    "sendContractUseCase"
+  ],
+  "server/application/finance/finance-use-cases.ts": [
+    "acceptContractCommand",
+    "buyBondsCommand",
+    "callBondsCommand",
+    "cancelContractCommand",
+    "getBondMarketListingsQuery",
+    "getBondsOwnedQuery",
+    "getBondsSoldQuery",
+    "getContractHistoryQuery",
+    "getIncomingContractsQuery",
+    "getOutgoingContractsQuery",
+    "getWarehouseContractsSummaryQuery",
+    "issueBondsCommand",
+    "rejectContractCommand",
+    "sendContractCommand"
+  ],
+  "server/application/gift-baskets/delete-outgoing.ts": [
+    "DeleteOutgoingGiftBasketResult",
+    "deleteOutgoingGiftBasketUseCase"
+  ],
+  "server/application/market/buy-orders.ts": [
+    "PlaceBuyOrderInput",
+    "PlacedBuyOrderDTO",
+    "SellToBidInput",
+    "SellToBidResult",
+    "cancelBuyOrder",
+    "listBidBook",
+    "listOwnBuyOrders",
+    "placeBuyOrder",
+    "sellToBids"
+  ],
+  "server/application/market/cancel-order.ts": [
+    "CancelMarketOrderInput",
+    "CancelMarketOrderResult",
+    "cancelMarketOrder"
+  ],
+  "server/application/market/place-order.ts": [
+    "PlaceMarketOrderInput",
+    "PlaceMarketOrderResult",
+    "PlacedSellOrderDTO",
+    "placeMarketOrder"
+  ],
+  "server/application/market/take-order.ts": [
+    "MarketFillRecord",
+    "TakeMarketOrderInput",
+    "TakeMarketOrderResult",
+    "takeMarketOrder"
+  ],
+  "server/application/notifications.ts": [
+    "wireGameNotifications"
+  ],
+  "server/application/production/cancel-production.ts": [
+    "CancelProductionInput",
+    "CancelProductionResult",
+    "cancelProductionUseCase"
+  ],
+  "server/application/production/collect-accumulator.ts": [
+    "AccumulatorResourceResult",
+    "CollectAccumulatorResult",
+    "collectAccumulatorUseCase",
+    "toAccumulatorStateDTO"
+  ],
+  "server/application/production/collect-production.ts": [
+    "CollectProductionInput",
+    "CollectProductionResult",
+    "collectProductionUseCase"
+  ],
+  "server/application/production/get-production-history.ts": [
+    "getProductionHistoryUseCase"
+  ],
+  "server/application/production/get-production-queue.ts": [
+    "getProductionQueueUseCase"
+  ],
+  "server/application/production/rush-production.ts": [
+    "RushProductionInput",
+    "RushProductionResult",
+    "rushProductionUseCase"
+  ],
+  "server/application/production/start-production.ts": [
+    "StartProductionInput",
+    "StartProductionResult",
+    "startProductionUseCase"
+  ],
+  "server/application/production/start-retail.ts": [
+    "StartRetailInput",
+    "StartRetailResult",
+    "startRetailUseCase"
+  ],
+  "server/application/restaurant/restaurant-use-cases.ts": [
+    "RESTAURANT_DISHES",
+    "RestaurantMenuItem",
+    "RestaurantProperties",
+    "RestaurantRun",
+    "StartCycleResultDTO",
+    "UpdateRestaurantPropertiesInput",
+    "UpdateRestaurantPropertiesResult",
+    "getLegacyRestaurantProperties",
+    "getLegacyRestaurantRun",
+    "getRestaurantBusy",
+    "getRestaurantMenuGuide",
+    "getRestaurantProperties",
+    "getRestaurantRatings",
+    "getRestaurantRunsQuery",
+    "resolveDueRestaurantRunsSync",
+    "startRestaurantCycleUseCase",
+    "updateRestaurantPropertiesUseCase",
+    "validateRestaurantMenuPrice"
+  ],
+  "server/application/retail/retail-use-cases.ts": [
+    "BASE_CUSTOMER_SEARCH_DURATION_SECONDS",
+    "CUSTOMER_SEARCH_DURATION_SECONDS",
+    "CancelRetailResult",
+    "CollectRetailOrderOptions",
+    "CollectRetailResult",
+    "FindSalesOfficeCustomerResult",
+    "RetailOrderDTO",
+    "SalesOfficeOrderDTO",
+    "StartRetailInput",
+    "StartRetailResult",
+    "cancelRetailOrderUseCase",
+    "collectRetailOrderUseCase",
+    "findSalesOfficeCustomerUseCase",
+    "formatRetailOrder",
+    "formatSalesOfficeOrder",
+    "getCustomerSearchDurationSeconds",
+    "getSalesOfficeSearchFee",
+    "startRetailOrderUseCase"
+  ],
+  "server/application/scheduler/daily-jobs.ts": [
+    "ECONOMY_STATE_NAMES",
+    "EconomyPhaseHistoryEntry",
+    "EconomyPhaseStatus",
+    "EconomyProductionModifier",
+    "awardGovernmentBids",
+    "bidTotalValue",
+    "chargeDailyAccountingOverhead",
+    "chargeDailyBondInterest",
+    "computeDailySaturation",
+    "computeEconomyProductionModifier",
+    "debitExecutiveSalaries",
+    "getEconomyPhase",
+    "getEconomyPhaseHistory",
+    "getEconomyPhaseStatistics",
+    "getRetailSaturation",
+    "publishGovernmentOrders",
+    "recalculateRetailSaturation",
+    "rollEconomyPhase",
+    "seededRandom",
+    "setEconomyPhase"
+  ],
+  "server/application/social/challenges.ts": [
+    "ChallengeView",
+    "getActiveChallenge",
+    "getChallengeLeaderboard",
+    "getCurrentChallengeState",
+    "restartAttempt",
+    "startAttempt"
+  ],
+  "server/application/social/courses.ts": [
+    "CourseView",
+    "createCourse",
+    "deleteCourse",
+    "getCourse",
+    "joinCourse",
+    "listCourses",
+    "updateCourse"
+  ],
+  "server/application/social/polls.ts": [
+    "ContestView",
+    "PollQuestion",
+    "PollView",
+    "getActivePoll",
+    "getContestView",
+    "getPollById",
+    "getPollView",
+    "refreshContestStandings",
+    "votePoll"
+  ],
+  "server/application/social/simboost-history.ts": [
+    "recordSimboostSpend"
+  ],
+  "server/application/social/unlockables.ts": [
+    "HQ_SKINS",
+    "NotPurchasableError",
+    "PA_COSTS",
+    "PA_KINDS",
+    "PaKind",
+    "UnlockedHqItem",
+    "getSelectedHq",
+    "getSelectedPa",
+    "listSimboostUse",
+    "listUnlockedHqs",
+    "listUnlockedPas",
+    "selectHq",
+    "selectPa",
+    "unlockHq",
+    "unlockPa"
+  ],
+  "server/auth/session.ts": [
+    "SESSION_CLEANUP_INTERVAL_MS",
+    "SESSION_TOKEN_REGEX",
+    "SESSION_TTL_MS",
+    "SessionRecord",
+    "buildSessionCookie",
+    "cleanupExpiredSessions",
+    "createSession",
+    "destroySession",
+    "extractSessionToken",
+    "getSession",
+    "startExpiredSessionCleanup",
+    "switchSessionCompany"
+  ],
+  "server/compatibility/simcompanies/accumulator-dto.ts": [
+    "SimCompaniesCollectAccumulatorDTO",
+    "toSimCompaniesCollectAccumulatorDTO"
+  ],
+  "server/compatibility/simcompanies/building-dto.ts": [
+    "SimCompaniesBuildingDTO",
+    "toSimCompaniesBuildingDTO",
+    "toSimCompaniesBuildingsListDTO"
+  ],
+  "server/compatibility/simcompanies/dto-utils.ts": [
+    "computeFallbackUnitCost",
+    "finiteOr"
+  ],
+  "server/compatibility/simcompanies/market-dto.ts": [
+    "MarketOrderDTO",
+    "MarketOrderSellerDTO",
+    "formatMarketOrder"
+  ],
+  "server/compatibility/simcompanies/production-dto.ts": [
+    "SimCompaniesCancelProductionDTO",
+    "SimCompaniesCollectProductionDTO",
+    "SimCompaniesProductionHistoryItemDTO",
+    "SimCompaniesQueueItemDTO",
+    "SimCompaniesStartProductionDTO",
+    "computeFallbackUnitCost",
+    "finiteOr",
+    "toSimCompaniesCancelProductionDTO",
+    "toSimCompaniesCollectProductionDTO",
+    "toSimCompaniesHistoryDTO",
+    "toSimCompaniesQueueDTO",
+    "toSimCompaniesStartProductionDTO"
+  ],
+  "server/compatibility/simcompanies/response-helpers.ts": [
+    "sendDomainError",
+    "sendDomainResponse"
+  ],
+  "server/config.ts": [
+    "CONFIG",
+    "InitialStockItem",
+    "PRESET_WAREHOUSE_STOCKS",
+    "getInitialCompanySettings",
+    "parseInitialWarehouseStock"
+  ],
+  "server/context/game-context.ts": [
+    "GameContext",
+    "createGameContext",
+    "requireGameContext"
+  ],
+  "server/core/env-validator.ts": [
+    "ConfigValidationError",
+    "ValidatedConfig",
+    "validateEnvironment"
+  ],
+  "server/core/logger.ts": [
+    "LogEntry",
+    "LogLevel",
+    "Logger",
+    "logger",
+    "sanitizeLogData"
+  ],
+  "server/core/virtual-clock.ts": [
+    "OverdueResolutionResult",
+    "OverdueResolver",
+    "VirtualClock",
+    "virtualClock"
+  ],
+  "server/db/backup.ts": [
+    "BackupEngine",
+    "BackupMetadata",
+    "backupEngine"
+  ],
+  "server/db/connection.ts": [
+    "db"
+  ],
+  "server/db/database.ts": [
+    "PlayerDbRow",
+    "authenticatePlayer",
+    "db",
+    "hashPassword",
+    "registerOrAuthenticatePlayer",
+    "registerPlayer",
+    "runMigrations",
+    "seedDefaultDisplayCase",
+    "seedInitialDatabase",
+    "seedMarketOrders",
+    "verifyPassword"
+  ],
+  "server/db/migrations/index.ts": [
+    "MIGRATIONS",
+    "MigrationError",
+    "MigrationRecord",
+    "MigrationRunner",
+    "hashPassword",
+    "runMigrations",
+    "verifyPassword"
+  ],
+  "server/db/migrations/runner.ts": [
+    "MIGRATIONS",
+    "MigrationDefinition",
+    "MigrationError",
+    "MigrationRecord",
+    "MigrationRunner"
+  ],
+  "server/db/seed/index.ts": [
+    "PlayerDbRow",
+    "authenticatePlayer",
+    "registerOrAuthenticatePlayer",
+    "registerPlayer",
+    "seedDefaultDisplayCase",
+    "seedInitialDatabase",
+    "seedMarketOrders"
+  ],
+  "server/db/transaction.ts": [
+    "AfterCommitHook",
+    "TransactionContext",
+    "TransactionOptions",
+    "runInTransaction"
+  ],
+  "server/domain/buildings/building-rules.ts": [
+    "BOND_COLLATERAL_FLOOR",
+    "ConstructionCostEstimate",
+    "ConstructionTimeMode",
+    "assertBondCollateralFloor",
+    "assertNotBusyForConstructionWork",
+    "calculateConstructionDurationSeconds",
+    "estimateConstructionCost",
+    "estimateDemolitionRefund",
+    "estimateUpgradeCost",
+    "extraSlotIndex",
+    "formatDurationHuman",
+    "getBuildingBuildDuration",
+    "normalizePosition",
+    "validateConstructionPosition"
+  ],
+  "server/domain/executives.ts": [
+    "AGENCY_FEE_MULTIPLIERS",
+    "AgencyTier",
+    "AgencyTierValue",
+    "BASE_EXECUTIVE_TRAINING_WINDOW_S",
+    "BASE_SETTLE_IN_WINDOW_S",
+    "EXECUTIVE_TRAINING_COST",
+    "EXECUTIVE_TRAINING_MONEY_COST",
+    "EXECUTIVE_TRAINING_WINDOW_S",
+    "academySkillBonus",
+    "generateDeterministicGenome",
+    "getExecutiveTrainingWindowSeconds",
+    "getSettleInWindowSeconds",
+    "normalizeOfferStatus",
+    "normalizePositionCode",
+    "parseAgencyTier",
+    "validIsoOrNull"
+  ],
+  "server/domain/leveling/level-rules.ts": [
+    "CapabilityCheck",
+    "CapabilityError",
+    "CapabilityKey",
+    "LEVEL_CAP",
+    "LEVEL_TIERS",
+    "LevelInfoDTO",
+    "LevelTier",
+    "QueueDurationLimitError",
+    "assertCapability",
+    "assertQueueDuration",
+    "checkCapability",
+    "computeLevelInfo",
+    "getCumulativeXpForLevel",
+    "getTierForLevel",
+    "getXpRequiredForLevel"
+  ],
+  "server/domain/market/market-rules.ts": [
+    "EXCHANGE_FEE_RATE",
+    "computeExchangeFee",
+    "computeTransportNeeded",
+    "getPriceTickSize",
+    "isSelfTrade",
+    "validateSellOrderInput",
+    "validateTakeOrderInput"
+  ],
+  "server/domain/production/production-rules.ts": [
+    "ProductionRequirement",
+    "resolveAchievableQuality",
+    "validateProductionRequest"
+  ],
+  "server/domain/research/research-rules.ts": [
+    "BASE_POINTS_PER_PATENT",
+    "CUMULATIVE_PATENT_THRESHOLDS",
+    "DEFAULT_DISCIPLINE",
+    "DISCIPLINES",
+    "DISCIPLINE_BY_PRODUCED_AT",
+    "MAX_RESEARCH_QUALITY",
+    "RESEARCH_RESOURCE_BY_DISCIPLINE",
+    "RESOURCE_TO_DISCIPLINE",
+    "calculatePatentsFromPoints",
+    "getDisciplineForResource",
+    "getPatentsNeededForNextQuality",
+    "getQualityFromPatents"
+  ],
+  "server/domain/restaurant/restaurant-state-machine.ts": [
+    "RestaurantLifecycleEvent",
+    "RestaurantState",
+    "RestaurantStateSnapshot",
+    "TransitionDecision",
+    "checkTransition",
+    "interpretKeepOpenPatch",
+    "resolveRestaurantState"
+  ],
+  "server/errors/domain-error.ts": [
+    "BondCollateralViolationError",
+    "ConflictError",
+    "DomainError",
+    "ForbiddenError",
+    "InsufficientFundsError",
+    "InsufficientInventoryError",
+    "InvariantViolationError",
+    "NotFoundError",
+    "SelfTradeProhibitedError",
+    "UnauthorizedError",
+    "ValidationError"
+  ],
+  "server/events/event-bus.ts": [
+    "DomainEventMap",
+    "EventBus",
+    "EventKey",
+    "EventListener",
+    "eventBus"
+  ],
+  "server/events/subscribers.ts": [
+    "setupDomainEventSubscribers"
+  ],
+  "server/game/achievements.ts": [
+    "ACHIEVEMENT_CRITERIA",
+    "ALL_ACHIEVEMENTS",
+    "AchievementCriteria",
+    "AchievementStatKey",
+    "DISPLAY_CASE_MAX_SLOT",
+    "DISPLAY_CASE_MIN_SLOT",
+    "DisplayCasePlacement",
+    "DisplayCaseRow",
+    "DisplayItemKind",
+    "IndividualAchievement",
+    "claimAchievement",
+    "getAchievementStats",
+    "getAchievementsOverview",
+    "getCertificateCatalog",
+    "getCertificateDetail",
+    "getCertificates",
+    "getCompanyCertificates",
+    "getDisplayCase",
+    "getIndividualAchievements",
+    "getLatestCertificates",
+    "getRarestCertificates",
+    "removeDisplayCaseSlot",
+    "updateDisplayCase"
+  ],
+  "server/game/aerospace.ts": [
+    "AerospaceSalesOrder",
+    "AerospaceSalesOrderResource",
+    "LAUNCH_QUEUE_MAX",
+    "QueueRocketLaunchOptions",
+    "QueuedLaunchItem",
+    "ROCKET_CONFIGS",
+    "RocketConfig",
+    "RocketLaunchOutcome",
+    "RocketLaunchStats",
+    "calculateLaunchDurationSeconds",
+    "cancelQueuedLaunch",
+    "fulfillAerospaceSalesOrder",
+    "generateNewSalesOrder",
+    "getAerospaceSalesOrders",
+    "getCompanyLaunchQueue",
+    "getRocketLaunchStats",
+    "launchRocket",
+    "queueRocketLaunch",
+    "resolveRocketLaunch",
+    "rocketKindForLaunchAmount",
+    "rocketKindForLaunchRequest"
+  ],
+  "server/game/building-auctions.ts": [
+    "AUCTION_DURATION_HOURS",
+    "AUCTION_FEE_PERCENT",
+    "AuctionDTO",
+    "BidDTO",
+    "MAX_BID",
+    "MIN_ABUNDANCE",
+    "MIN_BUILDING_LEVEL",
+    "PROMOTE_AUCTION_SIMBOOSTS",
+    "REPOSITION_QUEUE_CAPACITY",
+    "SELLING_SLOTS_SIMBOOSTS",
+    "SettlementResult",
+    "abundanceLevelName",
+    "computeGuaranteedReturn",
+    "computeMinBid",
+    "countRepositionQueue",
+    "getActiveAuctions",
+    "getActiveUnlocks",
+    "getAuctionById",
+    "getCompanyAuctions",
+    "getMyBids",
+    "getSimilarAuctions",
+    "getSimilarAuctionsByAuction",
+    "getSimilarAuctionsByBuilding",
+    "listBuildingForAuction",
+    "placeBid",
+    "promoteAuction",
+    "resolveCompanyIdParam",
+    "settleDueAuctions",
+    "withdrawBid"
+  ],
+  "server/game/buildings.ts": [
+    "ABUNDANCE_DECAY_PER_CYCLE",
+    "ABUNDANCE_EXTRACTOR_KINDS",
+    "AbundanceValues",
+    "BuildingRow",
+    "applyAbundanceCycleDecay",
+    "constructBuilding",
+    "decayAbundance",
+    "demolishBuilding",
+    "formatBuilding",
+    "getBuildingAbundance",
+    "getBuildingById",
+    "getBuildingMeta",
+    "getCompanyBuildings",
+    "getConstructionMaterials",
+    "initialAbundanceForKind",
+    "isAbundanceExtractorKind",
+    "prospectBuildingAbundance",
+    "rollAbundancePercent",
+    "scaleExtractorOutput",
+    "upgradeBuilding"
+  ],
+  "server/game/cash-ledger.ts": [
+    "CashLedgerEntry",
+    "CashLedgerInsert",
+    "FinanceSnapshotRow",
+    "LedgerAggregate",
+    "StatementWindow",
+    "formatSnapshotDate",
+    "getDailyFinanceSnapshots",
+    "getRecentCashLedger",
+    "readStatementWindow",
+    "recordCashLedger",
+    "refreshDailyFinanceSnapshot",
+    "sumNegative",
+    "sumPositive",
+    "upsertDailyFinanceSnapshot"
+  ],
+  "server/game/certificates.ts": [
+    "CertificateAward",
+    "CertificateDbRow",
+    "CertificateKindDefinition",
+    "getCertificateCatalog",
+    "getCertificateDetail",
+    "getCertificates",
+    "getCompanyCertificates",
+    "getLatestCertificates",
+    "getRarestCertificates",
+    "grantCycleCertificates"
+  ],
+  "server/game/collectibles.ts": [
+    "CollectibleListingView",
+    "CollectiblePurchase",
+    "CollectibleTradeView",
+    "LISTING_ACTIVE",
+    "LISTING_DELISTED",
+    "LISTING_SOLD",
+    "MarketCollectibleView",
+    "NftAssetView",
+    "NftCollectorView",
+    "buyCollectible",
+    "getAssetTrades",
+    "getCompanyCollectibles",
+    "getNftAsset",
+    "getNftCollectors",
+    "listCollectibleForSale",
+    "listMarketCollectibles",
+    "updateCollectibleListing"
+  ],
+  "server/game/company.ts": [
+    "CompanyRow",
+    "PlayerRow",
+    "SUPPORTER_DISCOUNT_PERCENT",
+    "SUPPORTER_DURATION_DAYS",
+    "SupporterState",
+    "activateSupporter",
+    "addCompanyExperience",
+    "applySupporterDiscount",
+    "createCompanyForPlayer",
+    "getAuthData",
+    "getCompanyById",
+    "getCompanyByPlayerId",
+    "getCompanyHqImage",
+    "getPersonalData",
+    "getPlayerCompanies",
+    "getSupporterState",
+    "resetCompany",
+    "updateCompanyMoney",
+    "updateCompanySettings",
+    "updateCompanySimBoosts",
+    "updatePlayerPreferences"
+  ],
+  "server/game/constants.ts": [
+    "BUILDING_NAMES",
+    "BuildingDef",
+    "CONSTANTS_BUILDINGS",
+    "CONSTANTS_CORE",
+    "CONSTANTS_RESOURCES",
+    "CONSTRUCTION_MATERIALS",
+    "DEMOLITION_REFUND_RATE",
+    "ResourceDef",
+    "calculateProductionTime",
+    "getBuildingMeta",
+    "getResourceDef"
+  ],
+  "server/game/encyclopedia.ts": [
+    "ExistingResourceQualityEntry",
+    "RankingEntry",
+    "ResourceEncyclopediaDetail",
+    "ResourceHistoryPoint",
+    "ResourceRetailDataPoint",
+    "getCompanyRankings",
+    "getEvaRankings",
+    "getExistingResourceQualities",
+    "getResourceEncyclopediaDetail",
+    "getResourceHistory",
+    "getResourceTransactions",
+    "getResourceTransactionsSummary",
+    "getResourcesRetailInfo",
+    "getRetailDemand"
+  ],
+  "server/game/government-orders.ts": [],
+  "server/game/government.ts": [
+    "GovernmentBidApplication",
+    "GovernmentBidder",
+    "GovernmentOrderTemplate",
+    "GovernmentRequiredResource",
+    "blockCompany",
+    "createGovernmentBid",
+    "deleteGovernmentBid",
+    "ensureSeededProjects",
+    "fulfillGovernmentOrderContractor",
+    "getBlockedCompanies",
+    "getCompanyGovernmentApplications",
+    "getCompanyGovernmentBids",
+    "getGovernmentBidByIdOrSecret",
+    "getGovernmentBids",
+    "getGovernmentOrderById",
+    "getGovernmentOrders",
+    "getGovernmentTier",
+    "joinGovernmentBid",
+    "leaveOrRemoveContractor",
+    "unblockCompany",
+    "updateGovernmentBid"
+  ],
+  "server/game/loans.ts": [
+    "LoanRow",
+    "getActiveLoans",
+    "repayLoan",
+    "settleDueLoans",
+    "takeLoan"
+  ],
+  "server/game/newspaper.ts": [
+    "DEFAULT_SPONSOR_TEXT",
+    "NewspaperArticleDbRow",
+    "NewspaperIssueDbRow",
+    "NewspaperSponsorDbRow",
+    "REWARD_COST",
+    "REWARD_MIN_LEVEL",
+    "SPONSOR_SLOT_COUNT",
+    "SPONSOR_TIER_CHAR_LIMITS",
+    "SPONSOR_TIER_PRICES",
+    "SPONSOR_TIER_SLOTS",
+    "SponsorTier",
+    "TOP_ARTICLES_LIMIT",
+    "addArticleReaction",
+    "buyNewspaperSponsor",
+    "createArticle",
+    "deleteArticle",
+    "getArticleById",
+    "getArticlesByAuthor",
+    "getArticlesBySubstring",
+    "getCompanyReactionsForNewspaper",
+    "getCurrentBookableIssue",
+    "getNewspaperIssue",
+    "getNewspaperIssueById",
+    "getNewspaperIssues",
+    "getSponsorListForNewspaper",
+    "getSponsorParams",
+    "getSponsorTierForSlot",
+    "getSponsorsForNewspaper",
+    "getTopArticlesByReaction",
+    "nextPublishDate",
+    "removeArticleReaction",
+    "resolveNewspaperIssueId",
+    "updateArticle",
+    "updateNewspaperSponsorText"
+  ],
+  "server/game/research.ts": [
+    "CUMULATIVE_PATENT_THRESHOLDS",
+    "DEFAULT_DISCIPLINE",
+    "DISCIPLINES",
+    "DISCIPLINE_BY_PRODUCED_AT",
+    "RESEARCH_RESOURCE_BY_DISCIPLINE",
+    "RESOURCE_TO_DISCIPLINE",
+    "ResearchRow",
+    "ResourceResearchAbility",
+    "applyResearch",
+    "applyResourceResearch",
+    "calculatePatentsFromPoints",
+    "getCompanyCtoScienceSkill",
+    "getCompanyResearch",
+    "getDisciplineForResource",
+    "getPatentsNeededForNextQuality",
+    "getProductionQualityCap",
+    "getQualityFromPatents",
+    "getResourceResearchAbility"
+  ],
+  "server/game/restaurant.ts": [
+    "AVERAGE_SALARY",
+    "BASE_RESTAURANT_CYCLE_SECONDS",
+    "ECONOMY_SEATS_PER_LEVEL",
+    "LUXURY_SEATS_PER_LEVEL",
+    "LegacyRestaurantMenuItem",
+    "LegacyRestaurantProperties",
+    "PROFESSIONAL_STAFF_WAGE_MULTIPLIER",
+    "RESTAURANT_BASE_WAGES_PER_CYCLE",
+    "RESTAURANT_COST_UNITS",
+    "RESTAURANT_CYCLE_MS",
+    "RESTAURANT_CYCLE_SECONDS",
+    "RESTAURANT_DISHES",
+    "RESTAURANT_DRINKS",
+    "RESTAURANT_FOOD_CONSUMPTION",
+    "RESTAURANT_MAINS",
+    "RESTAURANT_MENU_PRICE_MAX",
+    "RESTAURANT_MENU_PRICE_MIN",
+    "RESTAURANT_RATING_MAX",
+    "RESTAURANT_RECONSTRUCTION_SECONDS",
+    "RESTAURANT_SALAD_BAR",
+    "RESTAURANT_SALARY_MODIFIER",
+    "RESTAURANT_VARIETY_FACTORS",
+    "RestaurantMenuItem",
+    "RestaurantProperties",
+    "RestaurantQualityMode",
+    "RestaurantRun",
+    "computeRestaurantOccupancy",
+    "computeRestaurantOccupancy",
+    "computeRestaurantOccupancy",
+    "computeRestaurantRating",
+    "computeRestaurantWages",
+    "computeRestaurantWages",
+    "computeRestaurantWages",
+    "executeRestaurantRun",
+    "getLegacyRestaurantProperties",
+    "getLegacyRestaurantRun",
+    "getRestaurantBusy",
+    "getRestaurantCycleSeconds",
+    "getRestaurantFoodRequirement",
+    "getRestaurantFoodRequirements",
+    "getRestaurantMenuGuide",
+    "getRestaurantProperties",
+    "getRestaurantRatings",
+    "getRestaurantRuns",
+    "getRestaurantSeats",
+    "resolveDueRestaurantRuns",
+    "resolveDueRestaurantRunsSync",
+    "resolveRestaurantRun",
+    "updateRestaurantProperties",
+    "validateRestaurantMenu",
+    "validateRestaurantMenuForCycle",
+    "validateRestaurantMenuPrice"
+  ],
+  "server/game/robotics.ts": [
+    "ROBOTICS_UNINSTALL_RETURN_RATIO",
+    "ROBOTICS_WAGE_MULTIPLIER",
+    "ROBOT_RESOURCE_KIND",
+    "ROBOT_UNIT_COST",
+    "RoboticsLockedError",
+    "RoboticsSpecializationError",
+    "assertAllowedProduct",
+    "assertNotRoboticsLocked",
+    "assertSpecializableProduct",
+    "effectiveWageMultiplier",
+    "hasRobotsInstalled",
+    "requiredRobotCount",
+    "requiredRobotQuality",
+    "robotUnits",
+    "uninstallRobotReturnCount"
+  ],
+  "server/game/simboost-settings.ts": [
+    "CompanyBoostSettings",
+    "DAILY_PURCHASE_LIMIT",
+    "EXCHANGE_CASH_PER_SIMBOOST",
+    "EXCHANGE_DAILY_LIMIT",
+    "FairExchangeInput",
+    "FairExchangeResult",
+    "REALIGN_COST_CHEAP",
+    "REALIGN_COST_EXPENSIVE",
+    "exchangeMoneyForSimboosts",
+    "getCompanyBoostSettings",
+    "getExchangedToday",
+    "getPurchasesToday",
+    "realignCompanyBonus",
+    "realignCost",
+    "recordExchange",
+    "recordPurchase",
+    "saveCompanyBoostModifiers"
+  ],
+  "server/game/simboosts.ts": [
+    "CompletedPurchase",
+    "PAYMENT_PACKAGES",
+    "PAYMENT_PACKAGES_PREFERRED_CURRENCY",
+    "PaymentPackage",
+    "canPurchasePaymentPackage",
+    "exchangeCashForSimboosts",
+    "exchangeSimBoosts",
+    "getCompanyBonusModifiers",
+    "getCompanyExchangedToday",
+    "getPaymentPackagesList",
+    "getPaymentPricingInfo",
+    "getPlayerBonusesList",
+    "purchasePaymentPackage",
+    "realignProductionSalesBonus",
+    "resetPurchaseLedger",
+    "unlockBuildingSlot",
+    "unlockDisplayCaseSlot",
+    "unlockExecutiveSlot",
+    "unlockTagSlot"
+  ],
+  "server/game/tags.ts": [
+    "CompanyTagDbRow",
+    "addCompanyTag",
+    "deleteCompanyTag",
+    "getCompanyTags",
+    "lookupCompany",
+    "searchCompaniesByTags"
+  ],
+  "server/game/warehouse.ts": [
+    "ResourceTransaction",
+    "WarehouseRow",
+    "addResource",
+    "consumeResource",
+    "consumeResourceExact",
+    "consumeResourceExactWithTransactions",
+    "consumeResourceWithTransactions",
+    "getWarehouseItem",
+    "getWarehouseItemById",
+    "getWarehouseItemExact",
+    "getWarehouseResources"
+  ],
+  "server/game-data/accumulator.ts": [
+    "AccumulatorParameters",
+    "AccumulatorResourceState",
+    "accumulatorBonusForResearch",
+    "accumulatorQualityForValue",
+    "accumulatorStateDTO",
+    "accumulatorThresholdForQuality",
+    "getAccumulatorParameters"
+  ],
+  "server/game-data/buildings.ts": [
+    "BUILDING_NAMES",
+    "BuildingDef",
+    "CANONICAL_BUILDINGS",
+    "CONSTRUCTION_MATERIALS",
+    "DEMOLITION_REFUND_RATE",
+    "ProductionCalculationOptions",
+    "calculateProductionRate",
+    "calculateProductionTime",
+    "getBuildingCostUnits",
+    "getBuildingMeta",
+    "getConstructionMaterials"
+  ],
+  "server/game-data/gift-baskets.ts": [
+    "BASKET_KINDS",
+    "BasketRow",
+    "SIMBOOSTS_OPTIONS",
+    "claimBasket",
+    "deleteReceived",
+    "getDraft",
+    "listOutgoing",
+    "listReceived",
+    "saveDraft",
+    "sendBasket",
+    "updateOutgoingMessage"
+  ],
+  "server/game-data/realm-rules.ts": [
+    "CHALLENGE_REALM_RULES",
+    "ChallengePolicy",
+    "DEFAULT_REALM_RULES",
+    "RealmRules",
+    "StartingConditions",
+    "getRealmRules",
+    "getResourcePurchaseLimit",
+    "isBondsAllowed",
+    "isContractsAllowed",
+    "isExchangeAllowed"
+  ],
+  "server/game-data/resources.ts": [
+    "AccumulatorResourceMechanic",
+    "CANONICAL_RESOURCES",
+    "ResourceDef",
+    "getAllResourceDefs",
+    "getResourceDef",
+    "getResourceName",
+    "isResourceExchangeTradable"
+  ],
+  "server/game-data/retail.ts": [
+    "EconomyModelResource",
+    "EconomyModelState",
+    "RETAIL_PRODUCTS",
+    "RetailDurationOptions",
+    "RetailPriceResult",
+    "RetailRevenueResult",
+    "calculateOptimalRetailPrice",
+    "calculateRetailDuration",
+    "calculateRetailRevenue",
+    "calculateRetailUnitsPerHour",
+    "getAuthoritativeRetailPrice",
+    "getRetailProductsForBuilding",
+    "isRetailProductForBuilding"
+  ],
+  "server/game-data/seasonal.ts": [
+    "SEASONAL_EVENTS",
+    "SeasonalEvent",
+    "getActiveSeasonalEvents"
+  ],
+  "server/game-data/weather.ts": [
+    "RealmWeather",
+    "getWeather"
+  ],
+  "server/http/route-registry.ts": [
+    "AuthRequirement",
+    "HttpMethod",
+    "RouteDefinition",
+    "RouteHandler",
+    "RouteParams",
+    "RouteRegistry",
+    "globalRouteRegistry"
+  ],
+  "server/index.ts": [],
+  "server/proxy/asset-fetcher.ts": [
+    "serveOrFetchAsset"
+  ],
+  "server/proxy/asset-version.ts": [
+    "FRONTEND_MAIN_BUNDLE_PATH",
+    "FRONTEND_VERSION_PLACEHOLDER",
+    "FrontendVersionAsset",
+    "FrontendVersionManifest",
+    "getFrontendVersion",
+    "prepareFrontendAsset",
+    "readPreparedFrontendAsset",
+    "renderFrontendHtml"
+  ],
+  "server/repositories/accumulator-repository.ts": [
+    "AccumulatorRepository",
+    "AccumulatorState",
+    "accumulatorRepository"
+  ],
+  "server/repositories/audit-repository.ts": [
+    "AdminCompanyBasicRow",
+    "AdminContractRow",
+    "AdminMarketOrderRow",
+    "AdminNewcomerCompanyRow",
+    "AdminPlayerFirstCompanyRow",
+    "AdminPlayerRow",
+    "AdminSessionRow",
+    "AuditEntity",
+    "AuditRepository",
+    "auditRepository",
+    "banCompany"
+  ],
+  "server/repositories/auth-repository.ts": [
+    "AuthRepository",
+    "CompanyRealmRow",
+    "PlayerDeviceRow",
+    "authRepository"
+  ],
+  "server/repositories/bond-repository.ts": [
+    "BondRepository",
+    "BondRow",
+    "bondRepository"
+  ],
+  "server/repositories/building-repository.ts": [
+    "BuildingDbRow",
+    "BuildingEntity",
+    "BuildingRepository",
+    "buildingRepository"
+  ],
+  "server/repositories/company-realm-repository.ts": [
+    "CompanyRealmMigrationBlocker",
+    "CompanyRealmMigrationResult",
+    "CompanyRealmRepository",
+    "companyRealmRepository"
+  ],
+  "server/repositories/company-repository.ts": [
+    "CompanyDbRow",
+    "CompanyEntity",
+    "CompanyRepository",
+    "companyRepository",
+    "mapCompanyRow"
+  ],
+  "server/repositories/contract-repository.ts": [
+    "ContractRepository",
+    "ContractRow",
+    "WarehouseContractsSummaryRow",
+    "contractRepository"
+  ],
+  "server/repositories/encyclopedia-repository.ts": [
+    "EncyclopediaRepository",
+    "ResourceProductionModifier",
+    "encyclopediaRepository"
+  ],
+  "server/repositories/executive-repository.ts": [
+    "ExecutiveEmployer",
+    "ExecutiveEmploymentHistoryRow",
+    "ExecutiveFormerRow",
+    "ExecutiveNoteRow",
+    "ExecutiveOfferRow",
+    "ExecutiveRow",
+    "ExecutiveTrainingRow",
+    "executiveRepository"
+  ],
+  "server/repositories/finance-repository.ts": [
+    "FinanceBalanceAdjustments",
+    "FinanceRepository",
+    "financeRepository"
+  ],
+  "server/repositories/fpa-reports-repository.ts": [
+    "CustomReportEntity",
+    "FpaReportsRepository",
+    "fpaReportsRepository"
+  ],
+  "server/repositories/game-notifications-repository.ts": [
+    "GameNotificationEntity",
+    "GameNotificationsRepository",
+    "gameNotificationsRepository"
+  ],
+  "server/repositories/gift-basket-repository.ts": [
+    "GiftBasketRepository",
+    "giftBasketRepository"
+  ],
+  "server/repositories/government-orders-repository.ts": [
+    "AwardTemplateEntity",
+    "GovernmentOrdersRepository",
+    "OpenBidEntity",
+    "StaleOrderEntity",
+    "governmentOrdersRepository"
+  ],
+  "server/repositories/market-repository.ts": [
+    "InsertMarketOrderInput",
+    "MarketOrderDbRow",
+    "MarketOrderEntity",
+    "MarketReferencePriceEntity",
+    "MarketRepository",
+    "MarketTradeRepository",
+    "marketRepository",
+    "marketTradeRepository"
+  ],
+  "server/repositories/production-repository.ts": [
+    "ProductionQueueDbRow",
+    "ProductionQueueEntity",
+    "ProductionRepository",
+    "productionRepository"
+  ],
+  "server/repositories/referrals-repository.ts": [
+    "REFERRAL_JOIN_BONUS",
+    "REFERRAL_LEVEL_TIERS",
+    "ReferralsRepository",
+    "referralsRepository"
+  ],
+  "server/repositories/restaurant-repository.ts": [
+    "RestaurantDailySalesRow",
+    "RestaurantMarketEntity",
+    "RestaurantPropertyRowEntity",
+    "RestaurantRepository",
+    "RestaurantUpsertEntity",
+    "restaurantRepository"
+  ],
+  "server/repositories/retail-repository.ts": [
+    "InsertRetailOrderInput",
+    "RetailDailySalesSummary",
+    "RetailOrderDbRow",
+    "RetailOrderEntity",
+    "RetailRepository",
+    "mapRetailOrderRow",
+    "retailRepository"
+  ],
+  "server/repositories/scheduler-state-repository.ts": [
+    "EconomyPhaseHistoryRow",
+    "EconomyPhaseRow",
+    "SchedulerStateRepository",
+    "schedulerStateRepository"
+  ],
+  "server/repositories/social-repository.ts": [
+    "ChatMessageRow",
+    "CompanyNoteListRow",
+    "CompanyRealmRow",
+    "CompanySearchRow",
+    "DirectMessageRow",
+    "PollRow",
+    "SocialRepository",
+    "socialRepository"
+  ],
+  "server/repositories/warehouse-repository.ts": [
+    "CostBreakdown",
+    "ResourceTransactionEntity",
+    "WarehouseDbRow",
+    "WarehouseEntity",
+    "WarehouseRepository",
+    "warehouseRepository"
+  ],
+  "server/router.ts": [
+    "getCanonicalLegacyOrder",
+    "handleRequest",
+    "methodManifest",
+    "resolveLegacyOwnerForTests",
+    "setLegacyHandlerOrderForTests"
+  ],
+  "server/routes/achievement-routes.ts": [
+    "handleAchievementRoutes",
+    "registerAchievementRoutes"
+  ],
+  "server/routes/aerospace-routes.ts": [
+    "handleAerospaceRoutes",
+    "registerAerospaceRoutes"
+  ],
+  "server/routes/audit-routes.ts": [
+    "handleAuditRoutes"
+  ],
+  "server/routes/auth-routes.ts": [
+    "handleAuthRoutes",
+    "registerAuthRoutes"
+  ],
+  "server/routes/bond-routes.ts": [
+    "handleBondRoutes",
+    "registerBondRoutes"
+  ],
+  "server/routes/building-auction-routes.ts": [
+    "handleBuildingAuctionRoutes",
+    "registerBuildingAuctionRoutes"
+  ],
+  "server/routes/building-routes.ts": [
+    "handleBuildingRoutes",
+    "registerBuildingRoutes"
+  ],
+  "server/routes/collectible-routes.ts": [
+    "handleCollectibleRoutes",
+    "registerCollectibleRoutes"
+  ],
+  "server/routes/contract-routes.ts": [
+    "handleContractRoutes",
+    "registerContractRoutes"
+  ],
+  "server/routes/debug-routes.ts": [
+    "handleDebugRoutes",
+    "registerDebugRoutes"
+  ],
+  "server/routes/economy-routes.ts": [
+    "registerEconomyRoutes"
+  ],
+  "server/routes/encyclopedia-routes.ts": [
+    "handleEncyclopediaRoutes",
+    "registerEncyclopediaRoutes"
+  ],
+  "server/routes/executive-routes.ts": [
+    "handleExecutiveRoutes",
+    "registerExecutiveRoutes"
+  ],
+  "server/routes/finance-routes.ts": [
+    "BalanceSheetResponse",
+    "handleFinanceRoutes",
+    "registerFinanceRoutes"
+  ],
+  "server/routes/government-routes.ts": [
+    "handleGovernmentRoutes",
+    "registerGovernmentRoutes"
+  ],
+  "server/routes/health-routes.ts": [
+    "handleHealthRoutes",
+    "registerHealthRoutes"
+  ],
+  "server/routes/market-routes.ts": [
+    "handleMarketRoutes",
+    "registerMarketRoutes"
+  ],
+  "server/routes/newspaper-routes.ts": [
+    "handleNewspaperRoutes",
+    "registerNewspaperRoutes"
+  ],
+  "server/routes/page-routes.ts": [
+    "GUIDE_CATALOG",
+    "getPageArticle",
+    "handlePageRoutes",
+    "registerPageRoutes"
+  ],
+  "server/routes/research-routes.ts": [
+    "handleResearchRoutes",
+    "registerResearchRoutes"
+  ],
+  "server/routes/restaurant-routes.ts": [
+    "handleRestaurantRoutes",
+    "registerRestaurantRoutes"
+  ],
+  "server/routes/retail-routes.ts": [
+    "handleRetailRoutes",
+    "registerRetailRoutes"
+  ],
+  "server/routes/simboost-routes.ts": [
+    "handleSimboostRoutes",
+    "registerSimboostRoutes"
+  ],
+  "server/routes/social-routes.ts": [
+    "CHATROOM_PRESETS",
+    "DEFAULT_CHATROOMS",
+    "getConfiguredChatrooms",
+    "handleSocialRoutes",
+    "registerSocialRoutes",
+    "setConfiguredChatrooms"
+  ],
+  "server/routes/utils.ts": [
+    "RequestBodyError",
+    "readJsonBody",
+    "requireCapability",
+    "sendJson",
+    "setPreparsedBody"
+  ],
+  "server/routes/warehouse-routes.ts": [
+    "handleWarehouseRoutes",
+    "registerWarehouseRoutes"
+  ],
+  "server/scheduler/scheduler-routes.ts": [],
+  "server/scheduler/timetable.ts": [
+    "SCHEDULED_TASKS",
+    "SCHEDULER_TICK_INTERVAL_MS",
+    "SchedulerRunOutcome",
+    "SchedulerRunReport",
+    "SchedulerRunResult",
+    "SchedulerTaskDefinition",
+    "SchedulerTaskState",
+    "TASK_BOND_INTEREST_AND_OVERHEAD",
+    "TASK_ECONOMY_PHASE_ROLL",
+    "TASK_EXECUTIVE_SALARIES",
+    "TASK_GOVERNMENT_ORDERS_AWARD",
+    "TASK_GOVERNMENT_ORDERS_PUBLISH",
+    "TASK_RETAIL_SATURATION_REFRESH",
+    "buildSchedulerStatePayload",
+    "getSchedulerState",
+    "getSchedulerTaskState",
+    "isSchedulerRunning",
+    "latestOccurrence",
+    "nextOccurrence",
+    "runDueSchedulerTasks",
+    "startScheduler",
+    "stopScheduler"
+  ],
+  "server/security/rate-limiter.ts": [
+    "checkRateLimit",
+    "resetRateLimits"
+  ],
+  "server/services/fixture-service.ts": [
+    "FixtureResult",
+    "FixtureService",
+    "ScenarioBuildingInput",
+    "ScenarioExecutiveInput",
+    "ScenarioInput",
+    "ScenarioWarehouseInput"
+  ],
+  "server/services/health-service.ts": [
+    "HealthService",
+    "ReadinessResult"
+  ],
+  "server/services/npc-market-service.ts": [
+    "NPC_SELLER_ID",
+    "NpcMarketService",
+    "NpcMarketStatus",
+    "startNpcMarketRestocker",
+    "stopNpcMarketRestocker"
+  ],
+  "server/services/overdue-resolution-service.ts": [
+    "resolveAllOverdue"
+  ],
+  "server/services/realm-phase-service.ts": [
+    "PRESET_ALIASES",
+    "REALM_PHASE_PRESETS",
+    "RealmPhaseConfig",
+    "RealmPhaseService"
+  ],
+  "server/ws/websocket.ts": [
+    "broadcastAll",
+    "broadcastToCompany",
+    "setupWebSocket"
+  ]
+}

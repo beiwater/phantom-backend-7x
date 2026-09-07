@@ -28,7 +28,9 @@
     "smell:depcruise": "depcruise --config .dependency-cruiser.cjs server",
     "smell:dupes": "jscpd server",
     "smell:dead": "knip",
-    "smell:all": "npm run smell:circular && npm run smell:dupes"
+    "smell:all": "npm run smell:circular && npm run smell:dupes",
+    "guardrails:verify": "node scripts/refactor-guardrails.mjs verify",
+    "guardrails:record": "node scripts/refactor-guardrails.mjs record"
   },
   "dependencies": {
     "puppeteer": "^25.9.0",
