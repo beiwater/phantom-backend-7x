@@ -107,6 +107,11 @@ export function registerPlayer(
       for (const s of seedStock) {
         insertSeedStock.run(companyId, s.kind, s.quality || 0, s.amount, now);
       }
+      const welcomeHtml = `<div><b>欢迎来到商业世界，总裁！</b><br/><br/>我是您的个人助理。从今天起，我将协助您管理公司的各项生产、零售与市场运营。<br/><br/>在瞬息万变的商界中，不仅需要精密的产业规划，更有诸多财阀与竞争对手暗流涌动。<br/><br/>💡 <i>您可以留意左侧聊天室的<b>【商界风云·演绎】</b>频道，随时在输入框输入 <code>/story</code> 开启商业剧本推演。祝您的企业蒸蒸日上！</i></div>`;
+      database.prepare(`
+        INSERT INTO direct_messages (sender_company_id, recipient_company_id, message, created_at)
+        VALUES (0, ?, ?, ?)
+      `).run(companyId, welcomeHtml, now);
       database.exec('COMMIT');
       return { playerId, companyId, created: true };
     } catch (err) {

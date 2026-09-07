@@ -1,0 +1,170 @@
+{
+  "id": "dragon_return",
+  "title": "龙王归来：千亿神豪商战",
+  "description": "经典爽文商战：从被同行叫嚣逼迁，到调动千亿基金打脸反杀！",
+  "characters": [
+    {
+      "id": 99901,
+      "name": "龙门财阀·苏特助",
+      "logo": "/static/images/story/01_su_secretary.png",
+      "role": "美女特助"
+    },
+    {
+      "id": 99902,
+      "name": "韩氏资本·韩总",
+      "logo": "/static/images/story/02_han_financier.png",
+      "role": "嚣张对手"
+    },
+    {
+      "id": 99903,
+      "name": "商业稽查署·陈署长",
+      "logo": "/static/images/story/03_chen_inspector.png",
+      "role": "监管高层"
+    },
+    {
+      "id": 99904,
+      "name": "龙门老太爷·007号护法",
+      "logo": "/static/images/story/04_007_backer.png",
+      "role": "幕后大佬"
+    }
+  ],
+  "initialStage": "stage_start",
+  "stages": {
+    "stage_start": {
+      "groupMessages": [
+        {
+          "characterId": 99902,
+          "text": "呵，就凭你这破小厂子，@{{company}}，识相的话三天内把生产线半价转让给我！",
+          "delayMs": 400
+        },
+        {
+          "characterId": 99902,
+          "text": "否则，我们韩氏资本动动手指，就能让 @{{company}} 在整个工业界被彻底封杀！",
+          "delayMs": 1000
+        }
+      ],
+      "privateMessage": {
+        "characterId": 99901,
+        "title": "【绝密】龙门财阀百亿交割令",
+        "text": "老板！三年隐忍考察期已满，龙门老太爷已为您解冻千亿专属基金！面对韩总对 @{{company}} 的猖狂挑衅，您打算如何决断？"
+      },
+      "choices": [
+        {
+          "text": "【歪嘴一笑】亮出龙王至尊黑卡，千亿资金秒到账，反向全资收购韩氏资本！",
+          "nextStage": "stage_domination",
+          "reward": {
+            "money": 1000000,
+            "simboosts": 100,
+            "resources": [
+              {
+                "resourceId": 40,
+                "amount": 500
+              }
+            ]
+          }
+        },
+        {
+          "text": "【扮猪吃虎】先示弱麻痹对手，暗中联络陈署长实名查封其偷税流水线！",
+          "nextStage": "stage_trap",
+          "reward": {
+            "money": 300000,
+            "simboosts": 50
+          }
+        },
+        {
+          "text": "【商界泥石流】假意签约转让，但暗中将全仓辐射废料以天价合同套现打包给他！",
+          "nextStage": "stage_counterfeit",
+          "reward": {
+            "money": 600000
+          }
+        }
+      ]
+    },
+    "stage_domination": {
+      "groupMessages": [
+        {
+          "characterId": 99901,
+          "text": "放肆！韩总，睁大你的狗眼看清楚，@{{company}} 刚刚以现钞全资收购了你最大的母公司！",
+          "delayMs": 500
+        },
+        {
+          "characterId": 99902,
+          "text": "什……什么？！千亿现钞秒到账？！@{{company}} 才是真正的幕后主人？！我瞎了狗眼，求董事长饶我一命啊！",
+          "delayMs": 1200
+        },
+        {
+          "characterId": 99904,
+          "text": "少主令出，莫敢不从！从今往后，江北商界以 @{{company}} 为尊！",
+          "delayMs": 1800
+        },
+        {
+          "characterId": 99903,
+          "text": "恭迎龙王回归！韩氏资本涉嫌商业敲诈，名下产业已全数交接予 @{{company}}！",
+          "delayMs": 2400
+        }
+      ],
+      "ending": {
+        "id": "ending_tycoon",
+        "title": "结局一：千亿神豪，横扫商界",
+        "evaluation": "S 级神豪评价！以绝对的财力碾压一切宵小，成就商业帝国的无冕之王！",
+        "finalBonus": {
+          "money": 500000
+        }
+      }
+    },
+    "stage_trap": {
+      "groupMessages": [
+        {
+          "characterId": 99903,
+          "text": "突击检查！韩总，商业稽查署已查实你偷税并走私矿石，人赃并获，立即查封！",
+          "delayMs": 500
+        },
+        {
+          "characterId": 99902,
+          "text": "陈署长！冤枉啊！到底是谁在背后算计我……难道是 @{{company}}？！",
+          "delayMs": 1200
+        },
+        {
+          "characterId": 99901,
+          "text": "我家老板做事，何须向你解释？带走！",
+          "delayMs": 2000
+        }
+      ],
+      "ending": {
+        "id": "ending_strategist",
+        "title": "结局二：商海谋圣，借刀杀人",
+        "evaluation": "A 级谋略评价！兵不血刃，巧妙借助行业监管之力将宿敌连根拔起！",
+        "finalBonus": {
+          "money": 200000
+        }
+      }
+    },
+    "stage_counterfeit": {
+      "groupMessages": [
+        {
+          "characterId": 99902,
+          "text": "哈哈哈哈！@{{company}} 果然服软了！咦……等等！这仓库里交接的全是辐射废矿？！",
+          "delayMs": 500
+        },
+        {
+          "characterId": 99902,
+          "text": "环保稽查队找上门了？！还要对我们顶格罚款一个亿？！韩氏资本资金链彻底断了啊啊啊！",
+          "delayMs": 1200
+        },
+        {
+          "characterId": 99901,
+          "text": "老板这手反向做空可太损了，韩氏资本已宣告破产清算！",
+          "delayMs": 2000
+        }
+      ],
+      "ending": {
+        "id": "ending_joker",
+        "title": "结局三：商界泥石流，反向收割",
+        "evaluation": "奇葩通关！不讲武德的反向收割，直接把商业对手忽悠到破产倒闭！",
+        "finalBonus": {
+          "money": 300000
+        }
+      }
+    }
+  }
+}

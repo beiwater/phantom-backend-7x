@@ -2069,6 +2069,26 @@ export const MIGRATIONS: MigrationDefinition[] = [
       `);
     }
   },
+  {
+    version: 35,
+    name: '035_player_story_state',
+    up: (db: DatabaseSync) => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS player_story_state (
+          company_id INTEGER PRIMARY KEY,
+          story_id TEXT NOT NULL,
+          current_stage TEXT NOT NULL,
+          status TEXT NOT NULL DEFAULT 'active',
+          choices_history TEXT DEFAULT '[]',
+          ending_id TEXT DEFAULT NULL,
+          updated_at TEXT NOT NULL,
+          created_at TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_player_story_state_story_status
+          ON player_story_state(story_id, status);
+      `);
+    }
+  },
 ];
 
 export class MigrationRunner {

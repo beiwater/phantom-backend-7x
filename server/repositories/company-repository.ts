@@ -7,6 +7,8 @@ import { recordCashLedger, refreshDailyFinanceSnapshot } from '../game/cash-ledg
 import { getInitialCompanySettings } from '../config.ts';
 import { seedDefaultDisplayCase } from '../db/seed/index.ts';
 import { executiveRepository } from './executive-repository.ts';
+import { storyLoader } from '../game/story/story-loader.ts';
+import { socialRepository } from './social-repository.ts';
 
 export interface CompanyEntity {
   id: number;
@@ -98,7 +100,33 @@ export class CompanyRepository {
       'SELECT * FROM companies WHERE company_id = ?'
     ).get(companyId) as CompanyDbRow | undefined;
 
-    return row ? mapCompanyRow(row) : null;
+    if (row) return mapCompanyRow(row);
+
+    const char = storyLoader.getStoryCharacter(companyId);
+    if (char) {
+      return {
+        id: char.id,
+        companyId: char.id,
+        playerId: 0,
+        name: char.name,
+        money: 0,
+        simboosts: 0,
+        level: 30,
+        rating: 'AAA',
+        experience: 0,
+        realmId: char.realmId ?? 0,
+        logo: char.logo,
+        personalAssistant: 'old',
+        note: char.role || '',
+        extraBuildingSlots: 0,
+        extraExecutiveSlots: 0,
+        displayCaseSlots: 0,
+        maxTags: 0,
+        createdAt: ''
+      };
+    }
+
+    return null;
   }
   findBatchBasic(companyIds: number[]): Map<number, { logo: string; realmId: number }> {
     if (companyIds.length === 0) return new Map();
@@ -110,6 +138,14 @@ export class CompanyRepository {
     const map = new Map<number, { logo: string; realmId: number }>();
     for (const r of rows) {
       map.set(r.company_id, { logo: r.logo || '', realmId: r.realm_id ?? 0 });
+    }
+    for (const id of uniqueIds) {
+      if (!map.has(id)) {
+        const char = storyLoader.getStoryCharacter(id);
+        if (char) {
+          map.set(id, { logo: char.logo, realmId: char.realmId ?? 0 });
+        }
+      }
     }
     return map;
   }
@@ -562,6 +598,15 @@ export class CompanyRepository {
       if (!created) {
         throw new NotFoundError(`Created company #${companyId} could not be loaded`);
       }
+
+      // Send Personal Assistant welcome direct message to the new company
+      try {
+        const welcomeHtml = `<div><b>欢迎来到商业世界，总裁！</b><br/><br/>我是您的个人助理。从今天起，我将协助您管理公司的各项生产、零售与市场运营。<br/><br/>在瞬息万变的商界中，不仅需要精密的产业规划，更有诸多财阀与竞争对手暗流涌动。<br/><br/>💡 <i>您可以留意左侧聊天室的<b>【商界风云·演绎】</b>频道，随时在输入框输入 <code>/story</code> 开启商业剧本推演。祝您的企业蒸蒸日上！</i></div>`;
+        socialRepository.insertDirectMessage(0, companyId, welcomeHtml, now);
+      } catch {
+        // Safe fallback
+      }
+
       return created;
     } catch (err) {
       this.database.exec('ROLLBACK');

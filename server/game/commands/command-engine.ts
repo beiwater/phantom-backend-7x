@@ -6,6 +6,8 @@ import { certCommand } from './handlers/cert-commands.ts';
 import { marketCommand } from './handlers/market-commands.ts';
 import { speedCommand } from './handlers/speed-commands.ts';
 import { execCommand } from './handlers/exec-commands.ts';
+import { storyCommand } from './handlers/story-commands.ts';
+import { paCommand } from './handlers/pa-commands.ts';
 import { socialRepository } from '../../repositories/social-repository.ts';
 import type { CommandContext, CommandDefinition, CommandResult } from './types.ts';
 
@@ -65,6 +67,8 @@ registry.register(certCommand);
 registry.register(marketCommand);
 registry.register(speedCommand);
 registry.register(execCommand);
+registry.register(storyCommand);
+registry.register(paCommand);
 registry.register(helpCommand);
 
 export function getCommandRegistry(): CommandRegistry {

@@ -1,0 +1,11 @@
+{
+  "feature": "chat-optimistic-message-token-reconciliation",
+  "endpoint": "POST /api/v2/message/ ({chatroom, body, token})",
+  "semantics": "Bundle Thunk P4t assigns client token = new Date().getTime() and places the message in state.messages.sending[convoId]. For chatrooms (u=false), P4t ignores the POST HTTP response and starts a 6000ms watchdog timer. The frontend relies exclusively on WebSocket NEW_MESSAGE event handled by Tgr: when u (own message) and t.token are present, it dispatches UPDATE_MESSAGES_SENDING to remove the pending message and stop the spinner. If WebSocket does not provide token within 6000ms, watchdog triggers WEBSOCKET_CLOSE which forces fallback GET /api/v2/chatroom/<room>/ and clears sending.",
+  "evidence": [
+    { "type": "bundle", "path": "frontend-original/static/bundle/assets/index-cgzgptQ8.js", "symbol": "P4t (send thunk), Tgr (WebSocket NEW_MESSAGE handler), sga (UPDATE_MESSAGES_SENDING reducer), Qfa (WEBSOCKET_CLOSE reducer)" },
+    { "type": "har", "path": "bug 聊天.har and 没有bug.har", "details": "6038ms gap between POST /api/v2/message/ and GET /api/v2/chatroom/G/ in bug version matching 6000ms timer exactly" }
+  ],
+  "implementedIn": "server/routes/social/chat-subroutes.ts",
+  "confidence": "verified"
+}

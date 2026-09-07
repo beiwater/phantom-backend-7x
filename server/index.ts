@@ -9,6 +9,7 @@ import { startExpiredSessionCleanup } from './auth/session.ts';
 import { startScheduler, stopScheduler } from './scheduler/timetable.ts';
 import { wireGameNotifications } from './application/notifications.ts';
 import { startNpcMarketRestocker, stopNpcMarketRestocker } from './services/npc-market-service.ts';
+import { startAutoPaDetection, stopAutoPaDetection } from './services/pa-invite-service.ts';
 import { db } from './db/database.ts';
 import './services/overdue-resolution-service.ts';
 import './scheduler/scheduler-routes.ts';
@@ -24,6 +25,9 @@ startScheduler();
 
 // NPC market restocker engine with time acceleration support
 startNpcMarketRestocker();
+
+// Auto-detect players without Personal Assistant and dispatch PA invitations
+startAutoPaDetection();
 const server = http.createServer(async (req, res) => {
   try {
     await handleRequest(req, res);
@@ -76,6 +80,13 @@ async function gracefulShutdown(signal: string): Promise<void> {
     logger.info('NPC market restocker stopped.');
   } catch (err) {
     logger.error('Error stopping NPC market restocker:', err);
+  }
+
+  try {
+    stopAutoPaDetection();
+    logger.info('PA auto-detection service stopped.');
+  } catch (err) {
+    logger.error('Error stopping PA auto-detection service:', err);
   }
 
   try {

@@ -380,6 +380,19 @@ export class SocialRepository {
     return Number(result.lastInsertRowid);
   }
 
+  listRecentDirectMessageContacts(companyId: number): Array<{ peerCompanyId: number; lastMessageId: number; lastTime: string }> {
+    return this.database.prepare(`
+      SELECT
+        CASE WHEN sender_company_id = ? THEN recipient_company_id ELSE sender_company_id END AS peerCompanyId,
+        MAX(id) AS lastMessageId,
+        MAX(created_at) AS lastTime
+      FROM direct_messages
+      WHERE sender_company_id = ? OR recipient_company_id = ?
+      GROUP BY peerCompanyId
+      ORDER BY lastMessageId DESC
+    `).all(companyId, companyId, companyId) as Array<{ peerCompanyId: number; lastMessageId: number; lastTime: string }>;
+  }
+
   listCompanyRealms(): CompanyRealmRow[] {
     return this.database.prepare('SELECT company_id, realm_id FROM companies').all() as CompanyRealmRow[];
   }

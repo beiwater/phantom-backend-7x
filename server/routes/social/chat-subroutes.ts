@@ -7,6 +7,7 @@ import { checkRateLimit } from "../../security/rate-limiter.ts";
 import { virtualClock } from "../../core/virtual-clock.ts";
 import { broadcastAll, broadcastToCompany } from "../../ws/websocket.ts";
 import { executeCommand } from "../../game/commands/command-engine.ts";
+import { autoDetectAndInviteMissingPa } from "../../services/pa-invite-service.ts";
 
 export interface ChatroomSubscriptionEntry {
   name: string;
@@ -132,7 +133,29 @@ export function loadChatroomSubscriptions(companyId: number): Array<ChatroomSubs
     }
   }
   const stamp = virtualClock.nowIso();
-  const availableRooms = getConfiguredChatrooms();
+  let isCustom = false;
+  try {
+    const raw = socialRepository.getCompanySetting(0, "configured_chatrooms");
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) isCustom = true;
+    }
+  } catch {}
+
+  const availableRooms = [...getConfiguredChatrooms()];
+  if (companyId > 0 && !isCustom) {
+    availableRooms.push({
+      name: "商界风云·演绎",
+      language: "zh-cn",
+      category: "roleplay",
+      image: "/chat-icon/005F73/roleplay.png",
+      db_letter: `story_${companyId}`,
+      realmsShared: false,
+      protectedForCountry: null,
+      show_rules: false,
+      unread: 0
+    });
+  }
   return availableRooms.map(entry => {
     const withStamp: ChatroomSubscriptionEntry = { ...entry, datetime: stamp };
     return unsubscribed.includes(entry.db_letter) ? { ...withStamp, notSubscribed: true } : withStamp;
@@ -140,6 +163,13 @@ export function loadChatroomSubscriptions(companyId: number): Array<ChatroomSubs
 }
 
 function getChatroomMetadata(roomCode: string): { chatroom_name: string; chatroom_logo: string; realms_shared: boolean } {
+  if (roomCode.startsWith("story_")) {
+    return {
+      chatroom_name: "商界风云·演绎",
+      chatroom_logo: "/chat-icon/005F73/roleplay.png",
+      realms_shared: false
+    };
+  }
   const rooms = getConfiguredChatrooms();
   const found = rooms.find(r => r.db_letter === roomCode);
   if (found) {
@@ -253,7 +283,7 @@ function formatChatMessage(
     invisible: false,
     retracted: false,
     deleted: false,
-    isHtml: false
+    isHtml: m.room.startsWith("story_") || m.text.includes("<")
   };
 }
 
@@ -266,6 +296,57 @@ export async function handleChatSubroutes(
 ): Promise<boolean> {
   // 1. Contacts & chatroom sidebar
   if (pathname === "/api/v2/contacts/") {
+    if (currentCompanyId) {
+      autoDetectAndInviteMissingPa(currentCompanyId);
+    }
+    const recentContacts = currentCompanyId
+      ? socialRepository.listRecentDirectMessageContacts(currentCompanyId)
+      : [];
+
+    const contactsList: unknown[] = [];
+    if (currentCompanyId) {
+      const paRecent = recentContacts.find(r => r.peerCompanyId === 0);
+      contactsList.push({
+        companyId: 0,
+        company: "Your Personal Assistant",
+        logo: "/static/images/personal-assistant/old.png",
+        certificates: 0,
+        contest_wins: 0,
+        unread: 1,
+        realm: 0,
+        chatBlocked: false,
+        deleted: false,
+        pinned: false,
+        support: false,
+        locked: false,
+        privateNote: "",
+        lastMessageId: paRecent?.lastMessageId ?? 1
+      });
+    }
+
+    for (const r of recentContacts) {
+      if (r.peerCompanyId === 0) continue;
+      const c = companyRepository.findById(r.peerCompanyId);
+      if (c) {
+        contactsList.push({
+          companyId: c.companyId,
+          company: c.name,
+          logo: c.logo || "",
+          certificates: 0,
+          contest_wins: 0,
+          unread: 0,
+          realm: c.realmId ?? 0,
+          chatBlocked: false,
+          deleted: false,
+          pinned: false,
+          support: false,
+          locked: false,
+          privateNote: "",
+          lastMessageId: r.lastMessageId
+        });
+      }
+    }
+
     sendJson(res, {
       chatrooms: loadChatroomSubscriptions(currentCompanyId ?? -1)
         .filter(room => !room.notSubscribed)
@@ -273,7 +354,7 @@ export async function handleChatSubroutes(
           ...room,
           protectedForCountry: room.protectedForCountry ?? null
         })),
-      contacts: [],
+      contacts: contactsList,
       unreadMessagesOtherRealms: [],
       invisible: false,
       ignoringCompanies: [],
@@ -377,6 +458,7 @@ export async function handleChatSubroutes(
       body?: string;
       recipient?: number;
       companyId?: number | string;
+      token?: number | string;
     }>(req);
 
     const rawText = typeof body.text === "string" ? body.text : typeof body.body === "string" ? body.body : "";
@@ -420,7 +502,7 @@ export async function handleChatSubroutes(
         id: replyMessageId,
         sender: {
           id: 0,
-          company: "个人助理",
+          company: "Your Personal Assistant",
           logo: "/static/images/personal-assistant/old.png",
           certificates: 0,
           supporter: true,
@@ -477,7 +559,8 @@ export async function handleChatSubroutes(
         datetime: now,
         pinned: false
       };
-      broadcastAll("NEW_MESSAGE", formatted);
+      const wsPayload = body.token !== undefined ? { ...formatted, token: body.token } : formatted;
+      broadcastAll("NEW_MESSAGE", wsPayload);
       sendJson(res, formatted);
       return true;
     }
@@ -502,7 +585,9 @@ export async function handleChatSubroutes(
       text,
       sent_at: now
     }, compMap, meta);
-    broadcastAll("NEW_MESSAGE", formatted);
+    // Bundle Thunk P4t & WebSocket listener Tgr require token on NEW_MESSAGE to clear optimistic sending state
+    const wsPayload = body.token !== undefined ? { ...formatted, token: body.token } : formatted;
+    broadcastAll("NEW_MESSAGE", wsPayload);
     sendJson(res, formatted);
     return true;
   }
@@ -520,12 +605,19 @@ export async function handleChatSubroutes(
     if (!targetComp && companyName) {
       targetComp = companyRepository.findByName(companyName);
     }
-    if (!targetComp && (companyId === 0 || companyName === "个人助理" || companyName.toLowerCase() === "personal assistant" || companyName.toLowerCase() === "pa")) {
+    const isPa = companyId === 0 ||
+      companyName === "个人助理" ||
+      companyName === "Your Personal Assistant" ||
+      companyName.toLowerCase() === "your personal assistant" ||
+      companyName.toLowerCase() === "personal assistant" ||
+      companyName.toLowerCase() === "pa";
+
+    if (!targetComp && isPa) {
       targetComp = {
         id: 0,
         companyId: 0,
         playerId: 0,
-        name: "个人助理",
+        name: "Your Personal Assistant",
         money: 0,
         simboosts: 0,
         level: 1,

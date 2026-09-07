@@ -28,6 +28,10 @@ import { productionRepository } from '../repositories/production-repository.ts';
 import { getResourceDef } from '../game-data/resources.ts';
 import { formatBuilding } from '../game/buildings.ts';
 import { computeLevelInfo } from '../domain/leveling/level-rules.ts';
+import { storyLoader } from '../game/story/story-loader.ts';
+import { storyEngine } from '../game/story/story-engine.ts';
+import { socialRepository } from '../repositories/social-repository.ts';
+import { broadcastToCompany, broadcastAll } from '../ws/websocket.ts';
 import {
   activateSupporter,
   applySupporterDiscount,
@@ -386,24 +390,81 @@ export async function handleSimboostRoutes(
     return true;
   }
 
-  // 5f. Personal Assistant fair exchange: POST /api/v2/pa-action/fair/:n/
-  // Official response: 200 {"done": true}. `n` selects the PA offer (0/1 =
-  // resource deliveries, 2+ = joke reply); the private server completes the
-  // cash-for-SimBoosts exchange locally at the official 250:1 rate with the
-  // daily exchange limit, atomically and idempotently (P0-04).
-  const paFairMatch = pathname.match(/^\/api\/v2\/pa-action\/fair\/([a-zA-Z0-9_-]+)\/$/);
-  if (paFairMatch && method === 'POST') {
+  // 5f. Personal Assistant actions & Story choices: POST /api/v2/pa-action/:id/:action/
+  // Supports official fair exchange (/api/v2/pa-action/fair/:offer/) as well as
+  // interactive story roleplay choices (/api/v2/pa-action/:storyId/:choiceIndex/).
+  const paActionMatch = pathname.match(/^\/api\/v2\/pa-action\/([a-zA-Z0-9_-]+)\/([a-zA-Z0-9_-]+)\/$/);
+  if (paActionMatch && method === 'POST') {
     if (!currentCompanyId) {
       sendJson(res, { error: 'Unauthorized' }, 401);
       return true;
     }
-    try {
-      const result = await exchangeCashForSimboosts(currentCompanyId, 10000);
-      sendJson(res, { done: true, ...result });
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      sendJson(res, { error: msg }, 400);
+    const targetId = paActionMatch[1];
+    const targetAction = paActionMatch[2];
+
+    if (targetId === 'fair') {
+      try {
+        const result = await exchangeCashForSimboosts(currentCompanyId, 10000);
+        sendJson(res, { done: true, ...result });
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        sendJson(res, { error: msg }, 400);
+      }
+      return true;
     }
+
+    const story = storyLoader.getStory(targetId);
+    if (story) {
+      const choiceIdx = parseInt(targetAction, 10);
+      const result = await storyEngine.advanceStoryChoice(currentCompanyId, targetId, choiceIdx);
+      sendJson(res, { done: true, ...result });
+      return true;
+    }
+
+    if (targetId === 'welcome') {
+      const comp = companyRepository.findById(currentCompanyId);
+      const confirmHtml = `<div><b>🎉 个人助理已就任！</b><br/><br/>` +
+        `感谢您的信任，总裁！助理秘书处已正式入职运作。<br/>` +
+        `从现在起，我将时刻辅佐您的企业发展：<br/>` +
+        `• 输入 <code>/help</code> 可查阅所有经营指令<br/>` +
+        `• 输入 <code>/story</code> 可开启商业大亨剧本推演<br/>` +
+        `• 输入 <code>/pa status</code> 可查看当前助理状态<br/><br/>` +
+        `祝您的企业蒸蒸日上，成为商界巨擘！</div>`;
+      const now = virtualClock.nowIso();
+      const msgId = socialRepository.insertDirectMessage(0, currentCompanyId, confirmHtml, now);
+      const formatted = {
+        id: msgId,
+        sender: {
+          id: 0,
+          company: '个人助理',
+          logo: '/static/images/personal-assistant/old.png',
+          certificates: 0,
+          supporter: true,
+          realmId: comp?.realmId ?? 0
+        },
+        receiver: {
+          id: currentCompanyId,
+          company: comp?.name || '',
+          logo: comp?.logo || '',
+          certificates: 0,
+          supporter: false,
+          realmId: comp?.realmId ?? 0
+        },
+        body: confirmHtml,
+        text: confirmHtml,
+        datetime: now,
+        pinned: false,
+        isHtml: true
+      };
+      broadcastToCompany(currentCompanyId, formatted);
+      broadcastAll('NEW_MESSAGE', formatted);
+
+      sendJson(res, { done: true, success: true });
+      return true;
+    }
+
+    // Default fallback for any other pa-action
+    sendJson(res, { done: true });
     return true;
   }
 
