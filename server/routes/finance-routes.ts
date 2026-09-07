@@ -2,7 +2,6 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { sendJson, readJsonBody } from './utils.ts';
 import { RouteRegistry, globalRouteRegistry } from '../http/route-registry.ts';
 import { fpaReportsRepository } from '../repositories/fpa-reports-repository.ts';
-import { companyRepository } from '../repositories/company-repository.ts';
 import { financeRepository } from '../repositories/finance-repository.ts';
 
 const REPORT_CATEGORIES = ['Production', 'Retail', 'Financial', 'Warehouse', 'Market'];
@@ -120,6 +119,123 @@ function round2(value: number): number {
   return Math.round(value * 100) / 100;
 }
 
+function buildIncomeStatement(companyId: number) {
+  const w = readStatementWindow(companyId);
+  const byCat = w.aggregate.byCategory;
+  const cat = (c: string): number => Math.round((byCat[c] || 0) * 100) / 100;
+  const sales = cat('s') > 0 ? cat('s') : 0;
+  const payload = {
+    date: w.date,
+    dateFrom: w.dateFrom,
+    sales,
+    cogs: Math.min(0, cat('p') + cat('o')),
+    freightOut: 0,
+    constructionCosts: Math.min(0, cat('c')),
+    marketFees: Math.min(0, cat('f') + cat('q')),
+    salariesCosts: Math.min(0, cat('e')),
+    trainingCosts: Math.min(0, cat('h')),
+    poachingCosts: Math.min(0, cat('j')),
+    gameIncome: cat('g') > 0 ? cat('g') : 0,
+    executiveRoyalties: Math.max(0, cat('e')),
+    gainOnSale: Math.max(0, cat('u')),
+    patentConversion: 0,
+    bondDefaults: 0,
+    bondWriteoffs: 0,
+    accountingOverhead: Math.min(0, cat('a')),
+    bondInterestExpense: 0,
+    bondInterestIncome: Math.max(0, cat('i') + cat('n') + cat('b')),
+    donations: 0,
+    otherComprehensiveIncome: 0,
+    netIncome: 0,
+    economicValueAdded: 0,
+    cashAllExpenses: sumNegative(w.rows),
+    isComputed: true
+  };
+  const components = payload.sales + payload.cogs + payload.freightOut
+    + payload.constructionCosts + payload.marketFees + payload.salariesCosts
+    + payload.trainingCosts + payload.poachingCosts + payload.gameIncome
+    + payload.executiveRoyalties + payload.gainOnSale + payload.patentConversion
+    + payload.accountingOverhead + payload.bondInterestExpense
+    + payload.bondInterestIncome + payload.bondDefaults + payload.bondWriteoffs
+    + payload.donations;
+  payload.netIncome = Math.round(components * 100) / 100;
+  payload.economicValueAdded = Math.round((
+    payload.netIncome - 0.0015 * (financeRepository.buildingsValue(companyId) + financeRepository.inventoryValue(companyId))
+  ) * 100) / 100;
+  return payload;
+}
+
+function buildCashflowStatement(companyId: number) {
+  const w = readStatementWindow(companyId);
+  const byCat = w.aggregate.byCategory;
+  const pos = (c: string): number => Math.round((byCat[c] || 0) * 100) / 100;
+  const fromRetail = Math.max(0, pos('s'));
+  const fromExchange = Math.max(0, pos('u'));
+  const fromInterest = Math.max(0, pos('i') + pos('n') + pos('b'));
+  const fromRoyalties = Math.max(0, pos('e'));
+  const toEmployees = Math.min(0, pos('p'));
+
+  return {
+    date: w.date,
+    dateFrom: w.dateFrom,
+    fromRetail,
+    fromCustomers: Math.max(0, pos('k') + pos('c') + pos('t') + pos('o')),
+    fromExchange,
+    fromInterest,
+    fromPoaching: 0,
+    fromGame: 0,
+    fromEmployees: 0,
+    fromRoyalties,
+    toGame: 0,
+    toSuppliers: Math.min(0, pos('m') + pos('b') + pos('u') + pos('k') + pos('c') + pos('t')),
+    toExchange: 0,
+    toEmployees,
+    toExecutives: Math.min(0, pos('e') + pos('h') + pos('j')),
+    forInterest: 0,
+    forFees: Math.min(0, pos('f') + pos('q')),
+    forAccounting: Math.min(0, pos('a')),
+    investmentInBonds: 0,
+    bonds: 0,
+    gameIncome: 0,
+    cashAllIncome: sumPositive(w.rows),
+    cashAllExpenses: sumNegative(w.rows),
+    isComputed: true
+  };
+}
+
+function buildSnapshotsV2(companyId: number) {
+  const rows = getDailyFinanceSnapshots(companyId);
+  return rows.map(r => ({
+    total: r.total,
+    currentAssets: r.current_assets,
+    nonCurrentAssets: r.non_current_assets,
+    liabilities: r.liabilities,
+    economicValueAdded: r.economic_value_added,
+    evaProfit: r.eva_profit,
+    evaRank: r.eva_rank,
+    rank: r.rank,
+    date: formatSnapshotDate(r.created_at, r.snapshot_date)
+  }));
+}
+
+function buildSnapshotsV3(companyId: number) {
+  const rows = getDailyFinanceSnapshots(companyId);
+  return rows.map(r => ({
+    total: r.total,
+    currentAssets: r.current_assets,
+    cashAndReceivables: r.cash_and_receivables,
+    inventory: r.inventory,
+    nonCurrentAssets: r.non_current_assets,
+    buildings: r.buildings,
+    patents: r.patents,
+    investmentInBonds: r.investment_in_bonds,
+    deposits: r.deposits,
+    liabilities: r.liabilities,
+    rank: r.rank,
+    date: formatSnapshotDate(r.created_at, r.snapshot_date)
+  }));
+}
+
 export async function handleFinanceRoutes(
   req: IncomingMessage,
   res: ServerResponse,
@@ -234,50 +350,7 @@ export async function handleFinanceRoutes(
   if (pathname.startsWith('/api/') && pathname.includes('/income-statement/')) {
     const companyId = authorizeRequestedCompany();
     if (companyId === null) return true;
-    const w = readStatementWindow(companyId);
-    const byCat = w.aggregate.byCategory;
-    const cat = (c: string): number => Math.round((byCat[c] || 0) * 100) / 100;
-    const sales = cat('s') > 0 ? cat('s') : 0;
-    // Expenses are negative per the official API.
-    const payload = {
-      date: w.date,
-      dateFrom: w.dateFrom,
-      sales,
-      cogs: Math.min(0, cat('p') + cat('o')),
-      freightOut: 0,
-      constructionCosts: Math.min(0, cat('c')),
-      marketFees: Math.min(0, cat('f') + cat('q')),
-      salariesCosts: Math.min(0, cat('e')),
-      trainingCosts: Math.min(0, cat('h')),
-      poachingCosts: Math.min(0, cat('j')),
-      gameIncome: cat('g') > 0 ? cat('g') : 0,
-      executiveRoyalties: Math.max(0, cat('e')),
-      gainOnSale: Math.max(0, cat('u')),
-      patentConversion: 0,
-      bondDefaults: 0,
-      bondWriteoffs: 0,
-      accountingOverhead: Math.min(0, cat('a')),
-      bondInterestExpense: 0,
-      bondInterestIncome: Math.max(0, cat('i') + cat('n') + cat('b')),
-      donations: 0,
-      otherComprehensiveIncome: 0,
-      netIncome: 0,
-      economicValueAdded: 0,
-      cashAllExpenses: sumNegative(w.rows),
-      isComputed: true
-    };
-    // netIncome = sum of all components (exactly what the client recomputes).
-    const components = payload.sales + payload.cogs + payload.freightOut
-      + payload.constructionCosts + payload.marketFees + payload.salariesCosts
-      + payload.trainingCosts + payload.poachingCosts + payload.gameIncome
-      + payload.executiveRoyalties + payload.gainOnSale + payload.patentConversion
-      + payload.accountingOverhead + payload.bondInterestExpense
-      + payload.bondInterestIncome + payload.bondDefaults + payload.bondWriteoffs
-      + payload.donations;
-    payload.netIncome = Math.round(components * 100) / 100;
-    // EVA: net income minus 1.5% capital charge on non-cash assets (official rate 0.0015).
-    payload.economicValueAdded = Math.round((payload.netIncome - 0.0015 * (financeRepository.buildingsValue(companyId) + financeRepository.inventoryValue(companyId))) * 100) / 100;
-    sendJson(res, payload);
+    sendJson(res, buildIncomeStatement(companyId));
     return true;
   }
 
@@ -310,42 +383,7 @@ export async function handleFinanceRoutes(
   if (pathname.startsWith('/api/') && pathname.includes('/cashflow-statement/')) {
     const companyId = authorizeRequestedCompany();
     if (companyId === null) return true;
-    const w = readStatementWindow(companyId);
-    const byCat = w.aggregate.byCategory;
-    const pos = (c: string): number => Math.round((byCat[c] || 0) * 100) / 100;
-    const fromRetail = Math.max(0, pos('s'));
-    const fromExchange = Math.max(0, pos('u'));
-    const fromInterest = Math.max(0, pos('i') + pos('n') + pos('b'));
-    const fromRoyalties = Math.max(0, pos('e'));
-    const toEmployees = Math.min(0, pos('p'));
-
-    const payload = {
-      date: w.date,
-      dateFrom: w.dateFrom,
-      fromRetail,
-      fromCustomers: Math.max(0, pos('k') + pos('c') + pos('t') + pos('o')),
-      fromExchange,
-      fromInterest,
-      fromPoaching: 0,
-      fromGame: 0,
-      fromEmployees: 0,
-      fromRoyalties,
-      toGame: 0,
-      toSuppliers: Math.min(0, pos('m') + pos('b') + pos('u') + pos('k') + pos('c') + pos('t')),
-      toExchange: 0,
-      toEmployees,
-      toExecutives: Math.min(0, pos('e') + pos('h') + pos('j')),
-      forInterest: 0,
-      forFees: Math.min(0, pos('f') + pos('q')),
-      forAccounting: Math.min(0, pos('a')),
-      investmentInBonds: 0,
-      bonds: 0,
-      gameIncome: 0,
-      cashAllIncome: sumPositive(w.rows),
-      cashAllExpenses: sumNegative(w.rows),
-      isComputed: true
-    };
-    sendJson(res, payload);
+    sendJson(res, buildCashflowStatement(companyId));
     return true;
   }
 
@@ -354,18 +392,7 @@ export async function handleFinanceRoutes(
   if (overviewMatch) {
     const companyId = authorizeRequestedCompany();
     if (companyId === null) return true;
-    const rows = getDailyFinanceSnapshots(companyId);
-    sendJson(res, rows.map(r => ({
-      total: r.total,
-      currentAssets: r.current_assets,
-      nonCurrentAssets: r.non_current_assets,
-      liabilities: r.liabilities,
-      economicValueAdded: r.economic_value_added,
-      evaProfit: r.eva_profit,
-      evaRank: r.eva_rank,
-      rank: r.rank,
-      date: formatSnapshotDate(r.created_at, r.snapshot_date)
-    })));
+    sendJson(res, buildSnapshotsV2(companyId));
     return true;
   }
 
@@ -374,21 +401,7 @@ export async function handleFinanceRoutes(
   if (pastFinancesMatch) {
     const companyId = authorizeRequestedCompany();
     if (companyId === null) return true;
-    const rows = getDailyFinanceSnapshots(companyId);
-    sendJson(res, rows.map(r => ({
-      total: r.total,
-      currentAssets: r.current_assets,
-      cashAndReceivables: r.cash_and_receivables,
-      inventory: r.inventory,
-      nonCurrentAssets: r.non_current_assets,
-      buildings: r.buildings,
-      patents: r.patents,
-      investmentInBonds: r.investment_in_bonds,
-      deposits: r.deposits,
-      liabilities: r.liabilities,
-      rank: r.rank,
-      date: formatSnapshotDate(r.created_at, r.snapshot_date)
-    })));
+    sendJson(res, buildSnapshotsV3(companyId));
     return true;
   }
 
@@ -440,68 +453,16 @@ export function registerFinanceRoutes(registry: RouteRegistry = globalRouteRegis
     sendJson(res, buildBalanceSheet(companyId));
   };
   const incomeStatement = (res: ServerResponse, companyId: number): void => {
-    const w = readStatementWindow(companyId);
-    const byCat = w.aggregate.byCategory;
-    const cat = (c: string): number => Math.round((byCat[c] || 0) * 100) / 100;
-    const payload = {
-      date: w.date, dateFrom: w.dateFrom, sales: cat('s') > 0 ? cat('s') : 0,
-      cogs: Math.min(0, cat('p') + cat('o')), freightOut: 0,
-      constructionCosts: Math.min(0, cat('c')), marketFees: Math.min(0, cat('f') + cat('q')),
-      salariesCosts: Math.min(0, cat('e')), trainingCosts: Math.min(0, cat('h')),
-      poachingCosts: Math.min(0, cat('j')), gameIncome: cat('g') > 0 ? cat('g') : 0,
-      executiveRoyalties: Math.max(0, cat('e')), gainOnSale: Math.max(0, cat('u')),
-      patentConversion: 0, bondDefaults: 0, bondWriteoffs: 0,
-      accountingOverhead: Math.min(0, cat('a')), bondInterestExpense: 0,
-      bondInterestIncome: Math.max(0, cat('i') + cat('n') + cat('b')),
-      donations: 0, otherComprehensiveIncome: 0, netIncome: 0, economicValueAdded: 0,
-      cashAllExpenses: sumNegative(w.rows), isComputed: true
-    };
-    const components = payload.sales + payload.cogs + payload.freightOut
-      + payload.constructionCosts + payload.marketFees + payload.salariesCosts
-      + payload.trainingCosts + payload.poachingCosts + payload.gameIncome
-      + payload.executiveRoyalties + payload.gainOnSale + payload.patentConversion
-      + payload.accountingOverhead + payload.bondInterestExpense
-      + payload.bondInterestIncome + payload.bondDefaults + payload.bondWriteoffs
-      + payload.donations;
-    payload.netIncome = Math.round(components * 100) / 100;
-    payload.economicValueAdded = Math.round((
-      payload.netIncome - 0.0015 * (financeRepository.buildingsValue(companyId) + financeRepository.inventoryValue(companyId))
-    ) * 100) / 100;
-    sendJson(res, payload);
+    sendJson(res, buildIncomeStatement(companyId));
   };
   const cashflowStatement = (res: ServerResponse, companyId: number): void => {
-    const w = readStatementWindow(companyId);
-    const byCat = w.aggregate.byCategory;
-    const pos = (c: string): number => Math.round((byCat[c] || 0) * 100) / 100;
-    sendJson(res, {
-      date: w.date, dateFrom: w.dateFrom, fromRetail: Math.max(0, pos('s')),
-      fromCustomers: Math.max(0, pos('k') + pos('c') + pos('t') + pos('o')),
-      fromExchange: Math.max(0, pos('u')), fromInterest: Math.max(0, pos('i') + pos('n') + pos('b')),
-      fromPoaching: 0, fromGame: 0, fromEmployees: 0, fromRoyalties: Math.max(0, pos('e')),
-      toGame: 0, toSuppliers: Math.min(0, pos('m') + pos('b') + pos('u') + pos('k') + pos('c') + pos('t')),
-      toExchange: 0, toEmployees: Math.min(0, pos('p')),
-      toExecutives: Math.min(0, pos('e') + pos('h') + pos('j')), forInterest: 0,
-      forFees: Math.min(0, pos('f') + pos('q')), forAccounting: Math.min(0, pos('a')),
-      investmentInBonds: 0, bonds: 0, gameIncome: 0,
-      cashAllIncome: sumPositive(w.rows), cashAllExpenses: sumNegative(w.rows), isComputed: true
-    });
+    sendJson(res, buildCashflowStatement(companyId));
   };
   const snapshotsV2 = (res: ServerResponse, companyId: number): void => {
-    const rows = getDailyFinanceSnapshots(companyId);
-    sendJson(res, rows.map(r => ({
-      total: r.total, currentAssets: r.current_assets, nonCurrentAssets: r.non_current_assets,
-      liabilities: r.liabilities, economicValueAdded: r.economic_value_added, evaProfit: r.eva_profit,
-      evaRank: r.eva_rank, rank: r.rank, date: formatSnapshotDate(r.created_at, r.snapshot_date)
-    })));
+    sendJson(res, buildSnapshotsV2(companyId));
   };
   const snapshotsV3 = (res: ServerResponse, companyId: number): void => {
-    const rows = getDailyFinanceSnapshots(companyId);
-    sendJson(res, rows.map(r => ({
-      total: r.total, currentAssets: r.current_assets, cashAndReceivables: r.cash_and_receivables,
-      inventory: r.inventory, nonCurrentAssets: r.non_current_assets, buildings: r.buildings,
-      patents: r.patents, investmentInBonds: r.investment_in_bonds, deposits: r.deposits,
-      liabilities: r.liabilities, rank: r.rank, date: formatSnapshotDate(r.created_at, r.snapshot_date)
-    })));
+    sendJson(res, buildSnapshotsV3(companyId));
   };
 
   registry
