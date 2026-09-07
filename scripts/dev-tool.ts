@@ -26,7 +26,12 @@
  *   node --experimental-strip-types scripts/dev-tool.ts market --mode test
  *   node --experimental-strip-types scripts/dev-tool.ts market --status
  *
- *   # 5. Status Check
+ *   # 5. Certificates Management & Award
+ *   node --experimental-strip-types scripts/dev-tool.ts cert --list
+ *   node --experimental-strip-types scripts/dev-tool.ts cert --company 1 --kind 36
+ *   node --experimental-strip-types scripts/dev-tool.ts cert --company 1 --list
+ *
+ *   # 6. Status Check
  *   node --experimental-strip-types scripts/dev-tool.ts status
  */
 import { virtualClock } from '../server/core/virtual-clock.ts';
@@ -442,7 +447,111 @@ async function main() {
     return;
   }
 
-  console.log(`Unknown command: "${command}". Available commands: status, warp, fixture, market, migrate, backup`);
+  if (command === 'cert' || command === 'certificate' || command === 'certificates') {
+    const {
+      getCertificateCatalog,
+      getCompanyCertificates,
+      issueCertificate
+    } = await import('../server/game/certificates.ts');
+    const { getCompanyById } = await import('../server/game/company.ts');
+
+    console.log('=== Certificate Management & Manual Award Tool ===');
+
+    if (argv.list || (!argv.kind && !argv.company)) {
+      if (argv.company) {
+        const companyId = Number(argv.company);
+        const comp = getCompanyById(companyId);
+        const awards = getCompanyCertificates(companyId);
+        console.log(`Certificates held by Company #${companyId} (${comp?.name || 'Unknown'}): ${awards.length}`);
+        if (awards.length === 0) {
+          console.log('  (No certificates held yet)');
+        } else {
+          for (const a of awards) {
+            console.log(`  * [Kind #${String(a.kind).padStart(2, ' ')}] Rank ${a.rank} - ${a.name} (Rarity: ${a.rarity}, Issued: ${a.issuedAt})`);
+          }
+        }
+        return;
+      }
+
+      // Catalog list
+      const catalog = getCertificateCatalog();
+      console.log(`Available Certificate Types: ${catalog.length}\n`);
+      console.log('  ID   Name                     Rule        Period   Rarity  Description');
+      console.log('  ---- ------------------------ ----------- -------- ------- ----------------------------------------------------');
+      for (const c of catalog) {
+        const idStr = String(c.kind).padStart(4, ' ');
+        const nameStr = c.name.padEnd(24, ' ');
+        const ruleStr = c.awardRule.padEnd(11, ' ');
+        const periodStr = c.period.padEnd(8, ' ');
+        const rarityStr = c.defaultRarity.toFixed(3).padStart(7, ' ');
+        console.log(`  ${idStr} ${nameStr} ${ruleStr} ${periodStr} ${rarityStr} ${c.description}`);
+      }
+      console.log('\nUsage Examples:');
+      console.log('  node --experimental-strip-types scripts/dev-tool.ts cert --list');
+      console.log('  node --experimental-strip-types scripts/dev-tool.ts cert --company 1 --kind 36');
+      console.log('  node --experimental-strip-types scripts/dev-tool.ts cert --company 1 --kind 29 --resource 69');
+      console.log('  node --experimental-strip-types scripts/dev-tool.ts cert --company 1 --list');
+      return;
+    }
+
+    if (argv.kind) {
+      const companyId = argv.company ? Number(argv.company) : 1;
+      const kind = Number(argv.kind);
+      const rank = argv.rank ? Number(argv.rank) : 1;
+      const quantity = argv.quantity ? Number(argv.quantity) : 1;
+      const resourceKind = argv.resource !== undefined ? Number(argv.resource) : null;
+      const realmId = argv.realm !== undefined ? Number(argv.realm) : 0;
+      const cycleKey = argv.cycle ? String(argv.cycle) : `manual_award_${Date.now()}`;
+      const now = new Date().toISOString();
+
+      try {
+        const award = issueCertificate({
+          realmId,
+          kind,
+          companyId,
+          quantity,
+          rank,
+          resourceKind,
+          cycleKey,
+          cycleStartAt: now,
+          cycleEndAt: now,
+          issuedAt: now
+        });
+
+        console.log('✅ Certificate Awarded Successfully:');
+        console.log(`- Target Company : #${award.company.id} (${award.company.company})`);
+        console.log(`- Certificate    : [ID #${award.kind}] ${award.name}`);
+        console.log(`- Description    : ${award.description}`);
+        console.log(`- Place / Rank   : #${award.place} (Rank ${award.rank})`);
+        console.log(`- Rarity         : ${award.rarity}`);
+        console.log(`- Value/Quantity : ${award.value}`);
+        console.log(`- Issued At      : ${award.issuedAt}`);
+        console.log('\n💡 Player can refresh in-game or visit Certificates Explorer to see the new badge ribbon and trophy!');
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error(`❌ Failed to issue certificate: ${msg}`);
+        process.exit(1);
+      }
+      return;
+    }
+
+    if (argv.company && !argv.kind) {
+      const companyId = Number(argv.company);
+      const comp = getCompanyById(companyId);
+      const awards = getCompanyCertificates(companyId);
+      console.log(`Certificates held by Company #${companyId} (${comp?.name || 'Unknown'}): ${awards.length}`);
+      if (awards.length === 0) {
+        console.log('  (No certificates held yet)');
+      } else {
+        for (const a of awards) {
+          console.log(`  * [Kind #${String(a.kind).padStart(2, ' ')}] Rank ${a.rank} - ${a.name} (Rarity: ${a.rarity}, Issued: ${a.issuedAt})`);
+        }
+      }
+      return;
+    }
+  }
+
+  console.log(`Unknown command: "${command}". Available commands: status, warp, fixture, market, chatrooms, economy, cert, migrate, backup`);
 }
 
 main().catch(err => {

@@ -291,16 +291,17 @@ export function getCertificateDetail(
     companiesCount: holders.length,
     owner: detail?.company || null,
     topHunters: holders.map(holder => ({ company: holder.company, value: holder.value })),
-    latestOwners: holders.map(holder => ({ company: holder.company, value: holder.quantity }))
+      latestOwners: holders.map(holder => ({ company: holder.company, value: holder.quantity }))
   };
 }
 
 export function getCompanyCertificates(companyId: number): CertificateAward[] {
-  ensureDevelopmentSeed();
+  const comp = findCompany(companyId);
+  const targetId = comp ? comp.company_id : companyId;
   const rows = db.prepare(`
     SELECT * FROM certificates
     WHERE company_id = ? ORDER BY COALESCE(issued_at, datetime) DESC, id DESC
-  `).all(companyId) as CertificateDbRow[];
+  `).all(targetId) as CertificateDbRow[];
   return rows.map(mapCertificate);
 }
 
@@ -308,7 +309,7 @@ export function getCertificates(realmId: number = 0): CertificateAward[] {
   return getLatestCertificates(realmId);
 }
 
-function issueCertificate(input: {
+export function issueCertificate(input: {
   realmId: number;
   kind: number;
   companyId: number;
@@ -332,7 +333,7 @@ function issueCertificate(input: {
   `).get(
     input.realmId,
     input.kind,
-    input.companyId,
+    company.company_id,
     input.cycleKey,
     input.resourceKind ?? null,
     input.rank

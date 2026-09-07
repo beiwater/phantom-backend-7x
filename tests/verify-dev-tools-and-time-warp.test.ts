@@ -76,6 +76,28 @@ assert.strictEqual(customResult.warehouseRows, 1);
 assert.strictEqual(customResult.executivesCount, 1);
 console.log('  -> OK: Custom scenario applied perfectly');
 
+// 5. Test Certificate manual issuance and querying
+console.log('[5/5] Testing certificate issuance & retrieval...');
+const { issueCertificate, getCompanyCertificates, getCertificateCatalog } = await import('../server/game/certificates.ts');
+const catalog = getCertificateCatalog();
+assert(catalog.length >= 32, 'Catalog should contain 32 certificate kinds');
+const certAward = issueCertificate({
+  realmId: 0,
+  kind: 36,
+  companyId: customResult.companyId,
+  quantity: 1,
+  rank: 1,
+  cycleKey: `dev_test_award_${Date.now()}`,
+  cycleStartAt: new Date().toISOString(),
+  cycleEndAt: new Date().toISOString(),
+  issuedAt: new Date().toISOString()
+});
+assert.strictEqual(certAward.kind, 36);
+assert.strictEqual(certAward.name, 'Elon Award');
+const companyCerts = getCompanyCertificates(customResult.companyId);
+assert(companyCerts.some(c => c.kind === 36), 'Company should possess the Elon Award certificate');
+console.log('  -> OK: Certificate manually issued and verified');
+
 console.log('================================================================');
 console.log(' ✅ ALL VIRTUAL CLOCK & FIXTURE TESTS PASSED SUCCESSFULLY');
 console.log('================================================================');

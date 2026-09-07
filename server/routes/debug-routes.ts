@@ -392,6 +392,54 @@ export async function handleDebugRoutes(
     return true;
   }
 
+  // 7. Certificate Management & Award: GET & POST /api/v2/debug/certificate/
+  if (pathname === '/api/v2/debug/certificate/' || pathname === '/api/debug/certificate/') {
+    const { getCertificateCatalog, issueCertificate } = await import('../game/certificates.ts');
+    if (method === 'GET') {
+      sendJson(res, { catalog: getCertificateCatalog() });
+      return true;
+    }
+
+    if (method === 'POST') {
+      interface CertificateAwardBody {
+        companyId: number;
+        kind: number;
+        rank?: number;
+        quantity?: number;
+        resourceKind?: number | null;
+        realmId?: number;
+      }
+      const body = await readJsonBody<CertificateAwardBody>(req);
+      if (!body?.companyId || !body?.kind) {
+        sendJson(res, { error: 'companyId and kind are required' }, 400);
+        return true;
+      }
+      const now = new Date().toISOString();
+      try {
+        const award = issueCertificate({
+          realmId: body.realmId ?? 0,
+          kind: Number(body.kind),
+          companyId: Number(body.companyId),
+          quantity: Number(body.quantity ?? 1),
+          rank: Number(body.rank ?? 1),
+          resourceKind: body.resourceKind !== undefined ? body.resourceKind : null,
+          cycleKey: `manual_debug_award_${Date.now()}`,
+          cycleStartAt: now,
+          cycleEndAt: now,
+          issuedAt: now
+        });
+        sendJson(res, { success: true, certificate: award });
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        sendJson(res, { error: msg }, 400);
+      }
+      return true;
+    }
+
+    sendJson(res, { error: 'Method not allowed' }, 405);
+    return true;
+  }
+
   return false;
 }
 
@@ -424,6 +472,8 @@ export function registerDebugRoutes(registry: RouteRegistry = globalRouteRegistr
     register('GET', `${prefix}/economy/`);
     register('POST', `${prefix}/economy/`);
     register('POST', `${prefix}/fixture/`);
+    register('GET', `${prefix}/certificate/`);
+    register('POST', `${prefix}/certificate/`);
   }
 }
 registerDebugRoutes(globalRouteRegistry);
