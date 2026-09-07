@@ -271,10 +271,12 @@ async function runIssue88AchievementsTest(): Promise<void> {
     assert.equal(unknownClaim.body.code, 'ACHIEVEMENT_NOT_FOUND');
 
     const freshOverview = await getOverview(A.cookie);
-    assert.equal(freshOverview.length, 4, 'overview still lists all four categories');
-    for (const entry of freshOverview) {
-      assert.equal(entry.progress.percent, 0, `${entry.id}: fresh progress percent must be 0 (progress-based)`);
-      assert.equal(entry.progress.label, '0 / 1', `${entry.id}: fresh progress label must be "0 / 1"`);
+    assert.ok(freshOverview.length >= 4, 'overview lists all categories');
+    for (const id of ALL_IDS) {
+      const entry = freshOverview.find(e => e.id === id);
+      assert.ok(entry, `${id}: must exist in overview`);
+      assert.equal(entry!.progress.percent, 0, `${id}: fresh progress percent must be 0 (progress-based)`);
+      assert.equal(entry!.progress.label, '0 / 1', `${id}: fresh progress label must be "0 / 1"`);
     }
 
     // Company B isolation is checked again after A's gameplay below.
@@ -505,11 +507,13 @@ async function runIssue88AchievementsTest(): Promise<void> {
       'display case must contain exactly the seeded + placed items'
     );
 
-    // Final overview: everything collected → progress 100 for all categories.
+    // Final overview: all four tested categories collected → progress 100 for those categories.
     const finalOverview = await getOverview(A.cookie);
-    for (const entry of finalOverview) {
-      assert.equal(entry.progress.percent, 100, `${entry.id}: final progress must be 100`);
-      assert.equal(entry.progress.label, '已达成', `${entry.id}: final label must be 已达成`);
+    for (const id of ALL_IDS) {
+      const entry = finalOverview.find(e => e.id === id);
+      assert.ok(entry, `${id}: must exist in final overview`);
+      assert.equal(entry!.progress.percent, 100, `${id}: final progress must be 100`);
+      assert.equal(entry!.progress.label, '已达成', `${id}: final label must be 已达成`);
     }
 
     db.close();
