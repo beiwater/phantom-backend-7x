@@ -1,9 +1,30 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { RouteRegistry, globalRouteRegistry } from '../http/route-registry.ts';
+import { RouteRegistry, globalRouteRegistry, type RouteHandler } from '../http/route-registry.ts';
 import { sendJson, readJsonBody } from './utils.ts';
 import { getWarehouseResources } from '../game/warehouse.ts';
 import { warehouseRepository } from '../repositories/warehouse-repository.ts';
 import { getWarehouseContractsSummaryQuery } from '../application/finance/finance-use-cases.ts';
+
+function formatResourceTransactionSummary(summary: ReturnType<typeof warehouseRepository.getResourceTransactionSummary>) {
+  const rows: Array<{ category: string; amount: number; avgPrice: number; price: number }> = [];
+  if (summary.totalBought > 0) {
+    rows.push({
+      category: 'bought',
+      amount: summary.totalBought,
+      avgPrice: summary.avgBuyPrice,
+      price: summary.avgBuyPrice
+    });
+  }
+  if (summary.totalSold > 0) {
+    rows.push({
+      category: 'sold',
+      amount: summary.totalSold,
+      avgPrice: summary.avgSellPrice,
+      price: summary.avgSellPrice
+    });
+  }
+  return rows;
+}
 
 export async function handleWarehouseRoutes(
   _req: IncomingMessage,
@@ -92,25 +113,7 @@ export async function handleWarehouseRoutes(
     const kind = param1 === currentCompanyId ? param2 : param1;
 
     const summary = warehouseRepository.getResourceTransactionSummary(currentCompanyId, kind);
-    const rows: Array<{ category: string; amount: number; avgPrice: number; price: number }> = [];
-    if (summary.totalBought > 0) {
-      rows.push({
-        category: 'bought',
-        amount: summary.totalBought,
-        avgPrice: summary.avgBuyPrice,
-        price: summary.avgBuyPrice
-      });
-    }
-    if (summary.totalSold > 0) {
-      rows.push({
-        category: 'sold',
-        amount: summary.totalSold,
-        avgPrice: summary.avgSellPrice,
-        price: summary.avgSellPrice
-      });
-    }
-
-    sendJson(res, rows);
+    sendJson(res, formatResourceTransactionSummary(summary));
     return true;
   }
 
@@ -143,146 +146,48 @@ export function registerWarehouseRoutes(registry: RouteRegistry = globalRouteReg
     const param2 = Number(b);
     const kind = param1 === companyId ? param2 : param1;
     const summary = warehouseRepository.getResourceTransactionSummary(companyId, kind);
-    const rows: Array<{ category: string; amount: number; avgPrice: number; price: number }> = [];
-    if (summary.totalBought > 0) rows.push({ category: 'bought', amount: summary.totalBought, avgPrice: summary.avgBuyPrice, price: summary.avgBuyPrice });
-    if (summary.totalSold > 0) rows.push({ category: 'sold', amount: summary.totalSold, avgPrice: summary.avgSellPrice, price: summary.avgSellPrice });
-    sendJson(res, rows);
+    sendJson(res, formatResourceTransactionSummary(summary));
+  };
+
+  const handleGetResources: RouteHandler = async (_req, res, ctx, params) => {
+    const companyId = companyFor(ctx, params.companyId);
+    if (companyId === null) {
+      sendJson(res, { error: 'Unauthorized' }, 401);
+      return;
+    }
+    sendJson(res, getWarehouseResources(companyId));
+  };
+
+  const handleGetTags: RouteHandler = async (_req, res, ctx) => {
+    const companyId = requireCompany(ctx, res);
+    if (companyId !== null) sendJson(res, warehouseRepository.listTags(companyId));
+  };
+
+  const handleSetTag: RouteHandler = async (_req, res, ctx, _params, body) => {
+    const companyId = requireCompany(ctx, res);
+    if (companyId === null) return;
+    const kind = bodyField(body, 'kind');
+    const tag = bodyField(body, 'tag');
+    if (!Number.isSafeInteger(Number(kind)) || typeof tag !== 'string') {
+      sendJson(res, { error: 'kind and tag are required' }, 400);
+      return;
+    }
+    warehouseRepository.setTag(companyId, Number(kind), tag.slice(0, 64));
+    sendJson(res, { success: true });
   };
 
   registry
-    .register({
-      method: 'GET', pattern: '/api/v2/resources/:companyId/', owner: 'warehouse',
-      handler: async (_req, res, ctx, params) => {
-        const companyId = companyFor(ctx, params.companyId);
-        if (companyId === null) {
-          sendJson(res, { error: 'Unauthorized' }, 401);
-          return;
-        }
-        sendJson(res, getWarehouseResources(companyId));
-      }
-    })
-    .register({
-      method: 'GET', pattern: '/api/v3/resources/:companyId/', owner: 'warehouse',
-      handler: async (_req, res, ctx, params) => {
-        const companyId = companyFor(ctx, params.companyId);
-        if (companyId === null) {
-          sendJson(res, { error: 'Unauthorized' }, 401);
-          return;
-        }
-        sendJson(res, getWarehouseResources(companyId));
-      }
-    })
-    .register({
-      method: 'GET', pattern: '/api/v2/companies/:companyId/warehouse/tags/', owner: 'warehouse',
-      handler: async (_req, res, ctx) => {
-        const companyId = requireCompany(ctx, res);
-        if (companyId !== null) sendJson(res, warehouseRepository.listTags(companyId));
-      }
-    })
-    .register({
-      method: 'PUT', pattern: '/api/v2/companies/:companyId/warehouse/tags/', owner: 'warehouse',
-      handler: async (_req, res, ctx, _params, body) => {
-        const companyId = requireCompany(ctx, res);
-        if (companyId === null) return;
-        const kind = bodyField(body, 'kind');
-        const tag = bodyField(body, 'tag');
-        if (!Number.isSafeInteger(Number(kind)) || typeof tag !== 'string') {
-          sendJson(res, { error: 'kind and tag are required' }, 400);
-          return;
-        }
-        warehouseRepository.setTag(companyId, Number(kind), tag.slice(0, 64));
-        sendJson(res, { success: true });
-      }
-    })
-    .register({
-      method: 'POST', pattern: '/api/v2/companies/:companyId/warehouse/tags/', owner: 'warehouse',
-      handler: async (_req, res, ctx, _params, body) => {
-        const companyId = requireCompany(ctx, res);
-        if (companyId === null) return;
-        const kind = bodyField(body, 'kind');
-        const tag = bodyField(body, 'tag');
-        if (!Number.isSafeInteger(Number(kind)) || typeof tag !== 'string') {
-          sendJson(res, { error: 'kind and tag are required' }, 400);
-          return;
-        }
-        warehouseRepository.setTag(companyId, Number(kind), tag.slice(0, 64));
-        sendJson(res, { success: true });
-      }
-    })
-    .register({
-      method: 'GET', pattern: '/api/v2/warehouse/tags/', owner: 'warehouse',
-      handler: async (_req, res, ctx) => {
-        const companyId = requireCompany(ctx, res);
-        if (companyId !== null) sendJson(res, warehouseRepository.listTags(companyId));
-      }
-    })
-    .register({
-      method: 'PUT', pattern: '/api/v2/warehouse/tags/', owner: 'warehouse',
-      handler: async (_req, res, ctx, _params, body) => {
-        const companyId = requireCompany(ctx, res);
-        if (companyId === null) return;
-        const kind = bodyField(body, 'kind');
-        const tag = bodyField(body, 'tag');
-        if (!Number.isSafeInteger(Number(kind)) || typeof tag !== 'string') {
-          sendJson(res, { error: 'kind and tag are required' }, 400);
-          return;
-        }
-        warehouseRepository.setTag(companyId, Number(kind), tag.slice(0, 64));
-        sendJson(res, { success: true });
-      }
-    })
-    .register({
-      method: 'POST', pattern: '/api/v2/warehouse/tags/', owner: 'warehouse',
-      handler: async (_req, res, ctx, _params, body) => {
-        const companyId = requireCompany(ctx, res);
-        if (companyId === null) return;
-        const kind = bodyField(body, 'kind');
-        const tag = bodyField(body, 'tag');
-        if (!Number.isSafeInteger(Number(kind)) || typeof tag !== 'string') {
-          sendJson(res, { error: 'kind and tag are required' }, 400);
-          return;
-        }
-        warehouseRepository.setTag(companyId, Number(kind), tag.slice(0, 64));
-        sendJson(res, { success: true });
-      }
-    })
-    .register({
-      method: 'GET', pattern: '/api/v2/warehouse-tags/', owner: 'warehouse',
-      handler: async (_req, res, ctx) => {
-        const companyId = requireCompany(ctx, res);
-        if (companyId !== null) sendJson(res, warehouseRepository.listTags(companyId));
-      }
-    })
-    .register({
-      method: 'PUT', pattern: '/api/v2/warehouse-tags/', owner: 'warehouse',
-      handler: async (_req, res, ctx, _params, body) => {
-        const companyId = requireCompany(ctx, res);
-        if (companyId === null) return;
-        const kind = bodyField(body, 'kind');
-        const tag = bodyField(body, 'tag');
-        if (!Number.isSafeInteger(Number(kind)) || typeof tag !== 'string') {
-          sendJson(res, { error: 'kind and tag are required' }, 400);
-          return;
-        }
-        warehouseRepository.setTag(companyId, Number(kind), tag.slice(0, 64));
-        sendJson(res, { success: true });
-      }
-    })
-    .register({
-      method: 'POST', pattern: '/api/v2/warehouse-tags/', owner: 'warehouse',
-      handler: async (_req, res, ctx, _params, body) => {
-        const companyId = requireCompany(ctx, res);
-        if (companyId === null) return;
-        const kind = bodyField(body, 'kind');
-        const tag = bodyField(body, 'tag');
-        if (!Number.isSafeInteger(Number(kind)) || typeof tag !== 'string') {
-          sendJson(res, { error: 'kind and tag are required' }, 400);
-          return;
-        }
-        warehouseRepository.setTag(companyId, Number(kind), tag.slice(0, 64));
-        sendJson(res, { success: true });
-      }
-    })
+    .register({ method: 'GET', pattern: '/api/v2/resources/:companyId/', owner: 'warehouse', handler: handleGetResources })
+    .register({ method: 'GET', pattern: '/api/v3/resources/:companyId/', owner: 'warehouse', handler: handleGetResources })
+    .register({ method: 'GET', pattern: '/api/v2/companies/:companyId/warehouse/tags/', owner: 'warehouse', handler: handleGetTags })
+    .register({ method: 'PUT', pattern: '/api/v2/companies/:companyId/warehouse/tags/', owner: 'warehouse', handler: handleSetTag })
+    .register({ method: 'POST', pattern: '/api/v2/companies/:companyId/warehouse/tags/', owner: 'warehouse', handler: handleSetTag })
+    .register({ method: 'GET', pattern: '/api/v2/warehouse/tags/', owner: 'warehouse', handler: handleGetTags })
+    .register({ method: 'PUT', pattern: '/api/v2/warehouse/tags/', owner: 'warehouse', handler: handleSetTag })
+    .register({ method: 'POST', pattern: '/api/v2/warehouse/tags/', owner: 'warehouse', handler: handleSetTag })
+    .register({ method: 'GET', pattern: '/api/v2/warehouse-tags/', owner: 'warehouse', handler: handleGetTags })
+    .register({ method: 'PUT', pattern: '/api/v2/warehouse-tags/', owner: 'warehouse', handler: handleSetTag })
+    .register({ method: 'POST', pattern: '/api/v2/warehouse-tags/', owner: 'warehouse', handler: handleSetTag })
     .register({
       method: 'GET', pattern: '/api/v2/egg-collection/', owner: 'warehouse',
       handler: async (_req, res) => { sendJson(res, { eggs: [], swaps: [] }); }
