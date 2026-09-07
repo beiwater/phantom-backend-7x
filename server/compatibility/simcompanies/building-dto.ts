@@ -5,9 +5,9 @@ import { accumulatorRepository } from '../../repositories/accumulator-repository
 import { retailRepository } from '../../repositories/retail-repository.ts';
 import type { AccumulatorResourceState } from '../../game-data/accumulator.ts';
 import { accumulatorStateDTO } from '../../game-data/accumulator.ts';
-import { getBuildingMeta } from '../../game-data/buildings.ts';
 import { getResourceDef, getResourceName } from '../../game-data/resources.ts';
-import { finiteOr, computeFallbackUnitCost } from './production-dto.ts';
+import { getBuildingMeta } from '../../game-data/buildings.ts';
+import { finiteOr, computeFallbackUnitCost } from './dto-utils.ts';
 import { RECREATION_UPKEEP_DURATION_SECONDS } from '../../application/buildings/start-recreation-upkeep.ts';
 import { calculateConstructionDurationSeconds } from '../../domain/buildings/building-rules.ts';
 import { FixtureService } from '../../services/fixture-service.ts';
