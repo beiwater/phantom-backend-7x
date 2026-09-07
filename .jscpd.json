@@ -1,0 +1,24 @@
+{
+  "threshold": 3,
+  "reporters": ["console"],
+  "ignore": [
+    "**/node_modules/**",
+    "**/frontend-original/**",
+    "**/frontend-patches/**",
+    "**/historical/**",
+    "**/crawled_guides/**",
+    "**/reconstruction/**",
+    "**/reconstruction-report/**",
+    "**/restored/**",
+    "**/artifacts/**",
+    "**/test-results/**",
+    "**/playwright-report/**",
+    "**/data/**",
+    "**/*.json",
+    "**/*.md"
+  ],
+  "path": ["server"],
+  "format": ["typescript"],
+  "minLines": 10,
+  "minTokens": 50
+}

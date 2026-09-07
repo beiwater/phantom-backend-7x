@@ -1,0 +1,21 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "entry": [
+    "server/index.ts",
+    "tests/verify-all-routes.ts",
+    "tests/test-route-ownership.test.ts"
+  ],
+  "project": [
+    "server/**/*.ts"
+  ],
+  "ignoreDependencies": [
+    "@eslint/js",
+    "typescript-eslint",
+    "eslint-plugin-sonarjs",
+    "eslint",
+    "jscpd",
+    "knip",
+    "dependency-cruiser",
+    "madge"
+  ]
+}

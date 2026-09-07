@@ -22,7 +22,13 @@
     "verify:reconstruction": "node scripts/reconstruction/verify-slice.mjs",
     "toggle:construction-time": "bash scripts/toggle-construction-time.sh",
     "switch:phase": "bash scripts/switch-realm-phase.sh",
-    "git:auto-push": "bash scripts/auto-push.sh"
+    "git:auto-push": "bash scripts/auto-push.sh",
+    "smell:sonar": "eslint server/",
+    "smell:circular": "madge --circular --extensions ts server",
+    "smell:depcruise": "depcruise --config .dependency-cruiser.cjs server",
+    "smell:dupes": "jscpd server",
+    "smell:dead": "knip",
+    "smell:all": "npm run smell:circular && npm run smell:dupes"
   },
   "dependencies": {
     "puppeteer": "^25.9.0",
@@ -32,10 +38,18 @@
   },
   "devDependencies": {
     "@babel/parser": "^7.29.8",
+    "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.62.1",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.7",
     "@vitejs/plugin-react": "^6.1.1",
+    "dependency-cruiser": "^18.2.0",
+    "eslint": "^10.10.0",
+    "eslint-plugin-sonarjs": "^4.2.0",
+    "jscpd": "^5.1.2",
+    "knip": "^6.34.0",
+    "madge": "^8.0.0",
+    "typescript-eslint": "^8.69.0",
     "vite": "^8.2.2"
   }
 }
