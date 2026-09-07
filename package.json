@@ -8,6 +8,7 @@
     "dev": "vite",
     "build": "vite build",
     "start": "node --experimental-strip-types server/index.ts",
+    "console": "node --experimental-strip-types scripts/console.ts",
     "test": "bash scripts/test-all.sh",
     "test:unit": "bash scripts/test-unit.sh",
     "test:api": "bash scripts/test-api.sh",

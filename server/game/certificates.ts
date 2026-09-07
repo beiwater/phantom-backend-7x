@@ -310,33 +310,43 @@ export function getCertificates(realmId: number = 0): CertificateAward[] {
 }
 
 export function issueCertificate(input: {
-  realmId: number;
+  realmId?: number;
   kind: number;
   companyId: number;
-  quantity: number;
-  rank: number;
+  quantity?: number;
+  rank?: number;
   resourceKind?: number | null;
-  cycleKey: string;
-  cycleStartAt: string;
-  cycleEndAt: string;
-  issuedAt: string;
+  cycleKey?: string;
+  cycleStartAt?: string;
+  cycleEndAt?: string;
+  issuedAt?: string;
 }): CertificateAward {
   const definition = getCertificateKind(input.kind);
   if (!definition) throw new Error(`Unknown certificate kind ${input.kind}`);
   const company = findCompany(input.companyId);
   if (!company) throw new Error(`Company ${input.companyId} not found`);
+
+  const now = virtualClock.nowIso();
+  const realmId = input.realmId ?? 0;
+  const quantity = input.quantity ?? 1;
+  const rank = input.rank ?? 1;
+  const cycleKey = input.cycleKey ?? `manual_award_${Date.now()}`;
+  const cycleStartAt = input.cycleStartAt ?? now;
+  const cycleEndAt = input.cycleEndAt ?? now;
+  const issuedAt = input.issuedAt ?? now;
+
   const existing = db.prepare(`
     SELECT * FROM certificates
     WHERE realm_id = ? AND kind = ? AND company_id = ? AND cycle_key = ?
       AND COALESCE(resource_kind, -1) = COALESCE(?, -1) AND rank = ?
     ORDER BY id LIMIT 1
   `).get(
-    input.realmId,
+    realmId,
     input.kind,
     company.company_id,
-    input.cycleKey,
+    cycleKey,
     input.resourceKind ?? null,
-    input.rank
+    rank
   ) as CertificateDbRow | undefined;
   if (existing) return mapCertificate(existing);
   const result = db.prepare(`
@@ -347,31 +357,31 @@ export function issueCertificate(input: {
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     RETURNING *
   `).get(
-    input.realmId,
+    realmId,
     input.kind,
-    input.rank,
+    rank,
     definition.name,
     company.company_id,
     company.name,
-    input.quantity,
+    quantity,
     definition.defaultRarity,
-    new Date(input.cycleEndAt).getUTCFullYear(),
+    new Date(cycleEndAt).getUTCFullYear(),
     input.resourceKind ?? null,
-    input.issuedAt,
-    input.quantity,
-    input.cycleKey,
-    input.cycleStartAt,
-    input.cycleEndAt,
-    input.rank,
-    input.issuedAt
+    issuedAt,
+    quantity,
+    cycleKey,
+    cycleStartAt,
+    cycleEndAt,
+    rank,
+    issuedAt
   ) as CertificateDbRow;
   return mapCertificate(result);
 }
 
 export function grantCycleCertificates(
-  realmId: number,
-  cycleStart: Date,
-  cycleEnd: Date
+  realmId: number = 0,
+  cycleStart: Date = new Date(virtualClock.nowMs() - 7 * 24 * 3600 * 1000),
+  cycleEnd: Date = new Date(virtualClock.nowMs())
 ): { cycleKey: string; issued: CertificateAward[] } {
   const cycleStartIso = cycleStart.toISOString();
   const cycleEndIso = cycleEnd.toISOString();

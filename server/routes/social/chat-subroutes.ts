@@ -5,7 +5,8 @@ import { companyRepository } from "../../repositories/company-repository.ts";
 import { getCompanyById } from "../../game/company.ts";
 import { checkRateLimit } from "../../security/rate-limiter.ts";
 import { virtualClock } from "../../core/virtual-clock.ts";
-import { broadcastAll } from "../../ws/websocket.ts";
+import { broadcastAll, broadcastToCompany } from "../../ws/websocket.ts";
+import { executeCommand } from "../../game/commands/command-engine.ts";
 
 export interface ChatroomSubscriptionEntry {
   name: string;
@@ -399,6 +400,52 @@ export async function handleChatSubroutes(
       recipientId = Number(body.recipient);
     }
 
+    // In-Game Command Interception (Minecraft-style commands via PA dialog / chat)
+    if (text.startsWith('/')) {
+      const cmdResult = await executeCommand(text, {
+        executorCompanyId: comp.company_id,
+        isOp: false, // executeCommand will check DB setting 'is_admin_op'
+        source: 'pa',
+        realmId: comp.realm_id ?? 0
+      });
+
+      // Persist command into message history with PA
+      socialRepository.insertDirectMessage(comp.company_id, 0, text, now);
+
+      // Persist assistant reply
+      const replyText = cmdResult.assistantReply || cmdResult.message;
+      const replyMessageId = socialRepository.insertDirectMessage(0, comp.company_id, replyText, now);
+
+      const replyFormatted = {
+        id: replyMessageId,
+        sender: {
+          id: 0,
+          company: "个人助理",
+          logo: "/static/images/personal-assistant/old.png",
+          certificates: 0,
+          supporter: true,
+          realmId: comp.realm_id ?? 0
+        },
+        receiver: {
+          id: comp.company_id,
+          company: comp.name,
+          logo: comp.logo || "",
+          certificates: 0,
+          supporter: false,
+          realmId: comp.realm_id ?? 0
+        },
+        body: replyText,
+        text: replyText,
+        datetime: now,
+        pinned: false,
+        commandResult: cmdResult
+      };
+
+      broadcastToCompany(comp.company_id, replyFormatted);
+      sendJson(res, replyFormatted);
+      return true;
+    }
+
     // Private Direct Message Flow
     if (recipientId !== null && !isNaN(recipientId) && recipientId > 0) {
       const recipientComp = companyRepository.findById(recipientId);
@@ -472,6 +519,25 @@ export async function handleChatSubroutes(
     let targetComp = companyId ? companyRepository.findById(companyId) : null;
     if (!targetComp && companyName) {
       targetComp = companyRepository.findByName(companyName);
+    }
+    if (!targetComp && (companyId === 0 || companyName === "个人助理" || companyName.toLowerCase() === "personal assistant" || companyName.toLowerCase() === "pa")) {
+      targetComp = {
+        id: 0,
+        companyId: 0,
+        playerId: 0,
+        name: "个人助理",
+        money: 0,
+        simboosts: 0,
+        level: 1,
+        rating: 0,
+        experience: 0,
+        extraBuildingSlots: 0,
+        realmId: 0,
+        logo: "/static/images/personal-assistant/old.png",
+        personalAssistant: "old",
+        note: "",
+        createdAt: ""
+      };
     }
 
     if (!targetComp) {

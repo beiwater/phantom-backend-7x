@@ -17,6 +17,7 @@ import { RouteRegistry, globalRouteRegistry, type HttpMethod } from '../http/rou
 import { CHATROOM_PRESETS } from './social-routes.ts';
 import { NpcMarketService } from '../services/npc-market-service.ts';
 import { RealmPhaseService, REALM_PHASE_PRESETS } from '../services/realm-phase-service.ts';
+import { executeCommand } from '../game/commands/command-engine.ts';
 
 export async function handleDebugRoutes(
   req: IncomingMessage,
@@ -440,6 +441,35 @@ export async function handleDebugRoutes(
     return true;
   }
 
+  // 8. POST /api/v2/debug/command/ (Minecraft-style command console execution)
+  if (pathname === '/api/v2/debug/command/' || pathname === '/api/debug/command/') {
+    if (method !== 'POST') {
+      sendJson(res, { error: 'Method not allowed' }, 405);
+      return true;
+    }
+    try {
+      const body = await readJsonBody<{ command?: string; companyId?: number }>(req);
+      const rawCmd = body?.command || '';
+      if (!rawCmd.trim()) {
+        sendJson(res, { error: 'Command string cannot be empty' }, 400);
+        return true;
+      }
+
+      const executorCompanyId = body.companyId ?? currentCompanyId;
+      const result = await executeCommand(rawCmd, {
+        executorCompanyId: executorCompanyId ? Number(executorCompanyId) : null,
+        isOp: true, // debug API is admin
+        source: 'api'
+      });
+
+      sendJson(res, result, result.success ? 200 : 400);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      sendJson(res, { error: msg }, 500);
+    }
+    return true;
+  }
+
   return false;
 }
 
@@ -474,6 +504,7 @@ export function registerDebugRoutes(registry: RouteRegistry = globalRouteRegistr
     register('POST', `${prefix}/fixture/`);
     register('GET', `${prefix}/certificate/`);
     register('POST', `${prefix}/certificate/`);
+    register('POST', `${prefix}/command/`);
   }
 }
 registerDebugRoutes(globalRouteRegistry);
