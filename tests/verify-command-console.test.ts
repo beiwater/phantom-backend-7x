@@ -247,4 +247,72 @@ assert(resultJson.commandResult && resultJson.commandResult.success, 'Command ex
 
 console.log('  -> OK: PA chat intercept successfully executed /help and replied with secretary persona\n');
 
-console.log('=== ALL 7 COMMAND CONSOLE & PA TESTS PASSED! ===');
+// 8. Test Market Restock Command (/market restock)
+console.log('[8/10] Testing Market Command (/market restock)...');
+const resMarket = await executeCommand('/market restock', {
+  executorCompanyId: null,
+  isOp: true,
+  source: 'cli'
+});
+assert.strictEqual(resMarket.success, true);
+assert(resMarket.message.includes('NPC Market Restocked'));
+console.log('  -> OK: Market restock executed and repopulated NPC orders\n');
+
+// 9. Test Speed Command (/speed 10x, /speed fast, /speed normal)
+console.log('[9/10] Testing Speed Command (/speed multiplier, fast, normal)...');
+const resSpeed10 = await executeCommand('/speed 10x', {
+  executorCompanyId: null,
+  isOp: true,
+  source: 'cli'
+});
+assert.strictEqual(resSpeed10.success, true);
+assert(resSpeed10.message.includes('10x'));
+
+const resSpeedFast = await executeCommand('/speed fast', {
+  executorCompanyId: null,
+  isOp: true,
+  source: 'cli'
+});
+assert.strictEqual(resSpeedFast.success, true);
+assert(resSpeedFast.message.includes('TEST'));
+
+const resSpeedNormal = await executeCommand('/speed normal', {
+  executorCompanyId: null,
+  isOp: true,
+  source: 'cli'
+});
+assert.strictEqual(resSpeedNormal.success, true);
+assert(resSpeedNormal.message.includes('REALISTIC'));
+console.log('  -> OK: Speed multipliers and 10s fast build mode toggled correctly\n');
+
+// 10. Test Executive Command (/exec hire, /exec list, /exec fire)
+console.log('[10/10] Testing Executive Command (/exec hire, list, fire)...');
+const resExecHire = await executeCommand(`/exec ${testCompanyId} hire COO 100 20000 "Sarah Chen"`, {
+  executorCompanyId: null,
+  isOp: true,
+  source: 'cli'
+});
+assert.strictEqual(resExecHire.success, true);
+assert(resExecHire.message.includes('Sarah Chen'));
+assert(resExecHire.message.includes('COO'));
+
+const resExecList = await executeCommand(`/exec ${testCompanyId} list`, {
+  executorCompanyId: null,
+  isOp: true,
+  source: 'cli'
+});
+assert.strictEqual(resExecList.success, true);
+assert(resExecList.message.includes('Sarah Chen'));
+assert(resExecList.message.includes('管理100'));
+
+const resExecFire = await executeCommand(`/exec ${testCompanyId} fire COO`, {
+  executorCompanyId: null,
+  isOp: true,
+  source: 'cli'
+});
+assert.strictEqual(resExecFire.success, true);
+assert(resExecFire.message.includes('Fired'));
+console.log('  -> OK: Executive hired with 100 skill, listed in org chart, and fired\n');
+
+console.log('=== ALL 10 COMMAND CONSOLE & PA TESTS PASSED! ===');
+

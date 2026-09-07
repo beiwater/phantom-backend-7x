@@ -3,6 +3,9 @@ import { giveCommand, moneyCommand, simboostCommand } from './handlers/asset-com
 import { timeCommand, economyCommand, cycleCommand } from './handlers/economy-commands.ts';
 import { opCommand, deopCommand, kickCommand, banCommand, sayCommand } from './handlers/admin-commands.ts';
 import { certCommand } from './handlers/cert-commands.ts';
+import { marketCommand } from './handlers/market-commands.ts';
+import { speedCommand } from './handlers/speed-commands.ts';
+import { execCommand } from './handlers/exec-commands.ts';
 import { socialRepository } from '../../repositories/social-repository.ts';
 import type { CommandContext, CommandDefinition, CommandResult } from './types.ts';
 
@@ -59,6 +62,9 @@ registry.register(kickCommand);
 registry.register(banCommand);
 registry.register(sayCommand);
 registry.register(certCommand);
+registry.register(marketCommand);
+registry.register(speedCommand);
+registry.register(execCommand);
 registry.register(helpCommand);
 
 export function getCommandRegistry(): CommandRegistry {
