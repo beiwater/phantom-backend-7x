@@ -1,6 +1,7 @@
 import { db } from '../../db/database.ts';
 import { virtualClock } from '../../core/virtual-clock.ts';
 import { socialRepository } from '../../repositories/social-repository.ts';
+import { PA_COMPANY_ID } from '../../repositories/company-repository.ts';
 import { getCompanyById, updateCompanyMoney, updateCompanySimBoosts } from '../company.ts';
 import { addResource } from '../warehouse.ts';
 import { broadcastAll, broadcastToCompany } from '../../ws/websocket.ts';
@@ -103,10 +104,49 @@ export class StoryEngine {
       history = [];
     }
     history.push({ stage: state.current_stage, choiceIndex, text: chosen.text });
+    const now = virtualClock.nowIso();
+    // Record player's choice as a direct message from player to the NPC/PA
+    const comp = getCompanyById(companyId);
+    const companyName = comp?.name || `公司-${companyId}`;
+    const cleanChoiceText = interpolateTemplate(chosen.text, companyName);
+    const charId = stageConfig.privateMessage?.characterId || PA_COMPANY_ID;
+    const char = storyLoader.getStoryCharacter(charId) || {
+      id: charId,
+      name: 'Your Personal Assistant',
+      logo: '/static/images/personal-assistant/old.png',
+      realmId: comp?.realm_id ?? 0
+    };
+
+    const playerMsgId = socialRepository.insertDirectMessage(companyId, charId, cleanChoiceText, now);
+    const playerMsgFormatted = {
+      id: playerMsgId,
+      sender: {
+        id: companyId,
+        company: comp?.name || '',
+        logo: comp?.logo || '',
+        certificates: 0,
+        supporter: false,
+        realmId: comp?.realm_id ?? 0
+      },
+      receiver: {
+        id: char.id,
+        company: char.name,
+        logo: char.logo,
+        certificates: 0,
+        supporter: true,
+        realmId: char.realmId ?? 0
+      },
+      body: cleanChoiceText,
+      text: cleanChoiceText,
+      datetime: now,
+      pinned: false,
+      isHtml: false
+    };
+    broadcastToCompany(companyId, playerMsgFormatted);
+    broadcastAll('NEW_MESSAGE', playerMsgFormatted);
 
     const nextStageName = chosen.nextStage;
     const nextStageConfig = story.stages[nextStageName];
-    const now = virtualClock.nowIso();
 
     if (!nextStageConfig) {
       // Transition error fallback
@@ -210,7 +250,7 @@ export class StoryEngine {
 
       const choiceLinks = stage.choices.map((c, idx) => {
         const cleanChoiceText = interpolateTemplate(c.text, companyName);
-        return `<a class="pa-reply" href="/pa-action/${story.id}/${idx}/"><i class="fa fa-arrow-right"></i> ${cleanChoiceText}</a>`;
+        return `<a class="pa-reply" href="/pa-action/${story.id}/${idx}/"><i class="fa fa-arrow-right" style="pointer-events:none;"></i> ${cleanChoiceText}</a>`;
       }).join('<br/><br/>');
 
       const cleanTitle = pm.title ? interpolateTemplate(pm.title, companyName) : '';
@@ -285,16 +325,23 @@ export class StoryEngine {
 
       // DM ending confirmation
       const dmEndingHtml = `<div><b>🏆 剧本达成：${ending.title}</b><br/><br/>${ending.evaluation || ''}<br/><br/><i>输入 /story 可查看剧本状态或重新开始体验其他分支结局。</i></div>`;
-      const dmMsgId = socialRepository.insertDirectMessage(0, companyId, dmEndingHtml, now);
+      const endingCharId = stage.privateMessage?.characterId || (story.characters?.[0]?.id ?? PA_COMPANY_ID);
+      const endingChar = storyLoader.getStoryCharacter(endingCharId) || {
+        id: PA_COMPANY_ID,
+        name: 'Your Personal Assistant',
+        logo: '/static/images/personal-assistant/old.png',
+        realmId: 0
+      };
+      const dmMsgId = socialRepository.insertDirectMessage(endingChar.id, companyId, dmEndingHtml, now);
       const dmEndingFormatted = {
         id: dmMsgId,
         sender: {
-          id: 0,
-          company: '个人助理',
-          logo: '/static/images/personal-assistant/old.png',
+          id: endingChar.id,
+          company: endingChar.name,
+          logo: endingChar.logo,
           certificates: 0,
           supporter: true,
-          realmId: 0
+          realmId: endingChar.realmId ?? 0
         },
         receiver: {
           id: companyId,

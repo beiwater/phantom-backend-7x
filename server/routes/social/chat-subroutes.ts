@@ -1,7 +1,7 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { readJsonBody, sendJson } from "../utils.ts";
 import { socialRepository } from "../../repositories/social-repository.ts";
-import { companyRepository } from "../../repositories/company-repository.ts";
+import { companyRepository, PA_COMPANY_ID, getPaCompanyEntity } from "../../repositories/company-repository.ts";
 import { getCompanyById } from "../../game/company.ts";
 import { checkRateLimit } from "../../security/rate-limiter.ts";
 import { virtualClock } from "../../core/virtual-clock.ts";
@@ -305,27 +305,26 @@ export async function handleChatSubroutes(
 
     const contactsList: unknown[] = [];
     if (currentCompanyId) {
-      const paRecent = recentContacts.find(r => r.peerCompanyId === 0);
+      const paRecent = recentContacts.find(r => r.peerCompanyId === 0 || r.peerCompanyId === PA_COMPANY_ID);
+      const comp = getCompanyById(currentCompanyId);
       contactsList.push({
-        companyId: 0,
         company: "Your Personal Assistant",
         logo: "/static/images/personal-assistant/old.png",
         certificates: 0,
-        contest_wins: 0,
-        unread: 1,
-        realm: 0,
+        companyId: PA_COMPANY_ID,
+        lastMessageId: paRecent?.lastMessageId ?? 1,
         chatBlocked: false,
-        deleted: false,
+        unread: 0,
         pinned: false,
-        support: false,
-        locked: false,
+        realm: comp?.realm_id ?? 0,
+        supporter: false,
         privateNote: "",
-        lastMessageId: paRecent?.lastMessageId ?? 1
+        online: "n/a"
       });
     }
 
     for (const r of recentContacts) {
-      if (r.peerCompanyId === 0) continue;
+      if (r.peerCompanyId === 0 || r.peerCompanyId === PA_COMPANY_ID) continue;
       const c = companyRepository.findById(r.peerCompanyId);
       if (c) {
         contactsList.push({
@@ -335,13 +334,12 @@ export async function handleChatSubroutes(
           certificates: 0,
           contest_wins: 0,
           unread: 0,
+          pinned: false,
           realm: c.realmId ?? 0,
           chatBlocked: false,
-          deleted: false,
-          pinned: false,
-          support: false,
-          locked: false,
+          supporter: false,
           privateNote: "",
+          online: "offline",
           lastMessageId: r.lastMessageId
         });
       }
@@ -361,6 +359,38 @@ export async function handleChatSubroutes(
       companiesChatBlockingUs: []
     });
     return true;
+  }
+
+  // 1b. Contact detail mutation / deletion: /api/v2/contacts/:id/
+  const contactDetailMatch = pathname.match(/^\/api\/v2\/contacts\/(\d+)\/?$/);
+  if (contactDetailMatch) {
+    const targetCompanyId = Number(contactDetailMatch[1]);
+    if (method === "PATCH") {
+      const body = await readJsonBody<{ pinned?: boolean }>(req);
+      const isPinned = Boolean(body?.pinned);
+      const targetComp = companyRepository.findById(targetCompanyId);
+      sendJson(res, {
+        companyId: targetCompanyId,
+        company: targetComp?.name || "Company",
+        logo: targetComp?.logo || "",
+        certificates: 0,
+        contest_wins: 0,
+        unread: 0,
+        realm: targetComp?.realmId ?? 0,
+        chatBlocked: false,
+        deleted: false,
+        pinned: isPinned,
+        support: false,
+        locked: false,
+        privateNote: "",
+        lastMessageId: 1
+      });
+      return true;
+    }
+    if (method === "DELETE") {
+      sendJson(res, { status: "ok", success: true });
+      return true;
+    }
   }
 
   // 2. Error Announcements: /api/v2/error-announcement/
@@ -482,8 +512,15 @@ export async function handleChatSubroutes(
       recipientId = Number(body.recipient);
     }
 
-    // In-Game Command Interception (Minecraft-style commands via PA dialog / chat)
-    if (text.startsWith('/')) {
+    const isPaTarget =
+      recipientId === 0 ||
+      recipientId === PA_COMPANY_ID ||
+      body?.company === "Your Personal Assistant" ||
+      body?.company === "个人助理" ||
+      (body?.company && String(body.company).toLowerCase().includes("personal assistant"));
+
+    // In-Game Command Interception (Minecraft-style commands via PA dialog / chat) or PA messages
+    if (isPaTarget || text.startsWith('/')) {
       const cmdResult = await executeCommand(text, {
         executorCompanyId: comp.company_id,
         isOp: false, // executeCommand will check DB setting 'is_admin_op'
@@ -492,16 +529,16 @@ export async function handleChatSubroutes(
       });
 
       // Persist command into message history with PA
-      socialRepository.insertDirectMessage(comp.company_id, 0, text, now);
+      socialRepository.insertDirectMessage(comp.company_id, PA_COMPANY_ID, text, now);
 
       // Persist assistant reply
       const replyText = cmdResult.assistantReply || cmdResult.message;
-      const replyMessageId = socialRepository.insertDirectMessage(0, comp.company_id, replyText, now);
+      const replyMessageId = socialRepository.insertDirectMessage(PA_COMPANY_ID, comp.company_id, replyText, now);
 
       const replyFormatted = {
         id: replyMessageId,
         sender: {
-          id: 0,
+          id: PA_COMPANY_ID,
           company: "Your Personal Assistant",
           logo: "/static/images/personal-assistant/old.png",
           certificates: 0,
@@ -605,7 +642,7 @@ export async function handleChatSubroutes(
     if (!targetComp && companyName) {
       targetComp = companyRepository.findByName(companyName);
     }
-    const isPa = companyId === 0 ||
+    const isPa = companyId === 0 || companyId === PA_COMPANY_ID ||
       companyName === "个人助理" ||
       companyName === "Your Personal Assistant" ||
       companyName.toLowerCase() === "your personal assistant" ||
@@ -613,23 +650,7 @@ export async function handleChatSubroutes(
       companyName.toLowerCase() === "pa";
 
     if (!targetComp && isPa) {
-      targetComp = {
-        id: 0,
-        companyId: 0,
-        playerId: 0,
-        name: "Your Personal Assistant",
-        money: 0,
-        simboosts: 0,
-        level: 1,
-        rating: 0,
-        experience: 0,
-        extraBuildingSlots: 0,
-        realmId: 0,
-        logo: "/static/images/personal-assistant/old.png",
-        personalAssistant: "old",
-        note: "",
-        createdAt: ""
-      };
+      targetComp = getPaCompanyEntity();
     }
 
     if (!targetComp) {
@@ -678,7 +699,8 @@ export async function handleChatSubroutes(
         body: r.message,
         text: r.message,
         datetime: r.created_at,
-        pinned: false
+        pinned: false,
+        isHtml: Boolean(r.message && (r.message.includes('<') || r.message.includes('pa-reply')))
       }));
       if (rows.length > 0) {
         lastMessageId = rows[rows.length - 1].id;
@@ -700,7 +722,7 @@ export async function handleChatSubroutes(
         realm: targetComp.realmId ?? 0,
         supporter: false,
         privateNote,
-        online: "offline"
+        online: targetComp.companyId === PA_COMPANY_ID ? "n/a" : "offline"
       }
     });
     return true;

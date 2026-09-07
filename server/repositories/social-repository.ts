@@ -1,5 +1,6 @@
 import { db } from '../db/database.ts';
 import { virtualClock } from '../core/virtual-clock.ts';
+import { PA_COMPANY_ID } from './company-repository.ts';
 
 // Repository for the wave-2 social surfaces. Application modules under
 // application/social/ orchestrate through these methods only.
@@ -353,6 +354,28 @@ export class SocialRepository {
   // --- Direct messages (private chat between companies) ---------------------
 
   listDirectMessages(companyA: number, companyB: number, lastId?: number, limit: number = 30): DirectMessageRow[] {
+    const isB_PA = companyB === 0 || companyB === PA_COMPANY_ID;
+    const isA_PA = companyA === 0 || companyA === PA_COMPANY_ID;
+    if (isB_PA && !isA_PA) {
+      if (typeof lastId === 'number' && Number.isFinite(lastId) && lastId > 0) {
+        return this.database.prepare(`
+          SELECT * FROM direct_messages
+          WHERE ((sender_company_id = ? AND recipient_company_id IN (0, ?))
+              OR (sender_company_id IN (0, ?) AND recipient_company_id = ?))
+            AND id > ?
+          ORDER BY id ASC
+          LIMIT ?
+        `).all(companyA, PA_COMPANY_ID, PA_COMPANY_ID, companyA, lastId, limit) as DirectMessageRow[];
+      }
+      return this.database.prepare(`
+        SELECT * FROM direct_messages
+        WHERE (sender_company_id = ? AND recipient_company_id IN (0, ?))
+           OR (sender_company_id IN (0, ?) AND recipient_company_id = ?)
+        ORDER BY id ASC
+        LIMIT ?
+      `).all(companyA, PA_COMPANY_ID, PA_COMPANY_ID, companyA, limit) as DirectMessageRow[];
+    }
+
     if (typeof lastId === 'number' && Number.isFinite(lastId) && lastId > 0) {
       return this.database.prepare(`
         SELECT * FROM direct_messages
@@ -383,14 +406,17 @@ export class SocialRepository {
   listRecentDirectMessageContacts(companyId: number): Array<{ peerCompanyId: number; lastMessageId: number; lastTime: string }> {
     return this.database.prepare(`
       SELECT
-        CASE WHEN sender_company_id = ? THEN recipient_company_id ELSE sender_company_id END AS peerCompanyId,
+        CASE
+          WHEN sender_company_id = ? THEN (CASE WHEN recipient_company_id IN (0, ?) THEN ? ELSE recipient_company_id END)
+          ELSE (CASE WHEN sender_company_id IN (0, ?) THEN ? ELSE sender_company_id END)
+        END AS peerCompanyId,
         MAX(id) AS lastMessageId,
         MAX(created_at) AS lastTime
       FROM direct_messages
       WHERE sender_company_id = ? OR recipient_company_id = ?
       GROUP BY peerCompanyId
       ORDER BY lastMessageId DESC
-    `).all(companyId, companyId, companyId) as Array<{ peerCompanyId: number; lastMessageId: number; lastTime: string }>;
+    `).all(companyId, PA_COMPANY_ID, PA_COMPANY_ID, PA_COMPANY_ID, PA_COMPANY_ID, companyId, companyId) as Array<{ peerCompanyId: number; lastMessageId: number; lastTime: string }>;
   }
 
   listCompanyRealms(): CompanyRealmRow[] {

@@ -31,6 +31,31 @@ export interface CompanyEntity {
   createdAt: string;
 }
 
+export const PA_COMPANY_ID = 99900;
+
+export function getPaCompanyEntity(): CompanyEntity {
+  return {
+    id: PA_COMPANY_ID,
+    companyId: PA_COMPANY_ID,
+    playerId: 0,
+    name: 'Your Personal Assistant',
+    money: 0,
+    simboosts: 0,
+    level: 1,
+    rating: 'AAA',
+    experience: 0,
+    realmId: 0,
+    logo: '/static/images/personal-assistant/old.png',
+    personalAssistant: 'old',
+    note: 'Your Personal Assistant',
+    extraBuildingSlots: 0,
+    extraExecutiveSlots: 0,
+    displayCaseSlots: 0,
+    maxTags: 0,
+    createdAt: ''
+  };
+}
+
 export interface CompanyDbRow {
   id: number;
   company_id: number;
@@ -101,6 +126,9 @@ export class CompanyRepository {
     ).get(companyId) as CompanyDbRow | undefined;
 
     if (row) return mapCompanyRow(row);
+    if (companyId === PA_COMPANY_ID || companyId === 0) {
+      return getPaCompanyEntity();
+    }
 
     const char = storyLoader.getStoryCharacter(companyId);
     if (char) {
@@ -164,7 +192,19 @@ export class CompanyRepository {
       'SELECT * FROM companies WHERE name = ? COLLATE NOCASE ORDER BY id ASC LIMIT 1'
     ).get(name) as CompanyDbRow | undefined;
 
-    return row ? mapCompanyRow(row) : null;
+    if (row) return mapCompanyRow(row);
+
+    const lower = name.trim().toLowerCase();
+    if (
+      lower === 'your personal assistant' ||
+      lower === 'personal assistant' ||
+      lower === '个人助理' ||
+      lower === 'pa'
+    ) {
+      return getPaCompanyEntity();
+    }
+
+    return null;
   }
 
   /**

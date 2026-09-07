@@ -1,6 +1,6 @@
 import { db } from '../db/database.ts';
 import { socialRepository } from '../repositories/social-repository.ts';
-import { companyRepository } from '../repositories/company-repository.ts';
+import { companyRepository, PA_COMPANY_ID } from '../repositories/company-repository.ts';
 import { virtualClock } from '../core/virtual-clock.ts';
 import { broadcastAll, broadcastToCompany } from '../ws/websocket.ts';
 import { logger } from '../core/logger.ts';
@@ -19,10 +19,10 @@ export function hasPersonalAssistant(companyId: number): boolean {
   try {
     const row = db.prepare(`
       SELECT 1 FROM direct_messages
-      WHERE (sender_company_id = 0 AND recipient_company_id = ?)
-         OR (sender_company_id = ? AND recipient_company_id = 0)
+      WHERE (sender_company_id IN (0, ?) AND recipient_company_id = ?)
+         OR (sender_company_id = ? AND recipient_company_id IN (0, ?))
       LIMIT 1
-    `).get(companyId, companyId);
+    `).get(PA_COMPANY_ID, companyId, companyId, PA_COMPANY_ID);
     return !!row;
   } catch {
     return false;
@@ -61,7 +61,7 @@ export function sendPersonalAssistantInvite(companyId: number, options?: { force
 
   try {
     // 1. Persist direct message from PA (id 0) to company
-    const messageId = socialRepository.insertDirectMessage(0, companyId, inviteHtml, now);
+    const messageId = socialRepository.insertDirectMessage(PA_COMPANY_ID, companyId, inviteHtml, now);
 
     // 2. Ensure company has personal_assistant attribute set
     if (!comp?.personalAssistant) {
@@ -77,8 +77,8 @@ export function sendPersonalAssistantInvite(companyId: number, options?: { force
     const formatted = {
       id: messageId,
       sender: {
-        id: 0,
-        company: '个人助理',
+        id: PA_COMPANY_ID,
+        company: 'Your Personal Assistant',
         logo: '/static/images/personal-assistant/old.png',
         certificates: 0,
         supporter: true,
@@ -135,12 +135,12 @@ export function autoDetectAndInviteMissingPa(targetCompanyId?: number): PaInvite
     SELECT company_id, name FROM companies
     WHERE company_id > 0
       AND company_id NOT IN (
-        SELECT DISTINCT recipient_company_id FROM direct_messages WHERE sender_company_id = 0
+        SELECT DISTINCT recipient_company_id FROM direct_messages WHERE sender_company_id IN (0, ?)
       )
       AND company_id NOT IN (
-        SELECT DISTINCT sender_company_id FROM direct_messages WHERE recipient_company_id = 0
+        SELECT DISTINCT sender_company_id FROM direct_messages WHERE recipient_company_id IN (0, ?)
       )
-  `).all() as Array<{ company_id: number; name: string }>;
+  `).all(PA_COMPANY_ID, PA_COMPANY_ID) as Array<{ company_id: number; name: string }>;
 
   const invitedCompanyIds: number[] = [];
   for (const row of rows) {

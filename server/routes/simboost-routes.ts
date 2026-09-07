@@ -393,15 +393,29 @@ export async function handleSimboostRoutes(
   // 5f. Personal Assistant actions & Story choices: POST /api/v2/pa-action/:id/:action/
   // Supports official fair exchange (/api/v2/pa-action/fair/:offer/) as well as
   // interactive story roleplay choices (/api/v2/pa-action/:storyId/:choiceIndex/).
-  const paActionMatch = pathname.match(/^\/api\/v2\/pa-action\/([a-zA-Z0-9_-]+)\/([a-zA-Z0-9_-]+)\/$/);
-  if (paActionMatch && method === 'POST') {
-    if (!currentCompanyId) {
-      sendJson(res, { error: 'Unauthorized' }, 401);
-      return true;
-    }
+  const paActionMatch = pathname.match(/^(?:\/api\/v2)?\/pa-action\/([a-zA-Z0-9_-]+)\/([a-zA-Z0-9_-]+)\/?$/);
+  if (paActionMatch) {
     const targetId = paActionMatch[1];
     const targetAction = paActionMatch[2];
 
+    if (method === 'GET') {
+      if (currentCompanyId) {
+        const story = storyLoader.getStory(targetId);
+        if (story) {
+          const choiceIdx = parseInt(targetAction, 10);
+          await storyEngine.advanceStoryChoice(currentCompanyId, targetId, choiceIdx);
+        }
+      }
+      res.writeHead(302, { Location: '/zh-cn/messages/' });
+      res.end();
+      return true;
+    }
+
+    if (method === 'POST') {
+      if (!currentCompanyId) {
+        sendJson(res, { error: 'Unauthorized' }, 401);
+        return true;
+      }
     if (targetId === 'fair') {
       try {
         const result = await exchangeCashForSimboosts(currentCompanyId, 10000);
@@ -466,6 +480,7 @@ export async function handleSimboostRoutes(
     // Default fallback for any other pa-action
     sendJson(res, { done: true });
     return true;
+    }
   }
 
   // 7. SimBoosts Exchange: /api/v2/simboosts/exchange/ or /api/v2/companies/me/simboosts/exchange/ or /api/v2/exchange/
