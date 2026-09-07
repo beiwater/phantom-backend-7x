@@ -101,6 +101,16 @@ export class VirtualClock {
     };
   }
 
+  private overdueResolver?: OverdueResolver;
+
+  /**
+   * Register a custom or default overdue resolution engine.
+   * Keeps core/virtual-clock independent from higher-layer business domains.
+   */
+  setOverdueResolver(resolver: OverdueResolver): void {
+    this.overdueResolver = resolver;
+  }
+
   /**
    * Fast-forwards and resolves all overdue time-gated activities up to the virtual now:
    * 1. Building construction / upgrade completion (busy_until <= now)
@@ -108,99 +118,33 @@ export class VirtualClock {
    * 3. Retail order completion
    * 4. Restaurant operational runs
    * 5. Building auctions closing
+   *
+   * Delegates to the registered resolver (e.g. overdue-resolution-service.ts).
    */
-  async resolveAllOverdue(): Promise<{
-    completedConstructions: number;
-    completedProductions: number;
-    completedRetailOrders: number;
-    resolvedRestaurants: number;
-    settledAuctions: number;
-    restockedNpcMarket: boolean;
-  }> {
-    const { db } = await import('../db/database.ts');
-    const { settleDueAuctions } = await import('../game/building-auctions.ts');
-    const { resolveDueRestaurantRunsSync } = await import('../game/restaurant.ts');
-    const nowTimestamp = this.nowMs();
-    const nowString = this.nowIso();
-
-    let completedConstructions = 0;
-    let completedProductions = 0;
-    let completedRetailOrders = 0;
-    let resolvedRestaurants = 0;
-    let settledAuctions = 0;
-
-    // 1. Resolve building constructions / upgrades
-    try {
-      const res = db.prepare(
-        "UPDATE buildings SET busy_until = NULL WHERE busy_until IS NOT NULL AND busy_until <= ?"
-      ).run(nowString);
-      completedConstructions = Number(res.changes) || 0;
-    } catch {
-      // ignore
+  async resolveAllOverdue(): Promise<OverdueResolutionResult> {
+    if (this.overdueResolver) {
+      return this.overdueResolver(this);
     }
-
-    // 2. Resolve production queues (ensure finishes_at <= now are available to collect)
-    try {
-      const prodRows = db.prepare(
-        "SELECT COUNT(*) as cnt FROM production_queues WHERE finishes_at <= ?"
-      ).get(nowString) as { cnt: number } | undefined;
-      completedProductions = Number(prodRows?.cnt) || 0;
-    } catch {
-      // ignore
-    }
-
-    // Retail orders stay persisted until collection, while revenue is credited
-    // when the sale starts. A due finished_at is therefore the completion
-    // marker; revenue_credited is not an in-progress status.
-    try {
-      const retailRows = db.prepare(
-        "SELECT COUNT(*) as cnt FROM retail_orders WHERE finished_at <= ?"
-      ).get(nowString) as { cnt: number } | undefined;
-      completedRetailOrders = Number(retailRows?.cnt) || 0;
-    } catch {
-      // ignore
-    }
-
-    // 4. Resolve due restaurant runs
-    try {
-      const dueRestaurants = db.prepare(
-        "SELECT building_id, company_id FROM restaurant_runs WHERE resolved = 0 AND cycle_end <= ?"
-      ).all(nowString) as Array<{ building_id: number; company_id: number }>;
-
-      for (const r of dueRestaurants) {
-        resolveDueRestaurantRunsSync(r.building_id, r.company_id);
-        resolvedRestaurants++;
-      }
-    } catch {
-      // ignore
-    }
-
-    // 5. Settle due building auctions
-    try {
-      const settlements = await settleDueAuctions(nowTimestamp);
-      settledAuctions = settlements.length;
-    } catch {
-      // ignore
-    }
-
-    // 6. Resolve due NPC market restocking
-    let restockedNpcMarket = false;
-    try {
-      const { NpcMarketService } = await import('../services/npc-market-service.ts');
-      restockedNpcMarket = await NpcMarketService.checkAndRestockIfNeeded();
-    } catch {
-      // ignore
-    }
-
     return {
-      completedConstructions,
-      completedProductions,
-      completedRetailOrders,
-      resolvedRestaurants,
-      settledAuctions,
-      restockedNpcMarket
+      completedConstructions: 0,
+      completedProductions: 0,
+      completedRetailOrders: 0,
+      resolvedRestaurants: 0,
+      settledAuctions: 0,
+      restockedNpcMarket: false
     };
   }
 }
+
+export type OverdueResolutionResult = {
+  completedConstructions: number;
+  completedProductions: number;
+  completedRetailOrders: number;
+  resolvedRestaurants: number;
+  settledAuctions: number;
+  restockedNpcMarket: boolean;
+};
+
+export type OverdueResolver = (clock: VirtualClock) => Promise<OverdueResolutionResult>;
 
 export const virtualClock = VirtualClock.getInstance();

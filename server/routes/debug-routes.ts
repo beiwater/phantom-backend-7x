@@ -10,6 +10,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { readJsonBody, sendJson, setPreparsedBody } from './utils.ts';
 import { virtualClock } from '../core/virtual-clock.ts';
+import '../services/overdue-resolution-service.ts';
 import { FixtureService, type ScenarioInput } from '../services/fixture-service.ts';
 import { buildSessionCookie } from '../auth/session.ts';
 import { RouteRegistry, globalRouteRegistry, type HttpMethod } from '../http/route-registry.ts';

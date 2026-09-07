@@ -10,6 +10,7 @@ import { startScheduler, stopScheduler } from './scheduler/timetable.ts';
 import { wireGameNotifications } from './application/notifications.ts';
 import { startNpcMarketRestocker, stopNpcMarketRestocker } from './services/npc-market-service.ts';
 import { db } from './db/database.ts';
+import './services/overdue-resolution-service.ts';
 import './scheduler/scheduler-routes.ts';
 
 // Validate environment & configuration on startup (Issue #147 / #149)
