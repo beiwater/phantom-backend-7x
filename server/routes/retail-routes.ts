@@ -9,7 +9,7 @@ import { readJsonBody, sendJson, setPreparsedBody } from './utils.ts';
 import { createGameContext } from '../context/game-context.ts';
 import { buildingRepository } from '../repositories/building-repository.ts';
 import { companyRepository } from '../repositories/company-repository.ts';
-import { retailRepository } from '../repositories/retail-repository.ts';
+import { retailRepository, type RetailOrderEntity } from '../repositories/retail-repository.ts';
 import {
   formatRetailOrder,
   formatSalesOfficeOrder,
@@ -20,6 +20,55 @@ import {
   findSalesOfficeCustomerUseCase
 } from '../application/retail/retail-use-cases.ts';
 import { RouteRegistry, globalRouteRegistry, type HttpMethod } from '../http/route-registry.ts';
+
+function findAuthorizedRetailOrder(
+  res: ServerResponse,
+  orderId: number,
+  currentCompanyId: number,
+  buildingId?: number
+): RetailOrderEntity | null {
+  const order = retailRepository.findById(orderId);
+  if (!order) {
+    sendJson(res, { error: 'Order not found' }, 404);
+    return null;
+  }
+  if (order.companyId !== currentCompanyId || (buildingId !== undefined && order.buildingId !== buildingId)) {
+    sendJson(res, { error: 'Unauthorized' }, 401);
+    return null;
+  }
+  return order;
+}
+
+async function handleRetailOrderMutation(
+  req: IncomingMessage,
+  res: ServerResponse,
+  method: string,
+  currentCompanyId: number,
+  companyRealmId: number,
+  orderId: number
+): Promise<boolean> {
+  const ctx = createGameContext(currentCompanyId, currentCompanyId, companyRealmId);
+  try {
+    if (method === 'PUT') {
+      const body = req.headers['content-type']?.includes('application/json')
+        ? await readJsonBody<Record<string, unknown>>(req).catch(() => ({}))
+        : {};
+      const result = await collectRetailOrderUseCase(ctx, orderId, {
+        lowestQualityFirst: typeof body?.lowestQualityFirst === 'boolean' ? body.lowestQualityFirst : undefined,
+        highestQualityFirst: typeof body?.highestQualityFirst === 'boolean' ? body.highestQualityFirst : undefined
+      });
+      sendJson(res, result);
+    } else {
+      await cancelRetailOrderUseCase(ctx, orderId);
+      sendJson(res, { success: true });
+    }
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    const status = msg.includes('not found') || msg.includes('no longer available') ? 404 : 400;
+    sendJson(res, { error: msg }, status);
+  }
+  return true;
+}
 
 export async function handleRetailRoutes(
   req: IncomingMessage,
@@ -43,25 +92,19 @@ export async function handleRetailRoutes(
     }
 
     const companyRealmId = companyRepository.findById(currentCompanyId)?.realmId ?? 0;
-
-    if (buildingId !== undefined) {
-      if (!scopedBuilding || scopedBuilding.companyId !== currentCompanyId) {
-        sendJson(res, { error: 'Unauthorized' }, 401);
-        return true;
-      }
+    if (scopedBuilding && scopedBuilding.companyId !== currentCompanyId) {
+      sendJson(res, { error: 'Unauthorized' }, 401);
+      return true;
+    }
+    if (buildingId !== undefined && !scopedBuilding) {
+      sendJson(res, { error: 'Building not found' }, 404);
+      return true;
     }
 
     if (method === 'GET') {
       if (orderId !== undefined) {
-        const order = retailRepository.findById(orderId);
-        if (!order) {
-          sendJson(res, { error: 'Order not found' }, 404);
-          return true;
-        }
-        if (order.companyId !== currentCompanyId || (buildingId !== undefined && order.buildingId !== buildingId)) {
-          sendJson(res, { error: 'Unauthorized' }, 401);
-          return true;
-        }
+        const order = findAuthorizedRetailOrder(res, orderId, currentCompanyId, buildingId);
+        if (!order) return true;
         sendJson(res, scopedBuilding?.kind === 'B'
           ? formatSalesOfficeOrder(order, getSalesOfficeSearchFee(scopedBuilding.size))
           : formatRetailOrder(order));
@@ -123,37 +166,9 @@ export async function handleRetailRoutes(
     }
 
     if ((method === 'PUT' || method === 'DELETE') && orderId !== undefined) {
-      const order = retailRepository.findById(orderId);
-      if (!order) {
-        sendJson(res, { error: 'Order not found' }, 404);
-        return true;
-      }
-      if (order.companyId !== currentCompanyId || (buildingId !== undefined && order.buildingId !== buildingId)) {
-        sendJson(res, { error: 'Unauthorized' }, 401);
-        return true;
-      }
-
-      const ctx = createGameContext(currentCompanyId, currentCompanyId, companyRealmId);
-      try {
-        if (method === 'PUT') {
-          const body = req.headers['content-type']?.includes('application/json')
-            ? await readJsonBody<Record<string, unknown>>(req).catch(() => ({}))
-            : {};
-          const result = await collectRetailOrderUseCase(ctx, orderId, {
-            lowestQualityFirst: typeof body?.lowestQualityFirst === 'boolean' ? body.lowestQualityFirst : undefined,
-            highestQualityFirst: typeof body?.highestQualityFirst === 'boolean' ? body.highestQualityFirst : undefined
-          });
-          sendJson(res, result);
-        } else {
-          await cancelRetailOrderUseCase(ctx, orderId);
-          sendJson(res, { success: true });
-        }
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        const status = msg.includes('not found') || msg.includes('no longer available') ? 404 : 400;
-        sendJson(res, { error: msg }, status);
-      }
-      return true;
+      const order = findAuthorizedRetailOrder(res, orderId, currentCompanyId, buildingId);
+      if (!order) return true;
+      return handleRetailOrderMutation(req, res, method, currentCompanyId, companyRealmId, orderId);
     }
   }
 
@@ -165,41 +180,14 @@ export async function handleRetailRoutes(
       return true;
     }
     const orderId = Number(singleSalesOrderMatch[1]);
-    const order = retailRepository.findById(orderId);
-    if (!order) {
-      sendJson(res, { error: 'Order not found' }, 404);
-      return true;
-    }
-    if (order.companyId !== currentCompanyId) {
-      sendJson(res, { error: 'Unauthorized' }, 401);
-      return true;
-    }
+    const order = findAuthorizedRetailOrder(res, orderId, currentCompanyId);
+    if (!order) return true;
     if (method === 'GET') {
       sendJson(res, formatRetailOrder(order));
       return true;
     }
     const companyRealmId = companyRepository.findById(currentCompanyId)?.realmId ?? 0;
-    const ctx = createGameContext(currentCompanyId, currentCompanyId, companyRealmId);
-    try {
-      if (method === 'PUT') {
-        const body = req.headers['content-type']?.includes('application/json')
-          ? await readJsonBody<Record<string, unknown>>(req).catch(() => ({}))
-          : {};
-        const result = await collectRetailOrderUseCase(ctx, orderId, {
-          lowestQualityFirst: typeof body?.lowestQualityFirst === 'boolean' ? body.lowestQualityFirst : undefined,
-          highestQualityFirst: typeof body?.highestQualityFirst === 'boolean' ? body.highestQualityFirst : undefined
-        });
-        sendJson(res, result);
-      } else {
-        await cancelRetailOrderUseCase(ctx, orderId);
-        sendJson(res, { success: true });
-      }
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      const status = msg.includes('not found') || msg.includes('no longer available') ? 404 : 400;
-      sendJson(res, { error: msg }, status);
-    }
-    return true;
+    return handleRetailOrderMutation(req, res, method, currentCompanyId, companyRealmId, orderId);
   }
 
   return false;
