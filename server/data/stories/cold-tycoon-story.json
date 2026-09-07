@@ -1,0 +1,226 @@
+{
+  "id": "cold_tycoon_rise",
+  "title": "寒门巨贾：从资不抵债到做空华尔街",
+  "description": "经典爽文逆袭：被昔日兄弟联手做空逼至退市边缘，却不知你早已布下天罗地网，今日反手引爆！",
+  "characters": [
+    {
+      "id": 99911,
+      "name": "极光资本·苏秘书",
+      "logo": "/static/images/personal-assistant/old/portrait.c8f2f2549a1d.png",
+      "role": "忠诚私人秘书"
+    },
+    {
+      "id": 99912,
+      "name": "猎鲨基金·韩子爵",
+      "logo": "/static/images/faces/male_01/1.png",
+      "role": "反派空头做市商"
+    },
+    {
+      "id": 99913,
+      "name": "商业证监局·陈督察",
+      "logo": "/static/images/faces/male_02/1.png",
+      "role": "行业监管执法者"
+    },
+    {
+      "id": 99914,
+      "name": "神秘金主·「007号」",
+      "logo": "/static/images/faces/male_03/1.png",
+      "role": "幕后神秘投资人"
+    }
+  ],
+  "initialStage": "stage_start",
+  "stages": {
+    "stage_start": {
+      "groupMessages": [
+        {
+          "characterId": 99912,
+          "text": "【韩子爵】哈哈，各位老铁，极光科技股价今天又跌停了！这破公司的 CEO 还在负隅顽抗，太好笑了！",
+          "delayMs": 500
+        },
+        {
+          "characterId": 99912,
+          "text": "【韩子爵】我们猎鲨基金已完成三轮做空布局，累计押注 200 亿！极光科技退市倒计时：72 小时！",
+          "delayMs": 1500
+        },
+        {
+          "characterId": 99912,
+          "text": "【韩子爵】@玩家  识相的话，把手里那 35% 控股权按每股 2 毛钱甩给我，还能保你不被清盘追债。你个穷鬼，这已经是最大的恩赐了。",
+          "delayMs": 2500
+        },
+        {
+          "characterId": 99914,
+          "text": "【007号】……沉默是金。（静静围观）",
+          "delayMs": 3200
+        }
+      ],
+      "privateMessage": {
+        "characterId": 99911,
+        "title": "【加密专线】苏秘书紧急来电",
+        "text": "总裁！韩子爵以为您穷途末路，殊不知我们三年前已悄悄通过离岸壳公司反向建仓——目前持有猎鲨基金 18% 的股权，并囤积了足以触发逼空的筹码！另外，007号神秘买家已就位，随时可配合行动。您打算如何出招？"
+      },
+      "choices": [
+        {
+          "text": "【王炸逼空】立刻公告：极光资本已控股猎鲨基金！同步拉爆空单，让韩子爵的 200 亿做空仓位原地爆炸！",
+          "nextStage": "stage_short_squeeze",
+          "reward": {
+            "money": 1200000,
+            "simboosts": 120,
+            "resources": [
+              {
+                "resourceId": 40,
+                "amount": 800
+              }
+            ]
+          }
+        },
+        {
+          "text": "【监管核弹】悄悄把韩子爵造假报告、内幕交易证据打包，匿名快递给陈督察，坐等他被抓现行！",
+          "nextStage": "stage_regulator_bomb",
+          "reward": {
+            "money": 500000,
+            "simboosts": 60,
+            "resources": [
+              {
+                "resourceId": 22,
+                "amount": 300
+              }
+            ]
+          }
+        },
+        {
+          "text": "【神秘买家联动】联络007号，假装要卖股权给他，引韩子爵放松警惕，然后在交割日当天宣布两家合并对赌协议，直接把韩子爵的做空资金锁死！",
+          "nextStage": "stage_007_merger",
+          "reward": {
+            "money": 800000,
+            "simboosts": 80
+          }
+        }
+      ]
+    },
+    "stage_short_squeeze": {
+      "groupMessages": [
+        {
+          "characterId": 99911,
+          "text": "【苏秘书】极光资本正式公告：本公司已通过二级市场及协议转让，合计持有猎鲨基金 51.3% 股权。韩总，您好，请叫我大股东。",
+          "delayMs": 800
+        },
+        {
+          "characterId": 99912,
+          "text": "【韩子爵】什……什么？！不可能！我的做空仓位！保证金！追加保证金啊！！！",
+          "delayMs": 1800
+        },
+        {
+          "characterId": 99912,
+          "text": "【韩子爵】系统强制平仓了！！200 亿没了！我的腿……我的腿软了……",
+          "delayMs": 2600
+        },
+        {
+          "characterId": 99914,
+          "text": "【007号】……（默默截图，发朋友圈：「今天见证了历史」）",
+          "delayMs": 3400
+        },
+        {
+          "characterId": 99913,
+          "text": "【陈督察】猎鲨基金因操纵市场、非法做空，现已立案调查。韩子爵本人限制出境。极光科技股价今日涨停 20 个板！",
+          "delayMs": 4200
+        }
+      ],
+      "ending": {
+        "id": "ending_squeeze_god",
+        "title": "结局一：逼空之神，反手收割 200 亿",
+        "evaluation": "SSS 级资本猎手！以其人之道还治其人之身，把做空自己的人做空到爆仓破产，此乃商界最爽快的王炸反杀！",
+        "finalBonus": {
+          "money": 800000,
+          "simboosts": 50
+        }
+      }
+    },
+    "stage_regulator_bomb": {
+      "groupMessages": [
+        {
+          "characterId": 99913,
+          "text": "【陈督察】紧急公告！商业证监局今日对猎鲨基金展开突击稽查——举报材料显示其存在大规模财务造假与内幕交易行为，证据链完整，人赃并获！",
+          "delayMs": 800
+        },
+        {
+          "characterId": 99912,
+          "text": "【韩子爵】陈督察？！怎么可能！那份内部报告是绝密的，到底是谁泄露的！",
+          "delayMs": 1800
+        },
+        {
+          "characterId": 99911,
+          "text": "【苏秘书】韩总，举报人匿名，无可奉告。顺带一提，极光科技刚刚完成 B 轮融资，估值翻了三倍，谢谢您的做空配合我们完美吸筹。",
+          "delayMs": 2800
+        },
+        {
+          "characterId": 99912,
+          "text": "【韩子爵】……我被一个穷鬼耍了三年……我呸！【已被系统禁言】",
+          "delayMs": 3600
+        },
+        {
+          "characterId": 99914,
+          "text": "【007号】高，实在是高。老弟，下次有这种局记得带我。",
+          "delayMs": 4400
+        }
+      ],
+      "ending": {
+        "id": "ending_shadow_regulator",
+        "title": "结局二：幕后黑手，借刀斩首",
+        "evaluation": "A+ 级暗棋大师！不动声色递刀给监管层，把嚣张的空头直接送进调查局，兵不血刃是最高境界！",
+        "finalBonus": {
+          "money": 300000,
+          "simboosts": 30
+        }
+      }
+    },
+    "stage_007_merger": {
+      "groupMessages": [
+        {
+          "characterId": 99914,
+          "text": "【007号】各位好，我是神秘买家007。今日与极光科技正式签署战略合并协议，合并后市值预估突破 2000 亿。",
+          "delayMs": 800
+        },
+        {
+          "characterId": 99912,
+          "text": "【韩子爵】哈哈哈！极光科技要卖身了！等我吃肉……等……等等？合并？市值 2000 亿？！我的空单！！",
+          "delayMs": 1800
+        },
+        {
+          "characterId": 99911,
+          "text": "【苏秘书】对了韩总，合并协议里有一条对赌锁仓条款——今日起，极光科技全部流通筹码冻结 180 天。您的空单……回补不了了哦。",
+          "delayMs": 2800
+        },
+        {
+          "characterId": 99912,
+          "text": "【韩子爵】我……我被锁死了？！180 天！！！我的 200 亿保证金要全部蒸发了啊啊啊啊！！！",
+          "delayMs": 3600
+        },
+        {
+          "characterId": 99914,
+          "text": "【007号】韩总，其实我就是总裁的离岸基金马甲号。谢谢你这三年为我们的计划做了完美的配合演出。",
+          "delayMs": 4400
+        },
+        {
+          "characterId": 99913,
+          "text": "【陈督察】猎鲨基金因资金链断裂，申请破产清算。韩子爵本人因挪用客户资产被捕。极光系今日正式跻身全球五百强。",
+          "delayMs": 5200
+        }
+      ],
+      "ending": {
+        "id": "ending_chess_master",
+        "title": "结局三：三年布局，马甲套马甲，神仙操盘",
+        "evaluation": "S+ 级深渊棋手！连神秘买家都是你的马甲，韩子爵做梦都没想到自己从头到尾只是个道具，商业史上最工整的局中局！",
+        "finalBonus": {
+          "money": 600000,
+          "simboosts": 80,
+          "resources": [
+            {
+              "resourceId": 40,
+              "amount": 500
+            }
+          ]
+        }
+      }
+    }
+  }
+}
