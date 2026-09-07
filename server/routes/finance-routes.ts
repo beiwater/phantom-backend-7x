@@ -60,6 +60,7 @@ function buildBalanceSheet(companyId: number): BalanceSheetResponse {
   const inventory = round2(financeRepository.inventoryValue(companyId));
   const buildings = round2(financeRepository.buildingsValue(companyId));
   const bondsHeld = round2(financeRepository.bondsHeldValue(companyId));
+  const patents = round2(financeRepository.patentsValue(companyId));
   const liabilities = round2(financeRepository.loansOutstanding(companyId));
   const adjustments = financeRepository.balanceAdjustments(companyId, nowIso);
   // Tentative compatibility baseline: companies have no contributed-capital
@@ -75,6 +76,7 @@ function buildBalanceSheet(companyId: number): BalanceSheetResponse {
       + inventory
       + bondsHeld
       + buildings
+      + patents
       - liabilities
       - contributedCapital
   );
@@ -94,7 +96,7 @@ function buildBalanceSheet(companyId: number): BalanceSheetResponse {
     bonds: bondsHeld,
     buildings,
     constructionInProgress: 0,
-    patents: 0,
+    patents,
     bondsPayable: liabilities,
     liabilities,
     contributedCapital,

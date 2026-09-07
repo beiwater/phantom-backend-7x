@@ -254,6 +254,43 @@ export const executiveRepository = {
     `).run(gain, gain, gain, gain, executiveId, companyId).changes;
   },
 
+  getNextExecutiveSeq(): number {
+    return (db.prepare("SELECT seq FROM sqlite_sequence WHERE name = 'executives'").get() as { seq?: number } | undefined)?.seq || 0;
+  },
+
+  createGeneratedCandidate(params: {
+    companyId: number;
+    name: string;
+    avatar: string;
+    position: string;
+    baseSkill: number;
+    salary: number;
+    status: string;
+    nowIso: string;
+  }): ExecutiveRow {
+    const inserted = db.prepare(`
+      INSERT INTO executives (
+        company_id, name, avatar, position,
+        skill_management, skill_accounting, skill_science, skill_communication,
+        salary, status, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      params.companyId,
+      params.name,
+      params.avatar,
+      params.position,
+      params.baseSkill,
+      params.baseSkill,
+      params.baseSkill,
+      params.baseSkill,
+      params.salary,
+      params.status,
+      params.nowIso
+    );
+    const candidateId = Number(inserted.lastInsertRowid);
+    return db.prepare('SELECT * FROM executives WHERE id = ?').get(candidateId) as unknown as ExecutiveRow;
+  },
+
   /** Hostile-offer accept: transfer the executive and employment history. */
   transferToCompany(
     executiveId: number,
@@ -325,14 +362,16 @@ export const executiveRepository = {
     `).all(companyId) as unknown as ExecutiveFormerRow[];
   },
 
-  getEmployerSummary(companyId: number): ExecutiveEmployer | null {
+  getEmployerSummary(companyId: number | null | undefined): ExecutiveEmployer | null {
+    if (!companyId || Number.isNaN(Number(companyId))) return null;
+    const cid = Number(companyId);
     const row = db.prepare(`
       SELECT COALESCE(company_id, id) AS id, name AS company, logo, realm_id AS realmId
       FROM companies
       WHERE company_id = ? OR id = ?
       ORDER BY CASE WHEN company_id = ? THEN 0 ELSE 1 END
       LIMIT 1
-    `).get(companyId, companyId, companyId) as ExecutiveEmployer | undefined;
+    `).get(cid, cid, cid) as ExecutiveEmployer | undefined;
     return row || null;
   },
 

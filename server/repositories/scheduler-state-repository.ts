@@ -143,15 +143,22 @@ export class SchedulerStateRepository {
       ORDER BY id DESC
       LIMIT 1
     `).get(realmId) as { id: number; phase: number; start_at: string } | undefined;
-    if (current && updatedAtIso <= current.start_at) return;
+    if (current && !forceBoundary && Number(current.phase) === state && updatedAtIso <= current.start_at) {
+      return;
+    }
 
     const startsNewInterval = !current || forceBoundary || Number(current.phase) !== state;
+    let effectiveStartAt = updatedAtIso;
+    if (current && startsNewInterval && effectiveStartAt <= current.start_at) {
+      effectiveStartAt = new Date(new Date(current.start_at).getTime() + 1).toISOString();
+    }
+
     this.database.exec('BEGIN IMMEDIATE');
     try {
       if (current && startsNewInterval) {
         this.database.prepare(
           'UPDATE economy_phase_history SET end_at = ? WHERE id = ? AND end_at IS NULL'
-        ).run(updatedAtIso, current.id);
+        ).run(effectiveStartAt, current.id);
       }
       if (startsNewInterval) {
         this.database.prepare(`
@@ -161,12 +168,12 @@ export class SchedulerStateRepository {
         `).run(
           realmId,
           state,
-          updatedAtIso,
+          effectiveStartAt,
           source,
           productionModifier,
           modifierKind,
           modifierSeed,
-          updatedAtIso
+          effectiveStartAt
         );
       }
       this.database.prepare(`

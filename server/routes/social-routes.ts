@@ -8,7 +8,7 @@ import { companyRepository } from '../repositories/company-repository.ts';
 import { getCompanyById } from '../game/company.ts';
 import { checkRateLimit } from '../security/rate-limiter.ts';
 import { virtualClock } from '../core/virtual-clock.ts';
-import { getArticlesBySubstring, getNewspaperIssue, getNewspaperIssues, getTopArticlesByReaction } from '../game/newspaper.ts';
+import { getArticlesBySubstring, getArticlesByAuthor, getNewspaperIssue, getNewspaperIssues, getTopArticlesByReaction } from '../game/newspaper.ts';
 import { NotPurchasableError, listSimboostUse, listUnlockedHqs, listUnlockedPas, selectPa, unlockHq, unlockPa } from '../application/social/unlockables.ts';
 import { getActivePoll, getContestView, getPollById, getPollView, votePoll } from '../application/social/polls.ts';
 import { getActiveChallenge, getChallengeLeaderboard, getCurrentChallengeState, restartAttempt, startAttempt } from '../application/social/challenges.ts';
@@ -61,6 +61,12 @@ export const CHATROOM_PRESETS: Record<string, Array<ChatroomSubscriptionEntry>> 
   en: DEFAULT_CHATROOMS.filter(r => r.language === 'en')
 };
 
+interface SystemAnnouncement {
+  text: string;
+  expiresAt: number;
+}
+let activeAnnouncement: SystemAnnouncement | null = null;
+
 let cachedConfiguredRooms: Array<ChatroomSubscriptionEntry> | null = null;
 
 export function getConfiguredChatrooms(): Array<ChatroomSubscriptionEntry> {
@@ -92,8 +98,7 @@ export function getConfiguredChatrooms(): Array<ChatroomSubscriptionEntry> {
     return cachedConfiguredRooms;
   }
 
-  // Keep the fresh-start fallback usable: Supporters is intentionally not subscribed.
-  cachedConfiguredRooms = CHATROOM_PRESETS.single;
+  cachedConfiguredRooms = DEFAULT_CHATROOMS;
   return cachedConfiguredRooms;
 }
 
@@ -110,7 +115,7 @@ export function setConfiguredChatrooms(options: {
     return { success: true, count: chatrooms.length, chatrooms };
   }
 
-  let finalRooms: Array<ChatroomSubscriptionEntry> = CHATROOM_PRESETS.single;
+  let finalRooms: Array<ChatroomSubscriptionEntry> = DEFAULT_CHATROOMS;
 
   if (Array.isArray(options.rooms) && options.rooms.length > 0) {
     finalRooms = options.rooms;
@@ -281,8 +286,10 @@ export async function handleSocialRoutes(
   currentCompanyId: number | null
 ): Promise<boolean> {
   // Public profile articles by author.
-  if (pathname.match(/^\/api\/v2\/newspaper\/articles-by-author\/\d+\/$/) && method === 'GET') {
-    sendJson(res, []);
+  const authorMatch = pathname.match(/^\/api\/v2\/newspaper\/articles-by-author\/(\d+)\/$/);
+  if (authorMatch && method === 'GET') {
+    const authorId = Number(authorMatch[1]);
+    sendJson(res, getArticlesByAuthor(authorId));
     return true;
   }
   // Free-text / company bio
@@ -445,8 +452,29 @@ export async function handleSocialRoutes(
 
   // 3. Error Announcements: /api/v2/error-announcement/
   if (pathname === '/api/v2/error-announcement/') {
-    sendJson(res, { announcement: null });
-    return true;
+    if (method === 'GET') {
+      if (activeAnnouncement && Date.now() > activeAnnouncement.expiresAt) {
+        activeAnnouncement = null;
+      }
+      sendJson(res, { text: activeAnnouncement ? activeAnnouncement.text : null });
+      return true;
+    }
+    if (method === 'POST') {
+      const body = await readJsonBody<{ text?: string; minutes?: number }>(req);
+      const text = String(body?.text || '').trim();
+      const minutes = Math.max(1, Number(body?.minutes || 30));
+      if (text) {
+        activeAnnouncement = {
+          text,
+          expiresAt: Date.now() + minutes * 60 * 1000
+        };
+      } else {
+        activeAnnouncement = null;
+      }
+      sendJson(res, { text: activeAnnouncement ? activeAnnouncement.text : null });
+      return true;
+    }
+    return false;
   }
 
   // 3b. Help Chatroom: /api/v2/help-chatroom/
@@ -1138,14 +1166,15 @@ export async function handleSocialRoutes(
   return false;
 }
 export function registerSocialRoutes(registry: RouteRegistry = globalRouteRegistry): void {
-  // Historical #83 stub: the endpoint is intentionally an empty public list.
-  // Registering it here prevents ownership from depending on the legacy
-  // newspaper/social handler order.
+  // Public articles by author
   registry.register({
     method: 'GET',
     pattern: '/api/v2/newspaper/articles-by-author/:authorId/',
     owner: 'social',
-    handler: async (_req, res) => { sendJson(res, []); }
+    handler: async (_req, res, _ctx, params) => {
+      const authorId = Number(params?.authorId || 0);
+      sendJson(res, getArticlesByAuthor(authorId));
+    }
   });
 }
 

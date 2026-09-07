@@ -37,6 +37,14 @@ export class FinanceRepository {
     ).get(companyId) as { total: number | null };
     return Number(row?.total) || 0;
   }
+
+  /** Total valuation of research patents owned by the company. */
+  patentsValue(companyId: number): number {
+    const row = this.database.prepare(
+      'SELECT COALESCE(SUM(patents * 500), 0) AS total FROM research WHERE company_id = ?'
+    ).get(companyId) as { total: number | null };
+    return Number(row?.total) || 0;
+  }
   /**
    * Read balance-sheet amounts that are held outside the company's cash and
    * warehouse aggregates. Each amount is sourced from an active durable row;

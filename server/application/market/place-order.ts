@@ -33,6 +33,7 @@ export type PlacedSellOrderDTO = MarketOrderDTO;
 export interface PlaceMarketOrderResult {
   sellOrder: PlacedSellOrderDTO;
   money: number | null;
+  remainingCash?: number | null;
   moneyDelta: number;
   resourceTransactions: Array<ResourceTransactionEntity & { dbLetter?: number; delta?: number; amount: number }>;
 }
@@ -110,9 +111,11 @@ export async function placeMarketOrder(ctx: GameContext, input: PlaceMarketOrder
     // not mutate and the ledger row was already written inside the tx path
     // only when money moved (it did not here).
     const company = companyRepository.findById(ctx.companyId);
+    const currentMoney = company ? Number(company.money) : null;
     return {
       sellOrder: partial.sellOrder,
-      money: company ? company.money : null,
+      money: currentMoney,
+      remainingCash: currentMoney,
       moneyDelta: 0,
       resourceTransactions: partial.resourceTransactions
     };

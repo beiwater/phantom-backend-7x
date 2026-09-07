@@ -32,7 +32,7 @@ export const CONFIG = {
   PRODUCTION_SPEED_MULTIPLIER: parseFloat(process.env.SPEED_MULTIPLIER || '1.0'),
   // Initial User / Company Settings (Configurable via .env)
   INITIAL_MONEY: parseFloat(process.env.INITIAL_MONEY || '100000'),
-  INITIAL_SIMBOOSTS: parseInt(process.env.INITIAL_SIMBOOSTS || '50', 10),
+  INITIAL_SIMBOOSTS: parseInt(process.env.INITIAL_SIMBOOSTS || '250', 10),
   INITIAL_LEVEL: parseInt(process.env.INITIAL_LEVEL || '0', 10),
   INITIAL_EXPERIENCE: process.env.INITIAL_EXPERIENCE !== undefined ? parseInt(process.env.INITIAL_EXPERIENCE, 10) : undefined,
   INITIAL_EXTRA_BUILDING_SLOTS: parseInt(process.env.INITIAL_EXTRA_BUILDING_SLOTS || '0', 10),
@@ -190,7 +190,7 @@ export function getInitialCompanySettings() {
     ? Math.max(0, CONFIG.INITIAL_BUILDING_SLOTS - tier.maxBuildings)
     : (CONFIG.INITIAL_EXTRA_BUILDING_SLOTS || 0);
   const money = Number.isFinite(CONFIG.INITIAL_MONEY) ? CONFIG.INITIAL_MONEY : 100000;
-  const simboosts = Number.isFinite(CONFIG.INITIAL_SIMBOOSTS) ? CONFIG.INITIAL_SIMBOOSTS : 50;
+  const simboosts = Number.isFinite(CONFIG.INITIAL_SIMBOOSTS) ? CONFIG.INITIAL_SIMBOOSTS : 250;
   const warehouseStock = parseInitialWarehouseStock(CONFIG.INITIAL_WAREHOUSE_STOCK);
 
   return {

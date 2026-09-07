@@ -38,7 +38,6 @@ import {
   parseAgencyTier,
   validIsoOrNull
 } from '../../domain/executives.ts';
-import { db } from '../../db/connection.ts';
 import { runInTransaction } from '../../db/transaction.ts';
 import { recordCashLedger } from '../../game/cash-ledger.ts';
 import { virtualClock } from '../../core/virtual-clock.ts';
@@ -481,7 +480,11 @@ function getExecutiveById(companyId: number, executiveId: number) {
     row = executiveRepository.findById(executiveId) || undefined;
   }
   if (!row) throw new Error('Executive not found');
-  return formatExecutive(row);
+  const formatted = formatExecutive(row);
+  return {
+    ...formatted,
+    executive: formatted
+  };
 }
 
 function hireExecutive(companyId: number, candidateId: number, position: string = 'unassigned') {
@@ -789,7 +792,7 @@ function generateCandidateForOffer(offer: ExecutiveOfferRow, nowIso: string): Ex
   const pos = isUnemployed ? 'unassigned' : (slotPos === 'none' ? 'coo' : slotPos);
   const bounds = numericAgeBounds(decodeOfferAgeRange(offer.age_range));
 
-  const nextSeq = (db.prepare("SELECT seq FROM sqlite_sequence WHERE name = 'executives'").get() as { seq?: number } | undefined)?.seq || 0;
+  const nextSeq = executiveRepository.getNextExecutiveSeq();
   const targetId = nextSeq + 1;
 
   const avatars = [
@@ -831,27 +834,18 @@ function generateCandidateForOffer(offer: ExecutiveOfferRow, nowIso: string): Ex
   const baseSkill = agencyTier === AgencyTier.TOP_TALENT_AGENCY ? 15 : agencyTier === AgencyTier.GOOD_AGENCY ? 12 : 8;
   const salary = baseSkill * 40;
 
-  const inserted = db.prepare(`
-    INSERT INTO executives (
-      company_id, name, avatar, position,
-      skill_management, skill_accounting, skill_science, skill_communication,
-      salary, status, created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(
-    targetCompanyId,
-    chosenName,
-    chosenAvatar,
-    pos,
-    baseSkill,
-    baseSkill,
-    baseSkill,
+  const candidate = executiveRepository.createGeneratedCandidate({
+    companyId: targetCompanyId,
+    name: chosenName,
+    avatar: chosenAvatar,
+    position: pos,
     baseSkill,
     salary,
     status,
     nowIso
-  );
+  });
 
-  const candidateId = Number(inserted.lastInsertRowid);
+  const candidateId = candidate.id;
   if (offer.has_trainings) {
     executiveRepository.insertTraining(candidateId, targetCompanyId, nowIso, offer.skill_position || 'o');
   }
@@ -859,7 +853,7 @@ function generateCandidateForOffer(offer: ExecutiveOfferRow, nowIso: string): Ex
     executiveRepository.beginEmploymentHistory(candidateId, targetCompanyId, pos, nowIso);
   }
 
-  return db.prepare('SELECT * FROM executives WHERE id = ?').get(candidateId) as unknown as ExecutiveRow;
+  return candidate;
 }
 
 function findSearchTarget(offer: ExecutiveOfferRow): ExecutiveRow | undefined {

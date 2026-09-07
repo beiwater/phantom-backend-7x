@@ -1969,6 +1969,106 @@ export const MIGRATIONS: MigrationDefinition[] = [
       `);
     }
   },
+  {
+    version: 34,
+    name: '034_social_courses_challenges_and_contests',
+    // Issue #145: Add missing tables for courses, challenges, and contests
+    // to resolve runtime SQLite "no such table" errors on social endpoints.
+    up: (db: DatabaseSync) => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS courses (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          teacher_company_id INTEGER,
+          teacher_name TEXT,
+          teacher_level INTEGER DEFAULT 0,
+          teacher_email TEXT,
+          name TEXT NOT NULL,
+          start TEXT,
+          started INTEGER DEFAULT 0,
+          max_students INTEGER DEFAULT 10,
+          indicated_students INTEGER DEFAULT 0,
+          months_paid INTEGER DEFAULT 0,
+          paid_usd REAL DEFAULT 0,
+          students_paying INTEGER DEFAULT 0,
+          public_chatrooms_disabled INTEGER DEFAULT 0,
+          html TEXT,
+          created_at TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS course_students (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          course_id INTEGER NOT NULL,
+          company_id INTEGER NOT NULL,
+          company_name TEXT,
+          company_logo TEXT,
+          company_realm_id INTEGER DEFAULT 0,
+          joined_at TEXT NOT NULL,
+          UNIQUE(course_id, company_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_course_students_course_id
+          ON course_students(course_id);
+
+        CREATE TABLE IF NOT EXISTS challenges (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name TEXT NOT NULL,
+          description TEXT,
+          active INTEGER DEFAULT 1,
+          start TEXT NOT NULL,
+          end TEXT NOT NULL,
+          goal_kind TEXT,
+          goal_amount REAL,
+          created_at TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS challenge_milestones (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          challenge_id INTEGER NOT NULL,
+          position INTEGER DEFAULT 0,
+          kind TEXT,
+          value REAL,
+          building_kind INTEGER
+        );
+        CREATE INDEX IF NOT EXISTS idx_challenge_milestones_challenge_id
+          ON challenge_milestones(challenge_id);
+
+        CREATE TABLE IF NOT EXISTS challenge_attempts (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          challenge_id INTEGER NOT NULL,
+          company_id INTEGER NOT NULL,
+          company_name TEXT,
+          company_logo TEXT,
+          company_realm_id INTEGER DEFAULT 0,
+          started TEXT NOT NULL,
+          best_goal_duration_s REAL,
+          goal_duration_s REAL,
+          goal_completed_at TEXT,
+          UNIQUE(challenge_id, company_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_challenge_attempts_challenge_id
+          ON challenge_attempts(challenge_id);
+
+        CREATE TABLE IF NOT EXISTS contests (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name TEXT NOT NULL,
+          rules TEXT,
+          realm_id INTEGER DEFAULT 0,
+          start TEXT NOT NULL,
+          end TEXT NOT NULL,
+          active INTEGER DEFAULT 1
+        );
+        CREATE TABLE IF NOT EXISTS contest_participants (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          contest_id INTEGER NOT NULL,
+          company_id INTEGER NOT NULL,
+          company_name TEXT,
+          points REAL DEFAULT 0,
+          amount REAL DEFAULT 0,
+          rank INTEGER,
+          UNIQUE(contest_id, company_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_contest_participants_contest_id
+          ON contest_participants(contest_id);
+      `);
+    }
+  },
 ];
 
 export class MigrationRunner {

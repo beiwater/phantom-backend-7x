@@ -36,6 +36,7 @@ import {
 import { toSimCompaniesCollectAccumulatorDTO } from '../compatibility/simcompanies/accumulator-dto.ts';
 import { ValidationError, NotFoundError, ForbiddenError, UnauthorizedError } from '../errors/domain-error.ts';
 import type { GameContext } from '../context/game-context.ts';
+import { getIndividualAchievements } from '../game/achievements.ts';
 import {
   toSimCompaniesBuildingDTO,
   toSimCompaniesBuildingsListDTO
@@ -276,6 +277,9 @@ export function registerBuildingRoutes(registry: RouteRegistry = globalRouteRegi
       replaceExisting: false
     });
     const buildingDTO = toSimCompaniesBuildingDTO(result.building);
+    const achievements = ctx?.companyId
+      ? getIndividualAchievements(ctx.companyId).filter(a => a.available === 1)
+      : [];
     sendJson(res, {
       ...buildingDTO,
       building: buildingDTO,
@@ -284,7 +288,8 @@ export function registerBuildingRoutes(registry: RouteRegistry = globalRouteRegi
         db_letter: r.kind,
         quality: r.quality,
         amount: r.amount
-      }))
+      })),
+      achievements
     });
   };
 

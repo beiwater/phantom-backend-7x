@@ -35,6 +35,7 @@ export interface RetailOrderDTO {
   costTotal: number;
   finishedAt: string;
   createdAt: string;
+  marketSaturation?: number;
 }
 
 export function formatRetailOrder(order: RetailOrderEntity): RetailOrderDTO {
@@ -46,7 +47,8 @@ export function formatRetailOrder(order: RetailOrderEntity): RetailOrderDTO {
     sellingPrice: order.unitPrice,
     costTotal: order.cost,
     finishedAt: order.finishedAt || order.createdAt,
-    createdAt: order.createdAt
+    createdAt: order.createdAt,
+    marketSaturation: 0.5
   };
 }
 

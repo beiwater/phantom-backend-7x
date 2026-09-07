@@ -107,7 +107,13 @@ export async function handleExecutiveRoutes(
       const body = await readJsonBody<CreatePoachingOfferInput>(req);
       try {
         const offer = await createPoachingOfferCommand(gameCtx(), body);
-        sendJson(res, offer);
+        sendJson(res, {
+          ...offer,
+          offer,
+          success: true,
+          offerId: offer.id,
+          status: offer.status
+        });
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
         sendJson(res, { error: msg }, 400);
