@@ -21,6 +21,9 @@ export const CONFIG = {
   HOST: process.env.HOST || '127.0.0.1',
   BASE_URL: process.env.BASE_URL || 'http://localhost:3000',
   TRUST_PROXY: process.env.TRUST_PROXY === 'true' || process.env.TRUST_PROXY === '1',
+  GEOIP_WHITELIST: process.env.GEOIP_WHITELIST
+    ? process.env.GEOIP_WHITELIST.split(',').map(c => c.trim().toUpperCase()).filter(Boolean)
+    : [] as string[],
   ROOT_DIR,
   DATA_DIR: path.resolve(process.env.DATA_DIR || DEFAULT_DATA_DIR),
   STATIC_DIR: path.join(ROOT_DIR, 'frontend-original', 'static'),

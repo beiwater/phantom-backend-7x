@@ -13,8 +13,9 @@ services:
       - HOST=0.0.0.0
       - DATA_DIR=/app/data
       - TRUST_PROXY=true
+      - GEOIP_WHITELIST=CN,HK,TW,MO,AU,ES,PT,AD,GI
       - ADMIN_PASSWORD=ChangeMeStrongPassword123!
-      - BASE_URL=http://localhost:3000
+      - BASE_URL=https://sim.newhaven.cc.cd
       - LOG_LEVEL=info
       - SPEED_MULTIPLIER=2.0
       - CONSTRUCTION_SPEED_MULTIPLIER=2.0

@@ -36,6 +36,7 @@ import { handleDebugRoutes } from './routes/debug-routes.ts';
 import './routes/health-routes.ts';
 import './routes/economy-routes.ts';
 import { logger } from './core/logger.ts';
+import { isGeoAllowed } from './security/client-ip.ts';
 
 // Issue #178: all route modules have self-registered by import; surface any
 // ambiguous ownership loudly at startup. Existing overlaps resolve
@@ -69,6 +70,13 @@ export async function handleRequest(req: IncomingMessage, res: ServerResponse) {
   const parsedUrl = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
   const pathname = parsedUrl.pathname;
   const method = req.method || 'GET';
+
+  if (!isGeoAllowed(req, pathname)) {
+    res.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.end('403 Forbidden: Access from your region is not authorized.');
+    return;
+  }
+
   const requestId = (req.headers['x-request-id'] as string) || logger.generateRequestId();
 
   res.setHeader('X-Request-Id', requestId);
