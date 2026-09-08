@@ -4,122 +4,30 @@ import { socialRepository } from "../../repositories/social-repository.ts";
 import { companyRepository, PA_COMPANY_ID, getPaCompanyEntity } from "../../repositories/company-repository.ts";
 import { getCompanyById } from "../../game/company.ts";
 import { checkRateLimit } from "../../security/rate-limiter.ts";
+import { getClientIp } from "../../security/client-ip.ts";
 import { virtualClock } from "../../core/virtual-clock.ts";
 import { broadcastAll, broadcastToCompany } from "../../ws/websocket.ts";
 import { executeCommand } from "../../game/commands/command-engine.ts";
 import { autoDetectAndInviteMissingPa } from "../../services/pa-invite-service.ts";
 
-export interface ChatroomSubscriptionEntry {
-  name: string;
-  language: string;
-  category: string;
-  image: string;
-  db_letter: string;
-  realmsShared: boolean;
-  protectedForCountry: string | null;
-  show_rules?: boolean;
-  unread?: number;
-  datetime?: string;
-  notSubscribed?: boolean;
-}
-
-export const DEFAULT_CHATROOMS: Array<ChatroomSubscriptionEntry> = [
-  { name: "Supporters", language: "en", category: "supporter", image: "/chat-icon/005F73/supporter.png", db_letter: "P", realmsShared: true, protectedForCountry: null, notSubscribed: true },
-  { name: "Game", language: "en", category: "game", image: "/chat-icon/005F73/game.png", db_letter: "G", realmsShared: true, protectedForCountry: null, show_rules: true, unread: 0 },
-  { name: "Help", language: "en", category: "help", image: "/chat-icon/005F73/help.png", db_letter: "H", realmsShared: true, protectedForCountry: null, show_rules: true, unread: 0 },
-  { name: "Sales", language: "en", category: "sales", image: "/chat-icon/005F73/sales.png", db_letter: "S", realmsShared: false, protectedForCountry: null, show_rules: true, unread: 0 },
-  { name: "Aerospace sales", language: "en", category: "sales", image: "/chat-icon/005F73/sales-as.png", db_letter: "X", realmsShared: false, protectedForCountry: null, show_rules: true, unread: 0 },
-  { name: "Social", language: "en", category: "social", image: "/chat-icon/005F73/social.png", db_letter: "C", realmsShared: true, protectedForCountry: null, show_rules: false, unread: 0 },
-  { name: "Roleplay", language: "en", category: "roleplay", image: "/chat-icon/005F73/roleplay.png", db_letter: "R", realmsShared: true, protectedForCountry: null, notSubscribed: true },
-  { name: "[ZH] 游戏", language: "zh-cn", category: "game", image: "/chat-icon/234B8B/game.png", db_letter: "N", realmsShared: true, protectedForCountry: null, show_rules: false, unread: 0 },
-  { name: "[ZH] 交易", language: "zh-cn", category: "sales", image: "/chat-icon/234B8B/sales.png", db_letter: "k", realmsShared: false, protectedForCountry: null, show_rules: true, unread: 0 },
-  { name: "[ZH] 社交", language: "zh-cn", category: "social", image: "/chat-icon/234B8B/social.png", db_letter: "n", realmsShared: true, protectedForCountry: null, show_rules: true, unread: 0 }
-];
-
-export const CHATROOM_PRESETS: Record<string, Array<ChatroomSubscriptionEntry>> = {
-  default: DEFAULT_CHATROOMS,
-  single: DEFAULT_CHATROOMS.filter(room => room.name === "Game"),
-  minimal: [
-    { name: "Game", language: "en", category: "game", image: "/chat-icon/005F73/game.png", db_letter: "G", realmsShared: true, protectedForCountry: null, show_rules: true, unread: 0 },
-    { name: "Help", language: "en", category: "help", image: "/chat-icon/005F73/help.png", db_letter: "H", realmsShared: true, protectedForCountry: null, show_rules: true, unread: 0 },
-    { name: "Sales", language: "en", category: "sales", image: "/chat-icon/005F73/sales.png", db_letter: "S", realmsShared: false, protectedForCountry: null, show_rules: true, unread: 0 }
-  ],
-  zh: [
-    { name: "[ZH] 游戏", language: "zh-cn", category: "game", image: "/chat-icon/234B8B/game.png", db_letter: "N", realmsShared: true, protectedForCountry: null, show_rules: false, unread: 0 },
-    { name: "[ZH] 交易", language: "zh-cn", category: "sales", image: "/chat-icon/234B8B/sales.png", db_letter: "k", realmsShared: false, protectedForCountry: null, show_rules: true, unread: 0 },
-    { name: "[ZH] 社交", language: "zh-cn", category: "social", image: "/chat-icon/234B8B/social.png", db_letter: "n", realmsShared: true, protectedForCountry: null, show_rules: true, unread: 0 }
-  ],
-  en: DEFAULT_CHATROOMS.filter(r => r.language === "en")
-};
+export {
+  type ChatroomSubscriptionEntry,
+  DEFAULT_CHATROOMS,
+  CHATROOM_PRESETS,
+  getConfiguredChatrooms,
+  setConfiguredChatrooms
+} from "../../services/chatroom-config-service.ts";
+import {
+  type ChatroomSubscriptionEntry,
+  DEFAULT_CHATROOMS,
+  getConfiguredChatrooms
+} from "../../services/chatroom-config-service.ts";
 
 interface SystemAnnouncement {
   text: string;
   expiresAt: number;
 }
 let activeAnnouncement: SystemAnnouncement | null = null;
-let cachedConfiguredRooms: Array<ChatroomSubscriptionEntry> | null = null;
-
-export function getConfiguredChatrooms(): Array<ChatroomSubscriptionEntry> {
-  if (cachedConfiguredRooms) {
-    return cachedConfiguredRooms;
-  }
-  try {
-    const raw = socialRepository.getCompanySetting(0, "configured_chatrooms");
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        cachedConfiguredRooms = parsed;
-        return parsed;
-      }
-    }
-  } catch {
-    // fallback
-  }
-
-  const envCount = parseInt(process.env.CHATROOM_COUNT || "", 10);
-  const envPreset = process.env.CHATROOM_PRESET?.toLowerCase();
-
-  if (envPreset && CHATROOM_PRESETS[envPreset]) {
-    cachedConfiguredRooms = CHATROOM_PRESETS[envPreset];
-    return cachedConfiguredRooms;
-  }
-  if (Number.isInteger(envCount) && envCount > 0) {
-    cachedConfiguredRooms = DEFAULT_CHATROOMS.slice(0, envCount);
-    return cachedConfiguredRooms;
-  }
-
-  cachedConfiguredRooms = DEFAULT_CHATROOMS;
-  return cachedConfiguredRooms;
-}
-
-export function setConfiguredChatrooms(options: {
-  count?: number;
-  preset?: string;
-  rooms?: Array<ChatroomSubscriptionEntry>;
-  reset?: boolean;
-}): { success: boolean; count: number; chatrooms: Array<ChatroomSubscriptionEntry> } {
-  if (options.reset) {
-    cachedConfiguredRooms = null;
-    socialRepository.upsertCompanySetting(0, "configured_chatrooms", "[]");
-    const chatrooms = getConfiguredChatrooms();
-    return { success: true, count: chatrooms.length, chatrooms };
-  }
-
-  let finalRooms: Array<ChatroomSubscriptionEntry> = DEFAULT_CHATROOMS;
-
-  if (Array.isArray(options.rooms) && options.rooms.length > 0) {
-    finalRooms = options.rooms;
-  } else if (options.preset && CHATROOM_PRESETS[options.preset.toLowerCase()]) {
-    finalRooms = CHATROOM_PRESETS[options.preset.toLowerCase()];
-  } else if (typeof options.count === "number" && options.count > 0) {
-    finalRooms = DEFAULT_CHATROOMS.slice(0, Math.min(options.count, DEFAULT_CHATROOMS.length));
-  }
-
-  socialRepository.upsertCompanySetting(0, "configured_chatrooms", JSON.stringify(finalRooms));
-
-  cachedConfiguredRooms = null;
-  return { success: true, count: finalRooms.length, chatrooms: finalRooms };
-}
 
 export function loadChatroomSubscriptions(companyId: number): Array<ChatroomSubscriptionEntry> {
   const settingValue = socialRepository.getCompanySetting(companyId, "chatroom_subscriptions");
@@ -478,6 +386,15 @@ export async function handleChatSubroutes(
     if (!rateCheck.allowed) {
       sendJson(res, { error: "Message rate limit exceeded. Please wait before posting again.", code: "RATE_LIMITED" }, 429, {
         "Retry-After": String(Math.ceil(rateCheck.resetMs / 1000))
+      });
+      return true;
+    }
+
+    const clientIp = getClientIp(req);
+    const ipCheck = checkRateLimit("chat:ip:" + clientIp, 60, 60000);
+    if (!ipCheck.allowed) {
+      sendJson(res, { error: "Too many messages from this network. Please wait.", code: "RATE_LIMITED" }, 429, {
+        "Retry-After": String(Math.ceil(ipCheck.resetMs / 1000))
       });
       return true;
     }

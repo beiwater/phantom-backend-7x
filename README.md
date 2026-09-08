@@ -38,7 +38,7 @@
 | 建造与升级时间 | `CONSTRUCTION_TIME_MODE=realistic` | 按真实建造时长 |
 | 市场价格 | `MARKET_PRICING_MODE=realistic` | 项目现有正常定价模式（realistic） |
 | 聊天室 | `CHATROOM_PRESET=single` | 仅 `Game` 房间（single Game） |
-| 新公司 SimBoosts | `INITIAL_SIMBOOSTS=50` | 仅新建公司 |
+| 新公司 SimBoosts | `INITIAL_SIMBOOSTS=300` | 仅新建公司 |
 | 新公司现金 | `INITIAL_MONEY=100000` | `$100000`，仅新建公司 |
 
 最后两项是**新建公司**的初始现金和 SimBoosts，不是现有公司的重置，也不是公司的总资产估值。现有账户、公司余额、仓库、建筑和其他数据都会保留。

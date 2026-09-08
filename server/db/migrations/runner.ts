@@ -2089,6 +2089,23 @@ export const MIGRATIONS: MigrationDefinition[] = [
       `);
     }
   },
+  {
+    version: 36,
+    name: '036_player_story_rewards_claimed',
+    up: (db: DatabaseSync) => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS player_story_rewards_claimed (
+          company_id INTEGER NOT NULL,
+          story_id TEXT NOT NULL,
+          reward_key TEXT NOT NULL,
+          claimed_at TEXT NOT NULL,
+          PRIMARY KEY (company_id, story_id, reward_key)
+        );
+        CREATE INDEX IF NOT EXISTS idx_story_rewards_claimed_company
+          ON player_story_rewards_claimed(company_id, story_id);
+      `);
+    }
+  },
 ];
 
 export class MigrationRunner {

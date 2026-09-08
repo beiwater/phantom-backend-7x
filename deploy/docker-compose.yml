@@ -12,9 +12,19 @@ services:
       - PORT=3000
       - HOST=0.0.0.0
       - DATA_DIR=/app/data
+      - TRUST_PROXY=true
       - ADMIN_PASSWORD=ChangeMeStrongPassword123!
       - BASE_URL=http://localhost:3000
       - LOG_LEVEL=info
+      - SPEED_MULTIPLIER=2.0
+      - CONSTRUCTION_SPEED_MULTIPLIER=2.0
+      - CONSTRUCTION_TIME_MODE=realistic
+      - MARKET_PRICING_MODE=realistic
+      - NPC_MARKET_Q0_ONLY=true
+      - NPC_MARKET_MAX_QUALITY=0
+      - REALM_PHASE_PRESET=full
+      - INITIAL_SIMBOOSTS=300
+      - INITIAL_MONEY=100000
     volumes:
       - simcompanies_data:/app/data
 

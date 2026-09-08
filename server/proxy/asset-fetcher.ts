@@ -43,8 +43,20 @@ export async function serveOrFetchAsset(urlPath: string, res: ServerResponse): P
   }
   const ext = path.extname(cleanRelPath).toLowerCase();
   const mime = MIME_TYPES[ext] || 'application/octet-stream';
-  const isMutableFrontendResource = ext === '.html' || ext === '.css' || ext === '.js' || ext === '.json';
-  const cacheControl = isMutableFrontendResource ? 'no-store' : 'public, max-age=86400';
+  // Hashed bundle assets (e.g. index-cgzgptQ8.js, index-BsDbFrGK.css) are immutable
+  const isHashedAsset = cleanRelPath.includes('bundle/assets/') || /-[a-zA-Z0-9_-]{8,}\.(js|css)$/.test(cleanRelPath);
+  let cacheControl: string;
+  if (isHashedAsset) {
+    cacheControl = 'public, max-age=31536000, immutable';
+  } else if (ext === '.html') {
+    cacheControl = 'no-cache';
+  } else if (ext === '.json') {
+    cacheControl = 'public, max-age=3600';
+  } else if (ext === '.png' || ext === '.jpg' || ext === '.jpeg' || ext === '.svg' || ext === '.webp' || ext === '.gif' || ext === '.ico' || ext === '.woff2') {
+    cacheControl = 'public, max-age=604800';
+  } else {
+    cacheControl = 'public, max-age=86400';
+  }
   const shouldPrepareFrontendAsset = cleanRelPath === FRONTEND_MAIN_BUNDLE_PATH;
 
   // 1. Check local file

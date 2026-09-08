@@ -20,7 +20,7 @@ import {
   getConfiguredChatrooms,
   setConfiguredChatrooms,
   type ChatroomSubscriptionEntry
-} from '../routes/social-routes.ts';
+} from '../services/chatroom-config-service.ts';
 import { virtualClock } from '../core/virtual-clock.ts';
 import {
   setEconomyPhase,

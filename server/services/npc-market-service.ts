@@ -312,7 +312,7 @@ export class NpcMarketService {
         SET active = 0, quantity = 0
         WHERE seller_id = ? AND quality > ? AND active = 1
       `).run(NPC_SELLER_ID, effectiveMaxQuality);
-      const ordersDeactivated = Number(deactRes.changes) || 0;
+      let ordersDeactivated = Number(deactRes.changes) || 0;
 
       const nowIso = virtualClock.nowIso();
       const findExistingStmt = database.prepare(`

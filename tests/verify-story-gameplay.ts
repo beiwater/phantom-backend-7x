@@ -127,6 +127,15 @@ async function runTests() {
   assert.equal(stateEnding2.ending_id, 'ending_joker');
   console.log('✓ Branch 2 (Ending Joker) choice execution passed');
 
+  // 9. Verify One-Time Reward Claim Integrity (Issue #202)
+  await storyEngine.resetStory(companyId);
+  await storyEngine.startStory(companyId, 'dragon_return');
+  const moneyBeforeReplay0 = getCompanyById(companyId)?.money ?? 0;
+  await storyEngine.advanceStoryChoice(companyId, 'dragon_return', 0);
+  const moneyAfterReplay0 = getCompanyById(companyId)?.money ?? 0;
+  assert.equal(moneyAfterReplay0, moneyBeforeReplay0, 'Replaying already-claimed branch 0 rewards must NOT grant money again');
+  console.log('✓ One-time reward claim integrity verified: replaying story does not grant duplicate rewards');
+
   console.log('🎉 ALL STORY GAMEPLAY & PA WELCOME VERIFICATION TESTS PASSED SUCCESSFULLY! 🎉');
 }
 

@@ -9,6 +9,7 @@ import { seedDefaultDisplayCase } from '../db/seed/index.ts';
 import { executiveRepository } from './executive-repository.ts';
 import { storyLoader } from '../game/story/story-loader.ts';
 import { socialRepository } from './social-repository.ts';
+import { PA_COMPANY_ID } from '../domain/company/constants.ts';
 
 export interface CompanyEntity {
   id: number;
@@ -31,7 +32,7 @@ export interface CompanyEntity {
   createdAt: string;
 }
 
-export const PA_COMPANY_ID = 99900;
+export { PA_COMPANY_ID };
 
 export function getPaCompanyEntity(): CompanyEntity {
   return {

@@ -32,6 +32,7 @@ import {
   recalculateRetailSaturation,
   getEconomyPhase
 } from '../application/scheduler/daily-jobs.ts';
+import { backupEngine } from '../db/backup.ts';
 
 // --- Persisted world-state tables (module-level, same pattern as government.ts) ---
 
@@ -201,6 +202,7 @@ function markTaskRan(
 
 export const TASK_BOND_INTEREST_AND_OVERHEAD = 'bond_interest_and_admin_overhead';
 export const TASK_EXECUTIVE_SALARIES = 'executive_salaries';
+export const TASK_DATABASE_BACKUP = 'database_daily_hot_backup';
 export const TASK_GOVERNMENT_ORDERS_PUBLISH = 'government_orders_publish';
 export const TASK_GOVERNMENT_ORDERS_AWARD = 'government_orders_award';
 export const TASK_ECONOMY_PHASE_ROLL = 'economy_phase_roll';
@@ -215,6 +217,15 @@ export const SCHEDULED_TASKS: readonly SchedulerTaskDefinition[] = [
     run: () => {
       chargeDailyBondInterest();
       chargeDailyAccountingOverhead();
+    }
+  },
+  {
+    name: TASK_DATABASE_BACKUP,
+    description: 'Daily automated SQLite hot backup and checksum verification (Issue #148)',
+    hourUtc: 3,
+    minuteUtc: 0,
+    run: () => {
+      backupEngine.createBackup({ retentionCount: 14 });
     }
   },
   {

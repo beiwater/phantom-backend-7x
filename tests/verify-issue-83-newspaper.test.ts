@@ -22,6 +22,7 @@ import { rmSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import net from 'node:net';
 import { DatabaseSync } from 'node:sqlite';
+import { CONFIG } from '../server/config.ts';
 
 const TEST_PORT = Number(process.env.PORT || '3910');
 const BASE_URL = `http://127.0.0.1:${TEST_PORT}`;
@@ -228,7 +229,7 @@ async function runNewspaperVerification(): Promise<void> {
     // ----------------------------------------------------------------
     console.log('[3/9] Golden slot booking deducts 20 SimBoosts and lists the ad...');
     const authorBefore = await getSimBoosts(author.cookie);
-    assert.equal(authorBefore, 250, 'fresh company starts with 250 SimBoosts');
+    assert.equal(authorBefore, CONFIG.INITIAL_SIMBOOSTS, 'fresh company starts with configured SimBoosts');
     const goldenText = 'Golden ad from author: finest power contracts on the exchange!';
     const booked = await api('POST', `/api/v2/newspaper/en/0/sponsor/0/`, { cookie: author.cookie, body: { text: goldenText } });
     assert.equal(booked.status, 200, `golden booking must succeed: ${JSON.stringify(booked.body)}`);

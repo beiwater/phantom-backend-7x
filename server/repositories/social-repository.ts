@@ -1,6 +1,6 @@
 import { db } from '../db/database.ts';
 import { virtualClock } from '../core/virtual-clock.ts';
-import { PA_COMPANY_ID } from './company-repository.ts';
+import { PA_COMPANY_ID } from '../domain/company/constants.ts';
 
 // Repository for the wave-2 social surfaces. Application modules under
 // application/social/ orchestrate through these methods only.

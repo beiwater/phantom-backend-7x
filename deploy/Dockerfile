@@ -8,9 +8,13 @@ ENV NODE_ENV=production
 ENV PORT=3000
 ENV HOST=0.0.0.0
 ENV DATA_DIR=/app/data
+ENV PUPPETEER_SKIP_DOWNLOAD=true
+
+# Install production dependencies
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
 
 # Copy project files
-COPY package.json ./
 COPY server ./server
 COPY frontend-original ./frontend-original
 COPY scripts ./scripts

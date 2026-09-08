@@ -24,6 +24,30 @@ function interpolateTemplate(text: string, companyName: string): string {
 }
 
 export class StoryEngine {
+  public isRewardClaimed(companyId: number, storyId: string, rewardKey: string): boolean {
+    try {
+      const row = db.prepare(`
+        SELECT 1 FROM player_story_rewards_claimed
+        WHERE company_id = ? AND story_id = ? AND reward_key = ?
+      `).get(companyId, storyId, rewardKey);
+      return Boolean(row);
+    } catch {
+      return false;
+    }
+  }
+
+  public recordRewardClaimed(companyId: number, storyId: string, rewardKey: string): void {
+    try {
+      const now = virtualClock.nowIso();
+      db.prepare(`
+        INSERT OR IGNORE INTO player_story_rewards_claimed (company_id, story_id, reward_key, claimed_at)
+        VALUES (?, ?, ?, ?)
+      `).run(companyId, storyId, rewardKey, now);
+    } catch {
+      // Ignore errors if table not ready in isolated unit test
+    }
+  }
+
   public getStoryState(companyId: number): PlayerStoryStateRow | null {
     try {
       const row = db.prepare(`
@@ -90,9 +114,13 @@ export class StoryEngine {
 
     const chosen = stageConfig.choices[choiceIndex];
 
-    // 1. Apply economic rewards / costs
+    // 1. Apply economic rewards / costs (only once per company per story reward)
     if (chosen.reward) {
-      this.applyReward(companyId, chosen.reward);
+      const rewardKey = `choice_${state.current_stage}_${choiceIndex}`;
+      if (!this.isRewardClaimed(companyId, storyId, rewardKey)) {
+        this.applyReward(companyId, chosen.reward);
+        this.recordRewardClaimed(companyId, storyId, rewardKey);
+      }
     }
 
     // 2. Append history
@@ -290,7 +318,11 @@ export class StoryEngine {
     if (stage.ending) {
       const ending = stage.ending;
       if (ending.finalBonus) {
-        this.applyReward(companyId, ending.finalBonus);
+        const rewardKey = `ending_${ending.id || stageName}`;
+        if (!this.isRewardClaimed(companyId, story.id, rewardKey)) {
+          this.applyReward(companyId, ending.finalBonus);
+          this.recordRewardClaimed(companyId, story.id, rewardKey);
+        }
       }
 
       const endingText = `🎉【剧本通关】恭喜达成《${story.title}》${ending.title}！\n${interpolateTemplate(ending.evaluation || '', companyName)}`;

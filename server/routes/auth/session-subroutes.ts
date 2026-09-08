@@ -11,6 +11,7 @@ import { authRepository } from '../../repositories/auth-repository.ts';
 import { companyRepository } from '../../repositories/company-repository.ts';
 import { referralsRepository, REFERRAL_JOIN_BONUS } from '../../repositories/referrals-repository.ts';
 import { checkRateLimit } from '../../security/rate-limiter.ts';
+import { getClientIp } from '../../security/client-ip.ts';
 
 function applyReferralOnSignup(
   auth: { playerId: number; companyId: number; created: boolean },
@@ -110,7 +111,7 @@ export async function handleSessionSubroutes(
 
   // Email Login
   if (pathname === '/api/v2/auth/email/auth/' && method === 'POST') {
-    const ip = req.socket.remoteAddress || '127.0.0.1';
+    const ip = getClientIp(req);
     const rateCheck = checkRateLimit(`auth:login:${ip}`, 30, 60000);
     if (!rateCheck.allowed) {
       sendJson(res, { error: 'Too many login attempts. Please try again later.', code: 'RATE_LIMITED' }, 429, {
@@ -141,7 +142,7 @@ export async function handleSessionSubroutes(
 
   // Email Register
   if (pathname === '/api/v2/auth/email/connect/' && method === 'POST') {
-    const ip = req.socket.remoteAddress || '127.0.0.1';
+    const ip = getClientIp(req);
     const rateCheck = checkRateLimit(`auth:register:${ip}`, 30, 60000);
     if (!rateCheck.allowed) {
       sendJson(res, { error: 'Too many registration attempts. Please try again later.', code: 'RATE_LIMITED' }, 429, {
@@ -210,7 +211,7 @@ export async function handleSessionSubroutes(
 
   // Password Reset
   if (pathname === '/api/v2/auth/email/reset/' && method === 'POST') {
-    const ip = req.socket.remoteAddress || '127.0.0.1';
+    const ip = getClientIp(req);
     const rateCheck = checkRateLimit('auth:reset:' + ip, 5, 60000);
     if (!rateCheck.allowed) {
       sendJson(res, { error: 'Too many reset attempts. Please try again later.', code: 'RATE_LIMITED' }, 429);

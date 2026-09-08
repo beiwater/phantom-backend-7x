@@ -20,6 +20,7 @@ export const CONFIG = {
   PORT: parseInt(process.env.PORT || '3000', 10),
   HOST: process.env.HOST || '127.0.0.1',
   BASE_URL: process.env.BASE_URL || 'http://localhost:3000',
+  TRUST_PROXY: process.env.TRUST_PROXY === 'true' || process.env.TRUST_PROXY === '1',
   ROOT_DIR,
   DATA_DIR: path.resolve(process.env.DATA_DIR || DEFAULT_DATA_DIR),
   STATIC_DIR: path.join(ROOT_DIR, 'frontend-original', 'static'),
@@ -32,7 +33,7 @@ export const CONFIG = {
   PRODUCTION_SPEED_MULTIPLIER: parseFloat(process.env.SPEED_MULTIPLIER || '1.0'),
   // Initial User / Company Settings (Configurable via .env)
   INITIAL_MONEY: parseFloat(process.env.INITIAL_MONEY || '100000'),
-  INITIAL_SIMBOOSTS: parseInt(process.env.INITIAL_SIMBOOSTS || '250', 10),
+  INITIAL_SIMBOOSTS: parseInt(process.env.INITIAL_SIMBOOSTS || '300', 10),
   INITIAL_LEVEL: parseInt(process.env.INITIAL_LEVEL || '0', 10),
   INITIAL_EXPERIENCE: process.env.INITIAL_EXPERIENCE !== undefined ? parseInt(process.env.INITIAL_EXPERIENCE, 10) : undefined,
   INITIAL_EXTRA_BUILDING_SLOTS: parseInt(process.env.INITIAL_EXTRA_BUILDING_SLOTS || '0', 10),
@@ -46,13 +47,13 @@ export const CONFIG = {
   MARKET_PRICING_MODE: (process.env.MARKET_PRICING_MODE as 'realistic' | 'test') || 'realistic',
   TARGET_BUILDING_PROFIT: parseFloat(process.env.TARGET_BUILDING_PROFIT || '300'),
   MARKET_PRICE_VOLATILITY: parseFloat(process.env.MARKET_PRICE_VOLATILITY || '0.05'),
-  // NPC Market & Restock Configuration
+  // NPC Market & Restock Configuration (Default Q0 only in realistic dynamic mode)
   NPC_MARKET_Q0_ONLY: process.env.NPC_MARKET_Q0_ONLY !== undefined
     ? process.env.NPC_MARKET_Q0_ONLY === 'true'
-    : (process.env.NPC_MARKET_MAX_QUALITY !== undefined ? parseInt(process.env.NPC_MARKET_MAX_QUALITY, 10) === 0 : false),
+    : true,
   NPC_MARKET_MAX_QUALITY: process.env.NPC_MARKET_MAX_QUALITY !== undefined
     ? parseInt(process.env.NPC_MARKET_MAX_QUALITY, 10)
-    : (process.env.NPC_MARKET_Q0_ONLY === 'true' ? 0 : 12),
+    : (process.env.NPC_MARKET_Q0_ONLY === 'false' ? 12 : 0),
   NPC_MARKET_INFINITE: process.env.NPC_MARKET_INFINITE === 'true',
   NPC_RESTOCK_INTERVAL_HOURS: parseFloat(process.env.NPC_RESTOCK_INTERVAL_HOURS || '24'),
   NPC_RESTOCK_INTERVAL_SECONDS: process.env.NPC_RESTOCK_INTERVAL_SECONDS ? parseFloat(process.env.NPC_RESTOCK_INTERVAL_SECONDS) : undefined,
@@ -190,7 +191,7 @@ export function getInitialCompanySettings() {
     ? Math.max(0, CONFIG.INITIAL_BUILDING_SLOTS - tier.maxBuildings)
     : (CONFIG.INITIAL_EXTRA_BUILDING_SLOTS || 0);
   const money = Number.isFinite(CONFIG.INITIAL_MONEY) ? CONFIG.INITIAL_MONEY : 100000;
-  const simboosts = Number.isFinite(CONFIG.INITIAL_SIMBOOSTS) ? CONFIG.INITIAL_SIMBOOSTS : 250;
+  const simboosts = Number.isFinite(CONFIG.INITIAL_SIMBOOSTS) ? CONFIG.INITIAL_SIMBOOSTS : 300;
   const warehouseStock = parseInitialWarehouseStock(CONFIG.INITIAL_WAREHOUSE_STOCK);
 
   return {
