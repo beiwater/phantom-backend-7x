@@ -1,10 +1,13 @@
 import type { DatabaseSync } from 'node:sqlite';
 import crypto from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
 import { db } from '../connection.ts';
 import { CONFIG, getInitialCompanySettings } from '../../config.ts';
 import { CONSTANTS_RESOURCES } from '../../game/constants.ts';
 import { hashPassword, verifyPassword } from '../migrations/index.ts';
 import { executiveRepository } from '../../repositories/executive-repository.ts';
+import { getPriceTickSize } from '../../domain/market/market-rules.ts';
 
 export function seedDefaultDisplayCase(companyId: number, database: DatabaseSync = db): void {
   const existing = database.prepare('SELECT 1 FROM display_case WHERE company_id = ? LIMIT 1').get(companyId);
@@ -27,19 +30,53 @@ export function seedMarketOrders(database: DatabaseSync = db): void {
   const countRow = database.prepare('SELECT COUNT(*) as count FROM market_orders WHERE active = 1').get() as { count: number };
   if (countRow.count > 100) return;
 
-  console.log('Seeding market with Q0-Q12 orders for all resources...');
+  console.log('Seeding market with realistic pricing orders for all resources...');
+  let economyModels: Record<string, any> = {};
+  try {
+    const modelPath = path.join(CONFIG.CONSTANTS_DIR, 'economy-models-map.json');
+    if (fs.existsSync(modelPath)) {
+      economyModels = JSON.parse(fs.readFileSync(modelPath, 'utf-8')).models || {};
+    }
+  } catch {
+    // fallback
+  }
+
   const insertStmt = database.prepare(`
     INSERT INTO market_orders (seller_id, kind, quality, quantity, price, fees, posted_at, active)
     VALUES (999900, ?, ?, 100000, ?, 0, ?, 1)
   `);
   const now = new Date().toISOString();
+  const mode = CONFIG.MARKET_PRICING_MODE || 'realistic';
+  const targetProfit = Number(CONFIG.TARGET_BUILDING_PROFIT) || 300;
+  const volatility = Number(CONFIG.MARKET_PRICE_VOLATILITY) || 0.05;
+  const maxQuality = CONFIG.NPC_MARKET_Q0_ONLY ? 0 : 12;
+
   database.exec('BEGIN');
   try {
     for (const [kindStr, def] of Object.entries(CONSTANTS_RESOURCES)) {
       const kind = Number(kindStr);
       if (def.isExchangeTradable === false) continue;
-      for (let q = 0; q <= 12; q++) {
-        const price = 1.0 + q;
+
+      const model = economyModels[String(kind)]?.state_1 || economyModels[String(kind)]?.state_0;
+      const baseCost = Number(model?.modeledProductionCostPerUnit) || Number(def.cost) || 2.0;
+      const levelsNeeded = Number(model?.buildingLevelsNeededPerUnitPerHour) || 0;
+      const unitProfitTarget = levelsNeeded > 0 ? targetProfit * levelsNeeded : baseCost * 0.15;
+      const targetQ0BasePrice = baseCost + unitProfitTarget;
+
+      for (let q = 0; q <= maxQuality; q++) {
+        let price = 1.0 + q;
+        if (mode === 'realistic') {
+          const x = Math.sin(kind * 137 + q * 29 + 17) * 10000;
+          const floatDelta = ((x - Math.floor(x)) - 0.5) * 2 * volatility;
+          const floatPrice = targetQ0BasePrice * (1 + floatDelta);
+          const qualityMultiplier = 1.0 + q * 0.10;
+          const rawPrice = floatPrice * qualityMultiplier;
+          const tick = getPriceTickSize(rawPrice);
+          price = Math.round((Math.round(rawPrice / tick) * tick) * 1000) / 1000;
+          price = Math.max(tick, price);
+        } else {
+          price = 1.0 + q * 0.01;
+        }
         insertStmt.run(kind, q, price, now);
       }
     }

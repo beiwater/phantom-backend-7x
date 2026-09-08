@@ -322,7 +322,7 @@ export class NpcMarketService {
 
       const updateOrderStmt = database.prepare(`
         UPDATE market_orders
-        SET quantity = ?, active = 1, posted_at = ?
+        SET quantity = ?, price = ?, active = 1, posted_at = ?
         WHERE id = ?
       `);
 
@@ -348,6 +348,7 @@ export class NpcMarketService {
 
         for (let q = 0; q <= effectiveMaxQuality; q++) {
           const { adjustedBatch, maxCap } = this.calculateDynamicBatch(kind, q, database);
+          const price = this.calculateUnitPrice(kind, q, database);
           const existing = findExistingStmt.get(NPC_SELLER_ID, kind, q) as {
             id: number;
             quantity: number;
@@ -361,14 +362,13 @@ export class NpcMarketService {
             const addQty = Math.min(adjustedBatch, spaceAvailable);
             const newQty = currentQty + addQty;
 
-            // Restock if there is room to add, or reactivate if empty
-            if (addQty > 0 || (currentQty > 0 && existing.active === 0)) {
-              updateOrderStmt.run(newQty, nowIso, existing.id);
+            // Restock if there is room to add, reactivate if empty, or price needs updating to realistic
+            if (addQty > 0 || (currentQty > 0 && existing.active === 0) || Math.abs(existing.price - price) > 0.0001) {
+              updateOrderStmt.run(newQty, price, nowIso, existing.id);
               ordersUpdated++;
             }
           } else {
             // Order does not exist yet: create it
-            const price = this.calculateUnitPrice(kind, q, database);
             const initialQty = Math.min(adjustedBatch, maxCap);
             insertOrderStmt.run(NPC_SELLER_ID, kind, q, initialQty, price, nowIso);
             ordersCreated++;
@@ -424,6 +424,19 @@ export class NpcMarketService {
       // First run: execute initial restock
       await this.restock({ force: true }, database);
       return true;
+    }
+
+    // In realistic mode, if legacy orders with dummy price $1.00 exist, reconcile immediately
+    if ((CONFIG.MARKET_PRICING_MODE || 'realistic') === 'realistic') {
+      const dummyCount = (database.prepare(`
+        SELECT COUNT(*) as count FROM market_orders
+        WHERE seller_id = ? AND price = 1.0 AND kind > 2 AND active = 1
+      `).get(NPC_SELLER_ID) as { count: number })?.count || 0;
+      if (dummyCount > 0) {
+        logger.info(`[NpcMarket] Detected ${dummyCount} orders with dummy price $1.00. Forcing price reconciliation...`);
+        await this.restock({ force: true }, database);
+        return true;
+      }
     }
 
     const elapsedVirtualMs = virtualNowMs - Number(row.last_restock_virtual_ms);
