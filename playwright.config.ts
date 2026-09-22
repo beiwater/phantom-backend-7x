@@ -6,6 +6,9 @@ const baseURL = process.env.E2E_BASE_URL ?? `http://127.0.0.1:${port}`;
 
 export default defineConfig({
   testDir: './tests/e2e',
+  // The fixture-driven building matrix is a separate diagnostic, not a
+  // DOM-only player regression.
+  testIgnore: process.env.E2E_INCLUDE_MATRIX === '1' ? [] : ['**/building-matrix.spec.ts'],
   outputDir: 'test-results/playwright',
   fullyParallel: false,
   workers: 1,

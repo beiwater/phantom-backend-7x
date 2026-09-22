@@ -1,15 +1,16 @@
 #!/usr/bin/env bash
 # test-unit.sh — Run all non-E2E backend suites (fast, no browser).
 # Suits CI and local development. Each suite manages its own server or
-# connects to BASE_URL (default http://127.0.0.1:3100).
+# connects to BASE_URL (port 3000 by default, or 3100 if it is occupied).
 set -uo pipefail
 cd "$(dirname "$0")/.."
+source scripts/lib/test-server.sh
 
 # The server and legacy contract suites default to port 3000. Keeping this
 # aligned avoids false failures from suites that intentionally use that public
 # default rather than BASE_URL.
 if [ -z "${PORT:-}" ]; then
-  if ss -tulpn 2>/dev/null | grep -qE "(:| )3000 "; then
+  if test_server_port_in_use 3000; then
     PORT="3100"
   else
     PORT="3000"
@@ -188,11 +189,7 @@ if [ "${TEST_DISCOVERY_ONLY:-0}" = "1" ]; then
 fi
 
 # Start shared server for API suites
-pkill -9 -f "server/index.ts" 2>/dev/null || true
-sleep 1
-PORT="$PORT" DATA_DIR="$TEST_DATA_DIR" SPEED_MULTIPLIER="${SPEED_MULTIPLIER:-200}" $NODE_BIN server/index.ts >/dev/null 2>&1 &
-SERVER_PID=$!
-sleep 2
+start_test_server || exit 1
 
 echo "Running backend/API suites:"
 printf '  %s\n' "${BACKEND_TESTS[@]}"
@@ -223,7 +220,6 @@ for t in "${BACKEND_TESTS[@]}"; do
   rm -f "$LOG"
 done
 
-kill -9 $SERVER_PID 2>/dev/null || true
 echo "=============================="
 echo "Suites: $TOTAL, Failed: ${#FAILED[@]}"
 [ ${#FAILED[@]} -eq 0 ] && echo "ALL UNIT/API SUITES PASSED" || { printf 'Failed: %s\n' "${FAILED[@]}"; exit 1; }

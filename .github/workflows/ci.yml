@@ -32,6 +32,8 @@ jobs:
         run: npm ci
       - name: Build compatible frontend and verify bundle
         run: npm run build
+      - name: Reject new TypeScript errors above the recorded baseline
+        run: npm run typecheck:baseline
       - name: Run backend and API contracts
         run: npm run test:unit
 

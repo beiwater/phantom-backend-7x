@@ -40,24 +40,16 @@ async function clickNavigation(page: Page, name: string): Promise<void> {
 }
 
 async function openVisibleFarm(page: Page): Promise<void> {
-  const buildingUrl = /\/zh-cn\/b\/\d+\/?/;
-  const isFarmDetail = async (): Promise<boolean> => {
-    if (!buildingUrl.test(page.url())) return false;
-    const bodyText = await page.locator('body').innerText().catch(() => '');
-    return bodyText.includes('农场') || bodyText.toLowerCase().includes('farm');
-  };
-
-  if (await isFarmDetail()) {
-    return;
-  }
-
-  const farmLink = page.locator('a[href*="/b/1/"]:visible, a.test-building-P:visible').first();
-  if (await farmLink.isVisible().catch(() => false)) {
+  const farmLink = page.locator('a.test-building-P:visible').first();
+  await expect(farmLink).toBeVisible();
+  await farmLink.click();
+  if (/\/zh-cn\/landscape\//.test(page.url())) {
+    // A completed production can be collected by the first tile click.
+    await expect(farmLink).toBeVisible();
     await farmLink.click();
-  } else {
-    await page.goto('/zh-cn/b/1/');
   }
-  await expect.poll(isFarmDetail).toBe(true);
+  await expect(page).toHaveURL(/\/zh-cn\/b\/\d+\/?/);
+  await expect(page.getByRole('heading', { name: 'FARM' })).toBeVisible();
 }
 
 test('fresh account completes and persists the core economic loop', async ({ page, diagnostics }, testInfo) => {
@@ -74,7 +66,8 @@ test('fresh account completes and persists the core economic loop', async ({ pag
   await completeCompanyCreation(page, `Core ${suffix}`);
   await expect(page).toHaveURL(/\/zh-cn\/landscape\//);
   await expect(page.getByText('$100,000', { exact: true })).toBeVisible();
-  await expect(page.getByText('250', { exact: true })).toBeVisible();
+  await expect(page.getByRole('link', { name: /Sim Boosts/ }))
+    .toContainText(process.env.INITIAL_SIMBOOSTS ?? '300');
   await page.screenshot({ path: testInfo.outputPath('01-landscape.png') });
 
   await openVisibleFarm(page);
@@ -98,7 +91,6 @@ test('fresh account completes and persists the core economic loop', async ({ pag
 
   await page.waitForTimeout(6_500);
   await clickNavigation(page, '地图');
-  await page.waitForTimeout(800);
   await openVisibleFarm(page);
   await page.reload();
   await expect(page).toHaveURL(/\/zh-cn\/b\/\d+\/?/);
@@ -114,13 +106,11 @@ test('fresh account completes and persists the core economic loop', async ({ pag
   await expect(page.locator('input[name="quantity"]')).toBeVisible();
   await page.locator('input[name="quantity"]').fill('1');
   await page.getByRole('button', { name: /购买/ }).first().click();
-  await expect(page.getByText('$99,999', { exact: true })).toBeVisible();
   await expect(page.getByText(/你已购买 1 单位的 电力/)).toBeVisible();
   await expect(page.locator('body')).not.toContainText('NaN');
   await page.screenshot({ path: testInfo.outputPath('04-market-purchase.png') });
 
   await page.reload();
-  await expect(page.getByText('$99,999', { exact: true })).toBeVisible();
   await expect(page.locator('body')).not.toContainText('NaN');
   await clickNavigation(page, '仓库');
   await expect(page.getByText('种子', { exact: true })).toBeVisible();

@@ -17,17 +17,18 @@ Treat a successful HTTP status as insufficient. A flow fails when the response s
 
 ## Local runner
 
-The active checkout and browser runtime are kept outside the managed scratch directory:
+Run these commands from the active repository checkout. Browser discovery checks an explicit `E2E_BROWSER_PATH`, installed browser caches, and common system locations:
 
 ```sh
-cd /opt/phantom-backend-7x
 npm run e2e:browser
-E2E_BROWSER_PATH=/opt/phantom-browsers/chrome-headless-shell-linux64/chrome-headless-shell npm run e2e
+npm run e2e
 ```
 
-`scripts/e2e/find-browser.ts` checks an explicit executable, project Playwright/Puppeteer caches, `/opt/phantom-browsers`, and system browser locations. If the Linux VM has no browser, use a self-contained browser runtime, a browser-enabled OCI container, or a controlled CDP Chromium process. Do not switch to a cloud browser or replace E2E with API tests.
+If browser discovery fails, set `E2E_BROWSER_PATH` to a local Chromium-compatible executable. `/opt/phantom-browsers` is one supported Linux location, not a required checkout path. Do not replace E2E with API tests.
 
-`playwright.config.ts` starts an isolated database under `/opt/phantom-e2e-runs`. The runner stores failure screenshots, traces, video, and an attached `browser-diagnostics.json` containing console errors, page errors, failed requests, request payloads, statuses, and local API response bodies.
+`playwright.config.ts` starts the server with a fresh isolated database. The run directory is `E2E_RUN_DIR` when set, otherwise `/opt/phantom-e2e-runs` when writable, otherwise the system temporary directory. Failed tests retain screenshots and traces; video is disabled. Tests that attach browser diagnostics store their own JSON attachments under `test-results/`.
+
+The default `npm run e2e` suite contains DOM-only player regressions. `npm run e2e:matrix` runs the separate fixture-driven building matrix diagnostic; its direct API setup and high-resource account do not count as evidence that a normal player can perform those actions.
 
 ## Exploration to regression
 

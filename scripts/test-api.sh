@@ -2,6 +2,7 @@
 # test-api.sh — Run API/REST contract suites only (skip slow E2E/browser ones).
 set -uo pipefail
 cd "$(dirname "$0")/.."
+source scripts/lib/test-server.sh
 
 # Keep the shared runner aligned with the server and legacy contract suites.
 PORT="${PORT:-3000}"
@@ -20,11 +21,7 @@ fi
 # Suites that must run standalone (spawn isolated servers).
 STANDALONE_RE="verify-issue-70-rest|verify-issue-7[8-9]|verify-issue-8[0-9]|verify-issue-9[0-9]|verify-issue-84-90"
 
-pkill -9 -f "server/index.ts" 2>/dev/null || true
-sleep 1
-PORT="$PORT" DATA_DIR="$TEST_DATA_DIR" SPEED_MULTIPLIER="${SPEED_MULTIPLIER:-200}" $NODE_BIN server/index.ts >/dev/null 2>&1 &
-SERVER_PID=$!
-sleep 2
+start_test_server || exit 1
 
 FAILED=()
 TOTAL=0
@@ -44,7 +41,6 @@ for t in tests/verify-*.test.ts tests/test-*.test.ts; do
   fi
 done
 
-kill -9 $SERVER_PID 2>/dev/null || true
 echo "=============================="
 echo "Suites: $TOTAL, Failed: ${#FAILED[@]}"
 [ ${#FAILED[@]} -eq 0 ] && echo "ALL API SUITES PASSED" || { printf 'Failed: %s\n' "${FAILED[@]}"; exit 1; }

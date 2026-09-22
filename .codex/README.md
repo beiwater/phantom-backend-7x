@@ -23,12 +23,16 @@ Use the project skills under `.codex/skills/` as the canonical workflow:
 - [`economy-integrity`](./skills/economy-integrity/SKILL.md) — audit money, SimBoosts, inventory, rewards, idempotency, ownership, and transactional state changes.
 - [`code-standards`](./skills/code-standards/SKILL.md) — enforce code formatting, anti-reinvention reuse rules, comments, ~500-line modularity boundaries, and verified Git delivery timing.
 - [`evidence-first-investigation`](./skills/evidence-first-investigation/SKILL.md) — keep narrow issue work evidence-first: targeted search, small working sets, explicit reading budgets, early hypothesis testing, and scope expansion only when causally justified.
+- [`deep-root-cause-debugging`](./skills/deep-root-cause-debugging/SKILL.md) — trace one reproduced gameplay defect through the full state and persistence chain.
+- [`game-state-exploration`](./skills/game-state-exploration/SKILL.md) — explore reachable gameplay states and boundary transitions systematically.
 
 ### Skill loading rules
 
 Load skills before implementation, not after a broad repository survey.
 
 - Any debugging / bug fix / investigation / code modification → `evidence-first-investigation`.
+- Reproduced gameplay defect requiring route-to-database root-cause tracing → also `deep-root-cause-debugging`.
+- Broad gameplay state exploration or coverage mapping → also `game-state-exploration`.
 - Any production code modification → also `code-standards`.
 - General SimCompanies private-server task → also `simcompanies-private`.
 - Real browser, DOM, gameplay, screenshot, HAR, or regression verification → also `simcompanies-e2e`.

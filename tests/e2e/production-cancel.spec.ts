@@ -29,7 +29,12 @@ test('production cancellation restores the ingredients in the browser', async ({
   await page.getByRole('button', { name: '生产', exact: true }).click();
   expect((await productionResponse).status()).toBe(200);
 
-  await page.goto(farmUrl);
+  await page.getByRole('link', { name: '地图', exact: true }).click();
+  await expect(page).toHaveURL(/\/zh-cn\/landscape\//);
+  const farmAfterMap = page.locator(`a.test-building-P[href="${farmUrl}"]:visible`).first();
+  await expect(farmAfterMap).toBeVisible();
+  await farmAfterMap.click();
+  await expect(page.getByRole('heading', { name: 'FARM' })).toBeVisible();
   await expect(page.getByRole('button', { name: '取消生产' })).toBeVisible();
   await expect(page.locator('body')).toContainText('当前库存：9,990');
   const cancelResponse = page.waitForResponse(response =>
