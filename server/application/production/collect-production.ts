@@ -13,6 +13,8 @@ import { rocketKindForLaunchAmount, resolveRocketLaunch, type RocketLaunchOutcom
 
 export interface CollectProductionInput {
   buildingOrQueueId: number;
+  /** Select building-first lookup for the public order/take contract. */
+  preferBuildingId?: boolean;
 }
 
 export interface CollectProductionResult {
@@ -33,37 +35,44 @@ export async function collectProductionUseCase(
   input: CollectProductionInput
 ): Promise<CollectProductionResult> {
   return runInTransaction(async txCtx => {
-    // 1. Locate the queue item (requestedId might be building_id or queue_id)
-    const itemByQueue = productionRepository.findById(input.buildingOrQueueId);
     let targetItem: ProductionQueueEntity | null = null;
-
-    if (itemByQueue && itemByQueue.companyId === ctx.companyId && itemByQueue.resolved) {
-      // Idempotency barrier: an already-collected order must never be
-      // collected again (double XP / double resources).
-      throw new ConflictError('Production order has already been collected');
-    }
-    const accumulatorBuilding = itemByQueue
-      ? buildingRepository.findById(itemByQueue.buildingId)
-      : null;
-    if (itemByQueue && !itemByQueue.resolved
-      && itemByQueue.companyId === ctx.companyId
-      && itemByQueue.kind === 150
-      && accumulatorBuilding?.kind === 'v') {
-      // Issue #200: accumulator progress is cut down by its dedicated
-      // application flow; never deliver the growth amount as ordinary stock.
-      throw new ValidationError('Accumulator production must use the dedicated collect endpoint');
-    }
-
-    if (itemByQueue && itemByQueue.companyId === ctx.companyId) {
-      targetItem = itemByQueue;
+    if (input.preferBuildingId) {
+      // The public order/take route supplies a building ID. Resolve it before
+      // considering a historical queue row with the same numeric ID.
+      const requestedBuilding = buildingRepository.findById(input.buildingOrQueueId);
+      if (requestedBuilding?.companyId === ctx.companyId) {
+        const activeByBuilding = productionRepository.findActiveByBuilding(requestedBuilding.id, ctx.companyId);
+        // Find the earliest finished order for this building.
+        const now = virtualClock.nowMs();
+        targetItem = activeByBuilding.find(item => Date.parse(item.finishesAt) <= now) ?? null;
+      }
     } else {
-      // Look by buildingId
-      const activeByBuilding = productionRepository.findActiveByBuilding(input.buildingOrQueueId, ctx.companyId);
-      // Find the earliest or latest finished
-      const now = virtualClock.nowMs();
-      const finishedItems = activeByBuilding.filter(item => Date.parse(item.finishesAt) <= now);
-      if (finishedItems.length > 0) {
-        targetItem = finishedItems[0];
+      // Preserve queue-first behavior for existing internal callers.
+      const itemByQueue = productionRepository.findById(input.buildingOrQueueId);
+      if (itemByQueue && itemByQueue.companyId === ctx.companyId && itemByQueue.resolved) {
+        // An already-collected order must never be collected again.
+        throw new ConflictError('Production order has already been collected');
+      }
+      const accumulatorBuilding = itemByQueue
+        ? buildingRepository.findById(itemByQueue.buildingId)
+        : null;
+      if (itemByQueue && !itemByQueue.resolved
+        && itemByQueue.companyId === ctx.companyId
+        && itemByQueue.kind === 150
+        && accumulatorBuilding?.kind === 'v') {
+        // Issue #200: accumulator progress is cut down by its dedicated
+        // application flow; never deliver the growth amount as ordinary stock.
+        throw new ValidationError('Accumulator production must use the dedicated collect endpoint');
+      }
+      if (itemByQueue && itemByQueue.companyId === ctx.companyId) {
+        targetItem = itemByQueue;
+      }
+
+      if (!targetItem) {
+        // Legacy callers may also pass a building ID when no owned queue ID matches.
+        const activeByBuilding = productionRepository.findActiveByBuilding(input.buildingOrQueueId, ctx.companyId);
+        const now = virtualClock.nowMs();
+        targetItem = activeByBuilding.find(item => Date.parse(item.finishesAt) <= now) ?? null;
       }
     }
 

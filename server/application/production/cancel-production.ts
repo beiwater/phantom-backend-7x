@@ -70,19 +70,15 @@ export async function cancelProductionUseCase(
       throw new ValidationError('Failed to cancel production order: order may have already completed');
     }
 
-    // 4. Refund ingredients back to warehouse. NOTE: only recomputes the
-    // ingredient refund for an already-persisted queue row; re-validating
-    // persisted quality/amount here would brick cancellation of rows written
-    // before the C-14/C-19 fix. Launch orders refund rocket + research
-    // directly (a pad has no production recipe).
-    const refundedIngredients = launchRefunds ?? validateProductionRequest(
-      building.kind,
-      queueItem.kind,
-      queueItem.amount
-    ).ingredients;
+    // The original client promises cancellation refunds at Q0. The queue's
+    // amount is modified output, so use the saved original recipe quantities;
+    // legacy rows without a snapshot retain the prior recipe fallback.
+    const refundedIngredients = launchRefunds ?? (queueItem.inputIngredients
+      ?? validateProductionRequest(building.kind, queueItem.kind, queueItem.amount).ingredients)
+      .map(ingredient => ({ ...ingredient, quality: 0 }));
 
     for (const ing of refundedIngredients) {
-      warehouseRepository.addResource(ctx.companyId, ing.kind, ing.quality ?? 0, ing.amount);
+      warehouseRepository.addResource(ctx.companyId, ing.kind, ing.quality, ing.amount);
     }
 
     // 5. Update building busy state

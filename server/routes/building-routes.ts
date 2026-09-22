@@ -758,7 +758,10 @@ export function registerBuildingRoutes(registry: RouteRegistry = globalRouteRegi
         return;
       }
 
-      const result = await collectProductionUseCase(ctx!, { buildingOrQueueId: requestedId });
+      const result = await collectProductionUseCase(ctx!, {
+        buildingOrQueueId: requestedId,
+        preferBuildingId: true
+      });
       sendJson(res, toSimCompaniesCollectProductionDTO(result));
     }
   });

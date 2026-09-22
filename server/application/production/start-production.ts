@@ -242,7 +242,10 @@ export async function startProductionUseCase(
       economyPhaseStartedAt: economy.startAt,
       economySource: economy.source,
       productionModifier: combinedProductionModifier,
-      productionOutputMultiplier
+      productionOutputMultiplier,
+      // The queued amount is output after abundance/economy modifiers. Keep
+      // the original inputs so cancellation refunds the amount actually spent.
+      inputIngredients: ingredients
     });
 
     // 7. Update building busy state
