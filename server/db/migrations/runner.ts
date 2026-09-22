@@ -2106,6 +2106,15 @@ export const MIGRATIONS: MigrationDefinition[] = [
       `);
     }
   },
+  {
+    version: 37,
+    name: '037_production_input_ingredients',
+    up: (db: DatabaseSync) => {
+      // Persist pre-modifier recipe inputs; queued output can differ from them.
+      // NULL identifies legacy orders that predate this snapshot.
+      db.exec('ALTER TABLE production_queues ADD COLUMN input_ingredients_json TEXT DEFAULT NULL');
+    }
+  },
 ];
 
 export class MigrationRunner {

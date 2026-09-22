@@ -21,6 +21,13 @@ export interface ProductionQueueEntity {
   productionModifier: number;
   productionOutputMultiplier: number;
   launchConsumesResearch: boolean;
+  inputIngredients: ProductionInputIngredient[] | null;
+}
+
+/** Recipe input quantities at queue time, before output modifiers are applied. */
+export interface ProductionInputIngredient {
+  kind: number;
+  amount: number;
 }
 
 export interface ProductionQueueDbRow {
@@ -41,6 +48,7 @@ export interface ProductionQueueDbRow {
   production_modifier: number | null;
   production_output_multiplier: number | null;
   launch_consumes_research: number | null;
+  input_ingredients_json: string | null;
 }
 
 function mapQueueRow(row: ProductionQueueDbRow): ProductionQueueEntity {
@@ -62,6 +70,9 @@ function mapQueueRow(row: ProductionQueueDbRow): ProductionQueueEntity {
     productionModifier: Number(row.production_modifier ?? 0),
     productionOutputMultiplier: Number(row.production_output_multiplier ?? 1),
     launchConsumesResearch: Boolean(row.launch_consumes_research ?? 1),
+    inputIngredients: row.input_ingredients_json === null
+      ? null
+      : JSON.parse(row.input_ingredients_json) as ProductionInputIngredient[],
   };
 }
 
@@ -138,14 +149,15 @@ export class ProductionRepository {
     productionModifier?: number;
     productionOutputMultiplier?: number;
     launchConsumesResearch?: boolean;
+    inputIngredients?: ProductionInputIngredient[];
   }): ProductionQueueEntity {
     const result = this.database.prepare(`
       INSERT INTO production_queues (
         building_id, company_id, kind, quality, cost, amount, duration_seconds, started_at, finishes_at, resolved,
         economy_phase, economy_phase_started_at, economy_source, production_modifier, production_output_multiplier,
-        launch_consumes_research
+        launch_consumes_research, input_ingredients_json
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?)
       RETURNING *
     `).get(
       data.buildingId,
@@ -162,7 +174,8 @@ export class ProductionRepository {
       data.economySource ?? 'scheduler',
       data.productionModifier ?? 0,
       data.productionOutputMultiplier ?? 1,
-      data.launchConsumesResearch === false ? 0 : 1
+      data.launchConsumesResearch === false ? 0 : 1,
+      data.inputIngredients === undefined ? null : JSON.stringify(data.inputIngredients)
     ) as ProductionQueueDbRow;
 
     return mapQueueRow(result);
