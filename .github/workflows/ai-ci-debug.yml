@@ -1,0 +1,100 @@
+name: AI CI Debug
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ai-ci-debug-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    name: Playwright E2E
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      failed: ${{ steps.result.outputs.failed }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run E2E suite
+        id: e2e
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run e2e 2>&1 | tee ci-e2e.log
+
+      - name: Record result
+        id: result
+        if: always()
+        shell: bash
+        run: echo "failed=${{ steps.e2e.outcome == 'failure' }}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload failure evidence
+        if: steps.e2e.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-failure-${{ github.run_id }}
+          if-no-files-found: ignore
+          retention-days: 14
+          path: |
+            ci-e2e.log
+            test-results/**
+
+      - name: Keep CI red on test failure
+        if: steps.e2e.outcome == 'failure'
+        run: exit 1
+
+  triage:
+    name: AI failure triage
+    needs: e2e
+    if: ${{ always() && needs.e2e.outputs.failed == 'true' && github.event_name != 'pull_request' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download failure evidence
+        uses: actions/download-artifact@v4
+        with:
+          name: e2e-failure-${{ github.run_id }}
+          path: .ci-evidence
+
+      - name: Create or update deduplicated issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_MODEL: ${{ vars.OPENAI_MODEL }}
+          CI_COMMIT_SHA: ${{ github.sha }}
+          CI_BRANCH: ${{ github.ref_name }}
+          CI_EVENT_NAME: ${{ github.event_name }}
+          CI_RUN_ID: ${{ github.run_id }}
+          CI_RUN_ATTEMPT: ${{ github.run_attempt }}
+          CI_SERVER_URL: ${{ github.server_url }}
+          CI_REPOSITORY: ${{ github.repository }}
+        run: node scripts/ci/ai-triage.mjs .ci-evidence/ci-e2e.log
