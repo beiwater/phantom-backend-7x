@@ -2115,6 +2115,135 @@ export const MIGRATIONS: MigrationDefinition[] = [
       db.exec('ALTER TABLE production_queues ADD COLUMN input_ingredients_json TEXT DEFAULT NULL');
     }
   },
+  {
+    version: 38,
+    name: '038_restore_core_uniqueness',
+    up: (db: DatabaseSync) => {
+      // The schema-authority consolidation omitted these integrity constraints.
+      // Validate existing data before adding indexes; never discard duplicate
+      // inventory or a player's building to make an upgrade succeed.
+      const constraints = [
+        { table: 'buildings', columns: 'company_id, position', where: "WHERE position <> 'l'" },
+        { table: 'warehouse', columns: 'company_id, kind, quality', where: '' },
+        { table: 'research', columns: 'company_id, discipline', where: '' },
+        { table: 'display_case', columns: 'company_id, slot', where: '' }
+      ];
+      for (const { table, columns, where } of constraints) {
+        const duplicate = db.prepare(
+          `SELECT COUNT(*) AS count FROM ${table} ${where} GROUP BY ${columns} HAVING COUNT(*) > 1 LIMIT 1`
+        ).get();
+        if (duplicate) {
+          throw new Error(`Duplicate ${table} (${columns}) rows prevent restoring uniqueness; reconcile the rows before retrying this migration`);
+        }
+      }
+      db.exec(`
+        DROP INDEX IF EXISTS uq_buildings_company_position;
+        DROP INDEX IF EXISTS uq_warehouse_company_kind_quality;
+        DROP INDEX IF EXISTS uq_research_company_discipline;
+        DROP INDEX IF EXISTS uq_display_case_company_slot;
+        CREATE UNIQUE INDEX uq_buildings_company_position ON buildings(company_id, position) WHERE position <> 'l';
+        CREATE UNIQUE INDEX uq_warehouse_company_kind_quality ON warehouse(company_id, kind, quality);
+        CREATE UNIQUE INDEX uq_research_company_discipline ON research(company_id, discipline);
+        CREATE UNIQUE INDEX uq_display_case_company_slot ON display_case(company_id, slot);
+      `);
+    }
+  },
+  {
+    version: 39,
+    name: '039_building_material_cost_snapshots',
+    up: (db: DatabaseSync) => {
+      // Preserve the original cost buckets of materials consumed by each
+      // construction/upgrade segment and the currently-installed robot batch.
+      // NULL remains an explicit legacy marker: historical cost cannot be
+      // reconstructed from the building's cash price alone.
+      db.exec(`
+        ALTER TABLE buildings ADD COLUMN construction_material_cost_snapshots_json TEXT DEFAULT NULL;
+        ALTER TABLE buildings ADD COLUMN robot_install_cost_snapshots_json TEXT DEFAULT NULL;
+      `);
+    }
+  },
+  {
+    version: 40,
+    name: '040_unique_active_executive_employment',
+    up: (db: DatabaseSync) => {
+      const duplicate = db.prepare(`
+        SELECT executive_id
+        FROM executive_employment_history
+        WHERE ended_at IS NULL
+        GROUP BY executive_id
+        HAVING COUNT(*) > 1
+        LIMIT 1
+      `).get() as { executive_id: number } | undefined;
+      if (duplicate) {
+        throw new Error(
+          `Executive ${duplicate.executive_id} has multiple active employment-history rows; reconcile before applying migration 40`
+        );
+      }
+      db.exec(`
+        CREATE UNIQUE INDEX IF NOT EXISTS uq_executive_employment_history_active
+          ON executive_employment_history(executive_id)
+          WHERE ended_at IS NULL;
+      `);
+    }
+  },
+  {
+    version: 41,
+    name: '041_contract_material_cost_snapshot',
+    up: (db: DatabaseSync) => {
+      // Keep original inventory valuation independent from the offered price.
+      // Existing contracts have no recoverable historical cost snapshot.
+      db.exec('ALTER TABLE contracts ADD COLUMN cost_snapshot TEXT DEFAULT NULL');
+    }
+  },
+  {
+    version: 42,
+    name: '042_remaining_runtime_schema',
+    up: (db: DatabaseSync) => {
+      // Existing databases may already carry these runtime-added columns.
+      // Moving the same definitions into a versioned migration preserves them (#68).
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS realm_phase_settings (
+          id INTEGER PRIMARY KEY CHECK (id = 1),
+          preset TEXT NOT NULL DEFAULT 'full',
+          phase INTEGER NOT NULL DEFAULT 8,
+          research_limit INTEGER NOT NULL DEFAULT 12,
+          bonds_enabled INTEGER NOT NULL DEFAULT 1,
+          gov_orders_enabled INTEGER NOT NULL DEFAULT 1,
+          executives_enabled INTEGER NOT NULL DEFAULT 1,
+          rec_buildings_enabled INTEGER NOT NULL DEFAULT 1,
+          collectibles_enabled INTEGER NOT NULL DEFAULT 1,
+          robots_enabled INTEGER NOT NULL DEFAULT 1,
+          purchases_enabled INTEGER NOT NULL DEFAULT 1,
+          simboosts_exchange_limit INTEGER NOT NULL DEFAULT 10000,
+          retail_modeling INTEGER NOT NULL DEFAULT 0,
+          updated_at TEXT
+        );
+      `);
+      const additions: Record<string, Record<string, string>> = {
+        display_case: { item_kind: "TEXT NOT NULL DEFAULT 'resource'", item_ref: 'TEXT' },
+        restaurant_properties: {
+          menu_price: 'REAL DEFAULT 60', professional_staff: 'INTEGER DEFAULT 0',
+          last_cycle_at: 'TEXT', reconstruction_started_at: 'TEXT',
+          reconstruction_until: 'TEXT', rating_penalty_applied: 'INTEGER DEFAULT 0'
+        },
+        restaurant_runs: {
+          new_rating: 'REAL', rating_before: 'REAL', rating_after: 'REAL', rating_delta: 'REAL',
+          occupancy: 'REAL', menu_price: 'REAL', review: 'TEXT', menu_json: 'TEXT',
+          good_service: 'INTEGER', is_luxury: 'INTEGER', cycle_start: 'TEXT', cycle_end: 'TEXT',
+          prepared: 'INTEGER DEFAULT 0', served: 'INTEGER', spoiled: 'INTEGER',
+          food_cost: 'REAL DEFAULT 0', wages: 'REAL DEFAULT 0'
+        }
+      };
+      for (const [table, definitions] of Object.entries(additions)) {
+        const columns = new Set(
+          (db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>).map(row => row.name)
+        );
+        for (const [column, definition] of Object.entries(definitions)) {
+          if (!columns.has(column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+        }
+      }
+    }
+  },
 ];
 
 export class MigrationRunner {

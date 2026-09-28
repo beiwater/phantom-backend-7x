@@ -1,7 +1,10 @@
+import type { SQLInputValue } from 'node:sqlite';
 import { db } from '../db/database.ts';
 import { virtualClock } from '../core/virtual-clock.ts';
 import { updateCompanyMoney, updateCompanySimBoosts, getCompanyById } from './company.ts';
 import { DomainError } from '../errors/domain-error.ts';
+import { getQualityFromPatents, RESOURCE_TO_DISCIPLINE } from '../domain/research/research-rules.ts';
+import { getResourceDef } from '../game-data/resources.ts';
 import {
   type IndividualAchievement,
   type AchievementStatKey,
@@ -104,7 +107,9 @@ export function claimAchievement(companyId: number, achievementId: string) {
 
   const now = virtualClock.nowIso();
   const boostReward = ('sim_boosts' in ach ? ach.sim_boosts : ach.simBoosts) || 5;
-  const cashReward = ('reward' in ach && typeof ach.reward === 'number' ? ach.reward : (ach.rewards?.[0] ?? 5000));
+  const cashReward = ('reward' in ach && typeof ach.reward === 'number'
+    ? ach.reward
+    : ('rewards' in ach ? ach.rewards?.[0] ?? 5000 : 5000));
 
   db.exec('BEGIN');
   try {
@@ -213,17 +218,39 @@ export function getCertificateCatalog() {
  * Live gameplay statistics for a company, derived directly from authoritative game tables.
  */
 export function getAchievementStats(companyId: number): Record<AchievementStatKey, number> {
-  const count = (sql: string, ...params: unknown[]): number => {
-    try {
-      const row = db.prepare(sql).get(...params) as { n: number } | undefined;
-      return Math.max(0, Number(row?.n) || 0);
-    } catch {
-      return 0;
-    }
+  const count = (sql: string, ...params: SQLInputValue[]): number => {
+    const row = db.prepare(sql).get(...params) as { n: number } | undefined;
+    return Math.max(0, Number(row?.n) || 0);
   };
 
-  const comp = db.prepare('SELECT level FROM companies WHERE id = ?').get(companyId) as { level?: number } | undefined;
-  const companyLevel = Math.max(1, Number(comp?.level) || 1);
+  const companyLevel = Math.max(1, Number(getCompanyById(companyId)?.level) || 1);
+  const researchRows = db.prepare(
+    'SELECT discipline, patents FROM research WHERE company_id = ?'
+  ).all(companyId) as Array<{ discipline: number | null; patents: number | null }>;
+  const researchQualityByDiscipline = new Map<number, number>();
+  for (const row of researchRows) {
+    if (row.discipline === null) continue;
+    const quality = getQualityFromPatents(Number(row.patents) || 0);
+    researchQualityByDiscipline.set(
+      row.discipline,
+      Math.max(researchQualityByDiscipline.get(row.discipline) ?? 0, quality)
+    );
+  }
+  const researchedQ1Count = Object.entries(RESOURCE_TO_DISCIPLINE).reduce((total, [kindText, discipline]) => {
+    const resource = getResourceDef(kindText);
+    if (!resource || resource.isResearch || (researchQualityByDiscipline.get(discipline) ?? 0) < 1) {
+      return total;
+    }
+    const seasonalResource = resource as typeof resource & {
+      productionSeason?: string | null;
+      retailSeason?: string | null;
+    };
+    if (seasonalResource.productionSeason != null || seasonalResource.retailSeason != null) {
+      return total;
+    }
+    return total + 1;
+  }, 0);
+  const maxResearchQuality = Math.max(0, ...researchQualityByDiscipline.values());
 
   return {
     marketTrades:
@@ -236,12 +263,15 @@ export function getAchievementStats(companyId: number): Record<AchievementStatKe
     totalBuildingSize: count('SELECT COALESCE(SUM(size), 0) AS n FROM buildings WHERE company_id = ?', companyId),
     executiveTrainings: count(`SELECT COUNT(*) AS n FROM cash_ledger WHERE company_id = ? AND category = 'h'`, companyId),
     executivesCount: count('SELECT COUNT(*) AS n FROM executives WHERE company_id = ?', companyId),
-    maxResearchQuality: count('SELECT COALESCE(MAX(quality), 0) AS n FROM research WHERE company_id = ?', companyId),
-    researchedQ1Count: count('SELECT COUNT(DISTINCT resource_kind) AS n FROM research WHERE company_id = ? AND quality >= 1', companyId),
-    governmentOrdersCompleted: count('SELECT COUNT(*) AS n FROM government_orders WHERE company_id = ? AND resourceMultiplierAwarded IS NOT NULL', companyId),
+    maxResearchQuality,
+    researchedQ1Count,
+    governmentOrdersCompleted: count(
+      'SELECT COUNT(*) AS n FROM government_bid_contractors WHERE company_id = ? AND fulfilled = 1',
+      companyId
+    ),
     companyLevel,
-    prospectorCount: count("SELECT COUNT(*) AS n FROM audit_logs WHERE company_id = ? AND action = 'demolish_building'", companyId),
-    todayActivity: count("SELECT COUNT(*) AS n FROM production_queues WHERE company_id = ? AND datetime(created_at) >= datetime('now', '-1 day')", companyId) +
+    prospectorCount: count("SELECT COUNT(*) AS n FROM audits WHERE actor_company_id = ? AND action = 'demolish_building'", companyId),
+    todayActivity: count("SELECT COUNT(*) AS n FROM production_queues WHERE company_id = ? AND datetime(started_at) >= datetime('now', '-1 day')", companyId) +
       count("SELECT COUNT(*) AS n FROM retail_sales_history WHERE company_id = ? AND datetime(sold_at) >= datetime('now', '-1 day')", companyId),
     overachieverRank: companyLevel >= 25 ? 1 : 0
   };

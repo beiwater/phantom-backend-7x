@@ -30,6 +30,8 @@ jobs:
           cache: npm
       - name: Install locked dependencies
         run: npm ci
+      - name: Check production TypeScript contracts
+        run: npm run typecheck
       - name: Build compatible frontend and verify bundle
         run: npm run build
       - name: Run backend and API contracts
@@ -53,8 +55,6 @@ jobs:
       - name: Install Chromium and system dependencies
         run: npx playwright install --with-deps chromium
       - name: Run DOM-only Playwright regression suite
-        env:
-          E2E_RUN_DIR: ${{ runner.temp }}/phantom-e2e-runs
         run: npm run test:e2e
       - name: Upload Playwright report and failure evidence
         if: ${{ always() }}
@@ -63,6 +63,5 @@ jobs:
           name: playwright-evidence-${{ github.run_attempt }}
           path: |
             test-results/
-            ${{ runner.temp }}/phantom-e2e-runs/
           if-no-files-found: ignore
           retention-days: 14

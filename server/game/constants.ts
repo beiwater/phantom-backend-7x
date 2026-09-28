@@ -4,6 +4,8 @@ import { CONFIG } from '../config.ts';
 
 export interface ResourceDef {
   dbLetter: number;
+  name?: string;
+  cost?: number;
   producedAt?: string;
   producedFrom?: Record<string, number>;
   producedPerHourRaw?: number;

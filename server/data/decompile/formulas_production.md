@@ -450,3 +450,37 @@ in different UI contexts (`chunk_Pli.js` vs `chunk_Unn.js`). The Pli variant div
 `anHour` by `(1 - totalBonus/100)` where `anHour` already has salary baked into the
 baseRate. The Unn variant passes bonuses through the salary parameter of `$6t`.
 The game server ultimately computes the authoritative value.
+
+## Forest Nursery controls and growth (Issue #200)
+
+Verified against `frontend-original/static/bundle/assets/index-cgzgptQ8.js` and
+the visible Chinese Forest Nursery controls:
+
+- `Ai.NURTURING` is category `n` (byte 1,195,968). The normal busy panel returns
+  no controls for this category (byte 4,815,658); the dedicated nursery panel
+  supplies nurturing, cancellation and cut-down controls, without normal rush.
+- `nbi` scales ingredients by requested growth times nursery capacity. Growth
+  is a per-tree value: increasing building size increases input consumption and
+  the eventual tree count, rather than multiplying the growth rate.
+- The cut-down modal uses `messageYouWillReceiveTheTree` and
+  `messageYouWillNotReceiveAnyTree`: cutting restarts tree growth; cutting below
+  the first quality threshold loses progress and yields no trees. Residual
+  growth is not carried into another harvest.
+- Completed nurturing exposes the persisted accumulator and frees the building;
+  trees enter inventory only through the dedicated accumulator collect endpoint.
+
+Regression evidence: `verify-issue-200-accumulator.test.ts` and the Forest Nursery
+scenario in `tests/e2e/building-matrix.spec.ts` cover growth, cut-down, refresh,
+capacity, failure rollback and repeat requests.
+
+## Private economy-cycle preview limitation
+
+The original client's `jS` calculator (byte ~1,791,583) multiplies production rate
+by the resource event's `1 + speedModifier / 100`. Its company bonus is the raw
+SimBoost realignment value; that same value is used by the slider (byte
+~5,138,555). The private backend additionally adds a cycle modifier to that bonus.
+There is no verified original field for this extra modifier. A nonzero private
+cycle can therefore make the original preview disagree with the saved duration.
+Do not overwrite the slider value or fabricate company-dependent public events
+to hide the mismatch. Canonical browser duration regressions use an explicitly
+stable economy; nonneutral-cycle preview compatibility remains an open gap.

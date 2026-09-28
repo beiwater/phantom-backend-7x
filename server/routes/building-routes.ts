@@ -123,14 +123,14 @@ export function registerBuildingRoutes(registry: RouteRegistry = globalRouteRegi
   };
   registry.register({
     method: 'POST',
-    pattern: '/api/v1/buildings/:id/busy/',
+    pattern: '/api/v1/buildings/:id(\\d+)/busy/',
     auth: 'company',
     handler: startProductionHandler
   });
 
   registry.register({
     method: 'POST',
-    pattern: '/api/v1/busy/:id/',
+    pattern: '/api/v1/busy/:id(\\d+)/',
     auth: 'company',
     handler: startProductionHandler
   });
@@ -149,14 +149,14 @@ export function registerBuildingRoutes(registry: RouteRegistry = globalRouteRegi
 
   registry.register({
     method: 'DELETE',
-    pattern: '/api/v1/buildings/:id/busy/',
+    pattern: '/api/v1/buildings/:id(\\d+)/busy/',
     auth: 'company',
     handler: cancelProductionHandler
   });
 
   registry.register({
     method: 'DELETE',
-    pattern: '/api/v1/busy/:id/',
+    pattern: '/api/v1/busy/:id(\\d+)/',
     auth: 'company',
     handler: cancelProductionHandler
   });
@@ -164,7 +164,7 @@ export function registerBuildingRoutes(registry: RouteRegistry = globalRouteRegi
   // 3. Building History
   registry.register({
     method: 'GET',
-    pattern: '/api/v2/companies/buildings/:id/history/',
+    pattern: '/api/v2/companies/buildings/:id(\\d+)/history/',
     auth: 'none',
     handler: async (_req, res, ctx, params) => {
       const buildingId = Number(params.id);
@@ -176,7 +176,7 @@ export function registerBuildingRoutes(registry: RouteRegistry = globalRouteRegi
   // 4. Followers (logistics links between the company's own buildings)
   registry.register({
     method: 'GET',
-    pattern: '/api/v3/companies/buildings/:id/followers/',
+    pattern: '/api/v3/companies/buildings/:id(\\d+)/followers/',
     auth: 'none',
     handler: async (_req, res, ctx, params) => {
       const linking = ctx?.companyId
@@ -188,7 +188,7 @@ export function registerBuildingRoutes(registry: RouteRegistry = globalRouteRegi
 
   registry.register({
     method: 'POST',
-    pattern: '/api/v3/companies/buildings/:id/followers/',
+    pattern: '/api/v3/companies/buildings/:id(\\d+)/followers/',
     auth: 'company',
     handler: async (req, res, ctx, params, body) => {
       if (!ctx?.companyId) {
@@ -207,7 +207,7 @@ export function registerBuildingRoutes(registry: RouteRegistry = globalRouteRegi
 
   registry.register({
     method: 'DELETE',
-    pattern: '/api/v3/companies/buildings/:id/followers/',
+    pattern: '/api/v3/companies/buildings/:id(\\d+)/followers/',
     auth: 'company',
     handler: async (req, res, ctx, params) => {
       if (!ctx?.companyId) {
@@ -243,7 +243,7 @@ export function registerBuildingRoutes(registry: RouteRegistry = globalRouteRegi
 
   registry.register({
     method: 'GET',
-    pattern: '/api/v2/companies/:companyId/buildings/',
+    pattern: '/api/v2/companies/:companyId(\\d+)/buildings/',
     auth: 'none',
     handler: getBuildingsListHandler
   });
@@ -302,7 +302,7 @@ export function registerBuildingRoutes(registry: RouteRegistry = globalRouteRegi
 
   registry.register({
     method: 'POST',
-    pattern: '/api/v2/companies/:companyId/buildings/',
+    pattern: '/api/v2/companies/:companyId(\\d+)/buildings/',
     auth: 'company',
     handler: constructBuildingHandler
   });
@@ -321,21 +321,21 @@ export function registerBuildingRoutes(registry: RouteRegistry = globalRouteRegi
 
   registry.register({
     method: 'GET',
-    pattern: '/api/v2/companies/buildings/:id/',
+    pattern: '/api/v2/companies/buildings/:id(\\d+)/',
     auth: 'none',
     handler: getBuildingHandler
   });
 
   registry.register({
     method: 'GET',
-    pattern: '/api/v2/companies/me/buildings/:id/',
+    pattern: '/api/v2/companies/me/buildings/:id(\\d+)/',
     auth: 'none',
     handler: getBuildingHandler
   });
 
   registry.register({
     method: 'GET',
-    pattern: '/api/v2/companies/:companyId/buildings/:id/',
+    pattern: '/api/v2/companies/:companyId(\\d+)/buildings/:id(\\d+)/',
     auth: 'none',
     handler: getBuildingHandler
   });
@@ -471,21 +471,21 @@ export function registerBuildingRoutes(registry: RouteRegistry = globalRouteRegi
 
   registry.register({
     method: 'PATCH',
-    pattern: '/api/v2/companies/buildings/:id/',
+    pattern: '/api/v2/companies/buildings/:id(\\d+)/',
     auth: 'company',
     handler: patchBuildingHandler
   });
 
   registry.register({
     method: 'PATCH',
-    pattern: '/api/v2/companies/me/buildings/:id/',
+    pattern: '/api/v2/companies/me/buildings/:id(\\d+)/',
     auth: 'company',
     handler: patchBuildingHandler
   });
 
   registry.register({
     method: 'PATCH',
-    pattern: '/api/v2/companies/:companyId/buildings/:id/',
+    pattern: '/api/v2/companies/:companyId(\\d+)/buildings/:id(\\d+)/',
     auth: 'company',
     handler: patchBuildingHandler
   });
@@ -511,21 +511,21 @@ export function registerBuildingRoutes(registry: RouteRegistry = globalRouteRegi
 
   registry.register({
     method: 'DELETE',
-    pattern: '/api/v2/companies/buildings/:id/',
+    pattern: '/api/v2/companies/buildings/:id(\\d+)/',
     auth: 'company',
     handler: deleteBuildingHandler
   });
 
   registry.register({
     method: 'DELETE',
-    pattern: '/api/v2/companies/me/buildings/:id/',
+    pattern: '/api/v2/companies/me/buildings/:id(\\d+)/',
     auth: 'company',
     handler: deleteBuildingHandler
   });
 
   registry.register({
     method: 'DELETE',
-    pattern: '/api/v2/companies/:companyId/buildings/:id/',
+    pattern: '/api/v2/companies/:companyId(\\d+)/buildings/:id(\\d+)/',
     auth: 'company',
     handler: deleteBuildingHandler
   });
@@ -533,7 +533,7 @@ export function registerBuildingRoutes(registry: RouteRegistry = globalRouteRegi
   // 7. Building Abundance (Issue #93)
   registry.register({
     method: 'GET',
-    pattern: '/api/v2/companies/buildings/:id/abundance/',
+    pattern: '/api/v2/companies/buildings/:id(\\d+)/abundance/',
     auth: 'none',
     handler: async (_req, res, _ctx, params) => {
       const buildingId = Number(params.id);
@@ -553,9 +553,10 @@ export function registerBuildingRoutes(registry: RouteRegistry = globalRouteRegi
   // matching new original abundance) for a natural resource extractor.
   registry.register({
     method: 'POST',
-    pattern: '/api/v2/companies/buildings/:id/prospect/',
+    pattern: '/api/v2/companies/buildings/:id(\\d+)/prospect/',
     auth: 'company',
     handler: async (_req, res, ctx, params) => {
+      if (!ctx) throw new UnauthorizedError();
       const buildingId = Number(params.id);
       const building = buildingRepository.findById(buildingId);
       if (!building) {
@@ -633,14 +634,14 @@ export function registerBuildingRoutes(registry: RouteRegistry = globalRouteRegi
 
   registry.register({
     method: 'POST',
-    pattern: '/api/v2/companies/buildings/:id/install-robots/',
+    pattern: '/api/v2/companies/buildings/:id(\\d+)/install-robots/',
     auth: 'company',
     handler: installRobotsHandler
   });
 
   registry.register({
     method: 'POST',
-    pattern: '/api/v2/companies/buildings/:id/uninstall-robots/',
+    pattern: '/api/v2/companies/buildings/:id(\\d+)/uninstall-robots/',
     auth: 'company',
     handler: uninstallRobotsHandler
   });
@@ -648,14 +649,14 @@ export function registerBuildingRoutes(registry: RouteRegistry = globalRouteRegi
   // Legacy robots endpoints, now backed by the real robotics use cases.
   registry.register({
     method: 'POST',
-    pattern: '/api/v2/companies/buildings/:id/robots/',
+    pattern: '/api/v2/companies/buildings/:id(\\d+)/robots/',
     auth: 'company',
     handler: installRobotsHandler
   });
 
   registry.register({
     method: 'DELETE',
-    pattern: '/api/v2/companies/buildings/:id/robots/',
+    pattern: '/api/v2/companies/buildings/:id(\\d+)/robots/',
     auth: 'company',
     handler: uninstallRobotsHandler
   });
@@ -663,7 +664,7 @@ export function registerBuildingRoutes(registry: RouteRegistry = globalRouteRegi
   // 9. Building Queue endpoints
   registry.register({
     method: 'GET',
-    pattern: '/api/v2/companies/buildings/:id/queue/',
+    pattern: '/api/v2/companies/buildings/:id(\\d+)/queue/',
     auth: 'company',
     handler: async (_req, res, ctx, params) => {
       const buildingId = Number(params.id);
@@ -674,7 +675,7 @@ export function registerBuildingRoutes(registry: RouteRegistry = globalRouteRegi
 
   registry.register({
     method: 'POST',
-    pattern: '/api/v2/companies/buildings/:id/queue/',
+    pattern: '/api/v2/companies/buildings/:id(\\d+)/queue/',
     auth: 'company',
     handler: async (_req, res, ctx, params, body: any) => {
       const buildingId = Number(params.id);
@@ -690,7 +691,7 @@ export function registerBuildingRoutes(registry: RouteRegistry = globalRouteRegi
 
   registry.register({
     method: 'DELETE',
-    pattern: '/api/v2/companies/buildings/:id/queue/:queueId/',
+    pattern: '/api/v2/companies/buildings/:id(\\d+)/queue/:queueId(\\d+)/',
     auth: 'company',
     handler: async (_req, res, ctx, params) => {
       const buildingId = Number(params.id);
@@ -705,7 +706,7 @@ export function registerBuildingRoutes(registry: RouteRegistry = globalRouteRegi
   // original client sends an empty POST body and reads only resource/building.
   registry.register({
     method: 'POST',
-    pattern: '/api/v1/buildings/:id/accumulator/collect/',
+    pattern: '/api/v1/buildings/:id(\\d+)/accumulator/collect/',
     auth: 'company',
     handler: async (_req, res, ctx, params) => {
       const result = await collectAccumulatorUseCase(ctx!, Number(params.id));
@@ -719,7 +720,7 @@ export function registerBuildingRoutes(registry: RouteRegistry = globalRouteRegi
   // handled, so the collect click on a selling store errored.)
   registry.register({
     method: 'POST',
-    pattern: '/api/v2/order/take/:id/',
+    pattern: '/api/v2/order/take/:id(\\d+)/',
     auth: 'company',
     handler: async (_req, res, ctx, params) => {
       const requestedId = Number(params.id);

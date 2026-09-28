@@ -49,8 +49,20 @@ export async function handleActivitySubroutes(
     })));
     return true;
   }
-  if (pathname.startsWith("/api/") && pathname.includes("/royalties/")) {
-    sendJson(res, { royalties: 0 });
+  const companyRoyaltiesMatch = pathname.match(/^\/api\/v2\/companies\/(\d+)\/royalties\/?$/);
+  if (companyRoyaltiesMatch && method === "GET") {
+    if (!currentCompanyId) {
+      sendJson(res, { error: "Unauthorized" }, 401);
+      return true;
+    }
+    if (Number(companyRoyaltiesMatch[1]) !== currentCompanyId) {
+      sendJson(res, { error: "Unauthorized" }, 401);
+      return true;
+    }
+    sendJson(res, {
+      error: "Executive royalty amount cannot be calculated: the authoritative rate and tenure contract is unavailable",
+      code: "SOURCE_CONTRACT_BLOCKED"
+    }, 501);
     return true;
   }
 
@@ -171,9 +183,9 @@ export async function handleActivitySubroutes(
     }
     const company = getCompanyById(currentCompanyId);
     if (pathname.includes("/attempt/")) {
-      startAttempt(challenge.id, currentCompanyId, company?.name ?? "", company?.logo ?? null, company?.realm_id ?? 0);
+      startAttempt(Number(challenge.id), currentCompanyId, company?.name ?? "", company?.logo ?? null, company?.realm_id ?? 0);
     } else {
-      restartAttempt(challenge.id, currentCompanyId);
+      restartAttempt(Number(challenge.id), currentCompanyId);
     }
     sendJson(res, { success: true });
     return true;

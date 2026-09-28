@@ -1,6 +1,7 @@
 import { addResource } from '../../warehouse.ts';
 import { updateCompanyMoney, updateCompanySimBoosts, getCompanyById } from '../../company.ts';
 import { getResourceDef } from '../../constants.ts';
+import { getResourceName } from '../../../game-data/resources.ts';
 import { resolveTargets } from '../target-resolver.ts';
 import type { CommandDefinition, CommandResult, TargetCompany } from '../types.ts';
 
@@ -48,7 +49,7 @@ function resolveResourceKind(input: string): { kind: number; name: string } | un
     const kind = Number(clean);
     const def = getResourceDef(kind);
     if (def) {
-      return { kind, name: def.name };
+      return { kind, name: def.name ?? getResourceName(kind) };
     }
   }
 

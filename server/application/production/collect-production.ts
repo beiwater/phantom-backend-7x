@@ -8,8 +8,10 @@ import { companyRepository } from '../../repositories/company-repository.ts';
 import { eventBus } from '../../events/event-bus.ts';
 import { NotFoundError, ValidationError, ConflictError } from '../../errors/domain-error.ts';
 import { computeLevelInfo, type LevelInfoDTO } from '../../domain/leveling/level-rules.ts';
-import { applyAbundanceCycleDecay } from '../../game/buildings.ts';
-import { rocketKindForLaunchAmount, resolveRocketLaunch, type RocketLaunchOutcome } from '../../game/aerospace.ts';
+import { applyAbundanceCycleDecay } from '../buildings/abundance-use-cases.ts';
+import { resolveRocketLaunch } from '../aerospace/launch-use-cases.ts';
+import { rocketKindForLaunchAmount, type RocketLaunchOutcome } from '../../domain/aerospace/launch-rules.ts';
+
 
 export interface CollectProductionInput {
   buildingOrQueueId: number;
@@ -53,17 +55,6 @@ export async function collectProductionUseCase(
         // An already-collected order must never be collected again.
         throw new ConflictError('Production order has already been collected');
       }
-      const accumulatorBuilding = itemByQueue
-        ? buildingRepository.findById(itemByQueue.buildingId)
-        : null;
-      if (itemByQueue && !itemByQueue.resolved
-        && itemByQueue.companyId === ctx.companyId
-        && itemByQueue.kind === 150
-        && accumulatorBuilding?.kind === 'v') {
-        // Issue #200: accumulator progress is cut down by its dedicated
-        // application flow; never deliver the growth amount as ordinary stock.
-        throw new ValidationError('Accumulator production must use the dedicated collect endpoint');
-      }
       if (itemByQueue && itemByQueue.companyId === ctx.companyId) {
         targetItem = itemByQueue;
       }
@@ -88,6 +79,13 @@ export async function collectProductionUseCase(
       throw new ConflictError('Production order has already been collected');
     }
 
+    if (targetItem.kind === 150
+      && buildingRepository.findById(targetItem.buildingId)?.kind === 'v') {
+      // Apply this boundary after every lookup path, including building-first
+      // and historical fallback IDs: growth is never ordinary warehouse stock.
+      throw new ValidationError('Accumulator production must use the dedicated collect endpoint');
+    }
+
     const finishTime = Date.parse(targetItem.finishesAt);
     if (!Number.isFinite(finishTime) || finishTime > virtualClock.nowMs()) {
       throw new ValidationError('Production has not finished yet');
@@ -107,15 +105,14 @@ export async function collectProductionUseCase(
     let launchOutcome: RocketLaunchOutcome | null = null;
     if (launchPad && launchPad.kind === 'l' && targetItem.kind === 100) {
       const rocketKind = rocketKindForLaunchAmount(Number(targetItem.amount));
-      if (rocketKind === null) {
-        throw new ValidationError(`Invalid launch order amount: ${targetItem.amount}`);
+      if (rocketKind !== null) {
+        launchOutcome = resolveRocketLaunch(
+          ctx.companyId,
+          targetItem.buildingId,
+          rocketKind,
+          Number(targetItem.quality) || 0
+        );
       }
-      launchOutcome = resolveRocketLaunch(
-        ctx.companyId,
-        targetItem.buildingId,
-        rocketKind,
-        Number(targetItem.quality) || 0
-      );
     }
 
     // 3. Add produced resource to warehouse (launches produce none)
@@ -123,7 +120,8 @@ export async function collectProductionUseCase(
       ctx.companyId,
       targetItem.kind,
       targetItem.quality,
-      targetItem.amount
+      targetItem.amount,
+      { market: targetItem.cost ?? 0 }
     );
 
     // 4. Update building busy state

@@ -4,8 +4,8 @@ import type { CollectProductionResult } from '../../application/production/colle
 import type { ProductionQueueEntity } from '../../repositories/production-repository.ts';
 import type { LevelInfoDTO } from '../../domain/leveling/level-rules.ts';
 import { getResourceDef, getResourceName } from '../../game-data/resources.ts';
-import { db as database } from '../../db/database.ts';
-import { toSimCompaniesBuildingDTO } from './building-dto.ts';
+import { buildingRepository } from '../../repositories/building-repository.ts';
+import { toSimCompaniesBuildingDTO, type SimCompaniesBuildingDTO } from './building-dto.ts';
 import { rocketKindForLaunchRequest } from '../../game/aerospace.ts';
 import { virtualClock } from '../../core/virtual-clock.ts';
 import { finiteOr, computeFallbackUnitCost } from './dto-utils.ts';
@@ -199,7 +199,7 @@ export function toSimCompaniesQueueDTO(
   items: ProductionQueueEntity[]
 ): SimCompaniesQueueItemDTO[] {
   return items.map(item => {
-    const building = database.prepare('SELECT kind FROM buildings WHERE id = ?').get(item.buildingId) as { kind?: string } | undefined;
+    const building = buildingRepository.findById(item.buildingId);
     const launchRocketKind = building?.kind === 'l' && item.kind === 100
       ? rocketKindForLaunchRequest(item.kind, Number(item.amount))
       : null;

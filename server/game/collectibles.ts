@@ -19,11 +19,11 @@
  *   - Treasury-seeded collectibles (seller NULL) are purchased without a
  *     seller credit — there is no player to pay.
  *
- * Tables live in server/db/migrations/index.ts (Issue #82 tail section,
- * idempotent DDL + seed of 8 unique collectibles across the four rarity
- * tiers), so they exist at boot for fresh DATA_DIRs.
+ * Tables live in the versioned migration runner. Fresh databases contain no
+ * fabricated collectible assets; tests arrange their own treasury listings.
  */
 import { db } from '../db/database.ts';
+import type { SQLOutputValue } from 'node:sqlite';
 import { virtualClock } from '../core/virtual-clock.ts';
 import { runInTransaction } from '../db/transaction.ts';
 import { getCompanyById, updateCompanySimBoosts } from './company.ts';
@@ -91,7 +91,7 @@ export interface NftCollectorView {
   value: number;
 }
 
-interface NftAssetRow {
+interface NftAssetRow extends Record<string, SQLOutputValue> {
   id: number;
   definition_id: string;
   name: string;
@@ -103,7 +103,7 @@ interface NftAssetRow {
   minted_at: string;
 }
 
-interface NftListingRow {
+interface NftListingRow extends Record<string, SQLOutputValue> {
   id: number;
   nft_id: number;
   seller_id: number | null;
@@ -357,7 +357,7 @@ export interface CollectiblePurchase {
  * collectible with SimBoosts. Atomic: buyer debit, seller credit, ownership
  * transfer, listing closure and provenance row commit together or not at all.
  */
-export function buyCollectible(buyerCompanyId: number, listingId: number): CollectiblePurchase {
+export async function buyCollectible(buyerCompanyId: number, listingId: number): Promise<CollectiblePurchase> {
   return runInTransaction(() => {
     const row = db.prepare('SELECT * FROM nft_listings WHERE id = ?').get(listingId) as NftListingRow | undefined;
     if (!row) {

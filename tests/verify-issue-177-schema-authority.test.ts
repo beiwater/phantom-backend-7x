@@ -135,7 +135,10 @@ const CRITICAL_TABLES = [
   'company_achievements', 'company_boost_settings', 'fpa_custom_reports',
   'government_bids', 'government_bid_contractors', 'government_bid_blocked_companies',
   'newspaper_articles', 'newspaper_reactions', 'referrals',
-  'gift_baskets', 'gift_basket_drafts', 'accumulator_states'
+  'gift_baskets', 'gift_basket_drafts', 'accumulator_states',
+  'restaurant_properties', 'restaurant_runs', 'realm_phase_settings',
+  'scheduler_state', 'economy_state', 'company_tags', 'game_notifications',
+  'newspaper_issues', 'newspaper_sponsors'
 ];
 
 // 1. Every critical table exists in the migrated database.
@@ -157,6 +160,14 @@ for (const table of ['players', 'companies', 'buildings', 'sessions', 'productio
 }
 
 // 3. Performance indices exist.
+for (const [table, expected] of Object.entries({
+  display_case: ['item_kind', 'item_ref'],
+  restaurant_properties: ['professional_staff', 'last_cycle_at', 'reconstruction_until'],
+  restaurant_runs: ['cycle_start', 'cycle_end', 'prepared', 'served', 'spoiled', 'food_cost', 'wages']
+})) {
+  const actual = columns(migrated, table);
+  for (const column of expected) assert.ok(actual.includes(column), `${table}.${column} belongs to migrations (#68)`);
+}
 const migratedIndexes = new Set(
   (migrated.prepare("SELECT name FROM sqlite_master WHERE type='index' AND name IS NOT NULL").all() as Array<{ name: string }>).map(i => i.name)
 );

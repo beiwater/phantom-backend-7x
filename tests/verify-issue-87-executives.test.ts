@@ -342,11 +342,11 @@ async function runTests(dataDir: string): Promise<void> {
 }
 
 async function main(): Promise<void> {
-  const dataDir = path.resolve('data', `test-run-i87-${Date.now()}`);
+  const dataDir = path.resolve(process.env.DATA_DIR || 'data', `test-run-i87-${Date.now()}`);
   console.log(`Starting test server on port ${PORT} with DATA_DIR=${dataDir}...`);
 
   const child: ChildProcess = spawn(
-    '/opt/magnate/.node22/bin/node',
+    process.execPath,
     ['--experimental-strip-types', 'server/index.ts'],
     {
       cwd: path.resolve(import.meta.dirname ?? '.', '..'),

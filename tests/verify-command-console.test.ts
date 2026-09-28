@@ -2,6 +2,7 @@ import assert from 'node:assert';
 import { executeCommand, getCommandRegistry } from '../server/game/commands/command-engine.ts';
 import { getCompanyById } from '../server/game/company.ts';
 import { getWarehouseItem } from '../server/game/warehouse.ts';
+import { getFormerExecutivesQuery } from '../server/application/executives/executive-use-cases.ts';
 import { FixtureService } from '../server/services/fixture-service.ts';
 import { virtualClock } from '../server/core/virtual-clock.ts';
 import { socialRepository } from '../server/repositories/social-repository.ts';
@@ -241,7 +242,7 @@ const handled = await handleSocialRoutes(mock1.req, mock1.res, '/api/v2/message/
 assert.strictEqual(handled, true);
 await new Promise(r => setTimeout(r, 50));
 const resultJson = mock1.getResult().json;
-assert(resultJson.sender && resultJson.sender.company === '个人助理', 'Sender must be Personal Assistant');
+assert(resultJson.sender && resultJson.sender.company === 'Your Personal Assistant', 'Sender must be Personal Assistant');
 assert(resultJson.body && resultJson.body.includes('老板'), 'Assistant reply should start with secretary tone');
 assert(resultJson.commandResult && resultJson.commandResult.success, 'Command execution result must be true');
 
@@ -305,6 +306,7 @@ assert.strictEqual(resExecList.success, true);
 assert(resExecList.message.includes('Sarah Chen'));
 assert(resExecList.message.includes('管理100'));
 
+const moneyBeforeExecutiveFire = getCompanyById(testCompanyId)?.money;
 const resExecFire = await executeCommand(`/exec ${testCompanyId} fire COO`, {
   executorCompanyId: null,
   isOp: true,
@@ -312,7 +314,26 @@ const resExecFire = await executeCommand(`/exec ${testCompanyId} fire COO`, {
 });
 assert.strictEqual(resExecFire.success, true);
 assert(resExecFire.message.includes('Fired'));
-console.log('  -> OK: Executive hired with 100 skill, listed in org chart, and fired\n');
+assert.deepStrictEqual(resExecFire.data, { position: 'o', totalFired: 1, severance: 60000 });
+assert.ok(
+  getFormerExecutivesQuery(testCompanyId).some(executive => executive.name === 'Sarah Chen'),
+  'operator hire/fire must use the persisted employment-history transition'
+);
+const companyAfterFire = getCompanyById(testCompanyId);
+assert.equal(
+  companyAfterFire?.money,
+  Number(moneyBeforeExecutiveFire) - 60000,
+  'operator firing pays the same severance as the player API'
+);
+const repeatExecFire = await executeCommand(`/exec ${testCompanyId} fire COO`, {
+  executorCompanyId: null,
+  isOp: true,
+  source: 'cli'
+});
+assert.equal((repeatExecFire.data as { totalFired: number }).totalFired, 0, 'repeat fire cannot delete or pay twice');
+assert.equal(getCompanyById(testCompanyId)?.money, companyAfterFire?.money);
+assert.equal(getFormerExecutivesQuery(testCompanyId).filter(executive => executive.name === 'Sarah Chen').length, 1);
+console.log('  -> OK: Executive command hire/fire shares severance and former-history lifecycle\n');
 
 console.log('=== ALL 10 COMMAND CONSOLE & PA TESTS PASSED! ===');
 

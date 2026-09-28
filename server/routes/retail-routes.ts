@@ -50,7 +50,7 @@ async function handleRetailOrderMutation(
   const ctx = createGameContext(currentCompanyId, currentCompanyId, companyRealmId);
   try {
     if (method === 'PUT') {
-      const body = req.headers['content-type']?.includes('application/json')
+      const body: Record<string, unknown> = req.headers['content-type']?.includes('application/json')
         ? await readJsonBody<Record<string, unknown>>(req).catch(() => ({}))
         : {};
       const result = await collectRetailOrderUseCase(ctx, orderId, {

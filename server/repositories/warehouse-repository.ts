@@ -1,4 +1,4 @@
-import type { DatabaseSync } from 'node:sqlite';
+import type { DatabaseSync, SQLOutputValue } from 'node:sqlite';
 import { db } from '../db/connection.ts';
 import { virtualClock } from '../core/virtual-clock.ts';
 import { InsufficientInventoryError } from '../errors/domain-error.ts';
@@ -18,17 +18,18 @@ export interface WarehouseEntity {
 }
 
 export interface WarehouseDbRow {
-  id: number;
-  company_id: number;
-  kind: number;
-  quality: number;
-  amount: number;
-  cost_workers: number;
-  cost_admin: number;
-  cost_material1: number;
-  cost_material2: number;
-  cost_market: number;
-  updated_at: string;
+  [column: string]: SQLOutputValue;
+  id: SQLOutputValue;
+  company_id: SQLOutputValue;
+  kind: SQLOutputValue;
+  quality: SQLOutputValue;
+  amount: SQLOutputValue;
+  cost_workers: SQLOutputValue;
+  cost_admin: SQLOutputValue;
+  cost_material1: SQLOutputValue;
+  cost_material2: SQLOutputValue;
+  cost_market: SQLOutputValue;
+  updated_at: SQLOutputValue;
 }
 
 export interface ResourceTransactionEntity {
@@ -36,6 +37,11 @@ export interface ResourceTransactionEntity {
   quality: number;
   amount: number;
   cost: number;
+  costWorkers: number;
+  costAdmin: number;
+  costMaterial1: number;
+  costMaterial2: number;
+  costMarket: number;
 }
 
 export interface CostBreakdown {
@@ -46,20 +52,67 @@ export interface CostBreakdown {
   market?: number;
 }
 
+export interface ResourceCostTotals {
+  workers: number;
+  admin: number;
+  material1: number;
+  material2: number;
+  market: number;
+}
+
+/** Cost basis for a consumed resource quantity; each cost is a cumulative total. */
+export interface ResourceCostSnapshot {
+  kind: number;
+  amount: number;
+  costs: ResourceCostTotals;
+}
+
+export interface ConstructionMaterialCostSegment {
+  sizeBefore: number;
+  sizeAfter: number;
+  materials: ResourceCostSnapshot[];
+}
+
 function mapWarehouseRow(row: WarehouseDbRow): WarehouseEntity {
   return {
-    id: row.id,
-    companyId: row.company_id,
-    kind: row.kind,
-    quality: row.quality ?? 0,
-    amount: row.amount,
-    costWorkers: row.cost_workers,
-    costAdmin: row.cost_admin,
-    costMaterial1: row.cost_material1,
-    costMaterial2: row.cost_material2,
-    costMarket: row.cost_market,
-    updatedAt: row.updated_at
+    id: Number(row.id),
+    companyId: Number(row.company_id),
+    kind: Number(row.kind),
+    quality: Number(row.quality ?? 0),
+    amount: Number(row.amount),
+    costWorkers: Number(row.cost_workers),
+    costAdmin: Number(row.cost_admin),
+    costMaterial1: Number(row.cost_material1),
+    costMaterial2: Number(row.cost_material2),
+    costMarket: Number(row.cost_market),
+    updatedAt: String(row.updated_at)
   };
+}
+
+export function aggregateResourceCostSnapshots(
+  transactions: readonly ResourceTransactionEntity[]
+): ResourceCostSnapshot[] {
+  const byKind = new Map<number, ResourceCostSnapshot>();
+  for (const transaction of transactions) {
+    const amount = Number(transaction.amount);
+    if (amount <= 0) continue;
+    let snapshot = byKind.get(transaction.kind);
+    if (!snapshot) {
+      snapshot = {
+        kind: transaction.kind,
+        amount: 0,
+        costs: { workers: 0, admin: 0, material1: 0, material2: 0, market: 0 }
+      };
+      byKind.set(transaction.kind, snapshot);
+    }
+    snapshot.amount += amount;
+    snapshot.costs.workers += transaction.costWorkers * amount;
+    snapshot.costs.admin += transaction.costAdmin * amount;
+    snapshot.costs.material1 += transaction.costMaterial1 * amount;
+    snapshot.costs.material2 += transaction.costMaterial2 * amount;
+    snapshot.costs.market += transaction.costMarket * amount;
+  }
+  return [...byKind.values()];
 }
 
 export class WarehouseRepository {
@@ -285,6 +338,17 @@ export class WarehouseRepository {
       throw new Error(`addResource amount must be positive: ${amount}`);
     }
 
+    // A resource without an explicit market basis starts at the repository's
+    // historical $1/unit valuation, whether this call inserts or merges it.
+    // Nullish defaults preserve an explicit zero basis for free production.
+    const incomingCost = {
+      workers: cost.workers ?? 0,
+      admin: cost.admin ?? 0,
+      material1: cost.material1 ?? 0,
+      material2: cost.material2 ?? 0,
+      market: cost.market ?? 1.0
+    };
+
     const now = virtualClock.nowIso();
     const existing = this.database.prepare(
       'SELECT * FROM warehouse WHERE company_id = ? AND kind = ? AND quality = ?'
@@ -293,11 +357,11 @@ export class WarehouseRepository {
     if (existing) {
       const oldAmount = Number(existing.amount);
       const newAmount = oldAmount + amount;
-      const wWorkers = ((existing.cost_workers * oldAmount) + ((cost.workers || 0) * amount)) / newAmount;
-      const wAdmin = ((existing.cost_admin * oldAmount) + ((cost.admin || 0) * amount)) / newAmount;
-      const wMat1 = ((existing.cost_material1 * oldAmount) + ((cost.material1 || 0) * amount)) / newAmount;
-      const wMat2 = ((existing.cost_material2 * oldAmount) + ((cost.material2 || 0) * amount)) / newAmount;
-      const wMarket = ((existing.cost_market * oldAmount) + ((cost.market || 0) * amount)) / newAmount;
+      const wWorkers = ((Number(existing.cost_workers) * oldAmount) + (incomingCost.workers * amount)) / newAmount;
+      const wAdmin = ((Number(existing.cost_admin) * oldAmount) + (incomingCost.admin * amount)) / newAmount;
+      const wMat1 = ((Number(existing.cost_material1) * oldAmount) + (incomingCost.material1 * amount)) / newAmount;
+      const wMat2 = ((Number(existing.cost_material2) * oldAmount) + (incomingCost.material2 * amount)) / newAmount;
+      const wMarket = ((Number(existing.cost_market) * oldAmount) + (incomingCost.market * amount)) / newAmount;
 
       const updated = this.database.prepare(`
         UPDATE warehouse
@@ -318,7 +382,7 @@ export class WarehouseRepository {
         wMat2,
         wMarket,
         now,
-        existing.id
+        Number(existing.id)
       ) as WarehouseDbRow;
 
       return mapWarehouseRow(updated);
@@ -335,11 +399,11 @@ export class WarehouseRepository {
       kind,
       quality,
       amount,
-      cost.workers || 0,
-      cost.admin || 0,
-      cost.material1 || 0,
-      cost.material2 || 0,
-      cost.market || 1.0,
+      incomingCost.workers,
+      incomingCost.admin,
+      incomingCost.material1,
+      incomingCost.material2,
+      incomingCost.market,
       now
     ) as WarehouseDbRow;
 
@@ -361,13 +425,14 @@ export class WarehouseRepository {
       'SELECT * FROM warehouse WHERE company_id = ? AND kind = ? AND quality = ?'
     ).get(companyId, kind, quality) as WarehouseDbRow | undefined;
 
-    if (!item || item.amount < amount) {
+    const available = Number(item?.amount ?? 0);
+    if (!item || available < amount) {
       throw new InsufficientInventoryError(
-        `Insufficient inventory for resource ${kind} Q${quality}: required ${amount}, available ${item?.amount ?? 0}`
+        `Insufficient inventory for resource ${kind} Q${quality}: required ${amount}, available ${available}`
       );
     }
 
-    const newAmount = item.amount - amount;
+    const newAmount = available - amount;
     const now = virtualClock.nowIso();
 
     this.database.prepare(`
@@ -376,13 +441,25 @@ export class WarehouseRepository {
       WHERE id = ?
     `).run(newAmount, now, item.id);
 
-    const unitCost = item.cost_workers + item.cost_admin + item.cost_material1 + item.cost_material2 + item.cost_market;
+    const costs = {
+      workers: Number(item.cost_workers),
+      admin: Number(item.cost_admin),
+      material1: Number(item.cost_material1),
+      material2: Number(item.cost_material2),
+      market: Number(item.cost_market)
+    };
+    const unitCost = costs.workers + costs.admin + costs.material1 + costs.material2 + costs.market;
 
     return [{
       kind,
       quality,
       amount,
-      cost: unitCost
+      cost: unitCost,
+      costWorkers: costs.workers,
+      costAdmin: costs.admin,
+      costMaterial1: costs.material1,
+      costMaterial2: costs.material2,
+      costMarket: costs.market
     }];
   }
 
@@ -405,7 +482,7 @@ export class WarehouseRepository {
       ORDER BY quality ${orderDirection}
     `).all(companyId, kind, minQuality) as WarehouseDbRow[];
 
-    const totalAvailable = rows.reduce((sum, r) => sum + r.amount, 0);
+    const totalAvailable = rows.reduce((sum, row) => sum + Number(row.amount), 0);
     if (totalAvailable < amount) {
       throw new InsufficientInventoryError(
         `Insufficient inventory for resource ${kind} (min Q${minQuality}): required ${amount}, available ${totalAvailable}`
@@ -418,8 +495,9 @@ export class WarehouseRepository {
 
     for (const row of rows) {
       if (remaining <= 0) break;
-      const take = Math.min(row.amount, remaining);
-      const newAmount = row.amount - take;
+      const rowAmount = Number(row.amount);
+      const take = Math.min(rowAmount, remaining);
+      const newAmount = rowAmount - take;
 
       this.database.prepare(`
         UPDATE warehouse
@@ -427,13 +505,25 @@ export class WarehouseRepository {
         WHERE id = ?
       `).run(newAmount, now, row.id);
 
-      const unitCost = row.cost_workers + row.cost_admin + row.cost_material1 + row.cost_material2 + row.cost_market;
+      const costs = {
+        workers: Number(row.cost_workers),
+        admin: Number(row.cost_admin),
+        material1: Number(row.cost_material1),
+        material2: Number(row.cost_material2),
+        market: Number(row.cost_market)
+      };
+      const unitCost = costs.workers + costs.admin + costs.material1 + costs.material2 + costs.market;
 
       transactions.push({
-        kind: row.kind,
-        quality: row.quality ?? 0,
+        kind: Number(row.kind),
+        quality: Number(row.quality ?? 0),
         amount: take,
-        cost: unitCost
+        cost: unitCost,
+        costWorkers: costs.workers,
+        costAdmin: costs.admin,
+        costMaterial1: costs.material1,
+        costMaterial2: costs.material2,
+        costMarket: costs.market
       });
 
       remaining -= take;

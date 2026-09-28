@@ -1,6 +1,9 @@
-import puppeteer, { Page } from 'puppeteer';
+import puppeteer, { type Page } from 'puppeteer';
 import fs from 'node:fs';
 import path from 'node:path';
+import { attachBrowserAudit, waitForUiStable, waitForUiTransition } from './e2e/support/browser-audit.ts';
+import { verifyCrawlerAccountPersists } from './e2e/support/crawler-evidence.ts';
+import { withTestServer } from './support/test-server.ts';
 
 function getFormattedTimestamp(): string {
   const now = new Date();
@@ -70,11 +73,7 @@ function normalizePath(value: string): string {
   return pathValue || '/';
 }
 
-async function waitForPageTransition(page: Page) {
-  await page.waitForNetworkIdle({ idleTime: 200, timeout: 3000 }).catch(() => {});
-}
-
-async function clickVisibleLink(page: Page, targetPath: string): Promise<void> {
+async function clickVisibleLink(page: Page, targetPath: string, audit: ReturnType<typeof attachBrowserAudit>): Promise<void> {
   const expectedPath = normalizePath(targetPath);
   const links = await page.$$('a[href]');
   for (const link of links) {
@@ -87,48 +86,71 @@ async function clickVisibleLink(page: Page, targetPath: string): Promise<void> {
       };
     });
     if (details.visible && normalizePath(details.path) === expectedPath) {
-      const beforeUrl = page.url();
-      const beforeText = await page.evaluate(() => document.body.innerText);
+      const before = await waitForUiStable(page, { action: `before visible link ${expectedPath}` });
+      audit.recordAction(`click visible link ${expectedPath}`);
       await link.click();
-      await waitForPageTransition(page);
-      const afterUrl = page.url();
-      const afterText = await page.evaluate(() => document.body.innerText);
-      if (afterUrl === beforeUrl && beforeText === afterText) {
-        throw new Error(`Navigation link produced no visible transition: ${targetPath}`);
-      }
+      await waitForUiTransition(page, before, { action: `navigate to ${expectedPath}` });
       return;
     }
   }
   throw new Error(`Visible navigation link was not found: ${targetPath}`);
 }
 
-async function returnToRoot(page: Page, rootPath: string): Promise<void> {
+async function clickVisibleButtonContaining(
+  page: Page,
+  textFragments: string[],
+  audit: ReturnType<typeof attachBrowserAudit>,
+  action: string,
+): Promise<boolean> {
+  for (const button of await page.$$('button')) {
+    const details = await button.evaluate(element => ({
+      text: element.textContent?.trim() ?? '',
+      visible: element.getBoundingClientRect().width > 0 && element.getBoundingClientRect().height > 0,
+      disabled: (element as HTMLButtonElement).disabled,
+    }));
+    if (!details.visible || details.disabled || !textFragments.some(fragment => details.text.includes(fragment))) continue;
+    const before = await waitForUiStable(page, { action: `before ${action}` });
+    audit.recordAction(action);
+    await button.click();
+    await waitForUiTransition(page, before, { action });
+    return true;
+  }
+  return false;
+}
+
+async function returnToRoot(page: Page, rootPath: string, audit: ReturnType<typeof attachBrowserAudit>): Promise<void> {
   const expectedRoot = normalizePath(rootPath);
   for (let attempt = 0; attempt < 20; attempt++) {
     if (normalizePath(new URL(page.url()).pathname) === expectedRoot) return;
 
-    try {
-      await clickVisibleLink(page, rootPath);
+    const rootLink = await page.$(`a[href="${rootPath}"]`);
+    const rootLinkVisible = rootLink && await rootLink.evaluate(element => {
+      const rect = element.getBoundingClientRect();
+      return rect.width > 0 && rect.height > 0;
+    });
+    if (rootLinkVisible) {
+      await clickVisibleLink(page, rootPath, audit);
       continue;
-    } catch {
-      const before = page.url();
-      await page.goBack({ waitUntil: 'networkidle2', timeout: 5000 }).catch(() => {});
-      if (page.url() === before) break;
     }
+    const before = await waitForUiStable(page, { action: 'before browser history backtrack' });
+    audit.recordAction('use browser history to backtrack toward crawler root');
+    const response = await page.goBack({ waitUntil: 'domcontentloaded', timeout: 5000 });
+    if (!response || page.url() === before.url) break;
+    await waitForUiStable(page, { action: 'complete browser history backtrack' });
   }
   if (normalizePath(new URL(page.url()).pathname) !== expectedRoot) {
     throw new Error(`Could not return to crawler root: ${page.url()}`);
   }
 }
 
-async function navigateByVisibleClicks(page: Page, pathFromRoot: string[], rootPath: string): Promise<void> {
-  await returnToRoot(page, rootPath);
+async function navigateByVisibleClicks(page: Page, pathFromRoot: string[], rootPath: string, audit: ReturnType<typeof attachBrowserAudit>): Promise<void> {
+  await returnToRoot(page, rootPath, audit);
   for (const targetPath of pathFromRoot) {
-    await clickVisibleLink(page, targetPath);
+    await clickVisibleLink(page, targetPath, audit);
   }
 }
 
-async function runBFSCrawler(maxDepth: number = 3) {
+async function runBFSCrawler(baseUrl: string, maxDepth: number = 3) {
   const timestamp = getFormattedTimestamp();
   const roundDir = path.resolve('screenshots', `bfs_${timestamp}`);
   fs.mkdirSync(roundDir, { recursive: true });
@@ -138,26 +160,16 @@ async function runBFSCrawler(maxDepth: number = 3) {
   console.log(` Max Depth: ${maxDepth} | Artifact Directory: ${roundDir}`);
   console.log('================================================================');
 
-  const baseUrl = 'http://127.0.0.1:3000';
+  const browserArgs = ['--no-sandbox', '--disable-setuid-sandbox', '--window-size=1440,900'];
+  if (browserArgs.includes('--disable-web-security')) throw new Error('BFS must run with normal browser web security enabled');
   const browser = await puppeteer.launch({
     headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox', '--window-size=1440,900']
+    args: browserArgs
   });
 
   const page = await browser.newPage();
   await page.setViewport({ width: 1440, height: 900 });
-
-  const unhandledErrors: string[] = [];
-  page.on('pageerror', err => {
-    unhandledErrors.push(`[Page Error] ${err.message}`);
-    console.error(`  [PAGE ERROR DETECTED]: ${err.message}`);
-  });
-
-  page.on('console', msg => {
-    if (msg.type() === 'error' && !msg.text().includes('favicon') && !msg.text().includes('Amplitude') && !msg.text().includes('trailer')) {
-      unhandledErrors.push(`[Console Error] ${msg.text()}`);
-    }
-  });
+  const audit = attachBrowserAudit(page);
 
   const stubEndpoints = new Set<string>();
   page.on('response', response => {
@@ -168,8 +180,6 @@ async function runBFSCrawler(maxDepth: number = 3) {
     }
   });
 
-  let totalDiscoveredButtons = 0;
-  let totalExercisedButtons = 0;
   let totalVisitedPages = 0;
   let totalAttemptedPages = 0;
   let unreachableNodes = 0;
@@ -177,6 +187,10 @@ async function runBFSCrawler(maxDepth: number = 3) {
   const discoveredButtonIds = new Set<string>();
   const exercisedButtonIds = new Set<string>();
   const failedButtonIds = new Set<string>();
+  const unverifiedButtonIds = new Set<string>();
+  const actionPenaltyMap = new Map<string, number>();
+  let setupMutationEvidence: Record<string, unknown> = {};
+  let runFailed = false;
   let step = 1;
 
   try {
@@ -187,42 +201,75 @@ async function runBFSCrawler(maxDepth: number = 3) {
     console.log(' [BFS LEVEL 0] Initial Landing & Player Authentication');
     console.log('========================================================');
 
-    await page.goto(`${baseUrl}/zh-cn/signup/`, { waitUntil: 'networkidle2' });
+    await page.goto(`${baseUrl}/zh-cn/signup/`, { waitUntil: 'domcontentloaded' });
+    const signupPageUrl = page.url();
+    await waitForUiStable(page, { action: 'load signup page' });
     await assertDOMIntegrity(page, 'Signup Page');
     await takeTimestampedScreenshot(page, roundDir, 0, step++, 'signup_page');
 
     // Dismiss Cookie banner
-    for (const b of await page.$$('button')) {
-      const text = await b.evaluate(el => el.textContent || '');
-      if (text.includes('全部接受') || text.includes('仅限必要')) {
-        await b.click();
-        break;
-      }
-    }
+    await clickVisibleButtonContaining(page, ['全部接受', '仅限必要'], audit, 'dismiss cookie banner');
 
     // Click email registration button
-    for (const b of await page.$$('button')) {
-      const text = await b.evaluate(el => el.textContent || '');
-      if (text.includes('使用邮箱地址') || text.includes('邮箱')) {
-        await b.click();
-        break;
-      }
-    }
-    await page.waitForNetworkIdle({ idleTime: 200, timeout: 3000 }).catch(() => {});
+    await clickVisibleButtonContaining(page, ['使用邮箱地址', '邮箱'], audit, 'choose email registration');
 
     const testEmail = `bfs_player_${Date.now()}@example.local`;
     const emailInput = await page.$('input[type="email"], input[name="email"]');
     const passwordInput = await page.$('input[type="password"], input[name="password"]');
 
-    if (emailInput && passwordInput) {
-      await emailInput.type(testEmail);
-      await passwordInput.type('Password123!');
-      await passwordInput.press('Enter');
-      await page.waitForNetworkIdle({ idleTime: 500, timeout: 8000 }).catch(() => {});
+    if (!emailInput || !passwordInput) throw new Error('[UI_ACTION_FAILED] Signup form did not expose email and password inputs');
+    await emailInput.type(testEmail);
+    await passwordInput.type('Password123!');
+    const beforeRegistration = await waitForUiStable(page, { action: 'before signup submission' });
+    audit.recordAction('submit signup form');
+    const registrationResponsePromise = page.waitForResponse(response =>
+      response.request().method() === 'POST' && new URL(response.url()).pathname === '/api/v2/auth/email/connect/',
+      { timeout: 20_000 },
+    );
+    await passwordInput.press('Enter');
+    const registrationResponse = await registrationResponsePromise;
+    if (registrationResponse.status() !== 200) throw new Error(`Signup response returned HTTP ${registrationResponse.status()}`);
+    const registrationPayload = await registrationResponse.json() as { status?: string; redirectUrl?: string };
+    if (registrationPayload.status !== 'redirect' || !['/zh-cn/create/', '/zh-cn/landscape/'].includes(registrationPayload.redirectUrl ?? '')) {
+      throw new Error(`Signup response did not satisfy the redirect contract: ${JSON.stringify(registrationPayload)}`);
     }
+    await waitForUiTransition(page, beforeRegistration, { action: 'submit signup form', timeoutMs: 20_000 });
 
-    await page.waitForSelector('a[href*="/b/"], #main-menu-dropdown', { timeout: 10000 }).catch(() => {});
+    let companyCreateEvidence: Record<string, unknown> | null = null;
+    if (/\/zh-cn\/create\//.test(page.url())) {
+      const companyNameInput = await page.waitForSelector('input:not([type="password"]):not([type="email"])', { visible: true, timeout: 20_000 });
+      if (!companyNameInput) throw new Error('[UI_ACTION_FAILED] Company-creation page did not expose the company-name input');
+      await companyNameInput.type(`BFS traversal ${Date.now()}`);
+      const companyResponsePromise = page.waitForResponse(response =>
+        response.request().method() === 'POST' && new URL(response.url()).pathname === '/api/v1/realm-create-company/0/',
+        { timeout: 20_000 },
+      );
+      if (!await clickVisibleButtonContaining(page, ['开始游戏'], audit, 'create company')) {
+        throw new Error('[UI_ACTION_FAILED] Company-creation page did not expose the visible start-game button');
+      }
+      const companyResponse = await companyResponsePromise;
+      if (companyResponse.status() !== 200) throw new Error(`Company creation returned HTTP ${companyResponse.status()}`);
+      const companyPayload = await companyResponse.json() as { status?: string; redirectUrl?: string; companyId?: number; realmId?: number };
+      if (companyPayload.status !== 'redirect' || !Number.isInteger(companyPayload.companyId) || companyPayload.companyId! <= 0) {
+        throw new Error(`Company creation response did not satisfy its contract: ${JSON.stringify(companyPayload)}`);
+      }
+      companyCreateEvidence = {
+        method: 'POST', path: '/api/v1/realm-create-company/0/', status: companyResponse.status(), response: companyPayload,
+        visibleTransition: { from: '/zh-cn/create/', to: companyPayload.redirectUrl }
+      };
+    }
+    await page.waitForSelector('a[href*="/b/"], #main-menu-dropdown', { visible: true, timeout: 20_000 });
+    await waitForUiStable(page, { action: 'load authenticated landscape root' });
     await assertDOMIntegrity(page, 'Landscape Map (Root)');
+    const persistence = await verifyCrawlerAccountPersists(page);
+    setupMutationEvidence = {
+      registration: {
+        method: 'POST', path: '/api/v2/auth/email/connect/', status: registrationResponse.status(), response: registrationPayload,
+        visibleTransition: { from: signupPageUrl, to: page.url(), displayedBalance: persistence.visibleBeforeRefresh.money }
+      },
+      companyCreation: companyCreateEvidence,
+      persistence,
+    };
     await takeTimestampedScreenshot(page, roundDir, 0, step++, 'authenticated_landscape_root');
 
     // ----------------------------------------------------
@@ -231,7 +278,6 @@ async function runBFSCrawler(maxDepth: number = 3) {
     const visitedUrls = new Set<string>();
     const normalizedRootUrl = '/zh-cn/landscape/';
     visitedUrls.add(normalizedRootUrl);
-    visitedUrls.add('/zh-cn/');
     let currentQueue: BFSNode[] = [
       { url: normalizedRootUrl, name: 'Landscape Map', depth: 1, path: [] }
     ];
@@ -248,15 +294,16 @@ async function runBFSCrawler(maxDepth: number = 3) {
         totalAttemptedPages++;
 
         try {
-          await navigateByVisibleClicks(page, node.path, normalizedRootUrl);
+          await navigateByVisibleClicks(page, node.path, normalizedRootUrl, audit);
         } catch (navigationErr: unknown) {
           unreachableNodes++;
           unreachablePaths.add(node.url);
+          runFailed = true;
           console.error(`  -> Navigation failed and node was excluded: ${node.url}`, navigationErr instanceof Error ? navigationErr.message : String(navigationErr));
           continue;
         }
         totalVisitedPages++;
-        await new Promise(r => setTimeout(r, 1000));
+        await waitForUiStable(page, { action: `load ${node.url}` });
         const integrity = await assertDOMIntegrity(page, node.name);
         console.log(`  -> Scientific DOM Check Passed (Visible elements: ${integrity.visibleCount}, Sample: "${integrity.snippet.slice(0, 60)}...")`);
         await takeTimestampedScreenshot(page, roundDir, currentDepth, step++, node.name);
@@ -265,11 +312,13 @@ async function runBFSCrawler(maxDepth: number = 3) {
         // Step A: Discover and exercise non-destructive controls
         // ----------------------------------------------------
         const buttonHandles = await page.$$('button, div[role="button"], [class*="btn"]:not(a), [role="tab"]');
-        const buttonDescriptors: Array<{ tag: string; text: string; isVisible: boolean; disabled: boolean }> = [];
+        const buttonDescriptors: Array<{ tag: string; text: string; role: string; expanded: string | null; isVisible: boolean; disabled: boolean }> = [];
         for (const button of buttonHandles) {
           const descriptor = await button.evaluate(el => ({
             tag: el.tagName,
             text: el.textContent?.trim().replace(/\s+/g, ' ') || '',
+            role: el.getAttribute('role') || '',
+            expanded: el.getAttribute('aria-expanded'),
             isVisible: el.getBoundingClientRect().width > 0 && el.getBoundingClientRect().height > 0,
             disabled: (el as HTMLButtonElement).disabled === true
           }));
@@ -282,12 +331,17 @@ async function runBFSCrawler(maxDepth: number = 3) {
             buttonDescriptors.push(descriptor);
           }
         }
-        totalDiscoveredButtons += buttonDescriptors.length;
         console.log(`  -> Found ${buttonDescriptors.length} actionable button/tab controls on current page.`);
 
-        for (const descriptor of buttonDescriptors.slice(0, 12)) {
+        for (const descriptor of buttonDescriptors) {
           const buttonId = `${page.url()}::${descriptor.tag}::${descriptor.text}`;
           discoveredButtonIds.add(buttonId);
+          // Tabs and declared disclosure controls are reversible UI navigation. Other buttons may
+          // mutate money, inventory, or production, so list them as unverified without clicking.
+          if (descriptor.role !== 'tab' && descriptor.expanded === null) {
+            unverifiedButtonIds.add(buttonId);
+            continue;
+          }
           try {
             const currentButtons = await page.$$('button, div[role="button"], [class*="btn"]:not(a), [role="tab"]');
             let targetButton = null;
@@ -295,30 +349,26 @@ async function runBFSCrawler(maxDepth: number = 3) {
               const current = await button.evaluate(el => ({
                 tag: el.tagName,
                 text: el.textContent?.trim().replace(/\s+/g, ' ') || '',
+                role: el.getAttribute('role') || '',
+                expanded: el.getAttribute('aria-expanded'),
                 visible: el.getBoundingClientRect().width > 0 && el.getBoundingClientRect().height > 0,
                 disabled: (el as HTMLButtonElement).disabled === true
               }));
-              if (current.tag === descriptor.tag && current.text === descriptor.text && current.visible && !current.disabled) {
+              if (current.tag === descriptor.tag && current.text === descriptor.text && current.role === descriptor.role && current.expanded === descriptor.expanded && current.visible && !current.disabled) {
                 targetButton = button;
                 break;
               }
             }
             if (!targetButton) throw new Error(`Button was not found: ${buttonId}`);
 
-            const beforeUrl = page.url();
-            const beforeText = await page.evaluate(() => document.body.innerText);
+            const before = await waitForUiStable(page, { action: `before ${buttonId}` });
+            audit.recordAction(`click reversible UI control ${buttonId}`);
             await targetButton.click();
-            await waitForPageTransition(page);
-            const afterUrl = page.url();
-            const afterText = await page.evaluate(() => document.body.innerText);
-            if (beforeUrl === afterUrl && beforeText === afterText) {
-              throw new Error(`Button produced no visible transition: ${buttonId}`);
-            }
-
+            await waitForUiTransition(page, before, { action: `click ${buttonId}` });
             exercisedButtonIds.add(buttonId);
-            totalExercisedButtons++;
           } catch (buttonErr: unknown) {
             failedButtonIds.add(buttonId);
+            runFailed = true;
             console.error(`  -> Button failed and was excluded from coverage: ${buttonId}`, buttonErr instanceof Error ? buttonErr.message : String(buttonErr));
           }
         }
@@ -373,20 +423,46 @@ async function runBFSCrawler(maxDepth: number = 3) {
       }
     }
 
+    const depthLimitedPaths = currentQueue.map(node => node.url);
+    const pageCoverageDenominator = totalVisitedPages + unreachableNodes;
+    const buttonCoverage = discoveredButtonIds.size === 0 ? 0 : exercisedButtonIds.size / discoveredButtonIds.size;
+    const pageCoverage = pageCoverageDenominator === 0 ? 0 : totalVisitedPages / pageCoverageDenominator;
     const report = {
+      browserSecurity: { webSecurityDisabled: browserArgs.includes('--disable-web-security'), mode: 'normal' },
+      setupMutationEvidence,
       pages: {
+        discovered: visitedUrls.size,
         attempted: totalAttemptedPages,
         visited: totalVisitedPages,
         unreachable: unreachableNodes,
-        unreachablePaths: [...unreachablePaths]
+        unreachablePaths: [...unreachablePaths],
+        depthLimitedPaths,
+        discoveryScope: 'unique same-origin /zh-cn/ links observed in stable DOM snapshots; coverage is bounded by maxDepth',
+        coverage: {
+          visited: totalVisitedPages,
+          denominator: pageCoverageDenominator,
+          percentage: Number((pageCoverage * 100).toFixed(2)),
+          denominatorDefinition: 'exploration pages actually attempted within maxDepth, including unreachable paths',
+        },
       },
       buttons: {
         discovered: discoveredButtonIds.size,
         exercised: exercisedButtonIds.size,
         failed: failedButtonIds.size,
-        failedIds: [...failedButtonIds]
+        failedIds: [...failedButtonIds],
+        unverified: unverifiedButtonIds.size,
+        unverifiedIds: [...unverifiedButtonIds],
+        coverage: {
+          exercised: exercisedButtonIds.size,
+          denominator: discoveredButtonIds.size,
+          percentage: Number((buttonCoverage * 100).toFixed(2)),
+          denominatorDefinition: 'unique visible button/tab controls observed in pages visited within maxDepth; mutation/ambiguous controls stay unverified',
+        },
       },
-      runtimeErrors: unhandledErrors,
+      runtimeErrors: audit.errors,
+      auditMetrics: audit.getSummary(),
+      unverifiedButtonIds: [...unverifiedButtonIds],
+      audit: audit.snapshot(),
       stubs: {
         count: stubEndpoints.size,
         endpoints: [...stubEndpoints]
@@ -398,29 +474,29 @@ async function runBFSCrawler(maxDepth: number = 3) {
     console.log('================================================================');
     console.log(` Total Pages: attempted=${report.pages.attempted}, visited=${report.pages.visited}, unreachable=${report.pages.unreachable}`);
     console.log(` Buttons: discovered=${report.buttons.discovered}, exercised=${report.buttons.exercised}, failed=${report.buttons.failed}`);
-    console.log(` Total Actionable Button Observations: ${totalDiscoveredButtons}`);
+    console.log(` Unverified mutation controls: ${unverifiedButtonIds.size}`);
     console.log(` Stub endpoints: ${report.stubs.count}`);
     report.stubs.endpoints.forEach(endpoint => console.log(`   - ${endpoint}`));
-    console.log(` Total Successful Button Actions: ${totalExercisedButtons}`);
-    console.log(` Total Unhandled Runtime Errors: ${unhandledErrors.length}`);
-    if (unhandledErrors.length > 0) {
-      console.log(' Unhandled Errors:');
-      unhandledErrors.forEach((e, idx) => console.log(`   ${idx + 1}. ${e}`));
-    }
+    console.log(` Fatal browser audit events: ${report.runtimeErrors.length}; exact observed optional events: ${report.auditMetrics.ignoredEvents}`);
+    console.log(` Browser security: ${report.browserSecurity.mode}; disable-web-security flag=${report.browserSecurity.webSecurityDisabled}`);
     console.log('================================================================');
 
-    await browser.close();
+    audit.assertClean('BFS crawler');
+    if (failedButtonIds.size > 0 || unreachableNodes > 0) runFailed = true;
+    if (runFailed) throw new Error(`BFS traversal had ${failedButtonIds.size} failed UI control(s) and ${unreachableNodes} unreachable page(s).`);
 
-    if (unhandledErrors.length > 0) {
-      throw new Error(`BFS Traversal uncovered ${unhandledErrors.length} unhandled runtime error(s)!`);
-    }
-
-    console.log('✅ BREADTH-FIRST SEARCH (BFS) TRAVERSAL COMPLETED SUCCESSFULLY WITH ZERO ERRORS!');
+    console.log(`✅ BREADTH-FIRST SEARCH completed; fatal audit events=${audit.errors.length}, exact optional events=${audit.getSummary().ignoredEvents}.`);
   } catch (err: unknown) {
     console.error('Fatal BFS Crawler error:', err instanceof Error ? err.message : String(err));
+    await audit.writeFailureArtifacts(roundDir, 'bfs-failure');
+    process.exitCode = 1;
+  } finally {
     await browser.close();
-    process.exit(1);
   }
 }
 
-runBFSCrawler(3);
+void withTestServer(server => runBFSCrawler(server.baseUrl, 3), { env: { ECONOMY_RANDOM: 'false' } })
+  .catch((error: unknown) => {
+    console.error('BFS crawler runner failed:', error instanceof Error ? error.message : String(error));
+    process.exitCode = 1;
+  });

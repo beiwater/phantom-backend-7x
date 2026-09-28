@@ -1,16 +1,5 @@
 import assert from 'node:assert/strict';
-import { spawn, type ChildProcess } from 'node:child_process';
-import { DatabaseSync } from 'node:sqlite';
-import { rmSync } from 'node:fs';
-import path from 'node:path';
-
-const PORT = Number(process.env.PORT) || 3935;
-const baseUrl = `http://127.0.0.1:${PORT}`;
-
-interface TestServer {
-  child: ChildProcess;
-  dataDir: string;
-}
+import { withTestServer } from './support/test-server.ts';
 
 interface BuildingListItem {
   id: number;
@@ -23,70 +12,11 @@ interface BuildingListItem {
   };
 }
 
-async function waitUntilReachable(url: string, timeoutMs: number): Promise<void> {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    try {
-      if ((await fetch(url)).ok) return;
-    } catch { /* server is still starting */ }
-    await new Promise(resolve => setTimeout(resolve, 250));
-  }
-  throw new Error(`Server at ${url} did not become ready within ${timeoutMs}ms`);
-}
-
-async function startTestServer(): Promise<TestServer> {
-  const dataDir = path.resolve('data', `test-run-issue102-${PORT}-${Date.now()}`);
-  const child = spawn(process.execPath, ['--experimental-strip-types', 'server/index.ts'], {
-    cwd: path.resolve(import.meta.dirname ?? '.', '..'),
-    env: { ...process.env, PORT: String(PORT), DATA_DIR: dataDir, SPEED_MULTIPLIER: '1.0' },
-    stdio: ['ignore', 'ignore', 'pipe']
-  });
-  child.stderr?.on('data', chunk => {
-    const output = chunk.toString();
-    if (!output.includes('ExperimentalWarning')) process.stderr.write(`[test-srv] ${output}`);
-  });
-  await waitUntilReachable(`${baseUrl}/version/`, 30000);
-  return { child, dataDir };
-}
-
-async function registerTestCompany(suffix: string) {
-  const email = `rest102_${suffix}_${Date.now()}@sim.local`;
-  const password = 'Password123!';
-  const connect = await fetch(`${baseUrl}/api/v2/auth/email/connect/`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password, company: `R102_${suffix}` })
-  });
-  assert.equal(connect.status, 200);
-  const cookie = (connect.headers.getSetCookie?.() || [connect.headers.get('set-cookie') || ''])
-    .find(value => value.startsWith('sessionid='))?.split(';')[0] || '';
-  const authRes = await fetch(`${baseUrl}/api/v3/companies/auth-data/`, {
-    headers: { Cookie: cookie }
-  });
-  assert.equal(authRes.status, 200);
-  const authData = await authRes.json() as { authCompany: { companyId: number; playerId: number } };
-  return {
-    email,
-    password,
-    cookie,
-    companyId: Number(authData.authCompany.companyId),
-    playerId: Number(authData.authCompany.playerId)
-  };
-}
-
 async function runIssue102Verification() {
-  console.log('================================================================');
-  console.log(' Starting Issue #102: Restaurant Close Toggle & Consistency Test');
-  console.log(` Target Server: ${baseUrl} (Port ${PORT})`);
-  console.log('================================================================');
-  let server: TestServer | null = null;
-  try {
-    server = await startTestServer();
-
-    const db = new DatabaseSync(path.join(server.dataDir, 'simcompanies.sqlite'));
-    db.exec('PRAGMA busy_timeout = 10000;');
-    const suffix = `${Date.now()}_${Math.floor(Math.random() * 1000)}`;
-    const player = await registerTestCompany(suffix);
+  await withTestServer(async server => {
+    const baseUrl = server.baseUrl;
+    const db = server.db;
+    const player = await server.registerCompany('restaurant-close-toggle');
     console.log('\n--- Scenario 1: Setup Restaurant and Menu ---');
     // Build restaurant (kind 'r')
     const constructRes = await fetch(`${baseUrl}/api/v2/companies/me/buildings/`, {
@@ -99,12 +29,9 @@ async function runIssue102Verification() {
     const restaurantId = Number(constructData.id || (constructData.building as { id?: number } | undefined)?.id);
     // Finish construction immediately
     db.prepare('UPDATE buildings SET busy_until = NULL WHERE id = ?').run(restaurantId);
-    db.prepare(`
-      INSERT INTO warehouse (company_id, kind, quality, amount, cost_market)
-      VALUES (?, 117, 1, 10000, 10),
-             (?, 129, 1, 10000, 15),
-             (?, 132, 1, 10000, 5)
-    `).run(player.companyId, player.companyId, player.companyId);
+    server.setStock(player.companyId, 117, 10000, 10, 1);
+    server.setStock(player.companyId, 129, 10000, 15, 1);
+    server.setStock(player.companyId, 132, 10000, 5, 1);
 
     // Configure menu (salad, main, drink) and price
     const configRes = await fetch(`${baseUrl}/api/v2/companies/buildings/${restaurantId}/restaurant-properties/`, {
@@ -233,12 +160,7 @@ async function runIssue102Verification() {
     assert.equal(mapRBuilding2.busy, null, 'Expected busy to be null on closed restaurant');
 
     console.log('\nALL ISSUE #102 RESTAURANT CLOSE TOGGLE CHECKS PASSED (0 ERRORS)');
-  } finally {
-    if (server) {
-      server.child.kill();
-      try { rmSync(server.dataDir, { recursive: true, force: true }); } catch { /* ignore */ }
-    }
-  }
+  }, { env: { SPEED_MULTIPLIER: '1.0' } });
 }
 
 runIssue102Verification().catch(err => {

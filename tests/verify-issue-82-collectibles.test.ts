@@ -2,8 +2,8 @@
  * Verification test suite for Issue #82: Collectible Exchange (NFT trading).
  *
  * Verifies (decompiled spec: collectibles.json → nftCollectibleTrading):
- *   1. Seed content: 8 unique collectibles (all four rarity tiers) listed on
- *      a fresh database with decompile-verbatim images; the exchange list
+ *   1. Explicit test fixture: 8 unique collectibles (all four rarity tiers) listed on
+ *      an isolated database with decompile-verbatim images; the exchange list
  *      carries asset info { id, name, image, realm, rarity, description,
  *      currentOwnerId, ipfs { description } } per listing.
  *   2. Listing: owner-only POST /api/v2/market-collectibles/ (decompiled
@@ -23,21 +23,13 @@
  *      by acquisition value (latest sale price per owned asset).
  *
  * Run with Node 22:
- *   /opt/magnate/.node22/bin/node --experimental-strip-types tests/verify-issue-82-collectibles.test.ts
+ *   node --experimental-strip-types tests/verify-issue-82-collectibles.test.ts
  */
 import assert from 'node:assert/strict';
-import { spawn, type ChildProcess } from 'node:child_process';
-import { rmSync } from 'node:fs';
-import path from 'node:path';
+import { readFileSync } from 'node:fs';
+import { withTestServer, type TestServer } from './support/test-server.ts';
 
-// Isolated environment MUST be configured before any server module import so
-// the test process shares the spawned server's dedicated SQLite DATA_DIR.
-const PORT = '3920';
-const DATA_DIR = path.resolve('data', `test-run-collectibles-${PORT}-${Date.now()}`);
-process.env.PORT = PORT;
-process.env.DATA_DIR = DATA_DIR;
-
-const baseUrl = `http://127.0.0.1:${PORT}`;
+let server: TestServer;
 
 interface ApiResult {
   status: number;
@@ -64,40 +56,10 @@ async function api(
   urlPath: string,
   body?: unknown
 ): Promise<ApiResult> {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (cookie) headers.Cookie = cookie;
-
-  const response = await fetch(`${baseUrl}${urlPath}`, {
-    method,
-    headers,
-    body: body === undefined ? undefined : JSON.stringify(body)
-  });
-
-  let json: Record<string, unknown> | unknown[] | null = null;
-  try {
-    json = await response.json() as Record<string, unknown>;
-  } catch {
-    // Non-JSON response
-  }
-  return { status: response.status, json };
+  return server.request(method, urlPath, { cookie, body });
 }
 
-async function registerCompany(label: string): Promise<{ cookie: string; companyId: number }> {
-  const email = `nft_${label}_${Date.now()}_${Math.floor(Math.random() * 1e6)}@domain.local`;
-  const response = await fetch(`${baseUrl}/api/v2/auth/email/connect/`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password: 'Password123!', company: `NFT ${label} Co ${Date.now()}` })
-  });
-  assert.equal(response.status, 200, `Registration failed for ${label}: ${response.status}`);
-  const cookie = (response.headers.getSetCookie?.() || [response.headers.get('set-cookie') || ''])
-    .find(c => c.startsWith('sessionid='))?.split(';')[0];
-  assert.ok(cookie, 'Session cookie missing');
-  const auth = await api(cookie as string, 'GET', '/api/v3/companies/auth-data/');
-  assert.equal(auth.status, 200);
-  const companyId = (auth.json as { authCompany: { companyId: number } }).authCompany.companyId;
-  return { cookie: cookie as string, companyId };
-}
+async function registerCompany(label: string) { return server.registerCompany(`NFT ${label}`); }
 
 interface AuthCompanyView {
   money: number;
@@ -111,77 +73,31 @@ async function authCompany(cookie: string): Promise<AuthCompanyView> {
   return { money: Number(c.money), simBoosts: Number(c.simBoosts) };
 }
 
-async function waitUntilReachable(url: string, timeoutMs: number): Promise<void> {
-  const { promise, resolve, reject } = Promise.withResolvers<void>();
-  const deadline = Date.now() + timeoutMs;
-  const probe = async (): Promise<void> => {
-    while (Date.now() < deadline) {
-      try {
-        const r = await fetch(url);
-        if (r.ok) return resolve();
-      } catch {
-        // Retry
-      }
-      // Real wall-clock polling is unavoidable: this waits for a separately
-      // spawned OS process (the HTTP server) to bind its port.
-      await new Promise(res => setTimeout(res, 400));
-    }
-    reject(new Error(`Server at ${url} did not become ready within ${timeoutMs}ms`));
-  };
-  void probe();
-  return promise;
-}
-
-interface TestServer {
-  child: ChildProcess;
-  dataDir: string;
-}
-
-async function startTestServer(portNumber: number): Promise<TestServer> {
-  const child = spawn(
-    process.execPath,
-    ['--experimental-strip-types', 'server/index.ts'],
-    {
-      cwd: path.resolve(import.meta.dirname ?? '.', '..'),
-      env: {
-        ...process.env,
-        PORT: String(portNumber),
-        DATA_DIR
-      },
-      stdio: ['ignore', 'ignore', 'pipe']
-    }
-  );
-
-  child.stderr?.on('data', chunk => {
-    const text = chunk.toString();
-    if (!text.includes('ExperimentalWarning')) {
-      process.stderr.write(`[test-srv] ${text}`);
-    }
-  });
-
-  await waitUntilReachable(`http://127.0.0.1:${portNumber}/version/`, 30000);
-  return { child, dataDir: DATA_DIR };
-}
-
-interface TestOutcome {
-  name: string;
-  ok: boolean;
-  error?: unknown;
-}
-
-// Dynamic import is REQUIRED here despite static import being possible: ESM
-// hoists static imports, so '../server/config.ts' would read process.env.DATA_DIR
-// before the assignments at the top of this file run.
-const { db } = await import('../server/db/database.ts');
-
-// The spawned server process holds a second connection to the same SQLite
-// file. WAL + a busy timeout keep the test process's direct reads/writes from
-// colliding with the server's short write transactions.
-db.exec('PRAGMA journal_mode = WAL');
-db.exec('PRAGMA busy_timeout = 5000');
-
 function setCompanySimboosts(companyId: number, simboosts: number): void {
-  db.prepare('UPDATE companies SET simboosts = ? WHERE company_id = ?').run(simboosts, companyId);
+  server.db.prepare('UPDATE companies SET simboosts = ? WHERE company_id = ?').run(simboosts, companyId);
+}
+
+function prepareCollectibles(): void {
+  const definitions = JSON.parse(readFileSync(new URL('../server/data/decompile/collectibles.json', import.meta.url), 'utf8')).eggTypes;
+  const catalog = Object.values(definitions).flat();
+  const fixtures = [
+    ['EGG_COLOR_WHITE', 'White Egg', 20],
+    ['EGG_COLOR_BLUE', 'Blue Egg', 30],
+    ['EGG_SCALES_RAINBOW', 'Rainbow Scales Egg', 40],
+    ['EGG_MATERIAL_WOOD', 'Wooden Egg', 75],
+    ['EGG_NIGHT_SKY', 'Night Sky Egg', 90],
+    ['EGG_INDUSTRY_AGRICULTURE', 'Agriculture Egg', 120],
+    ['EGG_ROYAL_GOLD', 'Royal Gold Egg', 250],
+    ['EGG_ROYAL_DIAMOND', 'Royal Diamond Egg', 450]
+  ];
+  for (const [id, name, price] of fixtures) {
+    const egg = catalog.find(egg => egg.id === id);
+    assert.ok(egg, 'fixture must use a canonical collectible definition');
+    const result = server.db.prepare('INSERT INTO nft_assets (definition_id,name,image,realm,rarity,description,current_owner_id,minted_at) VALUES (?,?,?,0,?,?,NULL,?)')
+      .run(id, name, egg.image, egg.rarity, 'Isolated collectible trading fixture', new Date().toISOString());
+    server.db.prepare("INSERT INTO nft_listings (nft_id,seller_id,price_simboosts,status,created_at) VALUES (?,NULL,?,'active',?)")
+      .run(Number(result.lastInsertRowid), price, new Date().toISOString());
+  }
 }
 
 interface MarketAsset {
@@ -282,7 +198,7 @@ async function runIssue82Tests(): Promise<TestOutcome[]> {
   await test('GET /api/v2/market-collectibles-sbs/ keeps the decompiled availability shape', async () => {
     const res = await api(aliceCookie, 'GET', '/api/v2/market-collectibles-sbs/');
     assert.equal(res.status, 200);
-    assert.deepEqual(res.json, { simboosts: 250, available: 250, simBoostsAvailableForPurchase: 250 });
+    assert.deepEqual(res.json, { simboosts: 0, available: 0, simBoostsAvailableForPurchase: 0 }, 'private server cannot advertise paid packs when payments are disabled');
   });
 
   await test('NFT asset metadata: ?ipfs=true adds the ipfs object, unknown asset 404s', async () => {
@@ -561,26 +477,12 @@ async function runIssue82Tests(): Promise<TestOutcome[]> {
 }
 
 async function main(): Promise<void> {
-  console.log('================================================================');
-  console.log(` Starting Issue #82 Collectibles Verification on Port ${PORT}`);
-  console.log(` DATA_DIR: ${DATA_DIR}`);
-  console.log('================================================================');
-
-  const server = await startTestServer(Number(PORT));
-  let results: TestOutcome[] = [];
-
-  try {
-    results = await runIssue82Tests();
-  } finally {
-    server.child.kill('SIGTERM');
-    // Give the child a moment to release the SQLite file, then clean up.
-    await new Promise(res => setTimeout(res, 500));
-    try {
-      rmSync(server.dataDir, { recursive: true, force: true });
-    } catch {
-      // Best-effort cleanup
-    }
-  }
+  const results = await withTestServer(async instance => {
+    server = instance;
+    assert.deepEqual(await marketList(''), [], 'fresh exchange is empty before the explicit test fixture');
+    prepareCollectibles();
+    return runIssue82Tests();
+  }, { env: { PAYMENTS_DISABLED: '1' } });
 
   const failures = results.filter(r => !r.ok);
   console.log('\n================================================================');

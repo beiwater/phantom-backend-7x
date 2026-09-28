@@ -3,13 +3,17 @@ import { virtualClock } from '../core/virtual-clock.ts';
 import { db } from '../db/connection.ts';
 import { ConflictError, InsufficientFundsError, NotFoundError } from '../errors/domain-error.ts';
 import { getXpRequiredForLevel } from '../domain/leveling/level-rules.ts';
-import { recordCashLedger, refreshDailyFinanceSnapshot } from '../game/cash-ledger.ts';
+import { recordCashLedger, refreshDailyFinanceSnapshot } from './cash-ledger-repository.ts';
 import { getInitialCompanySettings } from '../config.ts';
 import { seedDefaultDisplayCase } from '../db/seed/index.ts';
 import { executiveRepository } from './executive-repository.ts';
 import { storyLoader } from '../game/story/story-loader.ts';
 import { socialRepository } from './social-repository.ts';
 import { PA_COMPANY_ID } from '../domain/company/constants.ts';
+import {
+  calculateEffectiveExecutiveSkill,
+  type ExecutiveSkillRole
+} from '../domain/executives.ts';
 
 export interface CompanyEntity {
   id: number;
@@ -106,6 +110,19 @@ export class CompanyRepository {
 
   constructor(database: DatabaseSync = db) {
     this.database = database;
+  }
+
+  private effectiveExecutiveSkill(
+    companyId: number,
+    role: ExecutiveSkillRole,
+    skillColumn: 'skill_management' | 'skill_accounting' | 'skill_communication' | 'skill_science'
+  ): number {
+    const rows = this.database.prepare(`
+      SELECT position, ${skillColumn} AS skill
+      FROM executives
+      WHERE company_id = ? AND status = 'employed'
+    `).all(companyId) as Array<{ position: string | null; skill: number | null }>;
+    return calculateEffectiveExecutiveSkill(rows, role);
   }
 
   /**
@@ -517,18 +534,15 @@ export class CompanyRepository {
     const stats = this.database.prepare(`
       SELECT
         (SELECT COUNT(*) FROM buildings WHERE company_id = ?) AS building_count,
-        (SELECT COALESCE(SUM(size), 0) FROM buildings WHERE company_id = ?) AS total_size,
-        (SELECT COALESCE(MAX(COALESCE(skill_management, 0)), 0) FROM executives
-           WHERE company_id = ? AND status = 'employed' AND position = 'coo') AS coo_skill
-    `).get(companyId, companyId, companyId) as {
+        (SELECT COALESCE(SUM(size), 0) FROM buildings WHERE company_id = ?) AS total_size
+    `).get(companyId, companyId) as {
       building_count: number;
       total_size: number;
-      coo_skill: number;
     };
     return {
       buildingCount: Number(stats.building_count) || 0,
       totalSize: Number(stats.total_size) || 0,
-      cooSkill: Number(stats.coo_skill) || 0
+      cooSkill: this.effectiveExecutiveSkill(companyId, 'coo', 'skill_management')
     };
   }
 
@@ -556,11 +570,7 @@ export class CompanyRepository {
     `).get(virtualClock.nowIso(), companyId) as { bank_size?: number; busy_banks?: number; unplaced_banks?: number } | undefined;
     const bankSize = Number(bank?.bank_size) || 0;
     const bankContributing = bankSize > 0 && Number(bank?.busy_banks) === 0 && Number(bank?.unplaced_banks) === 0;
-    const cfo = this.database.prepare(`
-      SELECT COALESCE(MAX(COALESCE(skill_accounting, 0)), 0) AS cfo_skill FROM executives
-      WHERE company_id = ? AND status = 'employed' AND position = 'cfo'
-    `).get(companyId) as { cfo_skill?: number } | undefined;
-    const cfoSkill = Number(cfo?.cfo_skill) || 0;
+    const cfoSkill = this.effectiveExecutiveSkill(companyId, 'cfo', 'skill_accounting');
     const executiveLift = cfoSkill * 500000;
     const bankLift = bankContributing ? cfoSkill * bankSize * 50000 : 0;
     return {

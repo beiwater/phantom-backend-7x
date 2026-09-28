@@ -4,20 +4,21 @@
  * lookups, password-hash updates, per-company referral codes and realm
  * company listings. Routes keep HTTP parsing and response mapping only.
  */
-import type { DatabaseSync } from 'node:sqlite';
+import type { DatabaseSync, SQLOutputValue } from 'node:sqlite';
 import { db } from '../db/connection.ts';
 
-export interface PlayerDeviceRow {
+export interface PlayerDeviceRow extends Record<string, SQLOutputValue> {
   id: number;
   deviceUuid: string;
   deviceName: string;
   lastLogin: string;
 }
 
-export interface CompanyRealmRow {
+export interface CompanyRealmRow extends Record<string, SQLOutputValue | undefined> {
   company_id: number;
   player_id: number;
   name: string;
+  money: number;
   logo: string;
   level: number;
   rating: string;
@@ -98,7 +99,7 @@ export class AuthRepository {
 
   listCompaniesByRealm(realmId: number): CompanyRealmRow[] {
     return this.database.prepare(`
-      SELECT company_id, player_id, name, logo, level, rating, created_at, note,
+      SELECT company_id, player_id, name, money, logo, level, rating, created_at, note,
              extra_building_slots, realm_id
       FROM companies
       WHERE realm_id = ?

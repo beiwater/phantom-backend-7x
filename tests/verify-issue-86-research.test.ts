@@ -83,7 +83,7 @@ async function startTestServer(): Promise<ServerInstance> {
   const portAvailable = await isPortAvailable(TEST_PORT);
   assert.ok(portAvailable, `Port ${TEST_PORT} is not available for testing`);
 
-  const dataDir = path.resolve('data', `test-run-issue-86-${Date.now()}`);
+  const dataDir = path.resolve(process.env.DATA_DIR || 'data', `test-run-issue-86-${Date.now()}`);
   const child = spawn(
     process.execPath,
     ['--experimental-strip-types', 'server/index.ts'],
@@ -351,6 +351,34 @@ async function runIssue86Verification() {
     assert.equal(applyData.research['1'].points, 42);
     assert.equal(applyData.research['1'].patents, 1, '42 points + 20% CTO science boost must award 1 patent');
     console.log('  ✔ Research application with CTO science skill yielded 1 patent from 42 points (boost confirmed)');
+
+    // Issue #224: reaching Q12 must reject before the research resource is
+    // consumed, even when the company has enough stock for another apply.
+    db.prepare('UPDATE research SET points = 7878100, patents = 157562 WHERE company_id = ? AND discipline = 1')
+      .run(user.companyId);
+    db.prepare('UPDATE warehouse SET amount = 6000 WHERE company_id = ? AND kind = 29 AND quality = 0')
+      .run(user.companyId);
+    const cappedStockBefore = Number((db.prepare(
+      'SELECT amount FROM warehouse WHERE company_id = ? AND kind = 29 AND quality = 0'
+    ).get(user.companyId) as { amount: number }).amount);
+    const cappedApplyRes = await fetch(`${BASE_URL}/api/v3/players/research/apply/`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ discipline: 1, points: 5000 })
+    });
+    const cappedApply = await cappedApplyRes.json() as { error?: string };
+    assert.equal(cappedApplyRes.status, 400, 'Q12 research application must be rejected');
+    assert.match(cappedApply.error ?? '', /maximum quality/i);
+    const cappedStockAfter = Number((db.prepare(
+      'SELECT amount FROM warehouse WHERE company_id = ? AND kind = 29 AND quality = 0'
+    ).get(user.companyId) as { amount: number }).amount);
+    assert.equal(cappedStockAfter, cappedStockBefore, 'Q12 rejection must happen before burning research stock');
+    const cappedResearch = db.prepare(
+      'SELECT points, patents FROM research WHERE company_id = ? AND discipline = 1'
+    ).get(user.companyId) as { points: number; patents: number };
+    assert.equal(Number(cappedResearch.patents), 157562);
+    assert.equal(Number(cappedResearch.points), 7878100);
+    console.log('  ✔ Q12 cap rejects further research before consuming inventory (#224)');
 
     // Clean up db
     db.close();

@@ -21,122 +21,14 @@
  *   - employer:        paying for executive training (level 15 capability)
  */
 import assert from 'node:assert/strict';
-import { spawn, type ChildProcess } from 'node:child_process';
-import net from 'node:net';
-import { existsSync, rmSync } from 'node:fs';
-import path from 'node:path';
-import { DatabaseSync } from 'node:sqlite';
+import { startTestServer, type TestServer } from './support/test-server.ts';
 
-const TEST_PORT = Number(process.env.PORT || '3900');
-const BASE_URL = `http://127.0.0.1:${TEST_PORT}`;
+let BASE_URL = '';
 
 // Issue #88 achievement ids under test:
 const ALL_IDS = ['market-tycoon', 'first-steps', 'builder', 'employer-of-the-year'] as const;
 
 const APPLES = 3; // kind 3: produced at Farm 'P', NPC-sold on the exchange
-
-function isPortAvailable(port: number): Promise<boolean> {
-  const { promise, resolve } = Promise.withResolvers<boolean>();
-  const tester = net.createServer()
-    .once('error', () => resolve(false))
-    .once('listening', () => {
-      tester.once('close', () => resolve(true)).close();
-    })
-    .listen(port, '127.0.0.1');
-  return promise;
-}
-
-// Polls a separately-spawned OS process over real HTTP; the server's readiness
-// is genuinely wall-clock-bound (fake timers cannot advance another process),
-// so a real retry delay is required here (ts-no-test-timers exception).
-async function waitUntilReachable(url: string, timeoutMs: number = 30000): Promise<void> {
-  const start = Date.now();
-  while (Date.now() - start < timeoutMs) {
-    try {
-      const res = await fetch(url);
-      if (res.ok || res.status === 404 || res.status === 200) {
-        return;
-      }
-    } catch {
-      // Retry
-    }
-    await new Promise((r) => setTimeout(r, 150));
-  }
-  throw new Error(`Timeout waiting for ${url} after ${timeoutMs}ms`);
-}
-
-interface ServerInstance {
-  child: ChildProcess;
-  dataDir: string;
-  dbPath: string;
-}
-
-async function startTestServer(): Promise<ServerInstance> {
-  const portAvailable = await isPortAvailable(TEST_PORT);
-  assert.ok(portAvailable, `Port ${TEST_PORT} is not available for testing`);
-
-  const dataDir = path.resolve('data', `test-run-issue-88-${Date.now()}`);
-  const nodeBinary = existsSync('/opt/magnate/.node22/bin/node')
-    ? '/opt/magnate/.node22/bin/node'
-    : process.execPath;
-
-  const child = spawn(
-    nodeBinary,
-    ['--experimental-strip-types', 'server/index.ts'],
-    {
-      cwd: path.resolve(import.meta.dirname ?? '.', '..'),
-      env: {
-        ...process.env,
-        PORT: String(TEST_PORT),
-        DATA_DIR: dataDir,
-        // 100x production speed so the real production batch finishes in ~4s
-        // instead of ~15 minutes. The claim gating itself is wall-clock free.
-        SPEED_MULTIPLIER: '100'
-      },
-      stdio: ['ignore', 'ignore', 'pipe']
-    }
-  );
-
-  child.stderr?.on('data', (chunk) => {
-    const str = chunk.toString();
-    if (!str.includes('ExperimentalWarning')) {
-      process.stderr.write(`[server-3900] ${str}`);
-    }
-  });
-  await waitUntilReachable(`${BASE_URL}/version/`, 30000);
-  const dbPath = path.join(dataDir, 'simcompanies.sqlite');
-  return { child, dataDir, dbPath };
-}
-
-async function registerCompany(label: string): Promise<{ cookie: string; companyId: number }> {
-  const email = `ach88_${label}_${Date.now()}@domain.local`;
-  const res = await fetch(`${BASE_URL}/api/v2/auth/email/connect/`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      email,
-      password: 'Password123!',
-      company: `Achiever ${label} ${Date.now()}`
-    })
-  });
-  assert.equal(res.status, 200, `Registration should return 200 for ${label}`);
-
-  const cookies = res.headers.getSetCookie?.() || [res.headers.get('set-cookie') || ''];
-  const cookie = cookies.find((v) => v.startsWith('sessionid='))?.split(';')[0];
-  assert.ok(cookie, 'Session cookie must be returned');
-
-  const authRes = await fetch(`${BASE_URL}/api/v3/companies/auth-data/`, {
-    headers: { Cookie: cookie }
-  });
-  assert.equal(authRes.status, 200, 'Auth data should return 200');
-  const authData = (await authRes.json()) as {
-    companyPublicInfo?: { id: number };
-    authCompany?: { companyId?: number; id?: number };
-  };
-  const companyId = authData.companyPublicInfo?.id || authData.authCompany?.companyId || authData.authCompany?.id || 0;
-  assert.ok(companyId > 0, 'Valid companyId must be extracted');
-  return { cookie, companyId };
-}
 
 function headers(cookie: string): Record<string, string> {
   return { 'Content-Type': 'application/json', Cookie: cookie };
@@ -243,17 +135,18 @@ async function pollUntil<T>(fn: () => Promise<T>, deadlineMs = 30000, stepMs = 4
 }
 
 async function runIssue88AchievementsTest(): Promise<void> {
-  let server: ServerInstance | null = null;
+  let server: TestServer | null = null;
   try {
-    server = await startTestServer();
-    const db = new DatabaseSync(server.dbPath);
+    server = await startTestServer({ env: { SPEED_MULTIPLIER: '100' } });
+    BASE_URL = server.baseUrl;
+    const db = server.db;
 
 
     // -------------------------------------------------------------------------
     console.log('\n[1/8] Fresh account can claim NOTHING (criteria-gated claims)');
     // -------------------------------------------------------------------------
-    const A = await registerCompany('A');
-    const B = await registerCompany('B');
+    const A = await server.registerCompany(`Achiever A ${Date.now()}`);
+    const B = await server.registerCompany(`Achiever B ${Date.now()}`);
 
     const freshList = await getIndividualAchievements(A.cookie);
     assert.deepEqual(freshList.map(a => a.id), [], 'fresh account must have an EMPTY pending achievements list');
@@ -285,13 +178,19 @@ async function runIssue88AchievementsTest(): Promise<void> {
     console.log('\n[2/8] market-tycoon: real exchange purchase unlocks the claim');
     // -------------------------------------------------------------------------
     const beforeMarket = await authCompany(A.cookie);
+    const npcAppleAsk = db.prepare(`
+      SELECT MIN(price) AS price FROM market_orders
+      WHERE seller_id = 999900 AND kind = ? AND active = 1 AND quantity > 0 AND quality >= 0
+    `).get(APPLES) as { price: number | null };
+    assert.ok(npcAppleAsk.price !== null, 'the seeded NPC exchange has an active apple ask');
     const takeRes = await fetch(`${BASE_URL}/api/v2/market-order/take/`, {
       method: 'POST',
       headers: headers(A.cookie),
-      body: JSON.stringify({ resource: APPLES, quantity: 5, maxPrice: 2 })
+      body: JSON.stringify({ resource: APPLES, quantity: 5, maxPrice: npcAppleAsk.price })
     });
-    assert.equal(takeRes.status, 200, 'market purchase from NPC exchange must succeed');
-    const takeBody = (await takeRes.json()) as { amountBought: number };
+    const takeText = await takeRes.text();
+    assert.equal(takeRes.status, 200, `market purchase from NPC exchange must succeed: ${takeText}`);
+    const takeBody = JSON.parse(takeText) as { amountBought: number };
     assert.equal(takeBody.amountBought, 5, 'purchase must fill 5 units');
 
     const afterPurchase = await getIndividualAchievements(A.cookie);
@@ -344,6 +243,9 @@ async function runIssue88AchievementsTest(): Promise<void> {
       body: JSON.stringify({ kind: APPLES, amount: 25 })
     });
     assert.equal(queueRes.status, 200, 'queueing real apple production must succeed');
+    const queueBody = (await queueRes.json()) as Array<{ amount: number }>;
+    const queuedOutput = queueBody[0]?.amount;
+    assert.ok(Number.isFinite(queuedOutput) && Number(queuedOutput) > 0, 'queued output amount is persisted in the response');
 
     // Wait for the batch to finish, then collect it (markResolved => stat source).
     const collectRes = await pollUntil(async () => {
@@ -360,7 +262,7 @@ async function runIssue88AchievementsTest(): Promise<void> {
     };
     assert.equal(collectBody.success, true, 'collect must resolve the finished batch');
     assert.equal(collectBody.resource?.kind, APPLES);
-    assert.equal(collectBody.resource?.amount, 25, 'collect must deliver the queued 25 apples');
+    assert.equal(collectBody.resource?.amount, queuedOutput, 'collect must deliver the queue’s persisted output after economy scaling');
 
     const productionPending = (await getIndividualAchievements(A.cookie)).find(a => a.id === 'first-steps');
     assert.ok(productionPending, 'first-steps must become pending after the collected production batch');
@@ -516,21 +418,11 @@ async function runIssue88AchievementsTest(): Promise<void> {
       assert.equal(entry!.progress.label, '已达成', `${id}: final label must be 已达成`);
     }
 
-    db.close();
     console.log('\n================================================================');
     console.log(' All Issue #88 Achievements Assertions PASSED with 0 ERRORS!');
     console.log('================================================================\n');
   } finally {
-    if (server) {
-      server.child.kill('SIGTERM');
-      if (existsSync(server.dataDir)) {
-        try {
-          rmSync(server.dataDir, { recursive: true, force: true });
-        } catch {
-          // Ignore cleanup error
-        }
-      }
-    }
+    if (server) await server.stop();
   }
 }
 

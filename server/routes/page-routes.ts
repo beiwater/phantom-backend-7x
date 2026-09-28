@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { sendJson } from './utils.ts';
 import { RouteRegistry, globalRouteRegistry } from '../http/route-registry.ts';
+import { SUPPORTED_LANGUAGES, SUPPORTED_LANGUAGE_PATTERN } from './supported-locales.ts';
 import { companyRepository } from '../repositories/company-repository.ts';
 
 // Load stored official guides data if available
@@ -99,10 +100,6 @@ const GUIDE_BY_SLUG: Record<string, GuideEntry> = Object.fromEntries(
   GUIDE_CATALOG.map(g => [g.slug, g])
 );
 
-const SUPPORTED_LANGUAGES = [
-  'en', 'de', 'fr', 'pt', 'tr', 'it', 'es', 'zh-cn', 'zh-tw', 'cs', 'pl', 'ru', 'ja'
-];
-
 /** GET /api/v3/pages/:locale/:slug/ */
 export function getPageArticle(locale: string, rawSlug: string): {
   status: number;
@@ -110,7 +107,7 @@ export function getPageArticle(locale: string, rawSlug: string): {
 } {
   // The frontend sanitizes the slug with Gsn() ([^a-z-] stripped); be equally strict.
   const slug = String(rawSlug).toLowerCase().replace(/[^a-z-]/g, '');
-  const lang = SUPPORTED_LANGUAGES.includes(locale) ? locale : 'en';
+  const lang = SUPPORTED_LANGUAGES.some(supported => supported === locale) ? locale : 'en';
 
   if (!slug) {
     return { status: 404, payload: { error: 'Page not found', code: 'PAGE_NOT_FOUND', path: `/api/v3/${locale}/pages/` } };
@@ -300,7 +297,7 @@ export function registerPageRoutes(registry: RouteRegistry = globalRouteRegistry
     })
     .register({
       method: 'GET',
-      pattern: '/api/v3/pages/:locale/:slug/',
+      pattern: `/api/v3/pages/:locale(${SUPPORTED_LANGUAGE_PATTERN})/:slug/`,
       owner: 'pages',
       handler: async (req, res, ctx) => {
         const pathname = new URL(req.url || '/', 'http://localhost').pathname;
@@ -309,7 +306,7 @@ export function registerPageRoutes(registry: RouteRegistry = globalRouteRegistry
     })
     .register({
       method: 'GET',
-      pattern: '/api/v3/:locale/pages/:slug/',
+      pattern: `/api/v3/:locale(${SUPPORTED_LANGUAGE_PATTERN})/pages/:slug/`,
       owner: 'pages',
       handler: async (req, res, ctx) => {
         const pathname = new URL(req.url || '/', 'http://localhost').pathname;

@@ -6,140 +6,21 @@
  * used only to create deterministic persisted fixtures and to verify the
  * mutations caused by the HTTP collect path.
  *
- * Run with Node 22:
- *   /opt/magnate/.node22/bin/node --experimental-strip-types tests/verify-issue-199-encyclopedia.test.ts
+ * Run with Node 22 or newer:
+ *   node --experimental-strip-types tests/verify-issue-199-encyclopedia.test.ts
  */
 import assert from 'node:assert/strict';
-import { spawn, type ChildProcess } from 'node:child_process';
-import { existsSync, rmSync } from 'node:fs';
-import net from 'node:net';
-import path from 'node:path';
-import { DatabaseSync } from 'node:sqlite';
+import { withTestServer } from './support/test-server.ts';
+import { CONFIG } from '../server/config.ts';
 
-const TEST_PORT = Number(process.env.PORT || '3999');
-const BASE_URL = `http://127.0.0.1:${TEST_PORT}`;
-const RUN_ID = `${Date.now()}-${process.pid}-${Math.random().toString(36).slice(2, 8)}`;
 const REALM_ID = 0;
 const APPLES = 3;
 
-function isPortAvailable(port: number): Promise<boolean> {
-  const { promise, resolve } = Promise.withResolvers<boolean>();
-  const tester = net.createServer()
-    .once('error', () => resolve(false))
-    .once('listening', () => {
-      tester.once('close', () => resolve(true)).close();
-    })
-    .listen(port, '127.0.0.1');
-  return promise;
-}
-
-// This polls the separately spawned server using wall-clock time. The server
-// has its own process and cannot be advanced by a parent test clock.
-async function waitUntilReachable(url: string, timeoutMs = 30000): Promise<void> {
-  const start = Date.now();
-  while (Date.now() - start < timeoutMs) {
-    try {
-      const response = await fetch(url);
-      if (response.ok || response.status === 404 || response.status === 200) return;
-    } catch {
-      // The child may still be starting; retry below.
-    }
-    await new Promise(resolve => setTimeout(resolve, 150));
-  }
-  throw new Error(`Timeout waiting for ${url} after ${timeoutMs}ms`);
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-interface ServerInstance {
-  child: ChildProcess;
-  dataDir: string;
-  dbPath: string;
-}
-
-async function startTestServer(): Promise<ServerInstance> {
-  assert.ok(await isPortAvailable(TEST_PORT), `Port ${TEST_PORT} is not available for testing`);
-
-  const dataDir = path.resolve('data', `test-run-issue-199-${RUN_ID}`);
-  const nodeBinary = existsSync('/opt/magnate/.node22/bin/node')
-    ? '/opt/magnate/.node22/bin/node'
-    : process.execPath;
-  const child = spawn(
-    nodeBinary,
-    ['--experimental-strip-types', 'server/index.ts'],
-    {
-      cwd: path.resolve(import.meta.dirname ?? '.', '..'),
-      env: {
-        ...process.env,
-        PORT: String(TEST_PORT),
-        DATA_DIR: dataDir
-      },
-      stdio: ['ignore', 'ignore', 'pipe']
-    }
-  );
-
-  child.stderr?.on('data', chunk => {
-    const text = chunk.toString();
-    if (!text.includes('ExperimentalWarning')) process.stderr.write(`[server-${TEST_PORT}] ${text}`);
-  });
-  await waitUntilReachable(`${BASE_URL}/version/`);
-  return { child, dataDir, dbPath: path.join(dataDir, 'simcompanies.sqlite') };
-}
-
-async function waitForChildExit(child: ChildProcess, timeoutMs: number): Promise<void> {
-  if (child.exitCode !== null || child.signalCode !== null) return;
-  await Promise.race([
-    new Promise<void>(resolve => child.once('exit', () => resolve())),
-    sleep(timeoutMs)
-  ]);
-}
-
-async function stopTestServer(server: ServerInstance): Promise<void> {
-  if (server.child.exitCode === null && server.child.signalCode === null) {
-    server.child.kill('SIGTERM');
-    await waitForChildExit(server.child, 5000);
-    if (server.child.exitCode === null && server.child.signalCode === null) {
-      server.child.kill('SIGKILL');
-      await waitForChildExit(server.child, 2000);
-    }
-  }
-  // The child is fully stopped before its temporary database is removed.
-  if (existsSync(server.dataDir)) rmSync(server.dataDir, { recursive: true, force: true });
-}
-
-async function registerCompany(label: string): Promise<{ cookie: string; companyId: number }> {
-  const unique = `${RUN_ID}-${label}`;
-  const response = await fetch(`${BASE_URL}/api/v2/auth/email/connect/`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      email: `issue199_${unique}@domain.local`,
-      password: 'Password123!',
-      company: `Issue 199 ${label} ${unique}`
-    })
-  });
-  assert.equal(response.status, 200, 'company registration must return 200');
-  const cookies = response.headers.getSetCookie?.() || [response.headers.get('set-cookie') || ''];
-  const cookie = cookies.find(value => value.startsWith('sessionid='))?.split(';')[0];
-  assert.ok(cookie, 'registration must return a session cookie');
-
-  const authResponse = await fetch(`${BASE_URL}/api/v3/companies/auth-data/`, { headers: { Cookie: cookie } });
-  assert.equal(authResponse.status, 200, 'auth-data must return 200');
-  const auth = (await authResponse.json()) as { authCompany?: { companyId?: number; id?: number } };
-  const companyId = auth.authCompany?.companyId || auth.authCompany?.id || 0;
-  assert.ok(companyId > 0, 'registration must expose a company id');
-  return { cookie, companyId };
-}
-
 async function runIssue199Verification(): Promise<void> {
-  let server: ServerInstance | null = null;
-  let db: DatabaseSync | null = null;
-  try {
-    server = await startTestServer();
-    db = new DatabaseSync(server.dbPath);
-    const user = await registerCompany('encyclopedia');
+  await withTestServer(async server => {
+    const BASE_URL = server.baseUrl;
+    const db = server.db;
+    const user = await server.registerCompany('encyclopedia');
     const headers = { 'Content-Type': 'application/json', Cookie: user.cookie };
 
     // [1] A real completed v2 retail order records persisted sales history,
@@ -148,20 +29,7 @@ async function runIssue199Verification(): Promise<void> {
       "SELECT id FROM buildings WHERE company_id = ? AND kind = 'G' ORDER BY id LIMIT 1"
     ).get(user.companyId) as { id: number } | undefined;
     assert.ok(grocery, 'registered company must have a starter grocery store');
-    const now = new Date();
-    const nowIso = now.toISOString();
-    const applesStock = db.prepare(
-      'SELECT id FROM warehouse WHERE company_id = ? AND kind = ? AND quality = 0 ORDER BY id LIMIT 1'
-    ).get(user.companyId, APPLES) as { id: number } | undefined;
-    if (applesStock) {
-      db.prepare('UPDATE warehouse SET amount = amount + 25, updated_at = ? WHERE id = ?').run(nowIso, applesStock.id);
-    } else {
-      db.prepare(`
-        INSERT INTO warehouse
-          (company_id, kind, quality, amount, cost_workers, cost_admin, cost_material1, cost_material2, cost_market, updated_at)
-        VALUES (?, ?, 0, 25, 0, 0, 0, 0, 1.5, ?)
-      `).run(user.companyId, APPLES, nowIso);
-    }
+    server.setStock(user.companyId, APPLES, 25, 1.5);
 
     const createOrder = await fetch(`${BASE_URL}/api/v2/sales-orders/`, {
       method: 'POST',
@@ -299,6 +167,39 @@ async function runIssue199Verification(): Promise<void> {
     assert.equal(modifiersResponse.status, 200);
     assert.deepEqual(await modifiersResponse.json(), { resourceProductionModifiers: [event] });
 
+    // The original sNt/oNt calculator uses salary state, the company slider
+    // and the active event. A persisted private cycle bonus must not silently
+    // change either the requested output quantity or the displayed rate.
+    const farm = db.prepare("SELECT id FROM buildings WHERE company_id = ? AND kind = 'P' LIMIT 1")
+      .get(user.companyId) as { id: number };
+    db.prepare(`INSERT INTO company_boost_settings (company_id, production_modifier)
+      VALUES (?, 10) ON CONFLICT(company_id) DO UPDATE SET production_modifier = 10`).run(user.companyId);
+    db.prepare('UPDATE economy_phase_history SET production_modifier = 0.12 WHERE realm_id = ? AND end_at IS NULL')
+      .run(REALM_ID);
+    for (const [state, salaryMid] of [[0, 655], [2, 745]]) {
+      db.prepare('UPDATE economy_state SET state = ? WHERE realm_id = ?').run(state, REALM_ID);
+      server.setStock(user.companyId, 2, 300, 2);
+      server.setStock(user.companyId, 66, 100, 50);
+      const start = await server.request('POST', `/api/v1/buildings/${farm.id}/busy/`, {
+        cookie: user.cookie, body: { kind: APPLES, amount: 100 }
+      });
+      assert.equal(start.status, 200, start.text);
+      const queue = db.prepare(`SELECT amount, duration_seconds, production_modifier, production_output_multiplier
+        FROM production_queues WHERE building_id = ? AND resolved = 0 ORDER BY id DESC LIMIT 1`)
+        .get(farm.id) as { amount: number; duration_seconds: number; production_modifier: number; production_output_multiplier: number };
+      const clientRate = 250 * Math.pow(345 / salaryMid, 0.3) * 1.17 / 0.9;
+      const expectedSeconds = Math.max(3, Math.round(Math.max(5, Math.ceil(100 / clientRate * 3600))
+        / CONFIG.PRODUCTION_SPEED_MULTIPLIER));
+      assert.equal(queue.amount, 100, 'original formula delivers the quantity ordered');
+      assert.equal(queue.production_output_multiplier, 1);
+      assert.equal(queue.production_modifier, 0.1, 'queue stores the actual company slider only');
+      assert.equal(queue.duration_seconds, expectedSeconds, `phase ${state} uses the same original calculator rate`);
+      const cancel = await server.request('DELETE', `/api/v1/buildings/${farm.id}/busy/`, { cookie: user.cookie });
+      assert.equal(cancel.status, 200, cancel.text);
+      assert.equal((db.prepare('SELECT amount FROM warehouse WHERE company_id = ? AND kind = 66 AND quality = 0')
+        .get(user.companyId) as { amount: number }).amount, 100);
+    }
+
     // [4] Supporters are backed by persisted certificates and include every
     // official listing field, rather than an empty/generic response.
     const supporterStartedAt = new Date(Date.now() - 30_000).toISOString();
@@ -331,10 +232,7 @@ async function runIssue199Verification(): Promise<void> {
       const body = (await response.json()) as { code?: string };
       assert.equal(body.code, 'BACKEND_UNAVAILABLE');
     }
-  } finally {
-    db?.close();
-    if (server) await stopTestServer(server);
-  }
+  });
 }
 
 runIssue199Verification().catch(error => {

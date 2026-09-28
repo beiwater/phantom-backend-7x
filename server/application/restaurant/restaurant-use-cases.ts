@@ -19,7 +19,7 @@ import {
 import { ForbiddenError, NotFoundError } from '../../errors/domain-error.ts';
 import { resolveRestaurantState, interpretKeepOpenPatch } from '../../domain/restaurant/restaurant-state-machine.ts';
 
-export type { RestaurantProperties, RestaurantRun, RestaurantMenuItem };
+export type { RestaurantProperties, RestaurantRun, RestaurantMenuItem, LegacyRestaurantProperties } from '../../game/restaurant.ts';
 
 function assertOwnedRestaurant(ctx: GameContext, buildingId: number): void {
   // The engine re-validates ownership inside its transaction; this guard
@@ -133,11 +133,11 @@ export async function updateRestaurantPropertiesUseCase(
 // --- Read-service facade for the compatibility adapter ----------------------
 // building-dto.ts (compatibility layer) must not import the engine directly
 // (Issue #105 dependency direction); these re-exports are the sanctioned read
-// surface. They are pure/sync reads and settle-due-cycles helpers.
+// surface. Queries await due-cycle settlement before building synchronous DTOs.
 export {
   getRestaurantBusy,
   getLegacyRestaurantProperties,
-  resolveDueRestaurantRunsSync,
+  resolveDueRestaurantRuns,
   getRestaurantProperties,
   getRestaurantMenuGuide,
   getRestaurantRatings,

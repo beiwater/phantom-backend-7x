@@ -7,7 +7,7 @@
  */
 import type { GameContext } from '../../context/game-context.ts';
 import { runInTransaction, type TransactionContext } from '../../db/transaction.ts';
-import { recordCashLedger } from '../../game/cash-ledger.ts';
+import { recordCashLedger } from '../../repositories/cash-ledger-repository.ts';
 import { eventBus } from '../../events/event-bus.ts';
 import { validateTakeOrderInput, computeExchangeFee, isSelfTrade } from '../../domain/market/market-rules.ts';
 import { ValidationError, NotFoundError, SelfTradeProhibitedError } from '../../errors/domain-error.ts';

@@ -1,12 +1,8 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { RouteRegistry, globalRouteRegistry } from '../http/route-registry.ts';
 import { readJsonBody, sendJson, requireCapability } from './utils.ts';
-import {
-  queueRocketLaunch,
-  cancelQueuedLaunch,
-  getCompanyLaunchQueue,
-  getRocketLaunchStats
-} from '../game/aerospace.ts';
+import { queueRocketLaunch, cancelQueuedLaunch } from '../application/aerospace/launch-use-cases.ts';
+import { getCompanyLaunchQueue, getRocketLaunchStats } from '../game/aerospace.ts';
 
 interface LaunchRequestBody {
   rocketKind?: number;

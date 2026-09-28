@@ -2,7 +2,7 @@
  * Retail repository (Issue #105 Phase 4 / Issue #104 Stage 3).
  * All retail_orders SQL lives here. Knows nothing about frontend DTOs.
  */
-import type { DatabaseSync } from 'node:sqlite';
+import type { DatabaseSync, SQLOutputValue } from 'node:sqlite';
 import { db } from '../db/connection.ts';
 
 export interface RetailOrderEntity {
@@ -23,7 +23,7 @@ export interface RetailOrderEntity {
   economySource: string;
 }
 
-export interface RetailOrderDbRow {
+export interface RetailOrderDbRow extends Record<string, SQLOutputValue | undefined> {
   id: number;
   building_id: number;
   company_id: number;
@@ -129,8 +129,8 @@ export class RetailRepository {
       input.unitPrice,
       input.cost ?? 0,
       input.revenueCredited ? 1 : 0,
-      input.finishedAt,
-      input.createdAt,
+      input.finishedAt ?? null,
+      input.createdAt ?? new Date().toISOString(),
       input.economyPhase ?? 1,
       input.economyPhaseStartedAt ?? null,
       input.economySource ?? 'scheduler'

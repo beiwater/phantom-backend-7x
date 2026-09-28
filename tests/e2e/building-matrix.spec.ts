@@ -25,6 +25,69 @@ import {
 
 test.setTimeout(600_000);
 
+test.afterEach(async ({ request }) => {
+  // Virtual time is service-wide, so a nursery/matrix completion must not
+  // leave later UI timers hours ahead of the browser's clock.
+  const reset = await request.post('/api/v2/debug/time-warp/', { data: { reset: true, resolveCycles: false } });
+  expect(reset.status()).toBe(200);
+});
+
+test('Forest Nursery growth and collection persist through the visible controls', async ({ page }, testInfo) => {
+  const diagnostics = attachDiagnostics(page);
+  try {
+  const email = `forest_${Date.now()}@example.local`;
+  const companyName = `Forest ${Date.now()}`;
+  await createIsolatedAccount(page, email, companyName);
+  const fixture = await apiJson(page, 'POST', '/api/v2/debug/fixture/', {
+    email, password, companyName, money: 100_000, level: 60,
+    clearExistingBuildings: true, clearExistingWarehouse: true,
+    buildings: [{ kind: 'v', size: 1, slot: 0 }],
+    warehouse: [{ kind: 2, quality: 0, amount: 1000 }]
+  });
+  expect(fixture.status, fixture.text).toBe(200);
+  await signIn(page, email);
+  const buildings = await apiJson<Building[]>(page, 'GET', '/api/v2/companies/me/buildings/');
+  expect(buildings.status).toBe(200);
+  expect(buildings.body).toHaveLength(1);
+  await openBuildingFromMapOrRoute(page, buildings.body[0]);
+  await page.locator('label').filter({ has: page.getByRole('radio', { name: '最高', exact: true }) }).click();
+  await expect(page.getByRole('button', { name: '培养', exact: true })).toBeVisible();
+  const startedResponse = page.waitForResponse(response => response.request().method() === 'POST'
+    && new URL(response.url()).pathname === `/api/v1/buildings/${buildings.body[0].id}/busy/`);
+  await page.getByRole('button', { name: '培养', exact: true }).click();
+  const started = await startedResponse;
+  expect(started.status()).toBe(200);
+  expect((await started.json()).building.busy).toMatchObject({ category: 'n', accumulator: { value: 10 } });
+  const warped = await apiJson(page, 'POST', '/api/v2/debug/time-warp/', { hours: 2, resolveCycles: true });
+  expect(warped.status, warped.text).toBe(200);
+  await openBuildingFromMapOrRoute(page, buildings.body[0]);
+  await expect(page.getByRole('heading', { name: '当前阶段', exact: true })).toBeVisible();
+  await expect(page.locator('body')).toContainText('Quality: 0');
+  await page.getByRole('button', { name: '砍下', exact: true }).click();
+  const harvestedResponse = page.waitForResponse(response => response.request().method() === 'POST'
+    && new URL(response.url()).pathname === `/api/v1/buildings/${buildings.body[0].id}/accumulator/collect/`);
+  await page.getByRole('button', { name: '砍下', exact: true }).last().click();
+  const harvested = await harvestedResponse;
+  expect(harvested.status()).toBe(200);
+  expect((await harvested.json()).resource).toEqual({ kind: 150, quality: 0, amount: 1 });
+  await page.reload();
+  await expect(page.getByRole('heading', { name: 'FOREST NURSERY', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: '砍下', exact: true })).toHaveCount(0);
+  const detail = await apiJson<{ productionAccumulator: { value: number; quality: number | null }; busy: unknown }>(
+    page, 'GET', `/api/v2/companies/me/buildings/${buildings.body[0].id}/`);
+  expect(detail.body).toMatchObject({ busy: null, productionAccumulator: { value: 0, quality: null } });
+  const auth = await apiJson<{ authCompany: { companyId: number } }>(page, 'GET', '/api/v3/companies/auth-data/');
+  const inventory = await apiJson<Array<{ kind: number; quality: number; amount: number }>>(
+    page, 'GET', `/api/v3/resources/${auth.body.authCompany.companyId}/`);
+  expect(inventory.body.find(item => item.kind === 150)).toMatchObject({ quality: 0, amount: 1 });
+  expect(inventory.body.find(item => item.kind === 2)?.amount).toBe(880);
+  await page.screenshot({ path: testInfo.outputPath('forest-after-harvest.png') });
+  diagnostics.assertClean('Forest Nursery grow, cut down, and refresh');
+  } finally {
+    await diagnostics.write(testInfo);
+  }
+});
+
 async function assertInProgressState(
   page: Page,
   productionBuildings: Building[],

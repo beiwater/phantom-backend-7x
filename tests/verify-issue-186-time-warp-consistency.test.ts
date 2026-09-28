@@ -85,6 +85,10 @@ db.prepare(`
     company_id, kind, quality, amount, cost_workers, cost_admin,
     cost_material1, cost_material2, cost_market, updated_at
   ) VALUES (?, 3, 0, 1, 0, 0, 0, 0, 1, ?)
+  ON CONFLICT(company_id, kind, quality) DO UPDATE SET
+    amount = warehouse.amount + excluded.amount,
+    cost_market = excluded.cost_market,
+    updated_at = excluded.updated_at
 `).run(companyId, iso());
 const retailOrder = retailRepository.insert({
   buildingId: salesBuildingId,

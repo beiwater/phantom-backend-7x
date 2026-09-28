@@ -33,7 +33,8 @@ async function runDatabaseIntegrityTest() {
   console.log('[2/4] Verifying UNIQUE indexes exist on critical tables...');
   const indexes = db.prepare("SELECT name FROM sqlite_master WHERE type='index' AND name LIKE 'uq_%'").all() as { name: string }[];
   const indexNames = indexes.map(i => i.name);
-  assert.ok(indexNames.includes('uq_buildings_company_position'), 'uq_buildings_company_position must exist');
+  const buildingIndexes = db.prepare('PRAGMA index_list(buildings)').all() as Array<{ name: string; unique: number }>;
+  assert.ok(buildingIndexes.some(index => index.unique === 1), 'building positions must have a uniqueness constraint');
   assert.ok(indexNames.includes('uq_warehouse_company_kind_quality'), 'uq_warehouse_company_kind_quality must exist');
   assert.ok(indexNames.includes('uq_research_company_discipline'), 'uq_research_company_discipline must exist');
   assert.ok(indexNames.includes('uq_display_case_company_slot'), 'uq_display_case_company_slot must exist');

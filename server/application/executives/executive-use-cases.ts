@@ -39,11 +39,36 @@ import {
   validIsoOrNull
 } from '../../domain/executives.ts';
 import { runInTransaction } from '../../db/transaction.ts';
-import { recordCashLedger } from '../../game/cash-ledger.ts';
+import { recordCashLedger } from '../../repositories/cash-ledger-repository.ts';
 import { virtualClock } from '../../core/virtual-clock.ts';
 import { ForbiddenError } from '../../errors/domain-error.ts';
 export const EXECUTIVE_TRAINING_CODES = ['f', 'g', 'm', 'o', 't'] as const;
 export type ExecutiveTrainingCode = (typeof EXECUTIVE_TRAINING_CODES)[number];
+
+export interface UpdateExecutiveInput {
+  salary?: number;
+  position?: string;
+  strikeUntil?: string | null;
+  plansToRetire?: boolean;
+  rushSettle?: boolean;
+}
+
+export interface CreatePoachingOfferInput {
+  agency?: number | string;
+  slotPosition?: string;
+  skillPosition?: string;
+  ageRange?: unknown;
+  hasTrainings?: boolean;
+  onlyUnemployed?: boolean;
+  targetExecutiveId?: number | null;
+  expectedSalary?: number;
+}
+
+export interface CounterHostileOfferInput {
+  action?: 'accept' | 'decline' | 'counter' | string;
+  accept?: boolean;
+  salary?: number;
+}
 
 const TRAINING_CODE_SET: Record<ExecutiveTrainingCode, true> = {
   f: true,
@@ -514,24 +539,29 @@ function hireExecutive(companyId: number, candidateId: number, position: string 
   }, { immediate: true });
 }
 
+async function fireExecutiveInTransaction(companyId: number, executiveId: number) {
+  const exec = executiveRepository.findEmployed(executiveId, companyId);
+  if (!exec) throw new Error('Employed executive not found');
+
+  // Dismissal severance = executive.salary * 3.
+  const severance = Math.round((Number(exec.salary) || 250) * 3);
+  const endedAt = virtualClock.nowIso();
+
+  companyRepository.updateMoney(companyId, -severance);
+  const former = executiveRepository.markFormer(executiveId, companyId, endedAt);
+  if (former !== 1) throw new Error('Employed executive not found');
+  return {
+    success: true,
+    severance,
+    moneyDelta: -severance
+  };
+}
+
 function fireExecutive(companyId: number, executiveId: number) {
-  return runInTransaction(async () => {
-    const exec = executiveRepository.findEmployed(executiveId, companyId);
-    if (!exec) throw new Error('Employed executive not found');
-
-    // Dismissal severance = executive.salary * 3.
-    const severance = Math.round((Number(exec.salary) || 250) * 3);
-    const endedAt = virtualClock.nowIso();
-
-    companyRepository.updateMoney(companyId, -severance);
-    const former = executiveRepository.markFormer(executiveId, companyId, endedAt);
-    if (former !== 1) throw new Error('Employed executive not found');
-    return {
-      success: true,
-      severance,
-      moneyDelta: -severance
-    };
-  }, { immediate: true });
+  return runInTransaction(
+    () => fireExecutiveInTransaction(companyId, executiveId),
+    { immediate: true }
+  );
 }
 
 function assignExecutive(companyId: number, executiveId: number, position: string) {
@@ -1106,7 +1136,10 @@ async function updatePoachingOffer(
           searchDeadlineIso(now),
           now
         );
-        return formatOffer(refreshed, null);
+        return {
+          offer: formatOffer(refreshed, null),
+          simboostsDelta: 0
+        };
       }
       const updated = executiveRepository.setOfferStatus(offerId, requestedStatus, now);
       return {
@@ -1420,6 +1453,80 @@ export function getExecutiveByIdQuery(companyId: number, executiveId: number) {
 export function getFormerExecutivesQuery(companyId: number) {
   return executiveRepository.listFormerByCompany(companyId).map(formatFormerExecutive);
 }
+
+export function getExecutiveCommandListQuery(companyId: number) {
+  return executiveRepository.listForCommand(companyId).map(row => ({
+    id: row.id,
+    companyId: row.company_id,
+    name: row.name,
+    position: row.position || '',
+    skill_management: Number(row.skill_management) || 0,
+    skill_accounting: Number(row.skill_accounting) || 0,
+    skill_science: Number(row.skill_science) || 0,
+    skill_communication: Number(row.skill_communication) || 0,
+    salary: Number(row.salary) || 0,
+    status: row.status || ''
+  }));
+}
+
+export interface CommandHireExecutiveInput {
+  name: string;
+  position: string;
+  management: number;
+  accounting: number;
+  science: number;
+  communication: number;
+  salary: number;
+}
+
+/** The operator command keeps its legacy hire options while using the same persisted employment history as normal hires. */
+export function hireExecutiveForCommand(ctx: GameContext, input: CommandHireExecutiveInput) {
+  return runInTransaction(async () => {
+    const position = normalizePositionCode(input.position);
+    if (!['o', 'f', 'm', 't'].includes(position)) {
+      throw new Error(`Unknown position "${input.position}"`);
+    }
+    if (!input.name.trim()) throw new Error('Executive name cannot be empty');
+    if (![input.salary, input.management, input.accounting, input.science, input.communication]
+      .every(Number.isFinite)) {
+      throw new Error('Executive salary and skills must be finite numbers');
+    }
+    if (input.salary < 0 || [input.management, input.accounting, input.science, input.communication]
+      .some(skill => skill < 0 || skill > 100)) {
+      throw new Error('Executive salary and skills are outside their supported ranges');
+    }
+    if (!companyRepository.findById(ctx.companyId)) throw new Error('Company not found');
+
+    const existing = executiveRepository.findByCompanyAndPosition(ctx.companyId, position);
+    const createdAt = virtualClock.nowIso();
+    let executiveId: number;
+    if (existing) {
+      const changed = executiveRepository.updateForCommandHire(existing.id, ctx.companyId, {
+        ...input,
+        position
+      });
+      if (changed !== 1) throw new Error('Failed to hire executive');
+      executiveId = existing.id;
+      if (existing.status === 'employed') {
+        executiveRepository.updateActiveHistoryPosition(executiveId, ctx.companyId, position);
+      } else {
+        executiveRepository.beginEmploymentHistory(executiveId, ctx.companyId, position, createdAt);
+      }
+    } else {
+      executiveId = executiveRepository.insertForCommandHire(ctx.companyId, {
+        ...input,
+        position,
+        createdAt
+      });
+      executiveRepository.beginEmploymentHistory(executiveId, ctx.companyId, position, createdAt);
+    }
+
+    const hired = executiveRepository.findByIdAndCompany(executiveId, ctx.companyId);
+    if (!hired) throw new Error('Hired executive could not be reloaded');
+    return formatExecutive(hired);
+  }, { immediate: true });
+}
+
 export function getExecutiveNoteQuery(companyId: number, executiveId: number) {
   const executive = executiveRepository.findById(executiveId);
   if (!executive) throw new Error('Executive not found');
@@ -1459,6 +1566,22 @@ export function fireExecutiveCommand(ctx: GameContext, executiveId: number) {
   return fireExecutive(ctx.companyId, executiveId);
 }
 
+/** Operator batch dismissal uses the same severance and history transition as the player API. */
+export function fireExecutivesByPositionCommand(contexts: readonly GameContext[], position: string) {
+  return runInTransaction(async () => {
+    const normalizedPosition = normalizePositionCode(position);
+    const companyIds = [...new Set(contexts.map(ctx => ctx.companyId))];
+    const matching = companyIds.flatMap(companyId => executiveRepository.listByCompany(companyId)
+      .filter(executive => normalizePositionCode(executive.position) === normalizedPosition)
+      .map(executive => ({ companyId, executiveId: executive.id })));
+    let severance = 0;
+    for (const { companyId, executiveId } of matching) {
+      severance += (await fireExecutiveInTransaction(companyId, executiveId)).severance;
+    }
+    return { success: true, severance, moneyDelta: -severance, totalFired: matching.length };
+  }, { immediate: true });
+}
+
 export function assignExecutiveCommand(ctx: GameContext, executiveId: number, position: string) {
   return assignExecutive(ctx.companyId, executiveId, position);
 }
@@ -1495,7 +1618,11 @@ export function createPoachingOfferCommand(ctx: GameContext, input: CreatePoachi
   return createPoachingOffer(ctx.companyId, input);
 }
 
-export function updatePoachingOfferCommand(ctx: GameContext, offerId: number, body: Record<string, unknown>) {
+export function updatePoachingOfferCommand(
+  ctx: GameContext,
+  offerId: number,
+  body: { status?: string; executive?: boolean; salary?: number; accelerated?: boolean }
+) {
   return updatePoachingOffer(ctx.companyId, offerId, body);
 }
 

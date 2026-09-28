@@ -1,21 +1,12 @@
-import { db } from '../../../db/database.ts';
-import { virtualClock } from '../../../core/virtual-clock.ts';
+import { createGameContext } from '../../../context/game-context.ts';
+import {
+  fireExecutivesByPositionCommand,
+  getExecutiveCommandListQuery,
+  hireExecutiveForCommand
+} from '../../../application/executives/executive-use-cases.ts';
 import { normalizePositionCode } from '../../../domain/executives.ts';
 import { resolveTargets } from '../target-resolver.ts';
 import type { CommandDefinition, CommandResult, TargetCompany } from '../types.ts';
-
-interface ExecDbRow {
-  id: number;
-  company_id: number;
-  name: string;
-  position: string;
-  skill_management: number;
-  skill_accounting: number;
-  skill_science: number;
-  skill_communication: number;
-  salary: number;
-  status: string;
-}
 
 const POSITION_TITLES: Record<string, { title: string; mainSkill: string }> = {
   o: { title: 'COO (首席运营官)', mainSkill: 'management' },
@@ -30,7 +21,7 @@ export const execCommand: CommandDefinition = {
   description: '高管招募与管理 (hire 招募指定职位高管 / list 清单 / fire 解雇)',
   usage: '/exec <target> <hire <position> [skill] [salary] [name] | list | fire <position>>',
   requireOp: true,
-  handler: (args, ctx) => {
+  handler: async (args, ctx) => {
     if (args.length < 2) {
       return {
         success: false,
@@ -54,9 +45,7 @@ export const execCommand: CommandDefinition = {
     // 1. /exec <target> list
     if (sub === 'list') {
       const target = targets[0];
-      const rows = db.prepare(
-        'SELECT * FROM executives WHERE company_id = ? ORDER BY id ASC'
-      ).all(target.companyId) as unknown as ExecDbRow[];
+      const rows = getExecutiveCommandListQuery(target.companyId);
 
       if (rows.length === 0) {
         return {
@@ -93,21 +82,20 @@ export const execCommand: CommandDefinition = {
       }
 
       const posCode = normalizePositionCode(rest[0]);
-      let totalFired = 0;
-      for (const target of targets) {
-        const res = db.prepare('DELETE FROM executives WHERE company_id = ? AND position = ?').run(target.companyId, posCode);
-        totalFired += res.changes;
-      }
+      const contexts = targets.map(target =>
+        createGameContext(target.companyId, target.companyId, target.realmId)
+      );
+      const fired = await fireExecutivesByPositionCommand(contexts, posCode);
 
       const pTitle = POSITION_TITLES[posCode]?.title || posCode.toUpperCase();
-      const systemMsg = `[Server: Fired ${pTitle} from ${targets.length} companies (${totalFired} executives dismissed)]`;
+      const systemMsg = `[Server: Fired ${pTitle} from ${targets.length} companies (${fired.totalFired} executives dismissed)]`;
       const assistantMsg = `老板，已成功解雇指定企业中的【${pTitle}】高管职位！`;
 
       return {
         success: true,
         message: systemMsg,
         assistantReply: `${assistantMsg}\n§a${systemMsg}`,
-        data: { position: posCode, totalFired }
+        data: { position: posCode, totalFired: fired.totalFired, severance: fired.severance }
       };
     }
 
@@ -145,28 +133,19 @@ export const execCommand: CommandDefinition = {
       else if (posCode === 't') sSci = mainSkill;
       else if (posCode === 'm') sComm = mainSkill;
 
-      const now = virtualClock.nowIso();
-
       for (const target of targets) {
-        const existing = db.prepare(
-          'SELECT id FROM executives WHERE company_id = ? AND position = ? LIMIT 1'
-        ).get(target.companyId, posCode) as { id: number } | undefined;
-
-        if (existing) {
-          db.prepare(`
-            UPDATE executives
-            SET name = ?, skill_management = ?, skill_accounting = ?, skill_science = ?,
-                skill_communication = ?, salary = ?, status = 'employed'
-            WHERE id = ?
-          `).run(customName, sMgmt, sAcc, sSci, sComm, salary, existing.id);
-        } else {
-          db.prepare(`
-            INSERT INTO executives (
-              company_id, name, avatar, position, skill_management, skill_accounting,
-              skill_science, skill_communication, salary, status, created_at
-            ) VALUES (?, ?, 'images/avatars/male_01.png', ?, ?, ?, ?, ?, ?, 'employed', ?)
-          `).run(target.companyId, customName, posCode, sMgmt, sAcc, sSci, sComm, salary, now);
-        }
+        await hireExecutiveForCommand(
+          createGameContext(target.companyId, target.companyId, target.realmId),
+          {
+            name: customName,
+            position: posCode,
+            management: sMgmt,
+            accounting: sAcc,
+            science: sSci,
+            communication: sComm,
+            salary
+          }
+        );
       }
 
       const pTitle = POSITION_TITLES[posCode].title;

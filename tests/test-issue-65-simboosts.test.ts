@@ -134,22 +134,24 @@ async function runIssue65Verification() {
   console.log('-> Test 3: Rush construction on actively constructing building');
   const futureIso = new Date(Date.now() + 60000).toISOString();
   db.prepare('UPDATE buildings SET busy_until = ? WHERE id = ?').run(futureIso, idleBuildingId);
+  const remainingSeconds = Math.ceil((new Date(futureIso).getTime() - Date.now()) / 1000);
+  const expectedRushCost = Math.max(1, Math.ceil(remainingSeconds / 360));
 
   const rushResult = await rushBuildingConstructionUseCase(testCtx(companyId), { buildingId: idleBuildingId });
-  assert.equal(rushResult.simboostsRemaining, 495, 'SimBoosts must be decremented by 5 (500 -> 495)');
+  assert.equal(rushResult.simboostsRemaining, 500 - expectedRushCost, `Rush must charge ceil(remaining seconds / 360), minimum one (${expectedRushCost} SimBoosts)`);
   assert.equal(rushResult.building.busyUntil, null, 'Entity busyUntil must be cleared to NULL');
 
   const buildingAfterRush = db.prepare('SELECT busy_until FROM buildings WHERE id = ?').get(idleBuildingId) as { busy_until: string | null };
   assert.equal(buildingAfterRush.busy_until, null, 'busy_until must be cleared to NULL');
 
   const compAfterValidRush = getCompanyById(companyId);
-  assert.equal(compAfterValidRush?.simboosts, 495);
+  assert.equal(compAfterValidRush?.simboosts, 500 - expectedRushCost);
 
   // Test 4: Atomic exchangeSimBoosts
   console.log('-> Test 4: Atomic exchangeSimBoosts');
   const exchangeResult = await exchangeSimBoosts(companyId, 10);
   assert.equal(exchangeResult.success, true);
-  assert.equal(exchangeResult.simBoosts, 485, '10 SimBoosts deducted (495 -> 485)');
+  assert.equal(exchangeResult.simBoosts, 490 - expectedRushCost, '10 SimBoosts deducted after the time-based construction rush');
   assert.equal(exchangeResult.money, 11000, '$1,000 added ($10,000 -> $11,000)');
 
   // Attempt exchange with insufficient SimBoosts
@@ -163,7 +165,7 @@ async function runIssue65Verification() {
   }
   assert.equal(errorCaught, true);
   const compAfterFailedEx = getCompanyById(companyId);
-  assert.equal(compAfterFailedEx?.simboosts, 485);
+  assert.equal(compAfterFailedEx?.simboosts, 490 - expectedRushCost);
   assert.equal(compAfterFailedEx?.money, 11000);
 
   // Test 5: Atomic unlockBuildingSlot
@@ -173,44 +175,44 @@ async function runIssue65Verification() {
   assert.equal(slot1.success, true);
   assert.equal(slot1.spent, 50);
   assert.equal(slot1.extraBuildingSlots, 1);
-  assert.equal(slot1.simBoosts, 435);
+  assert.equal(slot1.simBoosts, 440 - expectedRushCost);
 
   const compSlot1 = getCompanyById(companyId);
   assert.equal(compSlot1?.extra_building_slots, 1);
-  assert.equal(compSlot1?.simboosts, 435);
+  assert.equal(compSlot1?.simboosts, 440 - expectedRushCost);
 
   // Test 6: Atomic unlockExecutiveSlot
   console.log('-> Test 6: Atomic unlockExecutiveSlot');
   const execSlot = await unlockExecutiveSlot(companyId);
   assert.equal(execSlot.success, true);
   assert.equal(execSlot.extraExecutiveSlots, 1);
-  assert.equal(execSlot.simBoosts, 385, 'First executive slot deducts 50 SimBoosts (435 -> 385)');
+  assert.equal(execSlot.simBoosts, 390 - expectedRushCost, 'First executive slot deducts 50 SimBoosts');
 
   const compExec = getCompanyById(companyId);
   assert.equal(compExec?.extra_executive_slots, 1);
-  assert.equal(compExec?.simboosts, 385);
+  assert.equal(compExec?.simboosts, 390 - expectedRushCost);
 
   // Test 7: Atomic unlockTagSlot
   console.log('-> Test 7: Atomic unlockTagSlot');
   const tagSlot = await unlockTagSlot(companyId);
   assert.equal(tagSlot.success, true);
   assert.equal(tagSlot.maxTags, 2);
-  assert.equal(tagSlot.simBoosts, 185, '200 SimBoosts deducted (385 -> 185)');
+  assert.equal(tagSlot.simBoosts, 190 - expectedRushCost, '200 SimBoosts deducted');
 
   const compTag = getCompanyById(companyId);
   assert.equal(compTag?.max_tags, 2);
-  assert.equal(compTag?.simboosts, 185);
+  assert.equal(compTag?.simboosts, 190 - expectedRushCost);
 
   // Test 8: Atomic unlockDisplayCaseSlot
   console.log('-> Test 8: Atomic unlockDisplayCaseSlot');
   const dcSlot = await unlockDisplayCaseSlot(companyId);
   assert.equal(dcSlot.success, true);
   assert.equal(dcSlot.displayCaseSlots, 2);
-  assert.equal(dcSlot.simBoosts, 135, '50 SimBoosts deducted (185 -> 135)');
+  assert.equal(dcSlot.simBoosts, 140 - expectedRushCost, '50 SimBoosts deducted');
 
   const compDc = getCompanyById(companyId);
   assert.equal(compDc?.display_case_slots, 2);
-  assert.equal(compDc?.simboosts, 135);
+  assert.equal(compDc?.simboosts, 140 - expectedRushCost);
 
   // Test 9: HTTP Route Level - Idle Construction Rush Returns 400 Bad Request
   console.log('-> Test 9: HTTP Route Level POST /construction-rush/ for idle building');
@@ -232,7 +234,7 @@ async function runIssue65Verification() {
   assert.match(responseBody.error as string, /not under construction/i);
 
   const finalComp = getCompanyById(companyId);
-  assert.equal(finalComp?.simboosts, 135, 'Final SimBoosts must remain 135 with 0 deduction on 400 response');
+  assert.equal(finalComp?.simboosts, 140 - expectedRushCost, 'Final SimBoosts must be unchanged after the idle-rush 400 response');
 
   console.log('✅ All Issue #65 regression tests passed successfully!');
 }

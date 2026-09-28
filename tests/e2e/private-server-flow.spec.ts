@@ -1,6 +1,7 @@
 import { expect, test as base } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import { attachDiagnostics, type DiagnosticsController } from './support/diagnostics.ts';
+import { constructThroughUi, produceAndBuyThroughUi, readEconomicState } from './support/economic-loop.ts';
 
 const test = base.extend<{ diagnostics: DiagnosticsController }>({
   diagnostics: async ({ page }, use, testInfo) => {
@@ -66,105 +67,27 @@ async function completeCompanyCreation(page: Page, companyName: string): Promise
   await expect(page).toHaveURL(/\/zh-cn\/landscape\//);
 }
 
-async function clickNavigation(page: Page, name: string): Promise<void> {
-  await page.getByRole('link', { name, exact: true }).last().click();
-}
-
-async function openVisibleFarm(page: Page): Promise<void> {
-  const buildingUrl = /\/zh-cn\/b\/\d+\/?/;
-  const isFarmDetail = async (): Promise<boolean> => {
-    if (!buildingUrl.test(page.url())) return false;
-    const bodyText = await page.locator('body').innerText().catch(() => '');
-    return bodyText.includes('农场') || bodyText.toLowerCase().includes('farm');
-  };
-
-  if (await isFarmDetail()) {
-    return;
-  }
-
-  const farmLink = page.locator('a[href*="/b/1/"]:visible, a.test-building-P:visible').first();
-  if (await farmLink.isVisible().catch(() => false)) {
-    await farmLink.click();
-  } else {
-    await page.goto('/zh-cn/b/1/');
-  }
-  await expect.poll(isFarmDetail).toBe(true);
-}
-
 test('real player core loop keeps UI and persisted state coherent', async ({ page, diagnostics }, testInfo) => {
-  const email = `dom_player_${Date.now()}@example.local`;
-
+  const suffix = Date.now();
+  const email = `dom_player_${suffix}@example.local`;
   await page.goto('/zh-cn/signup/');
   await dismissCookieBanner(page);
   await page.getByRole('button', { name: '使用邮箱地址', exact: true }).click();
   await page.locator('input[type="email"]').fill(email);
   await page.locator('input[type="password"]').fill(password);
   await page.getByRole('button', { name: '注册', exact: true }).click();
-  await completeCompanyCreation(page, `CI ${Date.now()}`);
-  await expect(page).toHaveURL(/\/zh-cn\/landscape\//);
-  await expect(page.getByText('$100,000', { exact: true })).toBeVisible();
-  await expect(page.getByText('250', { exact: true })).toBeVisible();
-  await page.screenshot({ path: testInfo.outputPath('01-signup-landscape.png') });
-
+  await completeCompanyCreation(page, `CI ${suffix}`);
+  const registered = await readEconomicState(page);
+  expect(registered.company.money).toBe(100_000);
+  expect(registered.company.simBoosts).toBe(Number(process.env.INITIAL_SIMBOOSTS ?? 300));
   await signOut(page);
   await signIn(page, email);
-  await page.screenshot({ path: testInfo.outputPath('02-login-landscape.png') });
-
-  await openVisibleFarm(page);
-  const firstProductionAmount = page.locator('input[name="amount"]').first();
-  await expect(firstProductionAmount).toBeVisible();
-  await firstProductionAmount.fill('1');
-  const productionResponse = page.waitForResponse(response => {
-    const pathname = new URL(response.url()).pathname;
-    return response.request().method() === 'POST'
-      && /^\/api\/v1\/(?:busy|buildings\/\d+\/busy)\/?$/.test(pathname);
-  });
-  await page.getByRole('button', { name: '生产', exact: true }).first().click();
-  const response = await productionResponse;
-  expect(response.status()).toBe(200);
-  const payload = await response.json() as {
-    duration?: number;
-    queueItem?: { duration?: number };
-  };
-  expect(payload.duration).toBeGreaterThan(0);
-  expect(payload.queueItem?.duration).toBe(payload.duration);
-  await page.screenshot({ path: testInfo.outputPath('03-production-started.png') });
-
-  await page.waitForTimeout(6_500);
-  await clickNavigation(page, '地图');
-  await page.waitForTimeout(800);
-  await openVisibleFarm(page);
-  // The original client keeps the building detail in its route store after
-  // navigating away and back. A normal browser refresh obtains the finished
-  // queue state and performs its normal completion request.
-  await page.reload();
-  await expect(page).toHaveURL(/\/zh-cn\/b\/\d+\/?/);
-  await expect(page.locator('body')).toContainText('当前库存：10,001');
-  await expect(page.locator('body')).not.toContainText('NaN');
-  await page.screenshot({ path: testInfo.outputPath('04-production-collected.png') });
-
-  await clickNavigation(page, '仓库');
-  await expect(page.getByText('种子', { exact: true })).toBeVisible();
-  await page.screenshot({ path: testInfo.outputPath('05-warehouse-after-production.png') });
-
-  await page.goto('/zh-cn/market/resource/1/');
-  await expect(page.locator('input[name="quantity"]')).toBeVisible();
-  await page.locator('input[name="quantity"]').fill('1');
-  await page.getByRole('button', { name: /购买/ }).first().click();
-  await expect(page.getByText('$99,999', { exact: true })).toBeVisible();
-  await expect(page.getByText(/你已购买 1 单位的 电力/)).toBeVisible();
-  await expect(page.locator('body')).not.toContainText('NaN');
-  await page.screenshot({ path: testInfo.outputPath('06-market-purchase.png') });
-
-  await page.reload();
-  await expect(page.getByText('$99,999', { exact: true })).toBeVisible();
-  await expect(page.locator('body')).not.toContainText('NaN');
-
+  expect((await readEconomicState(page)).company).toEqual(registered.company);
+  await constructThroughUi(page, testInfo);
+  await produceAndBuyThroughUi(page, testInfo);
   await diagnostics.flush();
   expect(diagnostics.data.pageErrors).toEqual([]);
-  expect(diagnostics.data.failedRequests.filter((request) => request.localApi)).toEqual([]);
-  expect(diagnostics.data.apiResponses.some((response) => response.method === 'POST' && /\/buildings\/\d+\/busy\//.test(response.url))).toBe(true);
-  expect(diagnostics.data.apiResponses.some((response) => response.method === 'POST' && response.url.includes('/market-order/take/'))).toBe(true);
+  expect(diagnostics.data.failedRequests.filter(request => request.localApi)).toEqual([]);
 });
 
 test('player can explore encyclopedia, newspaper, and financial overview without errors', async ({ page, diagnostics }, testInfo) => {

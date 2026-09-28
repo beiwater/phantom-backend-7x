@@ -30,7 +30,7 @@ export const certCommand: CommandDefinition = {
     if (action.toLowerCase() === 'list') {
       const target = targets[0];
       const certs = getCompanyCertificates(target.companyId);
-      const listSummary = certs.map(c => `[Kind ${c.kind}] Rank ${c.rank} (Resource: ${c.resource_kind ?? 'None'})`).join('\n') || '无任何证书';
+      const listSummary = certs.map(c => `[Kind ${c.kind}] Rank ${c.rank} (Resource: ${c.resourceKind ?? 'None'})`).join('\n') || '无任何证书';
       const systemMsg = `[Server: Company ${target.name} has ${certs.length} certificate(s)]\n${listSummary}`;
       const assistantMsg = `老板，${target.name} 当前持有 ${certs.length} 张证书：\n${listSummary}`;
 

@@ -1,7 +1,8 @@
-import type { DatabaseSync } from 'node:sqlite';
+import type { DatabaseSync, SQLOutputValue } from 'node:sqlite';
 import { db } from '../db/connection.ts';
 import { virtualClock } from '../core/virtual-clock.ts';
 import { NotFoundError } from '../errors/domain-error.ts';
+import type { CostBreakdown } from './warehouse-repository.ts';
 
 export interface ProductionQueueEntity {
   id: number;
@@ -28,51 +29,55 @@ export interface ProductionQueueEntity {
 export interface ProductionInputIngredient {
   kind: number;
   amount: number;
+  quality?: number;
+  /** Per-unit historical input cost buckets, used to restore the consumed batch on cancellation. */
+  cost?: CostBreakdown | number;
 }
 
 export interface ProductionQueueDbRow {
-  id: number;
-  building_id: number;
-  company_id: number;
-  kind: number;
-  quality: number;
-  cost: number | null;
-  amount: number;
-  duration_seconds: number;
-  started_at: string;
-  finishes_at: string;
-  resolved: number;
-  economy_phase: number | null;
-  economy_phase_started_at: string | null;
-  economy_source: string | null;
-  production_modifier: number | null;
-  production_output_multiplier: number | null;
-  launch_consumes_research: number | null;
-  input_ingredients_json: string | null;
+  [column: string]: SQLOutputValue;
+  id: SQLOutputValue;
+  building_id: SQLOutputValue;
+  company_id: SQLOutputValue;
+  kind: SQLOutputValue;
+  quality: SQLOutputValue;
+  cost: SQLOutputValue;
+  amount: SQLOutputValue;
+  duration_seconds: SQLOutputValue;
+  started_at: SQLOutputValue;
+  finishes_at: SQLOutputValue;
+  resolved: SQLOutputValue;
+  economy_phase: SQLOutputValue;
+  economy_phase_started_at: SQLOutputValue;
+  economy_source: SQLOutputValue;
+  production_modifier: SQLOutputValue;
+  production_output_multiplier: SQLOutputValue;
+  launch_consumes_research: SQLOutputValue;
+  input_ingredients_json: SQLOutputValue;
 }
 
 function mapQueueRow(row: ProductionQueueDbRow): ProductionQueueEntity {
   return {
-    id: row.id,
-    buildingId: row.building_id,
-    companyId: row.company_id,
-    kind: row.kind,
-    quality: row.quality ?? 0,
+    id: Number(row.id),
+    buildingId: Number(row.building_id),
+    companyId: Number(row.company_id),
+    kind: Number(row.kind),
+    quality: Number(row.quality ?? 0),
     cost: row.cost === null || row.cost === undefined ? null : Number(row.cost),
-    amount: row.amount,
-    durationSeconds: row.duration_seconds,
-    startedAt: row.started_at,
-    finishesAt: row.finishes_at,
+    amount: Number(row.amount),
+    durationSeconds: Number(row.duration_seconds),
+    startedAt: String(row.started_at),
+    finishesAt: String(row.finishes_at),
     resolved: Boolean(row.resolved),
     economyPhase: Number(row.economy_phase ?? 1),
-    economyPhaseStartedAt: row.economy_phase_started_at,
-    economySource: row.economy_source || 'migration',
+    economyPhaseStartedAt: row.economy_phase_started_at === null ? null : String(row.economy_phase_started_at),
+    economySource: String(row.economy_source || 'migration'),
     productionModifier: Number(row.production_modifier ?? 0),
     productionOutputMultiplier: Number(row.production_output_multiplier ?? 1),
     launchConsumesResearch: Boolean(row.launch_consumes_research ?? 1),
     inputIngredients: row.input_ingredients_json === null
       ? null
-      : JSON.parse(row.input_ingredients_json) as ProductionInputIngredient[],
+      : JSON.parse(String(row.input_ingredients_json)) as ProductionInputIngredient[],
   };
 }
 
@@ -202,6 +207,14 @@ export class ProductionRepository {
     `).run(queueId, companyId);
 
     return result.changes === 1;
+  }
+
+  updateSchedule(queueId: number, companyId: number, startedAt: string, finishesAt: string): void {
+    const updated = this.database.prepare(`
+      UPDATE production_queues SET started_at = ?, finishes_at = ?
+      WHERE id = ? AND company_id = ? AND resolved = 0
+    `).run(startedAt, finishesAt, queueId, companyId);
+    if (updated.changes !== 1) throw new NotFoundError(`Active queue item ${queueId} not found for company ${companyId}`);
   }
 
   finishImmediately(queueId: number, companyId: number, nowIso: string = virtualClock.nowIso()): ProductionQueueEntity {

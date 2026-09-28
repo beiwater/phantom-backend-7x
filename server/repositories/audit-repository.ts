@@ -4,7 +4,7 @@
  * them to the admin surfaces, replacing the hardcoded demo data.
  * Ban semantics: company.deleted = 1 + all player sessions revoked.
  */
-import type { DatabaseSync } from 'node:sqlite';
+import type { DatabaseSync, SQLOutputValue } from 'node:sqlite';
 import { db } from '../db/connection.ts';
 import { virtualClock } from '../core/virtual-clock.ts';
 
@@ -19,13 +19,13 @@ export interface AuditEntity {
 }
 
 /** Row shape for recent player-session listings (admin audit views). */
-export interface AdminSessionRow {
+export interface AdminSessionRow extends Record<string, SQLOutputValue> {
   created_at: string;
   expires_at: string | null;
 }
 
 /** Row shape for inactive (filled/cancelled) market-order reads. */
-export interface AdminMarketOrderRow {
+export interface AdminMarketOrderRow extends Record<string, SQLOutputValue> {
   id: number;
   seller_id: number;
   kind: number;
@@ -36,7 +36,7 @@ export interface AdminMarketOrderRow {
 }
 
 /** Row shape for contract reads spanning a company (admin audit views). */
-export interface AdminContractRow {
+export interface AdminContractRow extends Record<string, SQLOutputValue> {
   id: number;
   sender_company_id: number;
   recipient_company_id: number;
@@ -49,7 +49,7 @@ export interface AdminContractRow {
 }
 
 /** Subset of the players row consumed by the admin personal-audit view. */
-export interface AdminPlayerRow {
+export interface AdminPlayerRow extends Record<string, SQLOutputValue> {
   player_id: number;
   email: string | null;
   is_admin: number;
@@ -58,13 +58,13 @@ export interface AdminPlayerRow {
 }
 
 /** Minimal company identity row (companies owned by one player). */
-export interface AdminCompanyBasicRow {
+export interface AdminCompanyBasicRow extends Record<string, SQLOutputValue> {
   company_id: number;
   name: string;
 }
 
 /** Row shape for the newcomers listing (newest companies). */
-export interface AdminNewcomerCompanyRow {
+export interface AdminNewcomerCompanyRow extends Record<string, SQLOutputValue> {
   company_id: number;
   name: string;
   logo: string | null;
@@ -171,6 +171,7 @@ export class AuditRepository {
 
   /** Issue #180: full players row by id for the personal-audit view. */
   getPlayerById(playerId: number | null | undefined): AdminPlayerRow | undefined {
+    if (playerId === null || playerId === undefined) return undefined;
     return this.database
       .prepare('SELECT * FROM players WHERE player_id = ?')
       .get(playerId) as AdminPlayerRow | undefined;

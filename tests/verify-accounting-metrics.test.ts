@@ -1,6 +1,9 @@
 import assert from 'node:assert';
 import { handleFinanceRoutes } from '../server/routes/finance-routes.ts';
 import { db } from '../server/db/database.ts';
+import { companyRepository } from '../server/repositories/company-repository.ts';
+import { restaurantRepository } from '../server/repositories/restaurant-repository.ts';
+import { calculateEffectiveExecutiveSkill } from '../server/domain/executives.ts';
 
 console.log('=== Verifying Accounting Metrics & NaN Prevention (Issue #139) ===');
 
@@ -63,7 +66,44 @@ const debtToBuildingRaw = bsPayload.bondsPayable / (bsPayload.buildings || 0);
 const safeDebtToBuilding = Number.isFinite(debtToBuildingRaw) ? debtToBuildingRaw : 0;
 assert.strictEqual(safeDebtToBuilding, 0, 'Zero building debt ratio must safely fall back to 0');
 
+// Executive skill-effect reads use canonical and legacy position spellings,
+// with the bundle's weighted sum and sequential soft cap rather than MAX().
+const execNow = new Date().toISOString();
+const executiveRows = [
+  ['o', 60, 20, 0, 20],
+  ['coo apprentice', 50, 0, 0, 20],
+  ['f', 20, 100, 0, 20],
+  ['x', 0, 30, 0, 20],
+  ['m', 0, 0, 0, 100],
+  ['cmo apprentice', 0, 0, 0, 30]
+] as const;
+const insertExecutive = db.prepare(`
+  INSERT INTO executives (
+    company_id, name, avatar, position,
+    skill_management, skill_accounting, skill_science, skill_communication,
+    salary, status, created_at
+  ) VALUES (?, ?, '', ?, ?, ?, ?, ?, 300, 'employed', ?)
+`);
+for (const [index, [position, management, accounting, science, communication]] of executiveRows.entries()) {
+  insertExecutive.run(
+    testCompanyId,
+    `Skill Fixture ${index}`,
+    position,
+    management,
+    accounting,
+    science,
+    communication,
+    execNow
+  );
+}
+assert.equal(companyRepository.getAccountingOverheadStats(testCompanyId).cooSkill, 72);
+assert.equal(companyRepository.getAccountingLift(testCompanyId).cfoSkill, 80);
+assert.equal(restaurantRepository.getCooManagement(testCompanyId), 72);
+assert.equal(restaurantRepository.getCmoCommunication(testCompanyId), 83);
+assert.equal(calculateEffectiveExecutiveSkill([{ position: 'o', skill: 100 }], 'coo'), 75);
+
 // Clean up
+db.prepare('DELETE FROM executives WHERE company_id = ?').run(testCompanyId);
 db.prepare('DELETE FROM companies WHERE company_id = ?').run(testCompanyId);
 
 console.log('================================================================');

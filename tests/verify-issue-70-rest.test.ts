@@ -225,7 +225,7 @@ function freePort(): Promise<number> {
 }
 
 async function startDisabledServer(): Promise<DisabledServer> {
-  const dataDir = path.resolve('data', `test-run-i70-disabled-${Date.now()}`);
+  const dataDir = path.resolve(process.env.DATA_DIR || 'data', `test-run-i70-disabled-${Date.now()}`);
   const port = await freePort();
   const child = spawn(
     process.execPath,

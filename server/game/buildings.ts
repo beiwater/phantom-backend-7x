@@ -1,3 +1,9 @@
+import { initialAbundanceForKind, rollAbundancePercent } from '../application/buildings/abundance-use-cases.ts';
+export { initialAbundanceForKind, rollAbundancePercent } from '../application/buildings/abundance-use-cases.ts';
+import { ABUNDANCE_EXTRACTOR_KINDS, ABUNDANCE_DECAY_PER_CYCLE, isAbundanceExtractorKind, decayAbundance, scaleExtractorOutput, type AbundanceValues } from '../domain/buildings/building-rules.ts';
+export { ABUNDANCE_EXTRACTOR_KINDS, ABUNDANCE_DECAY_PER_CYCLE, isAbundanceExtractorKind, decayAbundance, scaleExtractorOutput } from '../domain/buildings/building-rules.ts';
+export type { AbundanceValues } from '../domain/buildings/building-rules.ts';
+export { getBuildingAbundance, applyAbundanceCycleDecay } from '../application/buildings/abundance-use-cases.ts';
 import { db } from '../db/database.ts';
 import { virtualClock } from '../core/virtual-clock.ts';
 import {
@@ -250,78 +256,27 @@ function validateConstructionMaterials(companyId: number, sizeUnits: number) {
 // resource deposit whose richness ("abundance", stored as a percentage) is
 // rolled once at construction time from a clamped Gaussian and then decays
 // slowly as the deposit is worked.
-// ---------------------------------------------------------------------------
 
-/** Building kinds that extract natural resources and therefore carry abundance. */
-export const ABUNDANCE_EXTRACTOR_KINDS: Record<string, true> = { M: true, Q: true, O: true };
 
-const ABUNDANCE_ROLL_MEAN = 0.85;
-const ABUNDANCE_ROLL_STD_DEV = 0.15;
-const ABUNDANCE_FRACTION_MIN = 0.5;
-const ABUNDANCE_FRACTION_MAX = 1.0;
-/** 0.032% of the current abundance lost per completed production cycle (day). */
-export const ABUNDANCE_DECAY_PER_CYCLE = 0.00032;
 
-export function isAbundanceExtractorKind(kind: string): boolean {
-  return Boolean(ABUNDANCE_EXTRACTOR_KINDS[kind]);
-}
 
-function gaussianRandom(mean: number, stdDev: number): number {
-  let u1 = Math.random();
-  while (u1 <= Number.EPSILON) {
-    u1 = Math.random(); // log(0) is undefined; resample
-  }
-  const u2 = Math.random();
-  const z = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
-  return mean + stdDev * z;
-}
 
-/**
- * One abundance roll: clamp(Gaussian(0.85, 0.15), 0.5, 1.0) * 100, rounded to
- * two decimals for clean storage. Always within [50, 100].
- */
-export function rollAbundancePercent(): number {
-  const fraction = Math.min(
-    ABUNDANCE_FRACTION_MAX,
-    Math.max(ABUNDANCE_FRACTION_MIN, gaussianRandom(ABUNDANCE_ROLL_MEAN, ABUNDANCE_ROLL_STD_DEV))
-  );
-  return Math.round(fraction * 100 * 100) / 100;
-}
 
-export interface AbundanceValues {
-  abundance: number;
-  originalAbundance: number;
-}
 
-/** Initial abundance pair for a new building: a fresh roll for extractors, a fully rich deposit otherwise. */
-export function initialAbundanceForKind(kind: string): AbundanceValues {
-  if (!isAbundanceExtractorKind(kind)) {
-    return { abundance: 100, originalAbundance: 100 };
-  }
-  const rolled = rollAbundancePercent();
-  return { abundance: rolled, originalAbundance: rolled };
-}
 
-/** Linear output scaling for natural resource extractors. */
-export function scaleExtractorOutput(baseAmount: number, abundance: number): number {
-  return Math.round(baseAmount * abundance / 100);
-}
 
-/** Multiplicative decay: abundance *= (1 - 0.032%)^cycles, floored at 0. */
-export function decayAbundance(abundance: number, cycles: number = 1): number {
-  if (!Number.isFinite(abundance) || abundance <= 0) return 0;
-  return Math.max(0, abundance * Math.pow(1 - ABUNDANCE_DECAY_PER_CYCLE, cycles));
-}
 
-export function getBuildingAbundance(buildingId: number): AbundanceValues | null {
-  const row = db.prepare(
-    'SELECT abundance, original_abundance FROM buildings WHERE id = ?'
-  ).get(buildingId) as { abundance: number | null; original_abundance: number | null } | undefined;
-  if (!row) return null;
-  const abundance = row.abundance === null || row.abundance === undefined ? 100 : Number(row.abundance);
-  const original = row.original_abundance === null || row.original_abundance === undefined ? abundance : Number(row.original_abundance);
-  return { abundance, originalAbundance: original };
-}
+
+
+
+
+
+
+
+
+
+
+
 
 /**
  * Re-prospect a deposit: roll a fresh abundance and reset the original
@@ -335,20 +290,7 @@ export function prospectBuildingAbundance(buildingId: number): AbundanceValues {
   return { abundance: rolled, originalAbundance: rolled };
 }
 
-/**
- * Apply one production-cycle (day) of decay to a natural resource extractor's
- * deposit and persist it. Non-extractor buildings and missing buildings are
- * no-ops (returns null). Returns the new abundance otherwise.
- */
-export function applyAbundanceCycleDecay(buildingId: number): number | null {
-  const row = db.prepare(
-    'SELECT kind, abundance FROM buildings WHERE id = ?'
-  ).get(buildingId) as { kind: string; abundance: number | null } | undefined;
-  if (!row || !isAbundanceExtractorKind(String(row.kind))) return null;
-  const decayed = decayAbundance(row.abundance === null || row.abundance === undefined ? 100 : Number(row.abundance));
-  db.prepare('UPDATE buildings SET abundance = ? WHERE id = ?').run(decayed, buildingId);
-  return decayed;
-}
+
 
 
 export function constructBuilding(companyId: number, kind: string, position: string, replaceExisting = false) {

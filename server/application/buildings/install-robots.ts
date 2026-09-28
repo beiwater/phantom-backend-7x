@@ -1,7 +1,11 @@
 import type { GameContext } from '../../context/game-context.ts';
 import { runInTransaction } from '../../db/transaction.ts';
 import { buildingRepository, type BuildingEntity } from '../../repositories/building-repository.ts';
-import { warehouseRepository, type ResourceTransactionEntity } from '../../repositories/warehouse-repository.ts';
+import {
+  aggregateResourceCostSnapshots,
+  warehouseRepository,
+  type ResourceTransactionEntity
+} from '../../repositories/warehouse-repository.ts';
 import { eventBus } from '../../events/event-bus.ts';
 import { NotFoundError, ForbiddenError, ValidationError, ConflictError } from '../../errors/domain-error.ts';
 import {
@@ -90,11 +94,16 @@ export async function installRobotsUseCase(
     const weightedQuality = consumed.reduce((sum, tx) => sum + tx.amount * (Number(tx.quality) || 0), 0);
     const installedQuality = totalConsumed > 0 ? Math.floor(weightedQuality / totalConsumed) : requiredQuality;
 
-    const updatedBuilding = buildingRepository.updateRobotics(building.id, ctx.companyId, {
+    buildingRepository.updateRobotics(building.id, ctx.companyId, {
       robotsInstalled: totalConsumed,
       robotsQuality: installedQuality,
       lockedProduct: kind
     });
+    const updatedBuilding = buildingRepository.setRobotInstallCostSnapshots(
+      building.id,
+      ctx.companyId,
+      aggregateResourceCostSnapshots(consumed)
+    );
 
     // 7. Publish domain event on transaction commit
     eventBus.publishCommitted(txCtx, 'RobotsInstalled', {

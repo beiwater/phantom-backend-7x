@@ -405,6 +405,7 @@ export async function handleChatSubroutes(
       body?: string;
       recipient?: number;
       companyId?: number | string;
+      company?: string;
       token?: number | string;
     }>(req);
 

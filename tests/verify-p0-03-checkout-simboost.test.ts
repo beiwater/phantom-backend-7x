@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { db } from '../server/db/database.ts';
+import { CONFIG } from '../server/config.ts';
 // NOTE: run with DATA_DIR=data/test-run-3203 to share the server's DB
 import { resetPurchaseLedger } from '../server/game/simboosts.ts';
 
@@ -118,7 +119,7 @@ async function runP0CheckoutSimboostTest() {
   console.log('[2/8] Registering fresh company...');
   const { cookie } = await register('p0');
   const authBefore = await authCompany(cookie);
-  assert.equal(authBefore.simBoosts, 250);
+  assert.equal(authBefore.simBoosts, CONFIG.INITIAL_SIMBOOSTS);
   assert.equal(authBefore.exchangedToday, 0);
   assert.equal(authBefore.productionModifier, 0);
   console.log(`  -> company ${authBefore.companyId}, simBoosts=${authBefore.simBoosts}, money=${authBefore.money}`);

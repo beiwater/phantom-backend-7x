@@ -5,20 +5,7 @@
 set -uo pipefail
 cd "$(dirname "$0")/.."
 
-# The server and legacy contract suites default to port 3000. Keeping this
-# aligned avoids false failures from suites that intentionally use that public
-# default rather than BASE_URL.
-if [ -z "${PORT:-}" ]; then
-  if ss -tulpn 2>/dev/null | grep -qE "(:| )3000 "; then
-    PORT="3100"
-  else
-    PORT="3000"
-  fi
-fi
-BASE="${BASE_URL:-http://127.0.0.1:$PORT}"
-# Use a fresh database unless a caller deliberately provides one. Old local
-# schemas must not make a regression run fail before the server can start.
-TEST_DATA_DIR="${DATA_DIR:-$(mktemp -d)}"
+PORT="${PORT:-3000}"
 if [ -z "${NODE_BIN:-}" ]; then
   if [ -x "/opt/magnate/.node22/bin/node" ]; then
     NODE_BIN="/opt/magnate/.node22/bin/node --experimental-strip-types"
@@ -28,65 +15,7 @@ if [ -z "${NODE_BIN:-}" ]; then
 fi
 
 # Suites that must run standalone (they spawn isolated servers).
-STANDALONE_RE='verify-issue-70-rest|verify-issue-7[8-9]|verify-issue-8[0-9]|verify-issue-84-90|verify-issue-9[0-9]|verify-issue-199|bfs-crawler|white-screen|dom-verify'
-
-# Suites admitted to the default CI gate. New test files are discovered below
-# and reported as quarantined until their runtime assumptions and baseline
-# result are reviewed; they are never silently omitted.
-ADMITTED_TESTS=(
-  tests/test-architecture-gates.test.ts
-  tests/test-issue-65-simboosts.test.ts
-  tests/test-realm-rules.test.ts
-  tests/test-route-registry.test.ts
-  tests/test-transaction-rollback.test.ts
-  tests/verify-accounting-metrics.test.ts
-  tests/verify-attack-fix-chat.test.ts
-  tests/verify-backup-restore.test.ts
-  tests/verify-chat-persistence.test.ts
-  tests/verify-db-migrations.test.ts
-  tests/verify-executive-offer-nan.test.ts
-  tests/verify-executive-slots.test.ts
-  tests/verify-issue-144-executives.test.ts
-  tests/verify-issue-17-rest.test.ts
-  tests/verify-issue-27-password-security.test.ts
-  tests/verify-issue-29-server-hardening.test.ts
-  tests/verify-issue-3-database-indexes.test.ts
-  tests/verify-issue-36-read-idempotency.test.ts
-  tests/verify-issue-39-research.test.ts
-  tests/verify-issue-42-bonds.test.ts
-  tests/verify-issue-46-financial-reports.test.ts
-  tests/verify-issue-80-aerospace.test.ts
-  tests/verify-issue-83-newspaper.test.ts
-  tests/verify-issue-84-90-security.test.ts
-  tests/verify-issue-86-research.test.ts
-  tests/verify-issue-89-finance.test.ts
-  tests/verify-issues-110-121.test.ts
-  tests/verify-market-pricing-modes.test.ts
-  tests/verify-construction-time-mode.test.ts
-  tests/verify-demand-pricing-and-chatrooms.test.ts
-  tests/verify-economy-and-library-guides.test.ts
-  tests/verify-p1-03-research-guide.test.ts
-  tests/verify-issue-183-production-economy.test.ts
-  tests/verify-issue-184-government-content.test.ts
-  tests/verify-issue-185-economy.test.ts
-  tests/verify-issue-197-launchpad-mapping.test.ts
-  tests/verify-issue-182-certificates.test.ts
-  tests/verify-production-process.test.ts
-  tests/verify-issue-186-time-warp-consistency.test.ts
-  tests/verify-issue-187-executive-offer-flow.test.ts
-  tests/verify-issue-188-chat-timestamps.test.ts
-  tests/verify-issue-189-chat-ordering.test.ts
-  tests/verify-issue-190-production-duration.test.ts
-  tests/verify-issue-199-encyclopedia.test.ts
-  tests/verify-issue-192-company-map-slots.test.ts
-  tests/verify-issue-193-contract-submission.test.ts
-  tests/verify-issue-194-newspaper-unpublished.test.ts
-  tests/verify-issue-195-196-executives.test.ts
-  tests/verify-security-hardening.test.ts
-  tests/verify-warehouse-statistics.test.ts
-  tests/verify-unlocked-hqs.test.ts
-  tests/verify-followers-sync-and-v1-rush.test.ts
-)
+STANDALONE_RE='verify-all-16-achievements|verify-issue-7[8-9]|verify-issue-8[0-9]|verify-issue-9[0-9]|verify-issue-100-|verify-issue-102-|verify-issue-170-|verify-issue-199|verify-issue-200'
 
 # Browser/diagnostic suites are intentionally not part of this backend gate.
 # Keep this list explicit: an unclassified tests/*.test.ts file must fail the
@@ -122,21 +51,10 @@ is_excluded_test() {
   return 1
 }
 
-is_admitted_test() {
-  local candidate="$1"
-  local admitted
-  for admitted in "${ADMITTED_TESTS[@]}"; do
-    if [ "$candidate" = "$admitted" ]; then
-      return 0
-    fi
-  done
-  return 1
-}
 
 ALL_TEST_FILES=()
 DISCOVERED_BACKEND_TESTS=()
 BACKEND_TESTS=()
-QUARANTINED_TESTS=()
 UNCLASSIFIED_TESTS=()
 SKIPPED_TESTS=()
 for t in tests/*.test.ts; do
@@ -146,17 +64,13 @@ for t in tests/*.test.ts; do
     SKIPPED_TESTS+=("$t")
   elif [[ "$t" == tests/test-*.test.ts || "$t" == tests/verify-*.test.ts ]]; then
     DISCOVERED_BACKEND_TESTS+=("$t")
-    if is_admitted_test "$t"; then
-      BACKEND_TESTS+=("$t")
-    else
-      QUARANTINED_TESTS+=("$t")
-    fi
+    BACKEND_TESTS+=("$t")
   else
     UNCLASSIFIED_TESTS+=("$t")
   fi
 done
 
-for t in "${ADMITTED_TESTS[@]}" "${EXCLUDED_TESTS[@]}"; do
+for t in "${EXCLUDED_TESTS[@]}"; do
   if [ ! -f "$t" ]; then
     echo "FAIL: configured test no longer exists: $t"
     UNCLASSIFIED_TESTS+=("$t")
@@ -165,34 +79,47 @@ done
 
 echo "Discovered ${#ALL_TEST_FILES[@]} test files"
 echo "Discovered ${#DISCOVERED_BACKEND_TESTS[@]} backend/API suites"
-echo "Selected ${#BACKEND_TESTS[@]} admitted backend/API suites"
-echo "Quarantined ${#QUARANTINED_TESTS[@]} backend/API suites (not run by default)"
+echo "Selected ${#BACKEND_TESTS[@]} backend/API suites"
 echo "Explicitly skipped ${#SKIPPED_TESTS[@]} browser/diagnostic suites"
-if [ "${#QUARANTINED_TESTS[@]}" -ne 0 ]; then
-  printf 'Quarantined (set RUN_QUARANTINED=1 to run):\n'
-  printf '  %s\n' "${QUARANTINED_TESTS[@]}"
-fi
+printf 'Selected backend/API suites:\n'
+printf '  %s\n' "${BACKEND_TESTS[@]}"
+printf 'Skipped suites (require a browser or a manually prepared scenario; run through their documented entry points):\n'
+printf '  %s\n' "${SKIPPED_TESTS[@]}"
 if [ "${#UNCLASSIFIED_TESTS[@]}" -ne 0 ]; then
   echo "FAIL: unclassified or missing test files:"
   printf '  %s\n' "${UNCLASSIFIED_TESTS[@]}"
   exit 1
 fi
 
-if [ "${RUN_QUARANTINED:-0}" = "1" ]; then
-  BACKEND_TESTS+=("${QUARANTINED_TESTS[@]}")
-fi
 
 if [ "${TEST_DISCOVERY_ONLY:-0}" = "1" ]; then
   echo "TEST DISCOVERY PASSED"
   exit 0
 fi
 
-# Start shared server for API suites
-pkill -9 -f "server/index.ts" 2>/dev/null || true
-sleep 1
-PORT="$PORT" DATA_DIR="$TEST_DATA_DIR" SPEED_MULTIPLIER="${SPEED_MULTIPLIER:-200}" $NODE_BIN server/index.ts >/dev/null 2>&1 &
-SERVER_PID=$!
-sleep 2
+# Only the per-suite directories below are disposable when DATA_DIR is supplied.
+TEST_DATA_DIR="${DATA_DIR:-$(mktemp -d)}"
+TEST_DATA_DIR_OWNED=0
+[ -n "${DATA_DIR:-}" ] || TEST_DATA_DIR_OWNED=1
+mkdir -p "$TEST_DATA_DIR"
+
+cleanup_suite_data() {
+  [ -n "${SUITE_DATA_DIR:-}" ] || return 0
+  local suite_path root_path
+  suite_path="$(realpath "$SUITE_DATA_DIR")" || return 1
+  root_path="$(realpath "$TEST_DATA_DIR")" || return 1
+  case "$suite_path" in
+    "$root_path"/*) rm -rf -- "$suite_path" ;;
+    *) echo "FAIL: test cleanup path is outside its temporary root"; return 1 ;;
+  esac
+  SUITE_DATA_DIR=""
+}
+cleanup_run() {
+  cleanup_suite_data
+  # rmdir only removes an empty root created by this run.
+  [ "$TEST_DATA_DIR_OWNED" -eq 0 ] || rmdir -- "$TEST_DATA_DIR"
+}
+trap cleanup_run EXIT
 
 echo "Running backend/API suites:"
 printf '  %s\n' "${BACKEND_TESTS[@]}"
@@ -208,12 +135,20 @@ for t in "${BACKEND_TESTS[@]}"; do
   fi
   TOTAL=$((TOTAL + 1))
   LOG="$(mktemp)"
-  if [[ "$t" =~ $STANDALONE_RE ]]; then
-    DATA_DIR="$TEST_DATA_DIR" env -u PORT -u BASE_URL $NODE_BIN "$t" >"$LOG" 2>&1
+  mkdir -p "$TEST_DATA_DIR"
+  SUITE_DATA_DIR="$(mktemp -d "$TEST_DATA_DIR/$(basename "$t" .test.ts).XXXXXX")"
+  # Shared-helper suites own their server/database; do not prepare a second
+  # unused service for them. grep keeps discovery portable in minimal CI.
+  if [[ "$t" =~ $STANDALONE_RE ]] || grep -q 'support/test-server.ts' "$t"; then
+    DATA_DIR="$SUITE_DATA_DIR" env -u PORT -u BASE_URL $NODE_BIN "$t" >"$LOG" 2>&1
+    RESULT=$?
   else
-    DATA_DIR="$TEST_DATA_DIR" PORT="$PORT" BASE_URL="$BASE" $NODE_BIN "$t" >"$LOG" 2>&1
+    # The same helper owns service readiness, temporary database and cleanup
+    # for legacy backend suites and Playwright.
+    PORT="$PORT" SPEED_MULTIPLIER="${SPEED_MULTIPLIER:-200}" $NODE_BIN tests/support/run-backend-suite.ts "$t" >"$LOG" 2>&1
+    RESULT=$?
   fi
-  if [ $? -ne 0 ]; then
+  if [ "$RESULT" -ne 0 ]; then
     FAILED+=("$t")
     echo "FAIL: $t"
     cat "$LOG"
@@ -221,9 +156,9 @@ for t in "${BACKEND_TESTS[@]}"; do
     echo "PASS: $t"
   fi
   rm -f "$LOG"
+  cleanup_suite_data || exit 1
 done
 
-kill -9 $SERVER_PID 2>/dev/null || true
 echo "=============================="
 echo "Suites: $TOTAL, Failed: ${#FAILED[@]}"
 [ ${#FAILED[@]} -eq 0 ] && echo "ALL UNIT/API SUITES PASSED" || { printf 'Failed: %s\n' "${FAILED[@]}"; exit 1; }

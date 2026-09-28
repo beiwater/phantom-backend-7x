@@ -36,7 +36,7 @@ const expectedDuration = calculateProductionTime(
   3,
   100,
   farm!.size,
-  economy.productionModifier,
+  0, // Original client: neutral company slider, with salary phase below (#199).
   { economyState: economy.state }
 );
 assert.equal(result.queueItem.durationSeconds, expectedDuration);
@@ -60,5 +60,45 @@ assert.equal(
   started.duration
 );
 assert.ok((warehouseRepository.findByCompanyAndResource(companyId, 66)?.amount ?? 0) < beforeSeeds);
+
+// Product quality is on the Q0-Q12 scale; it must not be fed into the
+// encyclopedia's separate 0-100 mining percentage. Otherwise Q0 collapses
+// to the 60s zero-rate fallback and higher product quality distorts duration.
+warehouseRepository.addResource(companyId, 1, 0, 100_000);
+warehouseRepository.addResource(companyId, 2, 0, 10_000);
+const miningBuilding = (position: string) => buildingRepository.create({
+  companyId,
+  position,
+  kind: 'M',
+  size: 1,
+  name: `Issue 212 ${position}`,
+  cost: 100_000,
+  category: 'production',
+  createdAt: new Date().toISOString()
+});
+const mineQ0 = miningBuilding('issue212-q0');
+const mineQ12 = miningBuilding('issue212-q12');
+const miningQ0 = await startProductionUseCase(context, {
+  buildingId: mineQ0.id,
+  kind: 42,
+  amount: 1_000,
+  quality: 0
+});
+const miningQ12 = await startProductionUseCase(context, {
+  buildingId: mineQ12.id,
+  kind: 42,
+  amount: 1_000,
+  quality: 12
+});
+assert.equal(
+  miningQ0.queueItem.durationSeconds,
+  miningQ12.queueItem.durationSeconds,
+  'requested product quality must not change the mining-rate percentage'
+);
+assert.equal(
+  miningQ0.queueItem.durationSeconds,
+  calculateProductionTime(42, 1_000, 1, 0, { economyState: economy.state }),
+  'mine duration uses the default 100% mining rate for all product quality levels'
+);
 
 console.log('PASS production preview/creation/queue DTOs share authoritative duration and timestamps (#190)');

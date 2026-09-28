@@ -4,9 +4,41 @@
  * executive-skill and restaurant-market reads the engine consumes.
  * Pure persistence + row mapping — no economy semantics, no money movement.
  */
-import type { DatabaseSync } from 'node:sqlite';
+import type { DatabaseSync, SQLInputValue, SQLOutputValue } from 'node:sqlite';
 import { db } from '../db/connection.ts';
 import { virtualClock } from '../core/virtual-clock.ts';
+import { calculateEffectiveExecutiveSkill } from '../domain/executives.ts';
+
+export interface RestaurantRunDbRow extends Record<string, SQLOutputValue> {
+  id: number;
+  building_id: number;
+  company_id: number;
+  datetime: string;
+  rating: number;
+  new_rating: number | null;
+  rating_before: number | null;
+  rating_after: number | null;
+  rating_delta: number | null;
+  occupied: number | null;
+  capacity: number;
+  occupancy: number | null;
+  revenue: number | null;
+  cost: number;
+  profit: number | null;
+  menu_price: number | null;
+  review: string | null;
+  menu_json: string | null;
+  good_service: number | null;
+  is_luxury: number | null;
+  resolved: number;
+  cycle_start: string | null;
+  cycle_end: string | null;
+  prepared: number | null;
+  served: number | null;
+  spoiled: number | null;
+  food_cost: number | null;
+  wages: number | null;
+}
 
 export interface RestaurantPropertyRowEntity {
   buildingId: number;
@@ -145,23 +177,23 @@ export class RestaurantRepository {
       .run(rating, occupancy, virtualClock.nowIso(), buildingId);
   }
 
-  getActiveRunRow(buildingId: number, companyId?: number | null): Record<string, unknown> | undefined {
+  getActiveRunRow(buildingId: number, companyId?: number | null): RestaurantRunDbRow | undefined {
     return this.database
       .prepare(
         `SELECT * FROM restaurant_runs
          WHERE building_id = ? AND resolved = 0 AND (? IS NULL OR company_id = ?)
          ORDER BY id DESC LIMIT 1`
       )
-      .get(buildingId, companyId ?? null, companyId ?? null) as Record<string, unknown> | undefined;
+      .get(buildingId, companyId ?? null, companyId ?? null) as RestaurantRunDbRow | undefined;
   }
 
-  findRunRow(runId: number): Record<string, unknown> | undefined {
+  findRunRow(runId: number): RestaurantRunDbRow | undefined {
     return this.database
       .prepare('SELECT * FROM restaurant_runs WHERE id = ?')
-      .get(runId) as Record<string, unknown> | undefined;
+      .get(runId) as RestaurantRunDbRow | undefined;
   }
 
-  insertRun(values: unknown[]): number {
+  insertRun(values: SQLInputValue[]): number {
     const insert = this.database
       .prepare(
         `INSERT INTO restaurant_runs (
@@ -230,12 +262,12 @@ export class RestaurantRepository {
   }
 
   /** Latest runs for a building (history view), newest first. */
-  listRecentRunRows(buildingId: number, companyId?: number | null, limit = 30): Array<Record<string, unknown>> {
+  listRecentRunRows(buildingId: number, companyId?: number | null, limit = 30): RestaurantRunDbRow[] {
     return this.database
       .prepare(
         'SELECT * FROM restaurant_runs WHERE building_id = ? AND (? IS NULL OR company_id = ?) ORDER BY id DESC LIMIT ?'
       )
-      .all(buildingId, companyId ?? null, companyId ?? null, limit) as Array<Record<string, unknown>>;
+      .all(buildingId, companyId ?? null, companyId ?? null, limit) as RestaurantRunDbRow[];
   }
 
   countResolvedRuns(buildingId: number): number {
@@ -271,26 +303,22 @@ export class RestaurantRepository {
 
   /** COO management skill (0-100) for a company. */
   getCooManagement(companyId: number): number {
-    const row = this.database
-      .prepare(
-        `SELECT COALESCE(MAX(skill_management), 0) AS skill
-         FROM executives
-         WHERE company_id = ? AND LOWER(position) IN ('coo', 'coo apprentice') AND status = 'employed'`
-      )
-      .get(companyId) as { skill: number };
-    return Number(row?.skill) || 0;
+    const rows = this.database.prepare(`
+      SELECT position, skill_management AS skill
+      FROM executives
+      WHERE company_id = ? AND status = 'employed'
+    `).all(companyId) as Array<{ position: string | null; skill: number | null }>;
+    return calculateEffectiveExecutiveSkill(rows, 'coo');
   }
 
   /** CMO communication skill (0-100) for a company. */
   getCmoCommunication(companyId: number): number {
-    const row = this.database
-      .prepare(
-        `SELECT COALESCE(MAX(skill_communication), 0) AS skill
-         FROM executives
-         WHERE company_id = ? AND LOWER(position) IN ('cmo', 'cmo apprentice') AND status = 'employed'`
-      )
-      .get(companyId) as { skill: number };
-    return Number(row?.skill) || 0;
+    const rows = this.database.prepare(`
+      SELECT position, skill_communication AS skill
+      FROM executives
+      WHERE company_id = ? AND status = 'employed'
+    `).all(companyId) as Array<{ position: string | null; skill: number | null }>;
+    return calculateEffectiveExecutiveSkill(rows, 'cmo');
   }
 
   /** Market guests (global worker seats across all companies) + competitor restaurant list (Issue #108). */

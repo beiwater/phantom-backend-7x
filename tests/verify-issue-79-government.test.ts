@@ -106,7 +106,7 @@ interface TestServer {
 }
 
 async function startTestServer(portNumber: number): Promise<TestServer> {
-  const dataDir = path.resolve('data', `test-run-gov-${portNumber}-${Date.now()}`);
+  const dataDir = path.resolve(process.env.DATA_DIR || 'data', `test-run-gov-${portNumber}-${Date.now()}`);
   const child = spawn(
     process.execPath,
     ['--experimental-strip-types', 'server/index.ts'],

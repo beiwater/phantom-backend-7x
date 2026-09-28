@@ -6,17 +6,12 @@
  * 4. Building Auctions Compatibility (active-unlocks, buildingAuctions, similarBuildingAuctions, bids)
  *
  * Usage:
- *   /opt/magnate/.node22/bin/node --experimental-strip-types tests/verify-issue-78-part2.test.ts
+ *   node --experimental-strip-types tests/verify-issue-78-part2.test.ts
  */
-import net from 'node:net';
 import assert from 'node:assert/strict';
-import { spawn, type ChildProcess } from 'node:child_process';
-import { rmSync } from 'node:fs';
-import path from 'node:path';
+import { withTestServer, type TestServer } from './support/test-server.ts';
 
-const PORT = process.env.PORT || '3620';
-const baseUrl = `http://127.0.0.1:${PORT}`;
-const dataDir = path.resolve('data', `test-run-i78-part2-${Date.now()}`);
+let server: TestServer;
 
 interface ApiResult {
   status: number;
@@ -50,101 +45,27 @@ async function api(
   urlPath: string,
   body?: unknown
 ): Promise<ApiResult> {
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json'
-  };
-  if (cookie) {
-    headers['Cookie'] = cookie;
-  }
-  const response = await fetch(`${baseUrl}${urlPath}`, {
-    method,
-    headers,
-    body: body === undefined ? undefined : JSON.stringify(body)
-  });
-  let json: ApiResult['json'] = null;
-  try {
-    json = await response.json();
-  } catch {
-    // Non-JSON bodies ignored
-  }
-  return { status: response.status, headers: response.headers, json };
-}
-
-function waitUntilReachable(url: string, timeoutMs: number = 30000): Promise<void> {
-  const start = Date.now();
-  const { promise, resolve, reject } = Promise.withResolvers<void>();
-  const interval = setInterval(async () => {
-    try {
-      const res = await fetch(url);
-      if (res.status < 500) {
-        clearInterval(interval);
-        resolve();
-      }
-    } catch {
-      if (Date.now() - start > timeoutMs) {
-        clearInterval(interval);
-        reject(new Error(`Server unreachable at ${url} within ${timeoutMs}ms`));
-      }
-    }
-  }, 100);
-  return promise;
+  return server.request(method, urlPath, { cookie: cookie || undefined, body });
 }
 
 async function run(): Promise<void> {
-  console.log(`Launching test server on port ${PORT} with data dir ${dataDir}...`);
-  const nodeBinary = process.execPath.includes('.node22')
-    ? process.execPath
-    : '/opt/magnate/.node22/bin/node';
-
-  const child: ChildProcess = spawn(
-    nodeBinary,
-    ['--experimental-strip-types', 'server/index.ts'],
-    {
-      cwd: path.resolve(import.meta.dirname ?? '.', '..'),
-      env: {
-        ...process.env,
-        PORT: String(PORT),
-        DATA_DIR: dataDir,
-        SPEED_MULTIPLIER: '200'
-      },
-      stdio: ['ignore', 'ignore', 'pipe']
-    }
-  );
-
-  child.stderr?.on('data', chunk => {
-    const msg = chunk.toString();
-    if (!msg.includes('ExperimentalWarning')) {
-      process.stderr.write(`[server-3620] ${msg}`);
-    }
-  });
-
-  try {
-    await waitUntilReachable(`${baseUrl}/version/`, 30000);
-    console.log('Server is reachable. Running test suite...\n');
-
+  await withTestServer(async instance => {
+    server = instance;
     // Setup: Register a user
     let cookie = '';
     let companyId = 0;
 
     await test('Auth: Register new company', async () => {
-      const email = `test_i78_${Date.now()}@example.com`;
-      const res = await api(null, 'POST', '/api/v2/auth/email/connect/', {
-        email,
-        password: 'Password123!'
-      });
-      assert.equal(res.status, 200, `Register failed with status ${res.status}`);
-      const rawCookie = res.headers.getSetCookie?.() || [res.headers.get('set-cookie') || ''];
-      cookie = rawCookie.find(c => c.startsWith('sessionid='))?.split(';')[0] || '';
-      assert.ok(cookie, 'Missing sessionid cookie');
+      const account = await server.registerCompany('issue78part2');
+      cookie = account.cookie;
+      companyId = account.companyId;
 
-      const authRes = await api(cookie, 'GET', '/api/v3/companies/auth-data/');
-      assert.equal(authRes.status, 200);
-      const authData = authRes.json as { authCompany: { companyId: number } };
-      companyId = authData.authCompany.companyId;
-      assert.ok(companyId > 0, 'Company ID not found');
     });
 
     // 1. Warehouse contracts summary
+    // Official bundle callsite: frontend-original/static/bundle/assets/index-cgzgptQ8.js
+    // around byte 1,364,695 calls this API with authCompany.companyId and the
+    // incoming/outgoing direction. Do not reinterpret the first parameter as a realm.
     await test('Warehouse: GET /api/v2/warehouse-contracts-summary/:companyId/incoming/', async () => {
       const res = await api(cookie, 'GET', `/api/v2/warehouse-contracts-summary/${companyId}/incoming/`);
       assert.equal(res.status, 200);
@@ -161,12 +82,13 @@ async function run(): Promise<void> {
       assert.ok(res.headers.get('x-timestamp'), 'Expected x-timestamp header');
     });
 
-    await test('Warehouse: GET /api/v2/warehouse-contracts-summary/0/1/ (numeric kind)', async () => {
-      const res = await api(cookie, 'GET', '/api/v2/warehouse-contracts-summary/0/1/');
-      assert.equal(res.status, 200);
-      const data = res.json as { summary: unknown[] };
-      assert.ok(Array.isArray(data.summary), 'Expected summary to be an array');
-      assert.ok(res.headers.get('x-timestamp'), 'Expected x-timestamp header');
+    await test('Warehouse: contracts summary rejects missing and foreign company ids', async () => {
+      const missingCompany = await api(cookie, 'GET', '/api/v2/warehouse-contracts-summary/0/1/');
+      assert.equal(missingCompany.status, 401, 'Company id 0 is not the authenticated company');
+
+      const foreignCompany = await server.registerCompany('issue78part2foreign');
+      const foreign = await api(cookie, 'GET', '/api/v2/warehouse-contracts-summary/' + foreignCompany.companyId + '/incoming/');
+      assert.equal(foreign.status, 401, 'A company cannot read another company’s contract summary');
     });
 
     // 2. Resource Transactions History & Summary
@@ -179,11 +101,13 @@ async function run(): Promise<void> {
     await test('Warehouse: GET /api/v2/resources-transactions-summary/:companyId/:kind/', async () => {
       const res = await api(cookie, 'GET', `/api/v2/resources-transactions-summary/${companyId}/1/`);
       assert.equal(res.status, 200);
-      const data = res.json as { totalBought: number; totalSold: number; totalProduced: number; avgPrice: number };
-      assert.equal(typeof data.totalBought, 'number');
-      assert.equal(typeof data.totalSold, 'number');
-      assert.equal(typeof data.totalProduced, 'number');
-      assert.equal(typeof data.avgPrice, 'number');
+      assert.deepEqual(res.json, [], 'fresh company has no persisted market trades');
+      const tradedAt = new Date().toISOString();
+      server.db.prepare('INSERT INTO market_trades (kind, quality, amount, price, fee, buyer_id, seller_id, trade_date, traded_at) VALUES (1, 0, 4, 50, 0, ?, NULL, ?, ?)')
+        .run(companyId, tradedAt.slice(0, 10), tradedAt);
+      const traded = await api(cookie, 'GET', `/api/v2/resources-transactions-summary/${companyId}/1/`);
+      assert.equal(traded.status, 200);
+      assert.deepEqual(traded.json, [{ category: 'bought', amount: 4, avgPrice: 50, price: 50 }]);
     });
 
     // 3. Incoming & Outgoing Contracts Endpoints
@@ -272,8 +196,11 @@ async function run(): Promise<void> {
       assert.ok(Array.isArray(data.buildingAuctions), 'Expected t.data.buildingAuctions array');
     });
 
-    await test('Building Auctions: GET /api/v2/building-auctions/research-by-auction/:id/', async () => {
-      const res = await api(cookie, 'GET', '/api/v2/building-auctions/research-by-auction/1/');
+    await test('Building Auctions: POST /api/v2/building-auctions/research-by-auction/:id/', async () => {
+      const wrongMethod = await api(cookie, 'GET', '/api/v2/building-auctions/research-by-auction/1/');
+      assert.equal(wrongMethod.status, 405);
+      assert.equal(wrongMethod.headers.get('allow'), 'POST');
+      const res = await api(cookie, 'POST', '/api/v2/building-auctions/research-by-auction/1/', {});
       assert.equal(res.status, 200);
       const data = res.json as { similarBuildingAuctions: unknown[] };
       assert.ok(Array.isArray(data.similarBuildingAuctions), 'Expected similarBuildingAuctions array');
@@ -287,21 +214,15 @@ async function run(): Promise<void> {
     });
 
     await test('Building Auctions: GET /api/v2/building-auctions/bids/:id/', async () => {
-      const res = await api(cookie, 'GET', '/api/v2/building-auctions/bids/1/');
+      const foreign = await api(cookie, 'GET', '/api/v2/building-auctions/bids/1/');
+      assert.equal(foreign.status, 403, 'sealed bids for another company are private');
+      const res = await api(cookie, 'GET', `/api/v2/building-auctions/bids/${companyId}/`);
       assert.equal(res.status, 200);
       const data = res.json as { bids: unknown[] };
       assert.ok(Array.isArray(data.bids), 'Expected bids array');
     });
 
-  } finally {
-    console.log('\nTearing down test server...');
-    child.kill('SIGTERM');
-    try {
-      rmSync(dataDir, { recursive: true, force: true });
-    } catch {
-      // Cleanup best effort
-    }
-  }
+  }, { env: { SPEED_MULTIPLIER: '200' } });
 
   const failures = results.filter(r => !r.ok);
   console.log(`\n========================================`);

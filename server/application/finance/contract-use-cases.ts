@@ -11,7 +11,7 @@ import type { GameContext } from '../../context/game-context.ts';
 import { runInTransaction } from '../../db/transaction.ts';
 import { contractRepository, type ContractRow } from '../../repositories/contract-repository.ts';
 import { companyRepository } from '../../repositories/company-repository.ts';
-import { consumeResourceExactWithTransactions, addResource, getWarehouseItemExact } from '../../game/warehouse.ts';
+import { warehouseRepository, type CostBreakdown } from '../../repositories/warehouse-repository.ts';
 import { getResourceDef } from '../../game/constants.ts';
 
 // --- DTO mapping ---------------------------------------------------------------
@@ -110,6 +110,19 @@ export interface SendContractInput {
   price: number;
 }
 
+function refundCost(contract: ContractRow): CostBreakdown {
+  // Contracts created before cost snapshots retain the legacy fallback.
+  if (!contract.cost_snapshot) return {};
+  const snapshot: unknown = JSON.parse(contract.cost_snapshot);
+  if (!snapshot || typeof snapshot !== 'object' || Array.isArray(snapshot)) throw new Error('Invalid contract cost snapshot');
+  const readCost = (key: string): number => {
+    const value: unknown = Reflect.get(snapshot, key);
+    if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) throw new Error('Invalid contract cost snapshot');
+    return value;
+  };
+  return { workers: readCost('workers'), admin: readCost('admin'), material1: readCost('material1'), material2: readCost('material2'), market: readCost('market') };
+}
+
 export async function sendContractUseCase(ctx: GameContext, input: SendContractInput) {
   const senderCompanyId = ctx.companyId;
   const recipientCompanyId = input.buyerCompanyId;
@@ -129,19 +142,23 @@ export async function sendContractUseCase(ctx: GameContext, input: SendContractI
     throw new Error('Invalid contract terms');
   }
 
-  const stock = getWarehouseItemExact(senderCompanyId, kind, quality);
+  const stock = warehouseRepository.findByCompanyAndResource(senderCompanyId, kind, quality);
   if (!stock || stock.amount < amount) {
     throw new Error('Not enough resources in warehouse to send contract');
   }
 
   return runInTransaction(async () => {
-    const consumed = consumeResourceExactWithTransactions(senderCompanyId, kind, quality, amount);
-    if (!consumed) {
-      throw new Error('Not enough resources in warehouse to send contract');
-    }
+    const inputStock = warehouseRepository.findByCompanyAndResource(senderCompanyId, kind, quality);
+    if (!inputStock) throw new Error('Not enough resources in warehouse to send contract');
+    const costSnapshot = JSON.stringify({
+      workers: inputStock.costWorkers, admin: inputStock.costAdmin,
+      material1: inputStock.costMaterial1, material2: inputStock.costMaterial2,
+      market: inputStock.costMarket
+    });
+    warehouseRepository.consumeExact(senderCompanyId, kind, quality, amount);
 
     const now = virtualClock.nowIso();
-    const contractId = contractRepository.insertPending(senderCompanyId, recipientCompanyId, kind, quality, amount, price, now);
+    const contractId = contractRepository.insertPending(senderCompanyId, recipientCompanyId, kind, quality, amount, price, now, costSnapshot);
 
     const row = contractRepository.findPendingById(contractId);
     if (!row) {
@@ -175,7 +192,7 @@ export async function acceptContractUseCase(ctx: GameContext, contractId: number
 
     const newBuyerMoney = companyRepository.updateMoney(buyerCompanyId, -totalCost);
     companyRepository.updateMoney(c.sender_company_id, totalCost);
-    addResource(buyerCompanyId, c.kind, c.quality, c.amount, { market: c.price });
+    warehouseRepository.addResource(buyerCompanyId, c.kind, c.quality, c.amount, { market: c.price });
 
     return {
       success: true,
@@ -204,7 +221,7 @@ export async function rejectContractUseCase(ctx: GameContext, contractId: number
     if (rejected !== 1) {
       throw new Error('Contract is no longer available');
     }
-    addResource(c.sender_company_id, c.kind, c.quality, c.amount);
+    warehouseRepository.addResource(c.sender_company_id, c.kind, c.quality, c.amount, refundCost(c));
     return { success: true };
   }, { immediate: true });
 }
@@ -220,7 +237,7 @@ export async function cancelContractUseCase(ctx: GameContext, contractId: number
     if (cancelled !== 1) {
       throw new Error('Contract is no longer available');
     }
-    addResource(ctx.companyId, c.kind, c.quality, c.amount);
+    warehouseRepository.addResource(ctx.companyId, c.kind, c.quality, c.amount, refundCost(c));
     return { success: true };
   }, { immediate: true });
 }

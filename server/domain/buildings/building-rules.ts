@@ -215,3 +215,32 @@ export function calculateConstructionDurationSeconds(
   return Math.max(1, Math.round(baseDuration / multiplier));
 }
 
+
+
+export const ABUNDANCE_EXTRACTOR_KINDS: Record<string, true> = { M: true, Q: true, O: true };
+
+export const ABUNDANCE_DECAY_PER_CYCLE = 0.00032;
+
+export function isAbundanceExtractorKind(kind: string): boolean {
+  return Boolean(ABUNDANCE_EXTRACTOR_KINDS[kind]);
+}
+
+export interface AbundanceValues {
+  abundance: number;
+  originalAbundance: number;
+}
+
+export function scaleExtractorOutput(baseAmount: number, abundance: number): number {
+  return Math.round(baseAmount * abundance / 100);
+}
+
+export function decayAbundance(abundance: number, cycles: number = 1): number {
+  if (!Number.isFinite(abundance) || abundance <= 0) return 0;
+  return Math.max(0, abundance * Math.pow(1 - ABUNDANCE_DECAY_PER_CYCLE, cycles));
+}
+
+export function abundanceFromRandom(u1: number, u2: number): number {
+  const z = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+  const fraction = Math.min(1, Math.max(0.5, 0.85 + 0.15 * z));
+  return Math.round(fraction * 100 * 100) / 100;
+}

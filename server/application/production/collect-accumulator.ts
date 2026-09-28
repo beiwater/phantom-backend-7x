@@ -11,7 +11,6 @@ import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '.
 import {
   accumulatorQualityForValue,
   accumulatorStateDTO,
-  accumulatorThresholdForQuality,
   getAccumulatorParameters
 } from '../../game-data/accumulator.ts';
 import { computeLevelInfo, type LevelInfoDTO } from '../../domain/leveling/level-rules.ts';
@@ -48,10 +47,39 @@ function findAccumulatorQueue(buildingId: number, companyId: number): {
   return { active, latest };
 }
 
+/** Finish nurturing without cutting the trees down or issuing inventory. */
+export async function resolveDueAccumulatorGrowth(buildingId: number, companyId: number): Promise<void> {
+  await runInTransaction(() => {
+    const building = buildingRepository.findById(buildingId);
+    if (!building || building.companyId !== companyId || building.kind !== 'v') return;
+    const params = getAccumulatorParameters(150);
+    if (!params) throw new ValidationError('Building does not support accumulator production');
+    const due = productionRepository.findActiveByBuilding(buildingId, companyId)
+      .filter(item => item.kind === 150 && Date.parse(item.finishesAt) <= virtualClock.nowMs());
+    if (due.length === 0) return;
+    let state = accumulatorRepository.ensureForBuilding(buildingId, companyId, 150);
+    for (const item of due) {
+      const value = Number(state.value) + Number(item.amount);
+      const cost = Number(state.costTotal) + Number(item.cost ?? 0) * Number(item.amount);
+      if (state.resourceKind !== 150 || !Number.isFinite(value) || value < 0 || value > params.max
+        || !(Number(item.amount) > 0) || !Number.isFinite(cost) || cost < 0) {
+        throw new ValidationError('Accumulator state is outside the canonical bounds');
+      }
+      if (!productionRepository.markResolved(item.id, companyId)) {
+        throw new ConflictError('Accumulator growth has already been resolved');
+      }
+      state = accumulatorRepository.updateProgress(buildingId, companyId, value, cost);
+    }
+    const remaining = productionRepository.findLatestActiveByBuilding(buildingId, companyId);
+    buildingRepository.updateBusyUntil(buildingId, companyId, remaining?.finishesAt ?? null);
+  }, { immediate: true });
+}
+
 /**
  * Cut down a completed Forest Nursery cycle. Accumulator growth remains in a
  * separate state row: collecting emits one tree per nursery slot only after a
- * stage threshold is reached, then carries residual growth and cost forward.
+ * stage threshold is reached. The original cut-down modal explicitly says
+ * new trees grow from the start; cutting below Q0 loses the current progress.
  */
 export async function collectAccumulatorUseCase(
   ctx: GameContext,
@@ -72,61 +100,45 @@ export async function collectAccumulatorUseCase(
     }
 
     const queue = findAccumulatorQueue(buildingId, ctx.companyId);
-    if (!queue.active) {
-      if (queue.latest?.resolved) {
-        throw new ConflictError('Accumulator production has already been collected');
-      }
-      throw new NotFoundError(`No accumulator production found for building ${buildingId}`);
-    }
-
-    const finishTime = Date.parse(queue.active.finishesAt);
-    if (!Number.isFinite(finishTime) || finishTime > virtualClock.nowMs()) {
+    if (queue.active && (!Number.isFinite(Date.parse(queue.active.finishesAt))
+      || Date.parse(queue.active.finishesAt) > virtualClock.nowMs())) {
       throw new ValidationError('Accumulator production has not finished yet');
     }
+    await resolveDueAccumulatorGrowth(buildingId, ctx.companyId);
 
     const state = accumulatorRepository.ensureForBuilding(buildingId, ctx.companyId, 150);
     if (state.resourceKind !== 150) {
       throw new ValidationError('Accumulator resource does not belong to this building');
     }
     const priorValue = Number(state.value);
-    const growth = Number(queue.active.amount);
     const priorCost = Number(state.costTotal);
-    const growthCost = Number(queue.active.cost ?? 0) * growth;
     if (!Number.isFinite(priorValue) || priorValue < 0 || priorValue > params.max
-      || !Number.isFinite(growth) || growth <= 0
-      || !Number.isFinite(priorCost) || priorCost < 0
-      || !Number.isFinite(growthCost) || growthCost < 0) {
+      || !Number.isFinite(priorCost) || priorCost < 0) {
       throw new ValidationError('Accumulator state is outside the canonical bounds');
     }
-
-    const completedValue = priorValue + growth;
+    if (priorValue === 0) {
+      if (queue.latest?.resolved) throw new ConflictError('Accumulator production has already been collected');
+      throw new NotFoundError(`No accumulator production found for building ${buildingId}`);
+    }
+    const completedValue = priorValue;
     if (!Number.isFinite(completedValue) || completedValue > params.max) {
       throw new ValidationError(`Accumulator value exceeds maximum ${params.max}`);
     }
 
     const completedQuality = accumulatorQualityForValue(completedValue, 150);
-    const outputAmount = completedQuality === null ? 0 : Math.max(1, Math.floor(building.size));
+    const outputAmount = completedQuality === null ? 0
+      : Math.max(1, Math.floor(building.size * params.amountPerLevel));
     const outputQuality = completedQuality ?? 0;
-    const totalCost = priorCost + growthCost;
-    const consumedThreshold = completedQuality === null
-      ? 0
-      : accumulatorThresholdForQuality(150, completedQuality);
-    const consumedCost = completedQuality === null || completedValue <= 0
-      ? 0
-      : totalCost * consumedThreshold / completedValue;
-    const nextValue = completedQuality === null
-      ? completedValue
-      : Math.max(0, completedValue - consumedThreshold);
-    const nextCost = Math.max(0, totalCost - consumedCost);
+    const totalCost = priorCost;
+    // Original bundle messageYouWillReceiveTheTree/messageYouWillNotReceiveAnyTree:
+    // all growth is cut down; any issued trees carry the complete source cost.
+    const consumedCost = completedQuality === null ? 0 : totalCost;
 
-    if (!productionRepository.markResolved(queue.active.id, ctx.companyId)) {
-      throw new ConflictError('Accumulator production has already been collected');
-    }
     const accumulator = accumulatorRepository.updateProgress(
       buildingId,
       ctx.companyId,
-      nextValue,
-      nextCost
+      0,
+      0
     );
     const warehouseItem = outputAmount > 0
       ? warehouseRepository.addResource(
@@ -148,8 +160,8 @@ export async function collectAccumulatorUseCase(
     const company = companyRepository.findById(ctx.companyId);
     const levelBefore = company?.level ?? 0;
     const currentMoney = company?.money ?? 0;
-    const experienceGained = 10;
-    companyRepository.addExperience(ctx.companyId, experienceGained);
+    const experienceGained = outputAmount > 0 ? 10 : 0;
+    if (experienceGained > 0) companyRepository.addExperience(ctx.companyId, experienceGained);
     const companyAfter = companyRepository.findById(ctx.companyId);
     const levelAfter = companyAfter?.level ?? levelBefore;
     const levelInfo = computeLevelInfo({
@@ -159,10 +171,10 @@ export async function collectAccumulatorUseCase(
       extra_building_slots: companyAfter?.extraBuildingSlots ?? 0
     });
 
-    eventBus.publishCommitted(txCtx, 'ProductionCollected', {
+    if (queue.latest && outputAmount > 0) eventBus.publishCommitted(txCtx, 'ProductionCollected', {
       companyId: ctx.companyId,
       buildingId,
-      queueId: queue.active.id,
+      queueId: queue.latest.id,
       kind: 150,
       quality: outputQuality,
       amount: outputAmount,

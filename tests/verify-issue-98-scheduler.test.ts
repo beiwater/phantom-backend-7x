@@ -21,13 +21,15 @@
 
 import assert from 'node:assert/strict';
 import { spawn, type ChildProcess } from 'node:child_process';
-import { readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
+import { calculateEffectiveExecutiveSkill, type ExecutiveSkillContribution } from '../server/domain/executives.ts';
 
 const PORT = 3870;
 const BASE_URL = `http://127.0.0.1:${PORT}`;
-const NODE_BIN = '/opt/magnate/.node22/bin/node';
+const NODE_BIN = process.execPath;
 const SERVER_CWD = path.resolve(import.meta.dirname ?? '.', '..');
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -283,9 +285,10 @@ async function runTests(dataDir: string): Promise<void> {
   const stateRes = await api(admin.cookie, 'GET', '/api/v2/scheduler/state/');
   assert.equal(stateRes.status, 200, `Admin scheduler state failed: ${errorText(stateRes.json)}`);
   const stateJson = stateRes.json as SchedulerStateView;
-  assert.equal(stateJson.tasks.length, 6, 'Timetable must expose 6 scheduled tasks');
+  assert.equal(stateJson.tasks.length, 7, 'Timetable must expose all 7 scheduled tasks');
   const scheduleExpectations: Array<[string, number, number, number[] | null]> = [
     ['bond_interest_and_admin_overhead', 0, 0, null],
+    ['database_daily_hot_backup', 3, 0, null],
     ['executive_salaries', 4, 0, null],
     ['government_orders_award', 13, 0, [1]],
     ['government_orders_publish', 13, 0, [3]],
@@ -323,24 +326,45 @@ async function runTests(dataDir: string): Promise<void> {
   assert.ok(salaryB > 0, 'Company B must have employed executives (seeded defaults)');
 
   // Expected daily accounting overhead per decompiled formulas_admin.md, using
-  // the server's linear AO model: AO = 1 + (count-1)*0.035, cost =
-  // size*100*(AO-1), COO accounting skill reduces it linearly. Every newly
-  // registered company already owns 2 seeded buildings (farm + grocery), so the
-  // expectation is derived from the live DB rather than assumed counts.
+  // the server's linear AO model and the CFO/bank lift exemption (#155). Every
+  // newly registered company already owns 2 seeded buildings (farm + grocery),
+  // so the expectation is derived from the live DB rather than assumed counts.
   const dailyOverheadFor = (companyId: number): number => {
     const stats = dbh.prepare(`
       SELECT
         (SELECT COUNT(*) FROM buildings WHERE company_id = ?) AS building_count,
-        (SELECT COALESCE(SUM(size), 0) FROM buildings WHERE company_id = ?) AS total_size,
-        (SELECT COALESCE(MAX(COALESCE(skill_accounting, 0)), 0) FROM executives
-           WHERE company_id = ? AND status = 'employed' AND position = 'coo') AS coo_skill
-    `).get(companyId, companyId, companyId) as {
-      building_count: number; total_size: number; coo_skill: number;
+        (SELECT COALESCE(SUM(size), 0) FROM buildings WHERE company_id = ?) AS total_size
+    `).get(companyId, companyId) as {
+      building_count: number; total_size: number;
     };
+    const executives = dbh.prepare(`
+      SELECT position, skill_management AS skill
+      FROM executives WHERE company_id = ? AND status = 'employed'
+    `).all(companyId) as ExecutiveSkillContribution[];
     assert.ok(Number(stats.building_count) >= 1, `Company ${companyId} fixture: buildings present`);
     const ao = 1 + Math.max(0, Number(stats.building_count) - 1) * 0.035;
-    const effectiveAo = ao - (ao - 1) * Number(stats.coo_skill) / 100;
-    return round2(Number(stats.total_size) * 100 * (effectiveAo - 1));
+    const cooSkill = calculateEffectiveExecutiveSkill(executives, 'coo');
+    const effectiveAo = ao - (ao - 1) * cooSkill / 100;
+    const baseCharge = round2(Number(stats.total_size) * 100 * (effectiveAo - 1));
+    const bank = dbh.prepare(`
+      SELECT COALESCE(SUM(size), 0) AS bank_size,
+             SUM(CASE WHEN busy_until IS NOT NULL AND busy_until > ? THEN 1 ELSE 0 END) AS busy_banks,
+             SUM(CASE WHEN position IS NULL OR position = '' THEN 1 ELSE 0 END) AS unplaced_banks
+      FROM buildings WHERE company_id = ? AND kind = 'n'
+    `).get(new Date().toISOString(), companyId) as {
+      bank_size: number; busy_banks: number | null; unplaced_banks: number | null;
+    };
+    const bankSize = Number(bank.bank_size) || 0;
+    const bankContributing = bankSize > 0 && Number(bank.busy_banks) === 0 && Number(bank.unplaced_banks) === 0;
+    const allCfoExecutives = dbh.prepare(`
+      SELECT position, skill_accounting AS skill
+      FROM executives WHERE company_id = ? AND status = 'employed'
+    `).all(companyId) as ExecutiveSkillContribution[];
+    const cfoSkill = calculateEffectiveExecutiveSkill(allCfoExecutives, 'cfo');
+    const exempt = cfoSkill * 500000 + (bankContributing ? cfoSkill * bankSize * 50000 : 0);
+    return exempt > 0
+      ? round2(Math.max(0, baseCharge - baseCharge * exempt / (3000000 + exempt)))
+      : baseCharge;
   };
   const expectedOverheadA = dailyOverheadFor(companyA.companyId);
   const expectedOverheadB = dailyOverheadFor(companyB.companyId);
@@ -612,7 +636,7 @@ async function runTests(dataDir: string): Promise<void> {
 }
 
 async function main(): Promise<void> {
-  const dataDir = path.resolve(SERVER_CWD, 'data', `test-run-i98-${Date.now()}`);
+  const dataDir = mkdtempSync(path.join(os.tmpdir(), 'phantom-scheduler-i98-'));
   console.log(`Starting test server on port ${PORT} with DATA_DIR=${dataDir}...`);
   child = spawnServer(dataDir);
 

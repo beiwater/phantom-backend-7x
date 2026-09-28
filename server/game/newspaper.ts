@@ -1,9 +1,10 @@
 import { db } from '../db/database.ts';
+import type { SQLOutputValue } from 'node:sqlite';
 import { virtualClock } from '../core/virtual-clock.ts';
 import { getCompanyById, updateCompanySimBoosts, type CompanyRow } from './company.ts';
 import { DomainError, NotFoundError, UnauthorizedError } from '../errors/domain-error.ts';
 
-export interface NewspaperIssueDbRow {
+export interface NewspaperIssueDbRow extends Record<string, SQLOutputValue> {
   id: number;
   issue_id: number;
   realm_id: number;
@@ -11,7 +12,7 @@ export interface NewspaperIssueDbRow {
   created_at: string;
 }
 
-export interface NewspaperArticleDbRow {
+export interface NewspaperArticleDbRow extends Record<string, SQLOutputValue> {
   id: number;
   newspaper_id: number;
   realm_id: number;
@@ -32,7 +33,7 @@ export interface NewspaperArticleDbRow {
   created_at: string;
 }
 
-export interface NewspaperSponsorDbRow {
+export interface NewspaperSponsorDbRow extends Record<string, SQLOutputValue> {
   id: number;
   newspaper_id: number;
   position: number;
@@ -110,26 +111,6 @@ function findCompany(idOrCompanyId: number): CompanyRow | null {
 }
 
 // 1. Initialize Tables
-db.exec(`
-  CREATE TABLE IF NOT EXISTS newspaper_issues (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    issue_id INTEGER,
-    realm_id INTEGER DEFAULT 0,
-    published TEXT,
-    created_at TEXT
-  );
-
-  CREATE TABLE IF NOT EXISTS newspaper_sponsors (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    newspaper_id INTEGER,
-    position INTEGER,
-    company_id INTEGER,
-    company_name TEXT,
-    text TEXT,
-    logo TEXT,
-    created_at TEXT
-  );
-`);
 
 // 2. Seed initial issues & articles
 //

@@ -4,7 +4,7 @@ import { runInTransaction } from '../../db/transaction.ts';
 import { buildingRepository, type BuildingEntity } from '../../repositories/building-repository.ts';
 import { productionRepository } from '../../repositories/production-repository.ts';
 import { companyRepository } from '../../repositories/company-repository.ts';
-import { warehouseRepository } from '../../repositories/warehouse-repository.ts';
+import { aggregateResourceCostSnapshots, warehouseRepository, type ResourceTransactionEntity } from '../../repositories/warehouse-repository.ts';
 import { eventBus } from '../../events/event-bus.ts';
 import {
   estimateConstructionCost,
@@ -18,7 +18,7 @@ import { FixtureService } from '../../services/fixture-service.ts';
 import { getTierForLevel } from '../../domain/leveling/level-rules.ts';
 import { getBuildingMeta } from '../../game-data/buildings.ts';
 import { ConflictError, ValidationError, NotFoundError } from '../../errors/domain-error.ts';
-import { initialAbundanceForKind } from '../../game/buildings.ts';
+import { initialAbundanceForKind } from './abundance-use-cases.ts';
 import { RealmPhaseService } from '../../services/realm-phase-service.ts';
 
 export interface ConstructBuildingInput {
@@ -104,8 +104,10 @@ export async function constructBuildingUseCase(
 
     // 3. Consume construction materials atomically
     const consumedList: Array<{ kind: number; quality: number; amount: number }> = [];
+    const materialTransactions: ResourceTransactionEntity[] = [];
     for (const mat of materials) {
       const txs = warehouseRepository.consumeExact(ctx.companyId, mat.kind, 0, mat.amount);
+      materialTransactions.push(...txs);
       consumedList.push({
         kind: mat.kind,
         quality: 0,
@@ -132,10 +134,19 @@ export async function constructBuildingUseCase(
       abundance: abundance.abundance,
       originalAbundance: abundance.originalAbundance
     });
+    const withMaterialSnapshot = buildingRepository.appendConstructionMaterialCostSnapshot(
+      building.id,
+      ctx.companyId,
+      {
+        sizeBefore: 0,
+        sizeAfter: 1,
+        materials: aggregateResourceCostSnapshots(materialTransactions)
+      }
+    );
     companyRepository.addExperience(ctx.companyId, 20);
 
     buildingRepository.updateBusyUntil(building.id, ctx.companyId, busyUntil);
-    const finalizedBuilding = { ...building, busyUntil };
+    const finalizedBuilding = { ...withMaterialSnapshot, busyUntil };
 
     // 5. Publish domain event on transaction commit
     eventBus.publishCommitted(txCtx, 'BuildingConstructed', {

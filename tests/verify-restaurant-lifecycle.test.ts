@@ -82,7 +82,9 @@ console.log('-> Settled Rating after 1st cycle:', props.rating);
 assert.ok(props.rating > 2, 'Settled rating should be calculated from customer feedback');
 
 runs = await getRestaurantRuns(buildingId, companyId);
-const firstRun = runs.find(r => r.resolved);
+const firstRun = runs
+  .filter(r => r.resolved)
+  .sort((a, b) => Date.parse(a.cycleStart) - Date.parse(b.cycleStart))[0];
 assert.ok(firstRun, 'First run should be resolved');
 assert.strictEqual(firstRun!.rating, 0, 'First run rating_before should be 0');
 assert.strictEqual(firstRun!.newRating, props.rating, 'First run newRating should match settled properties rating');

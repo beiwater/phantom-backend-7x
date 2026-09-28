@@ -10,75 +10,22 @@
  * change the development database.
  */
 import assert from 'node:assert/strict';
-import { spawn, type ChildProcess } from 'node:child_process';
-import { DatabaseSync } from 'node:sqlite';
-import { rmSync } from 'node:fs';
-import path from 'node:path';
+import { withTestServer, type TestServer } from './support/test-server.ts';
 
-const PORT = Number(process.env.PORT || 3810);
-const baseUrl = process.env.BASE_URL || `http://127.0.0.1:${PORT}`;
+let server: TestServer;
 const CYCLE_MS = 12 * 60 * 60 * 1000;
-
 interface ApiResult { status: number; json: any; }
-interface TestServer { child: ChildProcess; dataDir: string; }
 
 async function api(cookie: string, method: string, urlPath: string, body?: unknown): Promise<ApiResult> {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (cookie) headers.Cookie = cookie;
-  const response = await fetch(`${baseUrl}${urlPath}`, {
-    method,
-    headers,
-    body: body === undefined ? undefined : JSON.stringify(body)
-  });
-  let json: any = null;
-  try { json = await response.json(); } catch { /* non-JSON response */ }
-  return { status: response.status, json };
+  return server.request(method, urlPath, {cookie, body});
 }
 
-async function waitUntilReachable(url: string, timeoutMs: number): Promise<void> {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    try {
-      if ((await fetch(url)).ok) return;
-    } catch { /* server is still starting */ }
-    await new Promise(resolve => setTimeout(resolve, 250));
-  }
-  throw new Error(`Server at ${url} did not become ready within ${timeoutMs}ms`);
-}
-
-async function startTestServer(): Promise<TestServer> {
-  const dataDir = path.resolve('data', `test-run-restaurant-${PORT}-${Date.now()}`);
-  const child = spawn(process.execPath, ['--experimental-strip-types', 'server/index.ts'], {
-    cwd: path.resolve(import.meta.dirname ?? '.', '..'),
-    env: { ...process.env, PORT: String(PORT), DATA_DIR: dataDir },
-    stdio: ['ignore', 'ignore', 'pipe']
-  });
-  child.stderr?.on('data', chunk => {
-    const output = chunk.toString();
-    if (!output.includes('ExperimentalWarning')) process.stderr.write(`[test-srv] ${output}`);
-  });
-  await waitUntilReachable(`${baseUrl}/version/`, 30000);
-  return { child, dataDir };
-}
-
-async function registerCompany(label: string): Promise<{ cookie: string; companyId: number }> {
-  const email = `restaurant_${label}_${Date.now()}_${Math.floor(Math.random() * 1e6)}@domain.local`;
-  const response = await fetch(`${baseUrl}/api/v2/auth/email/connect/`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password: 'Password123!', company: `Restaurant ${label}` })
-  });
-  assert.equal(response.status, 200, `registration failed: ${response.status}`);
-  const cookie = (response.headers.getSetCookie?.() || [response.headers.get('set-cookie') || ''])
-    .find(value => value.startsWith('sessionid='))?.split(';')[0];
-  assert.ok(cookie, 'session cookie returned');
-  const auth = await api(cookie as string, 'GET', '/api/v3/companies/auth-data/');
-  assert.equal(auth.status, 200);
-  return { cookie: cookie as string, companyId: Number(auth.json.authCompany.companyId) };
+async function registerCompany(label: string) {
+  return server.registerCompany(label);
 }
 
 function seedFood(dataDir: string, companyId: number, quality: number, kinds: number[]): void {
-  const database = new DatabaseSync(path.join(dataDir, 'simcompanies.sqlite'));
+  const database = server.db;
   const now = new Date().toISOString();
   for (const kind of kinds) {
     database.prepare(`
@@ -87,21 +34,18 @@ function seedFood(dataDir: string, companyId: number, quality: number, kinds: nu
       ON CONFLICT(company_id, kind, quality) DO UPDATE SET amount = amount + 1000, updated_at = excluded.updated_at
     `).run(companyId, kind, quality, now);
   }
-  database.close();
 }
 
 function expireRun(dataDir: string, runId: number): void {
-  const database = new DatabaseSync(path.join(dataDir, 'simcompanies.sqlite'));
+  const database = server.db;
   database.prepare('UPDATE restaurant_runs SET cycle_end = ? WHERE id = ?').run(new Date(Date.now() - 1000).toISOString(), runId);
-  database.close();
 }
 
 function finishReconstruction(dataDir: string, buildingId: number): void {
-  const database = new DatabaseSync(path.join(dataDir, 'simcompanies.sqlite'));
+  const database = server.db;
   const finished = new Date(Date.now() - 1000).toISOString();
   database.prepare('UPDATE buildings SET busy_until = ? WHERE id = ?').run(finished, buildingId);
   database.prepare('UPDATE restaurant_properties SET reconstruction_until = ? WHERE building_id = ?').run(finished, buildingId);
-  database.close();
 }
 
 async function waitForRestaurantIdle(cookie: string, buildingId: number, timeoutMs: number = 16000): Promise<any> {
@@ -122,8 +66,8 @@ async function getBuildingDTO(cookie: string, buildingId: number): Promise<any> 
 }
 
 async function run(): Promise<void> {
-  const server = await startTestServer();
-  try {
+  await withTestServer(async instance => {
+    server = instance;
     const { cookie, companyId } = await registerCompany('main');
     console.log('1. menu guide and restaurant construction');
     const menuGuide = await api(cookie, 'GET', '/api/v2/restaurant-menu/');
@@ -135,6 +79,7 @@ async function run(): Promise<void> {
     const created = await api(cookie, 'POST', '/api/v2/companies/me/buildings/', { kind: 'r', position: '2' });
     assert.equal(created.status, 200, JSON.stringify(created.json));
     const buildingId = Number(created.json.building.id);
+    finishReconstruction(server.dataDir, buildingId);
     await waitForRestaurantIdle(cookie, buildingId);
 
     seedFood(server.dataDir, companyId, 0, [119, 129, 132]);
@@ -154,7 +99,7 @@ async function run(): Promise<void> {
     assert.equal(configured.status, 200, JSON.stringify(configured.json));
     assert.equal(configured.json.restaurantProperties.menuPrice, 96);
     assert.equal(configured.json.restaurantProperties.menu.length, 3);
-    assert.ok(configured.json.restaurantProperties.rating > 0);
+    assert.equal(configured.json.restaurantProperties.rating, 0, 'editing the menu preserves the rating until a completed operating cycle');
     const badPrice = await api(cookie, 'PUT', `/api/v2/restaurants/${buildingId}/`, { menuPrice: 59 });
     assert.equal(badPrice.status, 400);
 
@@ -193,13 +138,16 @@ async function run(): Promise<void> {
     const ratingBeforeClose = Number(beforeClose.json.restaurantProperties.rating);
     const closed = await api(cookie, 'PUT', `/api/v2/restaurants/${buildingId}/`, { keepOpen: false });
     assert.equal(closed.status, 200);
-    assert.equal(closed.json.restaurantProperties.rating, Math.round(ratingBeforeClose * 0.875 * 100) / 100);
+    assert.equal(closed.json.restaurantProperties.rating, ratingBeforeClose, 'scheduling closure preserves rating until the active cycle settles');
     const closedStart = await api(cookie, 'POST', `/api/v2/restaurants/${buildingId}/runs/`);
     assert.equal(closedStart.status, 400);
 
     console.log('6. luxury reconstruction, seating, cost, and high-quality sourcing');
     expireRun(server.dataDir, nextRun.id);
-    await api(cookie, 'GET', `/api/v2/restaurants/${buildingId}/runs/`);
+    const settledClosure = await api(cookie, 'GET', `/api/v2/restaurants/${buildingId}/runs/`);
+    assert.equal(settledClosure.status, 200);
+    const afterClose = await api(cookie, 'GET', `/api/v2/restaurants/${buildingId}/`);
+    assert.equal(afterClose.json.restaurantProperties.rating, Math.round(ratingBeforeClose * 0.875 * 100) / 100);
     const cashBeforeStyle = Number((await api(cookie, 'GET', '/api/v2/companies/me/balance-sheet/')).json.cash);
     const luxury = await api(cookie, 'PUT', `/api/v2/restaurants/${buildingId}/`, { isLuxury: true });
     assert.equal(luxury.status, 200, JSON.stringify(luxury.json));
@@ -236,12 +184,7 @@ async function run(): Promise<void> {
     assert.deepEqual(ownList.json.restaurants, []);
 
     console.log('\nAll Issue #92 restaurant guide assertions passed.');
-  } finally {
-    server.child.kill('SIGTERM');
-    await new Promise(resolve => setTimeout(resolve, 400));
-    if (server.child.exitCode === null) server.child.kill('SIGKILL');
-    rmSync(server.dataDir, { recursive: true, force: true });
-  }
+  });
 }
 
 run().catch(error => {

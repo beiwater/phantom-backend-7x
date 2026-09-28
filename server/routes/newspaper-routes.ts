@@ -1,5 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { RouteRegistry, globalRouteRegistry } from '../http/route-registry.ts';
+import { SUPPORTED_LANGUAGE_PATTERN } from './supported-locales.ts';
 import { readJsonBody, sendJson } from './utils.ts';
 import { sendDomainError } from '../compatibility/simcompanies/response-helpers.ts';
 import {
@@ -414,7 +415,7 @@ export function registerNewspaperRoutes(registry: RouteRegistry = globalRouteReg
     })
     .register({
       method: 'GET',
-      pattern: '/api/v2/:scope/:realmId/articles/top-by-reaction/:metric/',
+      pattern: `/api/v2/:scope(${SUPPORTED_LANGUAGE_PATTERN})/:realmId(\\d+)/articles/top-by-reaction/:metric/`,
       owner: 'newspaper',
       handler: async (_req, res, _ctx, params) => {
         sendJson(res, getTopArticlesByReaction(Number(params.realmId), params.metric.toUpperCase(), TOP_ARTICLES_LIMIT));
@@ -450,7 +451,7 @@ export function registerNewspaperRoutes(registry: RouteRegistry = globalRouteReg
     })
     .register({
       method: 'GET',
-      pattern: '/api/v3/:scope/:realmId/newspaper/',
+      pattern: `/api/v3/:scope(${SUPPORTED_LANGUAGE_PATTERN})/:realmId(\\d+)/newspaper/`,
       owner: 'newspaper',
       handler: async (req, res, _ctx, params) => {
         const belowIdRaw = new URL(req.url || '/', 'http://localhost').searchParams.get('below_id');
@@ -460,7 +461,7 @@ export function registerNewspaperRoutes(registry: RouteRegistry = globalRouteReg
     })
     .register({
       method: 'GET',
-      pattern: '/api/v3/:scope/:realmId/newspaper/:issueId/',
+      pattern: `/api/v3/:scope(${SUPPORTED_LANGUAGE_PATTERN})/:realmId(\\d+)/newspaper/:issueId(\\d+)/`,
       owner: 'newspaper',
       handler: async (_req, res, ctx, params) => {
         const isCallerAdmin = ctx?.playerId ? companyRepository.isPlayerAdmin(ctx.playerId) : false;

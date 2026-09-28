@@ -10,14 +10,20 @@ import { NotFoundError, ForbiddenError, ValidationError, ConflictError } from '.
 import { validateProductionRequest, resolveAchievableQuality } from '../../domain/production/production-rules.ts';
 import { assertQueueDuration } from '../../domain/leveling/level-rules.ts';
 import { calculateProductionTime } from '../../game-data/buildings.ts';
-import { isAbundanceExtractorKind, getBuildingAbundance, scaleExtractorOutput } from '../../game/buildings.ts';
+import { isAbundanceExtractorKind, scaleExtractorOutput } from '../../domain/buildings/building-rules.ts';
+import { getBuildingAbundance } from '../buildings/abundance-use-cases.ts';
 import { assertAllowedProduct } from '../../game/robotics.ts';
-import { queueRocketLaunch, rocketKindForLaunchRequest } from '../../game/aerospace.ts';
+import { queueRocketLaunch } from '../aerospace/launch-use-cases.ts';
+import { rocketKindForLaunchRequest } from '../../domain/aerospace/launch-rules.ts';
+
 import { getEconomyPhase } from '../scheduler/daily-jobs.ts';
 import { getCompanyBoostSettings } from '../../game/simboost-settings.ts';
 import { accumulatorRepository } from '../../repositories/accumulator-repository.ts';
 import { getAccumulatorParameters, accumulatorBonusForResearch } from '../../game-data/accumulator.ts';
 import { getProductionQualityCap } from '../../game/research.ts';
+import { resolveDueAccumulatorGrowth } from './collect-accumulator.ts';
+import { encyclopediaRepository } from '../../repositories/encyclopedia-repository.ts';
+import { financeRepository } from '../../repositories/finance-repository.ts';
 
 export interface StartProductionInput {
   buildingId: number;
@@ -52,15 +58,8 @@ export async function startProductionUseCase(
 
     // Launch-pad cards identify the actual rocket product. Keep accepting the
     // legacy kind-100 payload only as an amount-based compatibility form.
-    if (building.kind === 'l' && (input.kind === 100 || input.kind === 91 || input.kind === 94)) {
-      const rocketKind = rocketKindForLaunchRequest(input.kind, input.amount);
-      if (rocketKind === null) {
-        throw new ValidationError(
-          input.kind === 100
-            ? `Invalid launch order amount: ${input.amount}. Expected 400 (Sub-Orbital Rocket) or 2800 (BFR)`
-            : `Invalid launch quantity for rocket resource #${input.kind}; expected amount 1`
-        );
-      }
+    const launchRocketKind = rocketKindForLaunchRequest(input.kind, input.amount);
+    if (building.kind === 'l' && launchRocketKind !== null) {
       // Construction/upgrade busy still applies; an active launch queue does
       // not — the original allows chaining launches up to LAUNCH_QUEUE_MAX.
       if (building.busyUntil && new Date(building.busyUntil).getTime() > virtualClock.nowMs()
@@ -70,7 +69,7 @@ export async function startProductionUseCase(
       const launch = await queueRocketLaunch(
         ctx.companyId,
         building.id,
-        rocketKind,
+        launchRocketKind,
         input.quality ?? 0,
         { consumeResearch: input.kind === 100 }
       );
@@ -85,7 +84,12 @@ export async function startProductionUseCase(
           kind: tx.kind,
           quality: tx.quality,
           amount: -tx.amount,
-          cost: 0
+          cost: tx.cost,
+          costWorkers: tx.costWorkers,
+          costAdmin: tx.costAdmin,
+          costMaterial1: tx.costMaterial1,
+          costMaterial2: tx.costMaterial2,
+          costMarket: tx.costMarket
         })),
         message: 'Launch queued successfully',
       } satisfies StartProductionResult;
@@ -100,6 +104,7 @@ export async function startProductionUseCase(
     // Keep the requested growth amount in the queue and persist the accumulator
     // row before any material debit so max-boundary rejection is atomic.
     if (isAccumulator) {
+      await resolveDueAccumulatorGrowth(building.id, ctx.companyId);
       const state = accumulatorRepository.ensureForBuilding(building.id, ctx.companyId, input.kind);
       if (state.value + input.amount > accumulatorParameters.max) {
         throw new ValidationError(`Accumulator value exceeds maximum ${accumulatorParameters.max}`);
@@ -126,33 +131,37 @@ export async function startProductionUseCase(
     const { ingredients } = validateProductionRequest(
       building.kind,
       input.kind,
-      input.amount,
+      // Bundle nbi scales inputs by growth * nursery capacity, while growth
+      // itself is a per-tree value (not the count of trees).
+      input.amount * (isAccumulator ? building.size * accumulatorParameters.amountPerLevel : 1),
       input.quality ?? null
     );
 
     // Issue #99: the queue item's duration must fit the company tier limit
     // (2h below L5, 24h below L15, 48h at L15+). Enforced BEFORE any
     // ingredients are consumed so the duration rejection is side-effect free.
-    const combinedProductionModifier = Math.max(
-      -0.75,
-      Math.min(3, economy.productionModifier + (companyBoost.productionModifier / 100))
-    );
+    // The original calculator uses the company slider and salary state.
+    // Its formula has no extra random cycle bonus or output multiplier (#199).
+    const combinedProductionModifier = companyBoost.productionModifier / 100;
+    const calculationTime = virtualClock.now().toISOString();
+    const activeEvent = encyclopediaRepository
+      .listActiveResourceProductionModifiers(ctx.realmId, calculationTime)
+      .find(event => event.kind === input.kind);
     const researchedAccumulatorQuality = isAccumulator
       ? getProductionQualityCap(ctx.companyId, input.kind)
       : 0;
     const accumulatorBonus = accumulatorBonusForResearch(input.kind, researchedAccumulatorQuality);
-    const productionOutputMultiplier = isAccumulator
-      ? 1
-      : Math.max(0.5, Math.min(1.5, 1 + economy.productionModifier));
+    const productionOutputMultiplier = 1;
     const durationSeconds = calculateProductionTime(
       input.kind,
       input.amount,
-      building.size,
+      isAccumulator ? 1 : building.size,
       combinedProductionModifier,
       {
         economyState: economy.state,
-        quality: input.quality ?? 100,
-        accumulatorBonus
+        accumulatorBonus,
+        eventSpeedModifier: activeEvent?.speedModifier ?? 0,
+        recreationBonus: financeRepository.recreationBonus(ctx.companyId, calculationTime)
       }
     );
     assertQueueDuration(
@@ -195,7 +204,10 @@ export async function startProductionUseCase(
       allTransactions.push(...txs);
     }
     const averageInputQuality = totalInputAmount > 0 ? weightedQualitySum / totalInputAmount : 0;
-    const inputCostPerOutputUnit = input.amount > 0 ? totalInputCost / input.amount : 0;
+    // Inputs are consumed for the requested base amount, but extractor
+    // abundance can change delivered quantity. Preserve total input value
+    // across the actual output (accumulator progress remains one-for-one).
+    const inputCostPerOutputUnit = outputAmount > 0 ? totalInputCost / outputAmount : 0;
 
     // 4. Queue chaining (durationSeconds was computed and validated against
     // the tier limit before ingredients were consumed)
@@ -220,8 +232,7 @@ export async function startProductionUseCase(
     // (P0-02: persisted at queue time so it survives refresh).
     const requested = input.quality ?? null;
     const achievableQuality = resolveAchievableQuality(
-      ctx.companyId,
-      input.kind,
+      getProductionQualityCap(ctx.companyId, input.kind),
       requested
     );
     const persistedQuality = requested !== null
@@ -243,9 +254,19 @@ export async function startProductionUseCase(
       economySource: economy.source,
       productionModifier: combinedProductionModifier,
       productionOutputMultiplier,
-      // The queued amount is output after abundance/economy modifiers. Keep
+      // The queued amount is output after abundance modifiers. Keep
       // the original inputs so cancellation refunds the amount actually spent.
-      inputIngredients: ingredients
+      inputIngredients: allTransactions.map(transaction => ({
+        kind: Number(transaction.kind),
+        amount: Math.abs(Number(transaction.amount)),
+        cost: {
+          workers: transaction.costWorkers,
+          admin: transaction.costAdmin,
+          material1: transaction.costMaterial1,
+          material2: transaction.costMaterial2,
+          market: transaction.costMarket
+        }
+      }))
     });
 
     // 7. Update building busy state

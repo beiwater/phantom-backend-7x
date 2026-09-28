@@ -21,12 +21,9 @@
  */
 
 import assert from 'node:assert/strict';
-import { spawn, type ChildProcess } from 'node:child_process';
-import { rmSync } from 'node:fs';
-import path from 'node:path';
+import { startTestServer, type TestServer } from './support/test-server.ts';
 
-const PORT = process.env.PORT || '3650';
-const BASE_URL = `http://127.0.0.1:${PORT}`;
+let BASE_URL = '';
 
 interface ApiResult {
   status: number;
@@ -63,23 +60,9 @@ async function api(
   return { status: response.status, json };
 }
 
-async function register(label: string): Promise<{ cookie: string; companyId: number }> {
-  const email = `poach_${label}_${Date.now()}_${Math.floor(Math.random() * 1e6)}@domain.local`;
-  const response = await fetch(`${BASE_URL}/api/v2/auth/email/connect/`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password: 'Password123!', company: `Company_${label}_${Date.now()}` })
-  });
-  assert.equal(response.status, 200, `Registration failed: ${response.status}`);
-  const cookies = response.headers.getSetCookie?.() || [response.headers.get('set-cookie') || ''];
-  const cookie = cookies.find(c => c.startsWith('sessionid='))?.split(';')[0];
-  assert.ok(cookie, 'Session cookie missing');
-
-  const auth = await api(cookie as string, 'GET', '/api/v3/companies/auth-data/');
-  assert.equal(auth.status, 200);
-  const authJson = auth.json as { authCompany: { companyId: number } };
-  const companyId = authJson.authCompany.companyId;
-  return { cookie: cookie as string, companyId };
+async function register(server: TestServer, label: string): Promise<{ cookie: string; companyId: number }> {
+  const result = await server.registerCompany(`Issue 81 ${label}`);
+  return { cookie: result.cookie, companyId: result.companyId };
 }
 
 async function getAuthCompany(cookie: string): Promise<{ money: number; simBoosts: number; level: number }> {
@@ -89,36 +72,15 @@ async function getAuthCompany(cookie: string): Promise<{ money: number; simBoost
   return auth.authCompany;
 }
 
-async function waitUntilReady(url: string, timeoutMs: number): Promise<void> {
-  const { promise, resolve, reject } = Promise.withResolvers<void>();
-  const deadline = Date.now() + timeoutMs;
-  const probe = async () => {
-    while (Date.now() < deadline) {
-      try {
-        const res = await fetch(url);
-        if (res.ok) return resolve();
-      } catch {
-        // wait for server readiness
-      }
-      const { promise: delayPromise, resolve: delayResolve } = Promise.withResolvers<void>();
-      setTimeout(delayResolve, 150);
-      await delayPromise;
-    }
-    reject(new Error(`Server at ${url} failed to start within ${timeoutMs}ms`));
-  };
-  void probe();
-  return promise;
-}
-
-async function runTests(): Promise<void> {
+async function runTests(server: TestServer): Promise<void> {
   console.log('================================================================');
   console.log(' Starting Issue #81: Executive Poaching Subsystem Verification');
   console.log('================================================================\n');
 
   // 1. Setup two players: Poacher (User 1) and Target Employer (User 2)
   console.log('[Setup] Registering Poacher and Target Employer companies...');
-  const poacher = await register('poacher');
-  const employer = await register('employer');
+  const poacher = await register(server, 'poacher');
+  const employer = await register(server, 'employer');
 
   // Initialize and seed default executives for both companies
   const poacherExecsRes = await api(poacher.cookie, 'GET', '/api/v4/executives/');
@@ -379,6 +341,16 @@ async function runTests(): Promise<void> {
 
   const poacherMoneyAfterFire = (await getAuthCompany(poacher.cookie)).money;
   assert.equal(poacherMoneyAfterFire, poacherMoneyBeforeFire - expectedSeverance, 'Severance deducted from company balance');
+  const formerRes = await api(poacher.cookie, 'GET', `/api/v2/companies/${poacher.companyId}/former-executives/`);
+  assert.equal(formerRes.status, 200, 'Former executive history is available to its employer');
+  const formerExecutives = (formerRes.json as { executives: Array<{ id: number; status: string }> }).executives;
+  assert.ok(formerExecutives.some(executive => executive.id === execToFire.id && executive.status === 'former'));
+  const activeAfterFire = (await api(poacher.cookie, 'GET', '/api/v4/executives/')).json as {
+    executives: Array<{ id: number }>;
+  };
+  assert.ok(!activeAfterFire.executives.some(executive => executive.id === execToFire.id), 'Fired executive leaves the active roster');
+  const deniedHistory = await api(employer.cookie, 'GET', `/api/v2/companies/${poacher.companyId}/former-executives/`);
+  assert.equal(deniedHistory.status, 401, 'Former executive history is private to its employer');
   console.log(`  -> Fired executive (salary $${execToFire.salary}): Severance $${expectedSeverance} accurately deducted (PASS)`);
 
   console.log('\n================================================================');
@@ -387,44 +359,13 @@ async function runTests(): Promise<void> {
 }
 
 async function main(): Promise<void> {
-  const dataDir = path.resolve('data', `test-run-i81-${Date.now()}`);
-  console.log(`Starting test server on port ${PORT} with DATA_DIR=${dataDir}...`);
-
-  const child: ChildProcess = spawn(
-    '/opt/magnate/.node22/bin/node',
-    ['--experimental-strip-types', 'server/index.ts'],
-    {
-      cwd: path.resolve(import.meta.dirname ?? '.', '..'),
-      env: {
-        ...process.env,
-        PORT: String(PORT),
-        SPEED_MULTIPLIER: '200',
-        DATA_DIR: dataDir,
-        INITIAL_LEVEL: '15' // Grant level 15 by default for capability unlock
-      },
-      stdio: ['ignore', 'pipe', 'pipe']
-    }
-  );
-
-  child.stdout?.on('data', chunk => {
-    process.stdout.write(`[server:out] ${chunk}`);
-  });
-  child.stderr?.on('data', chunk => {
-    const text = chunk.toString();
-    if (!text.includes('ExperimentalWarning')) {
-      process.stderr.write(`[server:err] ${text}`);
-    }
-  });
+  const server = await startTestServer({ env: { SPEED_MULTIPLIER: '200', INITIAL_LEVEL: '15' } });
+  BASE_URL = server.baseUrl;
+  console.log(`Started isolated test server at ${BASE_URL} with scratch DATA_DIR.`);
   try {
-    await waitUntilReady(`${BASE_URL}/version/`, 60000);
-    await runTests();
+    await runTests(server);
   } finally {
-    child.kill('SIGTERM');
-    try {
-      rmSync(dataDir, { recursive: true, force: true });
-    } catch {
-      // cleanup best effort
-    }
+    await server.stop();
   }
 }
 

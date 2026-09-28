@@ -1,137 +1,106 @@
 import puppeteer from 'puppeteer';
+import type { Page } from 'puppeteer';
 import fs from 'node:fs';
 import path from 'node:path';
-import { attachBrowserAudit, assertBusinessInvariants } from './e2e/support/browser-audit.ts';
+import {
+  attachBrowserAudit,
+  assertBusinessInvariants,
+  waitForUiStable,
+  waitForUiTransition,
+} from './e2e/support/browser-audit.ts';
+import { withTestServer } from './support/test-server.ts';
 
 const SCREENSHOT_DIR = path.resolve('screenshots');
 fs.mkdirSync(SCREENSHOT_DIR, { recursive: true });
 
-async function runE2E() {
+async function clickVisibleLink(
+  page: Page,
+  selector: string,
+  action: string,
+  audit: ReturnType<typeof attachBrowserAudit>,
+): Promise<void> {
+  const link = await page.waitForSelector(selector, { visible: true, timeout: 5_000 });
+  if (!link) throw new Error(`[UI_ACTION_FAILED] ${action}: visible link not found for ${selector}`);
+  const before = await waitForUiStable(page, { action: `before ${action}` });
+  audit.recordAction(action);
+  await link.click();
+  await waitForUiTransition(page, before, { action });
+}
+
+async function runE2E(baseUrl: string): Promise<void> {
   console.log('====================================================');
   console.log(' Starting SimCompanies Strict Real-Browser E2E Suite');
   console.log('====================================================');
 
   const browser = await puppeteer.launch({
     headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox', '--window-size=1440,900']
+    args: ['--no-sandbox', '--disable-setuid-sandbox', '--window-size=1440,900'],
   });
-
   const page = await browser.newPage();
   await page.setViewport({ width: 1440, height: 900 });
   const audit = attachBrowserAudit(page);
+  let runFailed = false;
+
   try {
-    // ----------------------------------------------------
-    // STEP 1: Load Dashboard / Map
-    // ----------------------------------------------------
-    console.log('\n[Step 1] Navigating to http://127.0.0.1:3000/zh-cn/ ...');
-    await page.goto('http://127.0.0.1:3000/zh-cn/', { waitUntil: 'networkidle2', timeout: 30000 });
-    await new Promise(r => setTimeout(r, 4000));
-
+    console.log('\n[Step 1] Load Dashboard / Map');
+    await page.goto(`${baseUrl}/zh-cn/`, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+    await waitForUiStable(page, { action: 'load dashboard' });
     await page.screenshot({ path: path.join(SCREENSHOT_DIR, '01_dashboard_map.png'), fullPage: true });
-    console.log('  -> Screenshot saved: 01_dashboard_map.png');
-
     const title = await page.title();
     console.log(`  -> Page title: "${title}"`);
-
-    // Verify critical elements exist in DOM
     const bodyContent = await page.content();
     console.log(`  -> Rendered DOM HTML size: ${bodyContent.length} bytes`);
+    await assertBusinessInvariants(page, { context: 'dashboard load' });
 
-    // ----------------------------------------------------
-    // STEP 2: Inspect Navigation & Header
-    // ----------------------------------------------------
-    console.log('\n[Step 2] Inspecting Header & Navigation Bar...');
-    // Look for navigation links: 交易所 (Exchange), 仓库 (Warehouse), 消息 (Messages), 统计 (Stats)
+    console.log('\n[Step 2] Inspect Header & Navigation Bar');
     const links = await page.$$eval('a, button', elements =>
-      elements.map(el => ({
-        tag: el.tagName,
-        text: el.textContent?.trim() || '',
-        href: el.getAttribute('href') || ''
-      })).filter(e => e.text.length > 0)
+      elements.map(element => ({
+        tag: element.tagName,
+        text: element.textContent?.trim() || '',
+        href: element.getAttribute('href') || '',
+      })).filter(entry => entry.text.length > 0),
     );
-
     console.log(`  -> Found ${links.length} interactive links/buttons.`);
-    console.log('  -> Top 15 links sample:');
-    links.slice(0, 15).forEach(l => console.log(`     - [${l.tag}] "${l.text}" -> ${l.href}`));
+    links.slice(0, 15).forEach(link => console.log(`     - [${link.tag}] "${link.text}" -> ${link.href}`));
 
-    // ----------------------------------------------------
-    // STEP 3: Navigate to Warehouse (仓库)
-    // ----------------------------------------------------
-    console.log('\n[Step 3] Clicking Warehouse navigation link...');
-    // Find link pointing to warehouse or containing 仓库
-    const warehouseLink = await page.waitForSelector('a[href*="warehouse"], a[href*="headquarters"]', { timeout: 5000 }).catch(() => null);
-    if (warehouseLink) {
-      console.log('  -> Found warehouse link, clicking...');
-      await warehouseLink.click();
-      await new Promise(r => setTimeout(r, 3000));
-      await page.screenshot({ path: path.join(SCREENSHOT_DIR, '02_warehouse_page.png'), fullPage: true });
-      console.log('  -> Screenshot saved: 02_warehouse_page.png');
-    } else {
-      console.log('  -> Direct selector not found, attempting URL navigation...');
-      await page.goto('http://127.0.0.1:3000/zh-cn/headquarters/warehouse/', { waitUntil: 'networkidle2' });
-      await new Promise(r => setTimeout(r, 3000));
-      await page.screenshot({ path: path.join(SCREENSHOT_DIR, '02_warehouse_page.png'), fullPage: true });
-      console.log('  -> Screenshot saved: 02_warehouse_page.png');
-    }
+    console.log('\n[Step 3] Navigate to Warehouse');
+    await clickVisibleLink(page, 'a[href*="warehouse"], a[href*="headquarters"]', 'open warehouse', audit);
+    await page.screenshot({ path: path.join(SCREENSHOT_DIR, '02_warehouse_page.png'), fullPage: true });
 
-    // ----------------------------------------------------
-    // STEP 4: Navigate to Exchange / Market (交易所)
-    // ----------------------------------------------------
-    console.log('\n[Step 4] Navigating to Exchange / Market...');
-    const marketLink = await page.waitForSelector('a[href*="market"], a[href*="exchange"]', { timeout: 5000 }).catch(() => null);
-    if (marketLink) {
-      console.log('  -> Found market link, clicking...');
-      await marketLink.click();
-      await new Promise(r => setTimeout(r, 3000));
-      await page.screenshot({ path: path.join(SCREENSHOT_DIR, '03_market_page.png'), fullPage: true });
-      console.log('  -> Screenshot saved: 03_market_page.png');
-    } else {
-      await page.goto('http://127.0.0.1:3000/zh-cn/market/resources/', { waitUntil: 'networkidle2' });
-      await new Promise(r => setTimeout(r, 3000));
-      await page.screenshot({ path: path.join(SCREENSHOT_DIR, '03_market_page.png'), fullPage: true });
-      console.log('  -> Screenshot saved: 03_market_page.png');
-    }
+    console.log('\n[Step 4] Navigate to Exchange / Market');
+    await clickVisibleLink(page, 'a[href*="market"], a[href*="exchange"]', 'open market', audit);
+    await page.screenshot({ path: path.join(SCREENSHOT_DIR, '03_market_page.png'), fullPage: true });
 
-    // ----------------------------------------------------
-    // STEP 5: Navigate back to Main Map / Landscape
-    // ----------------------------------------------------
-    console.log('\n[Step 5] Navigating back to Main Map / Landscape...');
-    await page.goto('http://127.0.0.1:3000/zh-cn/landscape/', { waitUntil: 'networkidle2' });
-    await new Promise(r => setTimeout(r, 3000));
+    console.log('\n[Step 5] Navigate back to Landscape');
+    await clickVisibleLink(page, 'a[href*="landscape"]', 'return to landscape', audit);
     await page.screenshot({ path: path.join(SCREENSHOT_DIR, '04_landscape_map.png'), fullPage: true });
-    console.log('  -> Screenshot saved: 04_landscape_map.png');
 
-    // ----------------------------------------------------
-    // STEP 6: Interactive Building Click & Production Modal
-    // ----------------------------------------------------
-    console.log('\n[Step 6] Testing Building Interaction on Map...');
-    // Look for building slot or clickable building icon
-    const buildingSlot = await page.waitForSelector('[class*="building"], [class*="slot"], [class*="land-"]', { timeout: 5000 }).catch(() => null);
-    if (buildingSlot) {
-      console.log('  -> Found building slot on map, clicking...');
-      await buildingSlot.click();
-      await new Promise(r => setTimeout(r, 3000));
-      await page.screenshot({ path: path.join(SCREENSHOT_DIR, '05_building_modal.png'), fullPage: true });
-      console.log('  -> Screenshot saved: 05_building_modal.png');
-    }
-
-  } catch (err) {
-    console.error('\n[TEST ERROR]:', err);
-    await page.screenshot({ path: path.join(SCREENSHOT_DIR, 'error_state.png'), fullPage: true });
+    console.log('\n[Step 6] Open a visible building control');
+    const buildingSlot = await page.waitForSelector(
+      '[class*="building"], [class*="slot"], [class*="land-"]',
+      { visible: true, timeout: 5_000 },
+    );
+    if (!buildingSlot) throw new Error('[UI_ACTION_FAILED] Open building: no visible building slot was found');
+    const beforeBuilding = await waitForUiStable(page, { action: 'before opening building' });
+    audit.recordAction('open visible building slot');
+    await buildingSlot.click();
+    await waitForUiTransition(page, beforeBuilding, { action: 'open visible building slot' });
+    await page.screenshot({ path: path.join(SCREENSHOT_DIR, '05_building_modal.png'), fullPage: true });
+  } catch (error) {
+    runFailed = true;
     process.exitCode = 1;
-    throw err;
+    console.error('\n[TEST ERROR]:', error);
+    throw error;
   } finally {
-    console.log('\n====================================================');
-    console.log(' E2E Execution Summary & Error Audit');
-    console.log('====================================================');
-    const summary = audit.getSummary();
-    console.log(`Page Errors: ${summary.pageErrors}`);
-    console.log(`Failed Requests: ${summary.requestFailures}`);
-    console.log(`HTTP Errors: ${summary.httpFailures}`);
-    console.log(`Console Errors: ${summary.consoleErrors}`);
+    if (runFailed || audit.errors.length > 0) {
+      await audit.writeFailureArtifacts(SCREENSHOT_DIR, `e2e-suite-${Date.now()}`);
+    }
     await browser.close();
-    audit.assertClean('e2e-suite.ts');
+    if (!runFailed) audit.assertClean('e2e-suite.ts');
   }
 }
 
-runE2E();
+void withTestServer(server => runE2E(server.baseUrl), { env: { ECONOMY_RANDOM: 'false' } }).catch((error: unknown) => {
+  console.error('[E2E_SUITE_FAILED]', error instanceof Error ? error.message : String(error));
+  process.exitCode = 1;
+});

@@ -28,6 +28,7 @@
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
+import { CONFIG } from '../server/config.ts';
 const baseUrl = process.env.BASE_URL || `http://127.0.0.1:${process.env.PORT || '3502'}`;
 
 interface AuthCompany {
@@ -63,7 +64,7 @@ const send = (method: string, path: string, body: unknown, cookie?: string) =>
  * test-only arrangement of valid state; all assertions run over HTTP.
  */
 async function seedRecreationBuilding(companyId: number, position: string): Promise<{ id: number; position: string; kind: string; category: string }> {
-  const dbPath = process.env.SEED_DB_PATH || path.resolve('data/simcompanies.sqlite');
+  const dbPath = process.env.SEED_DB_PATH || path.join(CONFIG.DATA_DIR, 'simcompanies.sqlite');
   const db = new DatabaseSync(dbPath);
   try {
     const stmt = db.prepare(`
@@ -80,7 +81,7 @@ async function seedRecreationBuilding(companyId: number, position: string): Prom
 
 /** Test-only arrange helper: set a company's simboost balance to an exact value. */
 function drainSimboosts(companyId: number, toValue: number): void {
-  const dbPath = process.env.SEED_DB_PATH || path.resolve('data/simcompanies.sqlite');
+  const dbPath = process.env.SEED_DB_PATH || path.join(CONFIG.DATA_DIR, 'simcompanies.sqlite');
   const db = new DatabaseSync(dbPath);
   try {
     db.prepare('UPDATE companies SET simboosts = ? WHERE company_id = ?').run(toValue, companyId);

@@ -94,8 +94,14 @@ async function runP0_02Test() {
     body: JSON.stringify({ kind: 3, amount: 100 })
   });
   assert.equal(startRes.status, 200, `queue POST must succeed: ${startRes.status}`);
-  const started = await startRes.json() as QueueItemDTO;
+  const startedQueue = await startRes.json() as QueueItemDTO[];
+  assert.ok(Array.isArray(startedQueue), 'queue POST must return the updated queue list');
+  const started = startedQueue.find(item => item.kind === 3);
+  assert.ok(started, 'the newly started production task must be present in the response');
   assert.ok(started.id, 'queue item id returned');
+  assert.equal(started.kind, 3);
+  assert.ok(started.amount > 0, 'queue amount must be positive');
+  assert.ok(started.duration > 0, 'queue duration must be positive');
 
   assertFiniteNumber(started.quality, 'queue.quality');
   assert.ok(started.quality >= 0, 'queue.quality must be >= 0');
@@ -105,6 +111,19 @@ async function runP0_02Test() {
   assert.equal(started.resource!.kind, 3);
   assert.ok(started.resource!.name.length > 0, 'queue.resource.name must be non-empty');
   assert.ok(started.resource!.unitCost > 0, 'apples unit cost must reflect consumed input cost');
+  const persistedCost = db.prepare('SELECT amount, cost, input_ingredients_json FROM production_queues WHERE id = ?')
+    .get(started.id) as { amount: number; cost: number; input_ingredients_json: string };
+  const consumedCost = (JSON.parse(persistedCost.input_ingredients_json) as Array<{
+    amount: number;
+    cost: { workers: number; admin: number; material1: number; material2: number; market: number };
+  }>).reduce((sum, ingredient) => sum + ingredient.amount * Object.values(ingredient.cost).reduce((a, value) => a + value, 0), 0);
+  assert.ok(
+    Math.abs(persistedCost.amount * persistedCost.cost - consumedCost) < 1e-8,
+    'total queued output valuation must equal the exact consumed input cost even when economy changes output amount'
+  );
+  const applesBeforeCollect = db.prepare('SELECT amount, cost_market FROM warehouse WHERE company_id = ? AND kind = 3 AND quality = ?')
+    .get(user.companyId, started.quality) as { amount: number; cost_market: number } | undefined;
+  const applesMarketValueBefore = Number(applesBeforeCollect?.amount ?? 0) * Number(applesBeforeCollect?.cost_market ?? 0);
   console.log(`  -> queue item ${started.id}: quality=${started.quality} unitCost=${started.resource!.unitCost} (finite)`);
 
   // 2. Busy serialization (what the building page DOM renders).
@@ -128,24 +147,18 @@ async function runP0_02Test() {
   assert.equal(row!.quality, started.quality, 'quality must be identical after re-GET');
   assert.equal(row!.resource!.unitCost, started.resource!.unitCost, 'unitCost must be identical after re-GET');
 
-  // Wait for completion: poll the real condition (order marked finished in
-  // DB / busy.canFetch) instead of a fixed sleep, so the test is not bound
-  // to the server's speed multiplier. This drives a real server over HTTP —
-  // no in-process fake timer can advance its clock.
-  const deadline = Date.now() + 30000;
-  let finished = false;
-  while (Date.now() < deadline && !finished) {
-    const pqRow = db.prepare(
-      'SELECT finishes_at FROM production_queues WHERE id = ?'
-    ).get(started.id) as { finishes_at: string } | undefined;
-    finished = !!pqRow && Date.parse(pqRow.finishes_at) <= Date.now();
-    if (!finished) await new Promise(r => setTimeout(r, 250));
-  }
-  assert.ok(finished, `production must finish within 30s (finishes_at vs clock)`);
+  // This regression covers persistence/serialization and collection, not the
+  // production clock. Finish the persisted order directly so the test stays
+  // independent of whichever economy speed the isolated server starts with.
+  const finishedAt = new Date(Date.now() - 1000).toISOString();
+  db.prepare('UPDATE production_queues SET finishes_at = ? WHERE id = ?').run(finishedAt, started.id);
+  const finishedRow = db.prepare('SELECT finishes_at FROM production_queues WHERE id = ?')
+    .get(started.id) as { finishes_at: string } | undefined;
+  assert.ok(finishedRow && Date.parse(finishedRow.finishes_at) <= Date.now(), 'test fixture marks the persisted order finished');
 
   // 4. Collect must succeed and return finite resource numbers.
   console.log('[4/5] Collecting finished production...');
-  const takeRes = await fetch(`${baseUrl}/api/v2/order/take/${started.id}/`, {
+  const takeRes = await fetch(`${baseUrl}/api/v2/order/take/${farm.id}/`, {
     method: 'POST',
     headers,
     body: '{}'
@@ -159,6 +172,12 @@ async function runP0_02Test() {
   assertFiniteNumber(takeData.resource.quality, 'collect.resource.quality');
   assertFiniteNumber(takeData.resource.amount, 'collect.resource.amount');
   assert.ok(takeData.resource.amount > 0, 'collected amount must be positive');
+  const applesAfterCollect = db.prepare('SELECT amount, cost_market FROM warehouse WHERE company_id = ? AND kind = 3 AND quality = ?')
+    .get(user.companyId, started.quality) as { amount: number; cost_market: number };
+  assert.ok(
+    Math.abs(Number(applesAfterCollect.amount) * Number(applesAfterCollect.cost_market) - applesMarketValueBefore - consumedCost) < 1e-6,
+    'collected warehouse market value must increase by the consumed input basis'
+  );
   console.log(`  -> collected: kind=${takeData.resource.kind} quality=${takeData.resource.quality} amount=${takeData.resource.amount}`);
 
   // 5. History must echo the persisted quality (stable after refresh/collect).

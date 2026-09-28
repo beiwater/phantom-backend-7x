@@ -10,7 +10,7 @@
  * C-1  (P0): POST /api/v2/companies/:id/free-text/ requires a session and
  *            ownership (targetCompanyId === currentCompanyId); foreign or
  *            anonymous writes get 401 and never touch companies.note.
- * C-7  (P1): readJsonBody rejects null / scalar JSON bodies with 4xx, so
+ * C-7  (P1): readJsonBody rejects null / scalar / array JSON bodies with 4xx, so
  *            POST /api/v2/message/ and /api/v2/players/language/ return 400,
  *            never 500.
  * C-9  (P1): boosts->cash exchange shares the per-UTC-day exchangedToday
@@ -20,6 +20,9 @@
  *            numeric value in authCompany payload (never JSON null).
  */
 import assert from 'node:assert/strict';
+import { PassThrough } from 'node:stream';
+import type { IncomingMessage } from 'node:http';
+import { readJsonBody, RequestBodyError, setPreparsedBody } from '../server/routes/utils.ts';
 import { db } from '../server/db/database.ts';
 import { resetPurchaseLedger, exchangeSimBoosts } from '../server/game/simboosts.ts';
 import { getCompanyBoostSettings } from '../server/game/simboost-settings.ts';
@@ -141,17 +144,19 @@ async function runTests(): Promise<void> {
   });
 
   // ------------------------------------------------------------------
-  // C-7 (P1): null / scalar JSON body -> 4xx, never 500
+  // C-7 (P1): null / scalar / array JSON body -> 4xx, never 500
   // ------------------------------------------------------------------
   const nullBodyCases: Array<{ path: string; body: string; name: string }> = [
     { path: '/api/v2/message/', body: 'null', name: 'message null body' },
     { path: '/api/v2/message/', body: '42', name: 'message scalar body' },
     { path: '/api/v2/message/', body: '"str"', name: 'message string body' },
+    { path: '/api/v2/message/', body: '[]', name: 'message array body' },
     { path: '/api/v2/players/language/', body: 'null', name: 'language null body' },
-    { path: '/api/v2/players/language/', body: 'true', name: 'language scalar body' }
+    { path: '/api/v2/players/language/', body: 'true', name: 'language scalar body' },
+    { path: '/api/v2/players/language/', body: '[{"code":"en"}]', name: 'language array body' }
   ];
 
-  await step('C-7: null/scalar JSON bodies return 4xx on message/language', async () => {
+  await step('C-7: null/scalar/array JSON bodies return 4xx on message/language', async () => {
     const { cookie: c7 } = await register('c7');
     for (const c of nullBodyCases) {
       const res = await fetch(`${baseUrl}${c.path}`, {
@@ -163,6 +168,20 @@ async function runTests(): Promise<void> {
         `${c.name}: expected 4xx, got ${res.status}`);
       assert.notEqual(res.status, 500, `${c.name} must never 500`);
     }
+  });
+
+  await step('C-7: preparsed bodies have the same object boundary', async () => {
+    for (const invalid of [null, 42, 'str', true, [], [{ code: 'en' }]]) {
+      const request = new PassThrough() as IncomingMessage;
+      setPreparsedBody(request, invalid);
+      await assert.rejects(readJsonBody(request), (err: unknown) =>
+        err instanceof RequestBodyError && err.statusCode === 400);
+      request.destroy();
+    }
+    const request = new PassThrough() as IncomingMessage;
+    setPreparsedBody(request, { code: 'en' });
+    assert.deepEqual(await readJsonBody(request), { code: 'en' });
+    request.destroy();
   });
 
   await step('C-7: valid JSON object bodies still accepted (no regression)', async () => {

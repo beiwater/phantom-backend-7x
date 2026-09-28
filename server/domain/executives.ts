@@ -74,10 +74,10 @@ export function normalizePositionCode(pos: string | null | undefined): string {
   if (lower === 'f' || lower === 'cfo') return 'f';
   if (lower === 'm' || lower === 'cmo') return 'm';
   if (lower === 't' || lower === 'cto') return 't';
-  if (lower === 'v' || lower === 'coo_apprentice' || lower === 'coo-apprentice') return 'v';
-  if (lower === 'x' || lower === 'cfo_apprentice' || lower === 'cfo-apprentice') return 'x';
-  if (lower === 'y' || lower === 'cmo_apprentice' || lower === 'cmo-apprentice') return 'y';
-  if (lower === 'z' || lower === 'cto_apprentice' || lower === 'cto-apprentice') return 'z';
+  if (lower === 'v' || lower === 'coo_apprentice' || lower === 'coo-apprentice' || lower === 'coo apprentice') return 'v';
+  if (lower === 'x' || lower === 'cfo_apprentice' || lower === 'cfo-apprentice' || lower === 'cfo apprentice') return 'x';
+  if (lower === 'y' || lower === 'cmo_apprentice' || lower === 'cmo-apprentice' || lower === 'cmo apprentice') return 'y';
+  if (lower === 'z' || lower === 'cto_apprentice' || lower === 'cto-apprentice' || lower === 'cto apprentice') return 'z';
   if (lower === '1' || lower === 'g1') return '1';
   if (lower === '2' || lower === 'g2') return '2';
   if (lower === '3' || lower === 'g3') return '3';
@@ -85,6 +85,59 @@ export function normalizePositionCode(pos: string | null | undefined): string {
   if (lower === '5' || lower === 'g5') return '5';
   if (lower === 'none' || lower === 'unassigned') return 'none';
   return lower;
+}
+
+export type ExecutiveSkillRole = 'coo' | 'cfo' | 'cmo' | 'cto';
+
+export interface ExecutiveSkillContribution {
+  position: string | null;
+  skill: number | null | undefined;
+}
+
+const EXECUTIVE_ROLE_CODES: Record<ExecutiveSkillRole, string> = {
+  coo: 'o',
+  cfo: 'f',
+  cmo: 'm',
+  cto: 't'
+};
+
+const APPRENTICE_ROLE_CODES: Record<ExecutiveSkillRole, string> = {
+  coo: 'v',
+  cfo: 'x',
+  cmo: 'y',
+  cto: 'z'
+};
+
+const EXECUTIVE_POSITION_CODES = new Set(['o', 'f', 'm', 't', 'v', 'x', 'y', 'z']);
+
+/**
+ * Calculate the role skill defined by the client BT/Ms formulas. A matching
+ * executive contributes fully, the matching apprentice half, and every
+ * other executive quarter. BT floors the sum before Ms applies the two
+ * sequential soft caps (>80, then >60).
+ */
+export function calculateEffectiveExecutiveSkill(
+  executives: readonly ExecutiveSkillContribution[],
+  role: ExecutiveSkillRole
+): number {
+  const exactPosition = EXECUTIVE_ROLE_CODES[role];
+  const apprenticePosition = APPRENTICE_ROLE_CODES[role];
+  const weightedSkill = executives.reduce((sum, executive) => {
+    const position = normalizePositionCode(executive.position);
+    const multiplier = position === exactPosition
+      ? 1
+      : position === apprenticePosition
+        ? 0.5
+        : EXECUTIVE_POSITION_CODES.has(position)
+          ? 0.25
+          : 0;
+    return sum + (Number(executive.skill) || 0) * multiplier;
+  }, 0);
+
+  let effectiveSkill = Math.floor(weightedSkill);
+  if (effectiveSkill > 80) effectiveSkill = 80 + (effectiveSkill - 80) / 2;
+  if (effectiveSkill > 60) effectiveSkill = 60 + (effectiveSkill - 60) / 2;
+  return Math.floor(effectiveSkill);
 }
 
 export function validIsoOrNull(val: unknown): string | null {

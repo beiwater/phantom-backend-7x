@@ -14,7 +14,8 @@ import { createGameContext } from '../context/game-context.ts';
 import {
   updateRestaurantPropertiesUseCase,
   startRestaurantCycleUseCase,
-  getRestaurantRunsQuery
+  getRestaurantRunsQuery,
+  resolveDueRestaurantRuns
 } from '../application/restaurant/restaurant-use-cases.ts';
 import { RouteRegistry, globalRouteRegistry, type HttpMethod } from '../http/route-registry.ts';
 
@@ -78,6 +79,7 @@ export async function handleRestaurantRoutes(
       return true;
     }
 
+    await resolveDueRestaurantRuns(buildingId, currentCompanyId);
     const properties = getLegacyRestaurantProperties(buildingId, currentCompanyId);
     if (legacyPropertiesMatch) {
       if (method === 'GET') {
@@ -143,6 +145,7 @@ export async function handleRestaurantRoutes(
       sendJson(res, { error: 'Method not allowed', code: 'METHOD_NOT_ALLOWED' }, 405, { Allow: 'GET' });
       return true;
     }
+    await resolveDueRestaurantRuns(undefined, currentCompanyId);
     const restaurants = getCompanyBuildings(currentCompanyId)
       .filter(b => b.kind === 'r')
       .map(b => {
@@ -210,6 +213,7 @@ export async function handleRestaurantRoutes(
 
   if (buildingMatch) {
     if (method === 'GET') {
+      await resolveDueRestaurantRuns(buildingId, currentCompanyId);
       sendJson(res, {
         building,
         restaurantProperties: getRestaurantProperties(buildingId, currentCompanyId)
