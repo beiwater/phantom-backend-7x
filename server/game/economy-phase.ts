@@ -104,6 +104,7 @@ export function computeEconomyProductionModifier(
     state,
     phase: phaseName(state),
     value,
+    kind: value > 0 ? 'bonus' : value < 0 ? 'malus' : 'neutral',
     seed,
     source: 'cycle'
   };

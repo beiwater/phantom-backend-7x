@@ -171,9 +171,9 @@ export async function handleActivitySubroutes(
     }
     const company = getCompanyById(currentCompanyId);
     if (pathname.includes("/attempt/")) {
-      startAttempt(challenge.id, currentCompanyId, company?.name ?? "", company?.logo ?? null, company?.realm_id ?? 0);
+      startAttempt(Number(challenge.id), currentCompanyId, company?.name ?? "", company?.logo ?? null, company?.realm_id ?? 0);
     } else {
-      restartAttempt(challenge.id, currentCompanyId);
+      restartAttempt(Number(challenge.id), currentCompanyId);
     }
     sendJson(res, { success: true });
     return true;

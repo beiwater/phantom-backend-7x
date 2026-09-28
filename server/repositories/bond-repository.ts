@@ -15,6 +15,23 @@ export interface BondRow {
   settled: number;
 }
 
+type BondSqlValue = null | number | bigint | string | NodeJS.NonSharedUint8Array;
+type BondSqlRow = Record<string, BondSqlValue>;
+
+function mapBondRow(row: BondSqlRow): BondRow {
+  return {
+    id: Number(row.id),
+    seller_company_id: Number(row.seller_company_id),
+    buyer_company_id: row.buyer_company_id === null ? null : Number(row.buyer_company_id),
+    interest_rate: Number(row.interest_rate),
+    amount: Number(row.amount),
+    status: String(row.status),
+    created_at: String(row.created_at),
+    maturity_date: row.maturity_date === null ? null : String(row.maturity_date),
+    settled: Number(row.settled)
+  };
+}
+
 /**
  * Bond persistence + DTO mapping (Issue #179: moved verbatim from
  * game/bonds.ts). Every statement is preserved exactly — the Strangler rule:
@@ -28,39 +45,44 @@ export class BondRepository {
   }
 
   findById(bondId: number): BondRow | undefined {
-    return this.database.prepare('SELECT * FROM bonds WHERE id = ?').get(bondId) as BondRow | undefined;
+    const row = this.database.prepare('SELECT * FROM bonds WHERE id = ?').get(bondId) as BondSqlRow | undefined;
+    return row ? mapBondRow(row) : undefined;
   }
 
   listOwnedRows(companyId: number): BondRow[] {
-    return this.database.prepare(`
+    const rows = this.database.prepare(`
       SELECT * FROM bonds
       WHERE buyer_company_id = ? AND status = 'active'
       ORDER BY id DESC
-    `).all(companyId) as BondRow[];
+    `).all(companyId) as BondSqlRow[];
+    return rows.map(mapBondRow);
   }
 
   listSoldRows(companyId: number): BondRow[] {
-    return this.database.prepare(`
+    const rows = this.database.prepare(`
       SELECT * FROM bonds
       WHERE seller_company_id = ? AND status = 'active'
       ORDER BY id DESC
-    `).all(companyId) as BondRow[];
+    `).all(companyId) as BondSqlRow[];
+    return rows.map(mapBondRow);
   }
 
   listMarketRows(): BondRow[] {
-    return this.database.prepare(`
+    const rows = this.database.prepare(`
       SELECT * FROM bonds
       WHERE buyer_company_id IS NULL AND status = 'active'
       ORDER BY interest_rate DESC LIMIT 50
-    `).all() as BondRow[];
+    `).all() as BondSqlRow[];
+    return rows.map(mapBondRow);
   }
 
   listMaturedUnsettled(now: string): BondRow[] {
-    return this.database.prepare(`
+    const rows = this.database.prepare(`
       SELECT * FROM bonds
       WHERE status = 'active' AND buyer_company_id IS NOT NULL AND settled = 0
         AND maturity_date IS NOT NULL AND maturity_date <= ?
-    `).all(now) as BondRow[];
+    `).all(now) as BondSqlRow[];
+    return rows.map(mapBondRow);
   }
 
   /** Bonds actively held by a company (daily interest job source, camelCase). */
@@ -69,7 +91,8 @@ export class BondRepository {
       SELECT id, seller_company_id, buyer_company_id, amount, interest_rate
       FROM bonds
       WHERE status = 'active' AND buyer_company_id IS NOT NULL
-    `).all() as Array<{ id: number; seller_company_id: number; buyer_company_id: number; amount: number; interest_rate: number }>;
+        AND (maturity_date IS NULL OR maturity_date > ?)
+    `).all(virtualClock.nowIso()) as Array<{ id: number; seller_company_id: number; buyer_company_id: number; amount: number; interest_rate: number }>;
     return rows.map(r => ({
       id: Number(r.id),
       sellerCompanyId: Number(r.seller_company_id),
@@ -87,7 +110,9 @@ export class BondRepository {
     `).run(sellerCompanyId, interestRate, amount, createdAt, maturityDate);
 
     const bondId = Number(res.lastInsertRowid);
-    return this.database.prepare('SELECT * FROM bonds WHERE id = ?').get(bondId) as BondRow;
+    const row = this.database.prepare('SELECT * FROM bonds WHERE id = ?').get(bondId) as BondSqlRow | undefined;
+    if (!row) throw new Error('Inserted bond not found');
+    return mapBondRow(row);
   }
 
   /** Compare-and-set claim of an unsold offering for a buyer; returns affected rows. */
@@ -96,7 +121,7 @@ export class BondRepository {
       UPDATE bonds SET buyer_company_id = ?
       WHERE id = ? AND status = 'active' AND buyer_company_id IS NULL
     `).run(buyerCompanyId, bondId);
-    return res.changes;
+    return Number(res.changes);
   }
 
   /** Compare-and-set early call by the issuing seller; returns affected rows. */
@@ -105,7 +130,15 @@ export class BondRepository {
       UPDATE bonds SET status = 'called'
       WHERE id = ? AND seller_company_id = ? AND status = 'active'
     `).run(bondId, sellerCompanyId);
-    return res.changes;
+    return Number(res.changes);
+  }
+
+  markDefaulted(bondId: number): number {
+    const res = this.database.prepare(`
+      UPDATE bonds SET status = 'defaulted'
+      WHERE id = ? AND status = 'active'
+    `).run(bondId);
+    return Number(res.changes);
   }
 
   markSettled(bondId: number, status: string): void {

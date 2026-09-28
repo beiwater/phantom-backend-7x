@@ -124,8 +124,17 @@ async function runTest(): Promise<void> {
   });
   const queueText = await queueRes.text();
   assert.equal(queueRes.status, 200, `queue start failed: ${queueText}`);
-  const queue = JSON.parse(queueText) as { id: number; duration: number; finishes: string };
-  assert.ok(queue.id > 0);
+  const queueItems = JSON.parse(queueText) as Array<{
+    id: number;
+    kind: number;
+    amount: number;
+    duration: number;
+    finishes: string;
+  }>;
+  assert.ok(Array.isArray(queueItems), 'queue POST returns the updated queue list');
+  const queue = queueItems.find(item => item.kind === 3);
+  assert.ok(queue && queue.id > 0, 'started production task is present in the updated queue');
+  assert.ok(queue.amount > 0 && queue.duration > 0 && Date.parse(queue.finishes) > 0);
   console.log(`  -> queue ${queue.id} started, duration ${queue.duration}s`);
 
   // ---------- P1-05: collect awards experience; response carries levelInfo ----------
@@ -145,7 +154,7 @@ async function runTest(): Promise<void> {
   const lvlBefore = before.levelInfo!.level;
   assert.equal(lvlBefore, 1, 'arranged company must report level 1');
 
-  const collectRes = await fetch(`${baseUrl}/api/v2/order/take/${queue.id}/`, {
+  const collectRes = await fetch(`${baseUrl}/api/v2/order/take/${farm!.id}/`, {
     method: 'POST', headers: { Cookie: cookie }
   });
   const collectText = await collectRes.text();
@@ -177,14 +186,14 @@ async function runTest(): Promise<void> {
 
   // ---------- P1-05: collect is idempotent (no double XP) ----------
   console.log('[7/7] Re-collecting the same order must not award XP twice...');
-  const replay = await fetch(`${baseUrl}/api/v2/order/take/${queue.id}/`, {
+  const replay = await fetch(`${baseUrl}/api/v2/order/take/${farm!.id}/`, {
     method: 'POST', headers: { Cookie: cookie }
   });
-  assert.equal(replay.status, 409, 'already-collected order must fail with Conflict');
+  assert.equal(replay.status, 404, 'building-first collect returns Not Found when there is no completed task');
   const replayAuth = await authData(cookie);
   assert.equal(replayAuth.levelInfo!.experience, collectBody.levelInfo!.experience, 'no duplicate XP on replay');
   assert.equal(replayAuth.levelInfo!.level, collectBody.levelInfo!.level, 'no duplicate level-up on replay');
-  console.log('  -> replay rejected (409), XP unchanged OK');
+  console.log('  -> replay rejected (404), XP unchanged OK');
 
   console.log('================================================================');
   console.log(' ✅ P1-04 / P1-05 ONBOARD + LEVELS PASSED ALL CHECKS');

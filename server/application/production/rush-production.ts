@@ -6,8 +6,11 @@ import { productionRepository, type ProductionQueueEntity } from '../../reposito
 import { warehouseRepository } from '../../repositories/warehouse-repository.ts';
 import { companyRepository } from '../../repositories/company-repository.ts';
 import { eventBus } from '../../events/event-bus.ts';
+import { applyAbundanceCycleDecay } from '../../game/buildings.ts';
 import { NotFoundError, ForbiddenError, ValidationError } from '../../errors/domain-error.ts';
 import { recordSimboostSpend } from '../social/simboost-history.ts';
+import { getAccumulatorParameters } from '../../game-data/accumulator.ts';
+import { rocketKindForLaunchAmount } from '../../game/aerospace.ts';
 
 export interface RushProductionInput {
   buildingId: number;
@@ -25,8 +28,6 @@ export async function rushProductionUseCase(
   ctx: GameContext,
   input: RushProductionInput
 ): Promise<RushProductionResult> {
-  const cost = input.simboostsCost ?? 1;
-
   return runInTransaction(async txCtx => {
     // 1. Validate building ownership
     const building = buildingRepository.findById(input.buildingId);
@@ -49,6 +50,24 @@ export async function rushProductionUseCase(
       throw new ValidationError('Building has no active production order to rush');
     }
 
+    // These queues have dedicated completion flows. A generic rush would
+    // incorrectly issue Tree inventory for accumulator growth or Aerospace
+    // Research for a launch, so reject before charging SimBoosts.
+    if (building.kind === 'v' && getAccumulatorParameters(queueItem.kind) !== null) {
+      throw new ValidationError('Accumulator growth must be collected through its dedicated cut-down flow');
+    }
+    if (building.kind === 'l'
+      && queueItem.kind === 100
+      && rocketKindForLaunchAmount(Number(queueItem.amount)) !== null) {
+      throw new ValidationError('Rocket launches must be resolved through the launch collect flow');
+    }
+
+    const remainingSec = Math.max(
+      0,
+      Math.ceil((new Date(queueItem.finishesAt).getTime() - virtualClock.nowMs()) / 1000)
+    );
+    const cost = input.simboostsCost ?? Math.max(1, Math.ceil(remainingSec / 360));
+
     // 3. Debit SimBoosts
     const simboostsRemaining = companyRepository.debitSimboosts(ctx.companyId, cost);
     recordSimboostSpend(ctx.companyId, 'RUSH_PRODUCTION', cost);
@@ -61,7 +80,15 @@ export async function rushProductionUseCase(
     if (!productionRepository.markResolved(queueItem.id, ctx.companyId)) {
       throw new ValidationError('Production queue is no longer active');
     }
-    warehouseRepository.addResource(ctx.companyId, queueItem.kind, queueItem.quality, queueItem.amount);
+    warehouseRepository.addResource(
+      ctx.companyId,
+      queueItem.kind,
+      queueItem.quality,
+      queueItem.amount,
+      { market: queueItem.cost ?? 0 }
+    );
+    // Rushing completes the extractor's production cycle just like collecting.
+    applyAbundanceCycleDecay(building.id);
 
     // 5. Free the building (legacy: busy_until = NULL)
     const updatedBuilding = buildingRepository.updateBusyUntil(building.id, ctx.companyId, null);

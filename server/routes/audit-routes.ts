@@ -351,7 +351,7 @@ export async function handleAuditRoutes(
     };
     const player = auditRepository.getPlayerById(comp.player_id);
     const rawBuildings = buildingRepository.findByCompany(targetCompanyId);
-    const buildingsDTO = rawBuildings.map(toSimCompaniesBuildingDTO);
+    const buildingsDTO = rawBuildings.map(building => toSimCompaniesBuildingDTO(building));
     sendJson(res, {
       player: {
         id: comp.player_id,
@@ -514,7 +514,7 @@ export async function handleAuditRoutes(
     const playerId = Number(ipAuditMatch[1]);
     const sessions = auditRepository.listPlayerSessions(playerId);
     const companies = auditRepository.listCompaniesByPlayer(playerId);
-    const events = companies.flatMap(c => auditRepository.listForCompany(c.company_id).map(a => ({
+    const events: Array<{ type: string; companyId: number | null; action: string; reason: string | null; datetime: string }> = companies.flatMap(c => auditRepository.listForCompany(c.company_id).map(a => ({
       type: 'audit',
       companyId: c.company_id,
       action: a.action,

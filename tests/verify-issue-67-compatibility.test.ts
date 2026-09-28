@@ -101,8 +101,17 @@ async function runIssue67Tests() {
     body: JSON.stringify({ kind: 3, amount: 100 }) // Grain #3 is produced at Farm 'P'
   });
   assert.equal(validProdRes.status, 200);
-  const validProdData = await readJson(validProdRes);
-  assert.ok(validProdData.queueItem || validProdData.id, 'Queue item returned on success');
+  const validProdData = await readJson(validProdRes) as Array<{
+    id: number;
+    kind: number;
+    amount: number;
+    duration: number;
+  }>;
+  assert.ok(Array.isArray(validProdData), 'Queue POST returns the updated queue list');
+  const startedTask = validProdData.find(task => task.kind === 3);
+  assert.ok(startedTask && startedTask.id > 0, 'Started production task is present in the updated queue');
+  assert.ok(startedTask.amount > 0, 'Started task exposes its produced amount');
+  assert.ok(startedTask.duration > 0, 'Started task exposes its duration');
   console.log('  -> Valid production succeeded cleanly (200)');
 
   console.log('====================================================');

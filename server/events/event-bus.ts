@@ -10,6 +10,9 @@ export interface DomainEventMap {
     quality: number;
     startedAt: string;
     finishesAt: string;
+    economyPhase?: number;
+    productionModifier?: number;
+    productionOutputMultiplier?: number;
   };
   ProductionCancelled: {
     companyId: number;
@@ -27,6 +30,8 @@ export interface DomainEventMap {
     quality: number;
     amount: number;
     collectedAt: string;
+    experienceGained?: number;
+    level?: number;
   };
   ProductionRushed: {
     companyId: number;
@@ -51,6 +56,21 @@ export interface DomainEventMap {
     companyId: number;
     buildingId: number;
     refund: number;
+    scrapValue?: number;
+    refundMaterials?: Array<{ kind: number; amount: number }>;
+  };
+  BuildingPlaced: { companyId: number; buildingId: number; position: string };
+  BuildingLifted: { companyId: number; buildingId: number };
+  RecreationUpkeepStarted: { companyId: number; buildingId: number; cost: number; busyUntil: string };
+  RocketLaunched: {
+    companyId: number;
+    buildingId: number;
+    queueId: number;
+    rocketKind: number | null;
+    quality: number;
+    success: boolean;
+    patentsEarned: number;
+    launchedAt: string;
   };
   BuildingRenamed: {
     companyId: number;
@@ -81,6 +101,7 @@ export interface DomainEventMap {
     quality: number;
     amount: number;
     price: number;
+    fee?: number;
   };
   RetailSaleCompleted: {
     companyId: number;

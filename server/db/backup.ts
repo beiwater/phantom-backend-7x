@@ -58,15 +58,17 @@ export class BackupEngine {
 
     // Verify backup integrity
     let integrity: 'OK' | 'CORRUPT' = 'OK';
+    let backupDb: DatabaseSync | undefined;
     try {
-      const backupDb = new DatabaseSync(targetPath);
+      backupDb = new DatabaseSync(targetPath);
       const check = backupDb.prepare('PRAGMA quick_check').get() as { quick_check: string } | undefined;
-      backupDb.close();
       if (check?.quick_check !== 'ok') {
         integrity = 'CORRUPT';
       }
     } catch {
       integrity = 'CORRUPT';
+    } finally {
+      backupDb?.close();
     }
 
     const metadata: BackupMetadata = {
@@ -145,13 +147,15 @@ export class BackupEngine {
 
     // Run SQLite quick_check
     let quickCheck = 'failed';
+    let backupDb: DatabaseSync | undefined;
     try {
-      const backupDb = new DatabaseSync(targetPath);
+      backupDb = new DatabaseSync(targetPath);
       const res = backupDb.prepare('PRAGMA quick_check').get() as { quick_check: string } | undefined;
-      backupDb.close();
       quickCheck = res?.quick_check || 'failed';
     } catch (err: unknown) {
       quickCheck = err instanceof Error ? err.message : String(err);
+    } finally {
+      backupDb?.close();
     }
 
     return {

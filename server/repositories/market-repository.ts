@@ -4,7 +4,7 @@
  * not execute market table mutations inline. Knows nothing about frontend
  * compatibility DTOs — that mapping stays in the use case layer.
  */
-import type { DatabaseSync } from 'node:sqlite';
+import type { DatabaseSync, SQLOutputValue } from 'node:sqlite';
 import { db } from '../db/connection.ts';
 import { NotFoundError } from '../errors/domain-error.ts';
 import { CONFIG } from '../config.ts';
@@ -26,7 +26,7 @@ export interface MarketOrderEntity {
   costMarket: number;
 }
 
-export interface MarketOrderDbRow {
+export interface MarketOrderDbRow extends Record<string, SQLOutputValue | undefined> {
   id: number;
   seller_id: number;
   kind: number;

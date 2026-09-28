@@ -27,7 +27,7 @@ export const PRODUCTION_KINDS = new Set([
   '0', '1', '6', '7', '8', '9', 'P', 'W', 'E', 'O', 'R', 'S', 'F', 'M', 'Y', 'L', 'T',
   'D', 'Q', 'o', 'x', 'g', 'e', 'i', 'j', 'k', 'm', 'v'
 ]);
-const DIRECT_PRODUCTION_KINDS = new Set(['M', 'O', 'Q', 'v']);
+const DIRECT_PRODUCTION_KINDS = new Set(['M', 'O', 'Q']);
 
 export const SALES_KINDS = new Set(['2', 'G', 'C', 'A', 'H', 'B', 'd', 'r']);
 export const SEASONAL_KINDS = new Set(['t', 'u', 'z', 'I']);
@@ -191,11 +191,12 @@ export async function assertHealthyBuildingPages(
         await assertHealthyBuildingPage(detailPage, building);
       } finally {
         await detailDiagnostics.flush();
-        diagnostics.data.consoleErrors.push(...detailDiagnostics.data.consoleErrors);
-        diagnostics.data.pageErrors.push(...detailDiagnostics.data.pageErrors);
-        diagnostics.data.failedRequests.push(...detailDiagnostics.data.failedRequests);
-        diagnostics.data.apiResponses.push(...detailDiagnostics.data.apiResponses);
-        await detailPage.close().catch(() => undefined);
+        diagnostics.include(detailDiagnostics.data);
+        try {
+          detailDiagnostics.assertClean(`building ${building.kind}/${building.id} detail page`);
+        } finally {
+          await detailPage.close().catch(() => undefined);
+        }
       }
     }));
   }
@@ -224,14 +225,21 @@ export async function startProduction(
 
   const productionAmount = Math.max(1, Math.ceil(Number(output.producedPerHourRaw ?? 1) * 0.5));
   const row = page.locator(`.test-resource-row-${output.dbLetter}`).first();
+  if (building.kind === 'v') {
+    await page.locator('label').filter({ has: page.getByRole('radio', { name: '最高', exact: true }) }).click();
+    const started = responseFor(page, response => response.request().method() === 'POST'
+      && new URL(response.url()).pathname === `/api/v1/buildings/${building.id}/busy/`);
+    await page.getByRole('button', { name: '培养', exact: true }).click();
+    const response = await started;
+    expect(response.status()).toBe(200);
+    expectProductionDuration(await response.json());
+    return;
+  }
   if (DIRECT_PRODUCTION_KINDS.has(building.kind)) {
     // Extractors expose a scalar abundance response that the original
-    // renderer cannot use for its estimate. Forest Nursery output is hidden
-    // outside its production season. Both still use the canonical API start.
-    if (building.kind !== 'v') {
-      await expect(row, `${building.kind} must render output ${output.dbLetter}`).toBeVisible();
-      await expect(row.locator('input[name="amount"]')).toBeVisible();
-    }
+    // renderer cannot use for its estimate. These use the canonical API start.
+    await expect(row, `${building.kind} must render output ${output.dbLetter}`).toBeVisible();
+    await expect(row.locator('input[name="amount"]')).toBeVisible();
     const response = await apiJson<ProductionStartResponse>(
       page,
       'POST',

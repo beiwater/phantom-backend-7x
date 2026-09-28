@@ -18,6 +18,7 @@ import { getCompanyBoostSettings } from '../../game/simboost-settings.ts';
 import { accumulatorRepository } from '../../repositories/accumulator-repository.ts';
 import { getAccumulatorParameters, accumulatorBonusForResearch } from '../../game-data/accumulator.ts';
 import { getProductionQualityCap } from '../../game/research.ts';
+import { resolveDueAccumulatorGrowth } from './collect-accumulator.ts';
 
 export interface StartProductionInput {
   buildingId: number;
@@ -52,15 +53,8 @@ export async function startProductionUseCase(
 
     // Launch-pad cards identify the actual rocket product. Keep accepting the
     // legacy kind-100 payload only as an amount-based compatibility form.
-    if (building.kind === 'l' && (input.kind === 100 || input.kind === 91 || input.kind === 94)) {
-      const rocketKind = rocketKindForLaunchRequest(input.kind, input.amount);
-      if (rocketKind === null) {
-        throw new ValidationError(
-          input.kind === 100
-            ? `Invalid launch order amount: ${input.amount}. Expected 400 (Sub-Orbital Rocket) or 2800 (BFR)`
-            : `Invalid launch quantity for rocket resource #${input.kind}; expected amount 1`
-        );
-      }
+    const launchRocketKind = rocketKindForLaunchRequest(input.kind, input.amount);
+    if (building.kind === 'l' && launchRocketKind !== null) {
       // Construction/upgrade busy still applies; an active launch queue does
       // not — the original allows chaining launches up to LAUNCH_QUEUE_MAX.
       if (building.busyUntil && new Date(building.busyUntil).getTime() > virtualClock.nowMs()
@@ -70,7 +64,7 @@ export async function startProductionUseCase(
       const launch = await queueRocketLaunch(
         ctx.companyId,
         building.id,
-        rocketKind,
+        launchRocketKind,
         input.quality ?? 0,
         { consumeResearch: input.kind === 100 }
       );
@@ -85,7 +79,12 @@ export async function startProductionUseCase(
           kind: tx.kind,
           quality: tx.quality,
           amount: -tx.amount,
-          cost: 0
+          cost: tx.cost,
+          costWorkers: tx.costWorkers,
+          costAdmin: tx.costAdmin,
+          costMaterial1: tx.costMaterial1,
+          costMaterial2: tx.costMaterial2,
+          costMarket: tx.costMarket
         })),
         message: 'Launch queued successfully',
       } satisfies StartProductionResult;
@@ -100,6 +99,7 @@ export async function startProductionUseCase(
     // Keep the requested growth amount in the queue and persist the accumulator
     // row before any material debit so max-boundary rejection is atomic.
     if (isAccumulator) {
+      await resolveDueAccumulatorGrowth(building.id, ctx.companyId);
       const state = accumulatorRepository.ensureForBuilding(building.id, ctx.companyId, input.kind);
       if (state.value + input.amount > accumulatorParameters.max) {
         throw new ValidationError(`Accumulator value exceeds maximum ${accumulatorParameters.max}`);
@@ -126,7 +126,9 @@ export async function startProductionUseCase(
     const { ingredients } = validateProductionRequest(
       building.kind,
       input.kind,
-      input.amount,
+      // Bundle nbi scales inputs by growth * nursery capacity, while growth
+      // itself is a per-tree value (not the count of trees).
+      input.amount * (isAccumulator ? building.size * accumulatorParameters.amountPerLevel : 1),
       input.quality ?? null
     );
 
@@ -147,11 +149,10 @@ export async function startProductionUseCase(
     const durationSeconds = calculateProductionTime(
       input.kind,
       input.amount,
-      building.size,
+      isAccumulator ? 1 : building.size,
       combinedProductionModifier,
       {
         economyState: economy.state,
-        quality: input.quality ?? 100,
         accumulatorBonus
       }
     );
@@ -195,7 +196,10 @@ export async function startProductionUseCase(
       allTransactions.push(...txs);
     }
     const averageInputQuality = totalInputAmount > 0 ? weightedQualitySum / totalInputAmount : 0;
-    const inputCostPerOutputUnit = input.amount > 0 ? totalInputCost / input.amount : 0;
+    // Inputs are consumed for the requested base amount, but economy and
+    // abundance can change delivered quantity. Preserve total input value
+    // across the actual output (accumulator progress remains one-for-one).
+    const inputCostPerOutputUnit = outputAmount > 0 ? totalInputCost / outputAmount : 0;
 
     // 4. Queue chaining (durationSeconds was computed and validated against
     // the tier limit before ingredients were consumed)
@@ -245,7 +249,17 @@ export async function startProductionUseCase(
       productionOutputMultiplier,
       // The queued amount is output after abundance/economy modifiers. Keep
       // the original inputs so cancellation refunds the amount actually spent.
-      inputIngredients: ingredients
+      inputIngredients: allTransactions.map(transaction => ({
+        kind: Number(transaction.kind),
+        amount: Math.abs(Number(transaction.amount)),
+        cost: {
+          workers: transaction.costWorkers,
+          admin: transaction.costAdmin,
+          material1: transaction.costMaterial1,
+          material2: transaction.costMaterial2,
+          market: transaction.costMarket
+        }
+      }))
     });
 
     // 7. Update building busy state

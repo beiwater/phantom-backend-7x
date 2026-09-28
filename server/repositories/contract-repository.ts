@@ -1,7 +1,7 @@
-import type { DatabaseSync } from 'node:sqlite';
+import type { DatabaseSync, SQLOutputValue } from 'node:sqlite';
 import { db } from '../db/connection.ts';
 
-export interface ContractRow {
+export interface ContractRow extends Record<string, SQLOutputValue | undefined> {
   id: number;
   sender_company_id: number;
   recipient_company_id: number;
@@ -11,6 +11,7 @@ export interface ContractRow {
   price: number;
   status: string;
   created_at: string;
+  cost_snapshot?: string | null;
 }
 
 /** Shaped summary row for the warehouse contracts panel (snake_case SQL -> camelCase). */
@@ -63,12 +64,13 @@ export class ContractRepository {
     quality: number,
     amount: number,
     price: number,
-    createdAt: string
+    createdAt: string,
+    costSnapshot: string | null = null
   ): number {
     const res = this.database.prepare(`
-      INSERT INTO contracts (sender_company_id, recipient_company_id, kind, quality, amount, price, status, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, 'pending', ?)
-    `).run(senderCompanyId, recipientCompanyId, kind, quality, amount, price, createdAt);
+      INSERT INTO contracts (sender_company_id, recipient_company_id, kind, quality, amount, price, status, created_at, cost_snapshot)
+      VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, ?)
+    `).run(senderCompanyId, recipientCompanyId, kind, quality, amount, price, createdAt, costSnapshot);
     return Number(res.lastInsertRowid);
   }
 
@@ -78,7 +80,7 @@ export class ContractRepository {
       SELECT * FROM contracts
       WHERE recipient_company_id = ? AND status = 'pending'
       ORDER BY id DESC
-    `).all(companyId) as unknown as ContractRow[];
+    `).all(companyId) as ContractRow[];
   }
 
   /** Pending contracts sent by the company, newest first. */
@@ -87,7 +89,7 @@ export class ContractRepository {
       SELECT * FROM contracts
       WHERE sender_company_id = ? AND status = 'pending'
       ORDER BY id DESC
-    `).all(companyId) as unknown as ContractRow[];
+    `).all(companyId) as ContractRow[];
   }
 
   /** Settled (non-pending) contracts, newest first, capped at 200 like the legacy query. */
@@ -98,7 +100,7 @@ export class ContractRepository {
       WHERE ${column} = ? AND status != 'pending'
       ORDER BY id DESC
       LIMIT 200
-    `).all(companyId) as unknown as ContractRow[];
+    `).all(companyId) as ContractRow[];
   }
 
   /**

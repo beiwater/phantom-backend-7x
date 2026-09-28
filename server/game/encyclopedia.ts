@@ -1,6 +1,7 @@
 import { db } from '../db/database.ts';
 import { virtualClock } from '../core/virtual-clock.ts';
 import { CONSTANTS_RESOURCES, getResourceDef } from './constants.ts';
+import { getResourceName } from '../game-data/resources.ts';
 
 // Deterministic pseudo-random number generator for consistent historical data
 function seededRandom(seed: number): () => number {
@@ -379,7 +380,7 @@ export function getRetailDemand(_realmId?: number): {
       const avgPrice = Math.round(((def.cost || 2.5) * 1.35) * 100) / 100;
       products.push({
         kind,
-        name: def.name,
+        name: def.name ?? getResourceName(kind),
         saturation,
         demand,
         averagePrice: avgPrice,

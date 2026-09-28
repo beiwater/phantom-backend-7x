@@ -45,6 +45,31 @@ import { ForbiddenError } from '../../errors/domain-error.ts';
 export const EXECUTIVE_TRAINING_CODES = ['f', 'g', 'm', 'o', 't'] as const;
 export type ExecutiveTrainingCode = (typeof EXECUTIVE_TRAINING_CODES)[number];
 
+export interface UpdateExecutiveInput {
+  salary?: number;
+  position?: string;
+  strikeUntil?: string | null;
+  plansToRetire?: boolean;
+  rushSettle?: boolean;
+}
+
+export interface CreatePoachingOfferInput {
+  agency?: number | string;
+  slotPosition?: string;
+  skillPosition?: string;
+  ageRange?: unknown;
+  hasTrainings?: boolean;
+  onlyUnemployed?: boolean;
+  targetExecutiveId?: number | null;
+  expectedSalary?: number;
+}
+
+export interface CounterHostileOfferInput {
+  action?: 'accept' | 'decline' | 'counter' | string;
+  accept?: boolean;
+  salary?: number;
+}
+
 const TRAINING_CODE_SET: Record<ExecutiveTrainingCode, true> = {
   f: true,
   g: true,
@@ -1106,7 +1131,10 @@ async function updatePoachingOffer(
           searchDeadlineIso(now),
           now
         );
-        return formatOffer(refreshed, null);
+        return {
+          offer: formatOffer(refreshed, null),
+          simboostsDelta: 0
+        };
       }
       const updated = executiveRepository.setOfferStatus(offerId, requestedStatus, now);
       return {
@@ -1495,7 +1523,11 @@ export function createPoachingOfferCommand(ctx: GameContext, input: CreatePoachi
   return createPoachingOffer(ctx.companyId, input);
 }
 
-export function updatePoachingOfferCommand(ctx: GameContext, offerId: number, body: Record<string, unknown>) {
+export function updatePoachingOfferCommand(
+  ctx: GameContext,
+  offerId: number,
+  body: { status?: string; executive?: boolean; salary?: number; accelerated?: boolean }
+) {
   return updatePoachingOffer(ctx.companyId, offerId, body);
 }
 

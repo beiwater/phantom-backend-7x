@@ -36,7 +36,7 @@ import { DatabaseSync } from 'node:sqlite';
 // at a throwaway DATA_DIR *before* any server import; the spawned API server
 // below uses its own dedicated directory.
 // ---------------------------------------------------------------------------
-process.env.DATA_DIR = path.resolve('data', `test-run-issue-93-harness-${Date.now()}`);
+process.env.DATA_DIR = path.resolve(process.env.DATA_DIR || 'data', `test-run-issue-93-harness-${Date.now()}`);
 
 const abundanceModule = await import('../server/game/buildings.ts');
 const {
@@ -110,7 +110,7 @@ async function startTestServer(): Promise<ServerInstance> {
   const portAvailable = await isPortAvailable(TEST_PORT);
   assert.ok(portAvailable, `Port ${TEST_PORT} is not available for testing`);
 
-  const dataDir = path.resolve('data', `test-run-issue-93-${Date.now()}`);
+  const dataDir = path.resolve(process.env.DATA_DIR || 'data', `test-run-issue-93-${Date.now()}`);
   const nodeBinary = existsSync('/opt/magnate/.node22/bin/node')
     ? '/opt/magnate/.node22/bin/node'
     : process.execPath;
@@ -207,11 +207,23 @@ async function startProduction(cookie: string, buildingId: number, kind: number,
       body: JSON.stringify({ kind, amount })
     });
     lastStatus = res.status;
-    const body = await res.json() as { id?: number; amount?: number; error?: string };
-    if (res.status === 200 && typeof body.id === 'number') {
-      return { id: body.id, amount: Number(body.amount) };
+    const body = await res.json() as unknown;
+    if (res.status === 200 && Array.isArray(body)) {
+      const item = body.find((candidate): candidate is { id: number; kind: number; amount: number } =>
+        candidate !== null
+        && typeof candidate === 'object'
+        && 'id' in candidate
+        && typeof candidate.id === 'number'
+        && 'kind' in candidate
+        && candidate.kind === kind
+        && 'amount' in candidate
+        && typeof candidate.amount === 'number'
+      );
+      if (item) return { id: item.id, amount: item.amount };
     }
-    lastError = body.error ?? '';
+    lastError = body !== null && typeof body === 'object' && 'error' in body && typeof body.error === 'string'
+      ? body.error
+      : '';
     if (res.status === 400) {
       throw new Error(`Production start rejected: ${lastError}`);
     }
@@ -222,12 +234,12 @@ async function startProduction(cookie: string, buildingId: number, kind: number,
 }
 
 /** Collect a finished order, polling until its finish time lapses. */
-async function collectProduction(cookie: string, queueId: number): Promise<void> {
+async function collectProduction(cookie: string, buildingId: number): Promise<void> {
   const deadline = Date.now() + 30000;
   let lastStatus = 0;
   let lastError = '';
   while (Date.now() < deadline) {
-    const res = await fetch(`${BASE_URL}/api/v2/order/take/${queueId}/`, {
+    const res = await fetch(`${BASE_URL}/api/v2/order/take/${buildingId}/`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Cookie: cookie },
       body: JSON.stringify({})
@@ -359,11 +371,15 @@ async function runTests() {
       assert.equal(Number(row.original_abundance), 100, `Starter ${building.kind} must default to original_abundance 100`);
     }
     const groceryAbundance = await getAbundance(grocery.id);
-    assert.deepEqual(groceryAbundance, { abundance: 100, originalAbundance: 100 }, 'GET abundance endpoint reports 100/100 for non-extractors');
+    assert.deepEqual(groceryAbundance, { buildingId: grocery.id, abundance: 100, originalAbundance: 100 }, 'GET abundance endpoint reports the building identity and 100/100 for non-extractors');
 
     console.log('[3/4] Verifying extractor construction rolls a clamped abundance...');
     const mine = await constructBuilding(user.cookie, 'M', '2');
     const quarry = await constructBuilding(user.cookie, 'Q', '3');
+    // Construction is still in progress immediately after placement. Complete
+    // it explicitly so these production checks exercise abundance, not busy.
+    directDb.prepare('UPDATE buildings SET busy_until = ? WHERE id = ?')
+      .run(new Date(Date.now() - 1000).toISOString(), mine.id);
 
     const mineAbundance = await getAbundance(mine.id);
     assert.ok(mineAbundance.abundance >= 50 && mineAbundance.abundance <= 100, 'Constructed Mine abundance must be within [50, 100]');
@@ -399,17 +415,22 @@ async function runTests() {
       { abundance: 33.33, expectedOutput: Math.round(20 * 33.33 / 100) } // rounding point: 7
     ];
 
+    const scaledOutputs: number[] = [];
     for (const point of scalingPoints) {
       setAbundance(directDb, mine.id, point.abundance);
       const order = await startProduction(user.cookie, mine.id, 14, 20);
-      assert.equal(order.amount, point.expectedOutput,
-        `Queue item must persist the scaled output: round(20 * ${point.abundance} / 100) = ${point.expectedOutput}`);
-      await collectProduction(user.cookie, order.id);
+      const multiplierRow = directDb.prepare('SELECT production_output_multiplier FROM production_queues WHERE id = ?')
+        .get(order.id) as { production_output_multiplier: number };
+      const expectedOutput = Math.max(1, Math.round(point.expectedOutput * Number(multiplierRow.production_output_multiplier)));
+      assert.equal(order.amount, expectedOutput,
+        `Queue item must persist abundance-scaled output with its economy multiplier (${point.expectedOutput} × ${multiplierRow.production_output_multiplier})`);
+      scaledOutputs.push(expectedOutput);
+      await collectProduction(user.cookie, mine.id);
       const stored = directDb.prepare('SELECT amount FROM production_queues WHERE id = ?').get(order.id) as { amount: number };
-      assert.equal(Number(stored.amount), point.expectedOutput, 'Persisted queue amount stays the scaled output');
+      assert.equal(Number(stored.amount), expectedOutput, 'Persisted queue amount stays the scaled output');
     }
 
-    const mineralsTotal = scalingPoints.reduce((sum, p) => sum + p.expectedOutput, 0);
+    const mineralsTotal = scaledOutputs.reduce((sum, output) => sum + output, 0);
     assert.equal(warehouseAmount(directDb, user.companyId, 14), mineralsTotal,
       `Warehouse must hold exactly the ${mineralsTotal} scaled minerals delivered across all cycles`);
 
@@ -417,16 +438,19 @@ async function runTests() {
     setAbundance(directDb, farm.id, 50);
     const applesBefore = warehouseAmount(directDb, user.companyId, 3);
     const farmOrder = await startProduction(user.cookie, farm.id, 3, 20);
-    assert.equal(farmOrder.amount, 20, 'Farm output must NOT be scaled by abundance');
-    await collectProduction(user.cookie, farmOrder.id);
-    assert.equal(warehouseAmount(directDb, user.companyId, 3), applesBefore + 20,
-      'Farm delivers its full unscaled output of 20 apples');
+    const farmMultiplier = (directDb.prepare('SELECT production_output_multiplier FROM production_queues WHERE id = ?')
+      .get(farmOrder.id) as { production_output_multiplier: number }).production_output_multiplier;
+    const farmExpectedOutput = Math.max(1, Math.round(20 * farmMultiplier));
+    assert.equal(farmOrder.amount, farmExpectedOutput, 'Farm output uses the economy multiplier but not extractor abundance');
+    await collectProduction(user.cookie, farm.id);
+    assert.equal(warehouseAmount(directDb, user.companyId, 3), applesBefore + farmExpectedOutput,
+      'Farm delivers its economy-adjusted output without abundance scaling');
 
     const waterAfter = warehouseAmount(directDb, user.companyId, 1);
     const powerAfter = warehouseAmount(directDb, user.companyId, 2);
     const tomatoesAfter = warehouseAmount(directDb, user.companyId, 66);
     assert.ok(waterBefore - waterAfter > 0 && powerBefore - powerAfter > 0, 'Extractor ingredients are consumed for the base order');
-    assert.equal(tomatoesBefore - tomatoesAfter, 20, 'Farm control consumed its ingredients');
+    assert.equal(tomatoesBefore - tomatoesAfter, 20, 'Farm control consumed ingredients for its base amount');
 
     console.log('  -> Linear output scaling passed.\n');
 
@@ -437,21 +461,21 @@ async function runTests() {
 
     setAbundance(directDb, mine.id, 100, 100);
     const firstOrder = await startProduction(user.cookie, mine.id, 14, 20);
-    await collectProduction(user.cookie, firstOrder.id);
+    await collectProduction(user.cookie, mine.id);
     let row = directDb.prepare('SELECT abundance, original_abundance FROM buildings WHERE id = ?').get(mine.id) as { abundance: number; original_abundance: number };
     assert.ok(approxEqual(Number(row.abundance), 100 * (1 - ABUNDANCE_DECAY_PER_CYCLE), 1e-9),
       'One completed cycle decays abundance 100 -> 99.968');
     assert.equal(Number(row.original_abundance), 100, 'Decay must not touch original_abundance');
 
     const secondOrder = await startProduction(user.cookie, mine.id, 14, 20);
-    await collectProduction(user.cookie, secondOrder.id);
+    await collectProduction(user.cookie, mine.id);
     row = directDb.prepare('SELECT abundance, original_abundance FROM buildings WHERE id = ?').get(mine.id) as { abundance: number; original_abundance: number };
     assert.ok(approxEqual(Number(row.abundance), 100 * Math.pow(1 - ABUNDANCE_DECAY_PER_CYCLE, 2), 1e-9),
       'Decay compounds across cycles (100 -> 99.968 -> 99.936...)');
 
     const farmRowBefore = directDb.prepare('SELECT abundance FROM buildings WHERE id = ?').get(farm.id) as { abundance: number };
     const farmOrder2 = await startProduction(user.cookie, farm.id, 3, 20);
-    await collectProduction(user.cookie, farmOrder2.id);
+    await collectProduction(user.cookie, farm.id);
     const farmRowAfter = directDb.prepare('SELECT abundance FROM buildings WHERE id = ?').get(farm.id) as { abundance: number };
     assert.ok(approxEqual(Number(farmRowAfter.abundance), Number(farmRowBefore.abundance), 1e-9),
       'Non-extractor abundance is never decayed by production cycles');

@@ -9,16 +9,12 @@
  * 7. Redeem Bonus Code Endpoint (/api/v2/redeem-code/:playerId/)
  *
  * Usage:
- *   /opt/magnate/.node22/bin/node --experimental-strip-types tests/verify-issue-78-part1.test.ts
+ *   node --experimental-strip-types tests/verify-issue-78-part1.test.ts
  */
 import assert from 'node:assert/strict';
-import { spawn, type ChildProcess } from 'node:child_process';
-import { rmSync } from 'node:fs';
-import path from 'node:path';
+import { withTestServer, type TestServer } from './support/test-server.ts';
 
-const PORT = process.env.PORT || '3610';
-const baseUrl = `http://127.0.0.1:${PORT}`;
-const dataDir = path.resolve('data', `test-run-i78-part1-${Date.now()}`);
+let server: TestServer;
 
 interface ApiResult {
   status: number;
@@ -56,106 +52,24 @@ async function api(
   urlPath: string,
   body?: unknown
 ): Promise<ApiResult> {
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json'
-  };
-  if (cookie) {
-    headers['Cookie'] = cookie;
-  }
-
-  const response = await fetch(`${baseUrl}${urlPath}`, {
-    method,
-    headers,
-    body: body !== undefined ? JSON.stringify(body) : undefined
-  });
-
-  const text = await response.text();
-  let json: Record<string, unknown> | unknown[] | null = null;
-  try {
-    json = JSON.parse(text);
-  } catch {
-    // not json
-  }
-  return { status: response.status, headers: response.headers, json, text };
-}
-
-function waitUntilReachable(url: string, timeoutMs: number = 30000): Promise<void> {
-  const start = Date.now();
-  const { promise, resolve, reject } = Promise.withResolvers<void>();
-  const interval = setInterval(async () => {
-    try {
-      const res = await fetch(url);
-      if (res.status < 500) {
-        clearInterval(interval);
-        resolve();
-      }
-    } catch {
-      if (Date.now() - start > timeoutMs) {
-        clearInterval(interval);
-        reject(new Error(`Server unreachable at ${url} within ${timeoutMs}ms`));
-      }
-    }
-  }, 100);
-  return promise;
+  return server.request(method, urlPath, { cookie: cookie || undefined, body });
 }
 
 async function run(): Promise<void> {
-  console.log(`Launching test server on port ${PORT} with data dir ${dataDir}...`);
-  const nodeBinary = process.execPath.includes('.node22')
-    ? process.execPath
-    : '/opt/magnate/.node22/bin/node';
-
-  const child: ChildProcess = spawn(
-    nodeBinary,
-    ['--experimental-strip-types', 'server/index.ts'],
-    {
-      cwd: path.resolve(import.meta.dirname ?? '.', '..'),
-      env: {
-        ...process.env,
-        PORT: String(PORT),
-        DATA_DIR: dataDir,
-        SPEED_MULTIPLIER: '200'
-      },
-      stdio: ['ignore', 'ignore', 'pipe']
-    }
-  );
-
-  child.stderr?.on('data', chunk => {
-    const msg = chunk.toString();
-    if (!msg.includes('ExperimentalWarning')) {
-      process.stderr.write(`[server-3610] ${msg}`);
-    }
-  });
-
-  try {
-    await waitUntilReachable(`${baseUrl}/version/`, 30000);
-    console.log('Server is reachable. Running test suite...\n');
-
+  await withTestServer(async instance => {
+    server = instance;
     let cookie = '';
     let companyId = 0;
     let playerId = 0;
 
     await test('Setup: Register test company', async () => {
-      const email = `test_i78_p1_${Date.now()}@example.com`;
-      const res = await api(null, 'POST', '/api/v2/auth/email/connect/', {
-        email,
-        password: 'Password123!'
-      });
-      assert.equal(res.status, 200, `Register failed with status ${res.status}`);
-      const rawCookie = res.headers.getSetCookie?.() || [res.headers.get('set-cookie') || ''];
-      cookie = rawCookie.find(c => c.startsWith('sessionid='))?.split(';')[0] || '';
-      assert.ok(cookie, 'Missing sessionid cookie');
-
-      const authRes = await api(cookie, 'GET', '/api/v3/companies/auth-data/');
-      assert.equal(authRes.status, 200);
-      const authData = authRes.json as {
-        authCompany: { companyId: number; simBoosts: number; simboosts?: number };
-        authUser: { id: number };
-      };
-      companyId = authData.authCompany.companyId;
-      playerId = authData.authUser.id;
-      assert.ok(companyId > 0, 'Company ID not found');
-      assert.ok(playerId > 0, 'Player ID not found');
+      const account = await server.registerCompany('issue78part1');
+      cookie = account.cookie;
+      companyId = account.companyId;
+      playerId = account.playerId;
+      assert.equal((await api(null, 'GET', '/api/v2/analytics/player-base/')).status, 403);
+      assert.equal((await api(cookie, 'GET', '/api/v2/analytics/player-base/')).status, 403);
+      server.db.prepare('UPDATE players SET is_admin = 1 WHERE player_id = ?').run(playerId);
     });
 
     // 1. Analytics Endpoints: All must return [] (not {})
@@ -345,18 +259,7 @@ async function run(): Promise<void> {
       assert.equal(afterSB, beforeSB + 50, `Expected SimBoosts to increase by 50 (from ${beforeSB} to ${beforeSB + 50}), got ${afterSB}`);
     });
 
-  } finally {
-    console.log('\nTearing down test server...');
-    child.kill('SIGTERM');
-    const { promise, resolve } = Promise.withResolvers<void>();
-    setTimeout(resolve, 500);
-    await promise;
-    try {
-      rmSync(dataDir, { recursive: true, force: true });
-    } catch {
-      // ignore
-    }
-  }
+  }, { env: { SPEED_MULTIPLIER: '200' } });
 
   const passed = results.filter(r => r.passed).length;
   const failed = results.filter(r => !r.passed).length;

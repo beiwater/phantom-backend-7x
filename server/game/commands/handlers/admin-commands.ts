@@ -152,7 +152,7 @@ export const kickCommand: CommandDefinition = {
           SELECT player_id FROM companies WHERE company_id = ?
         )
       `).run(target.companyId);
-      kickedSessions += res.changes;
+      kickedSessions += Number(res.changes);
     }
 
     const names = targets.map(t => `${t.name} (ID:${t.companyId})`).join(', ');

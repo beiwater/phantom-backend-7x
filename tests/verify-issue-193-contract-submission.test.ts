@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { withTestServer } from './support/test-server.ts';
 import { db } from '../server/db/database.ts';
 import { FixtureService } from '../server/services/fixture-service.ts';
 import { warehouseRepository } from '../server/repositories/warehouse-repository.ts';
@@ -145,3 +146,31 @@ const selfRes = await dispatchMarket('/api/v2/market-order/', 'POST', sender.com
 assert.ok(selfRes.status >= 400);
 
 console.log('PASS contract submission via market-order creates contract atomically and handles errors (#193)');
+
+// #227: only the refund scenario is new; service/account/stock setup is shared.
+await withTestServer(async server => {
+  const seller = await server.registerCompany('contract-refund-seller');
+  const buyer = await server.registerCompany('contract-refund-buyer');
+  server.db.prepare('UPDATE companies SET level = 30 WHERE company_id IN (?, ?)').run(seller.companyId, buyer.companyId);
+  for (const action of ['cancel', 'reject']) {
+    server.setStock(seller.companyId, 2, 100, 50);
+    const sent = await server.request<{ id: number }>('POST', '/api/v2/contracts/', {
+      cookie: seller.cookie, body: { recipient: buyer.companyId, kind: 2, quality: 0, amount: 25, price: 1 }
+    });
+    assert.equal(sent.status, 200, sent.text);
+    const balance = () => server.db.prepare('SELECT amount, cost_market FROM warehouse WHERE company_id = ? AND kind = 2 AND quality = 0').get(seller.companyId);
+    assert.equal(balance()?.amount, 75);
+    const method = action === 'cancel' ? 'DELETE' : 'POST';
+    const url = `/api/v2/contracts/${sent.json.id}/${action === 'reject' ? 'reject/' : ''}`;
+    const cookie = action === 'cancel' ? seller.cookie : buyer.cookie;
+    const refunded = await server.request(method, url, { cookie });
+    assert.equal(refunded.status, 200, refunded.text);
+    assert.equal(balance()?.amount, 100);
+    assert.equal(balance()?.cost_market, 50, 'refund restores original $50 unit valuation, independent of the $1 contract price');
+    const repeated = await server.request(method, url, { cookie });
+    assert.ok(repeated.status >= 400, 'settled contract cannot refund twice');
+    assert.equal(balance()?.amount, 100);
+    assert.equal(balance()?.cost_market, 50);
+  }
+  console.log('PASS contract cancel/reject restore quantity and original valuation idempotently (#227)');
+});

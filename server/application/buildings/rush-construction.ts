@@ -1,6 +1,6 @@
 /**
  * RushBuildingConstruction use case (Issue #105 Phase 2 / Issue #104 Stage 1).
- * Single authoritative implementation of paying 5 SimBoosts to instantly
+ * Single authoritative implementation of paying by remaining time to instantly
  * finish an in-progress construction or upgrade. SimBoost debit and the
  * building free happen inside ONE transaction (Issue #68).
  */
@@ -12,6 +12,7 @@ import { companyRepository } from '../../repositories/company-repository.ts';
 import { eventBus } from '../../events/event-bus.ts';
 import { NotFoundError, ForbiddenError, ValidationError } from '../../errors/domain-error.ts';
 import { recordSimboostSpend } from '../social/simboost-history.ts';
+import { productionRepository } from '../../repositories/production-repository.ts';
 
 export interface RushConstructionInput {
   buildingId: number;
@@ -27,8 +28,6 @@ export async function rushBuildingConstructionUseCase(
   ctx: GameContext,
   input: RushConstructionInput
 ): Promise<RushConstructionResult> {
-  const cost = input.simboostsCost ?? 5;
-
   return runInTransaction(async txCtx => {
     const building = buildingRepository.findById(input.buildingId);
     if (!building) {
@@ -42,6 +41,11 @@ export async function rushBuildingConstructionUseCase(
     if (busyUntilMs <= virtualClock.nowMs()) {
       throw new ValidationError('Building is not under construction or upgrade');
     }
+    if (productionRepository.findActiveByBuilding(building.id, ctx.companyId).length > 0) {
+      throw new ValidationError('Use production rush for an active production order');
+    }
+    const remainingSec = Math.ceil((busyUntilMs - virtualClock.nowMs()) / 1000);
+    const cost = input.simboostsCost ?? Math.max(1, Math.ceil(remainingSec / 360));
 
     const simboostsRemaining = companyRepository.debitSimboosts(ctx.companyId, cost);
     recordSimboostSpend(ctx.companyId, 'RUSH_CONSTRUCTION', cost);

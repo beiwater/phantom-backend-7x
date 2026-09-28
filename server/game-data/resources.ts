@@ -166,6 +166,8 @@ export interface AccumulatorResourceMechanic {
 }
 
 export interface ResourceDef {
+  name?: string;
+  cost?: number;
   dbLetter: number;
   producedAt?: string;
   producedFrom?: Record<string, number>;

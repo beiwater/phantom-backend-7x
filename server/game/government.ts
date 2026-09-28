@@ -280,6 +280,7 @@ function mapGovernmentOrderRow(row: GovernmentOrderDbRow): GovernmentOrderTempla
   const resources: GovernmentRequiredResource[] = rawResources.map((r, idx) => ({
     id: Number(r.id) || idx + 1,
     kind: Number(r.kind) || 1,
+    name: getResourceName(Number(r.kind) || 1),
     quality: Number(r.quality) || 0,
     amountBase: Number(r.amountBase) || 100,
     targetAmount: Number(r.targetAmount) || Number(r.amountBase) || 100,
@@ -294,7 +295,7 @@ function mapGovernmentOrderRow(row: GovernmentOrderDbRow): GovernmentOrderTempla
   const startDate = !isNaN(startParsed) ? new Date(startParsed).toISOString() : created;
   const startMs = !isNaN(startParsed) ? startParsed : (!isNaN(createdParsed) ? createdParsed : nowMs);
   const daysToFulfill = Number(row.days_to_fulfill) || projectDef?.days || 7;
-  let deadline = row.deadline;
+  let deadline = row.deadline ?? undefined;
   const deadlineParsed = Date.parse(deadline || '');
   if (isNaN(deadlineParsed)) {
     deadline = new Date(startMs + daysToFulfill * 24 * 60 * 60 * 1000).toISOString();
@@ -453,7 +454,7 @@ function buildBidApplication(bidRow: GovernmentBidDbRow): GovernmentBidApplicati
         }
       }));
 
-  const allFulfilled = bidderSet.length >= bidRow.maxContractorCount && bidderSet.every(b => b.fulfilled);
+  const allFulfilled = bidderSet.length >= bidRow.max_contractors && bidderSet.every(b => b.fulfilled);
   const status = allFulfilled ? 'FULFILLED' : (bidRow.status || 'OPEN');
 
   return {

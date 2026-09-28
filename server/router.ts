@@ -389,6 +389,7 @@ interface ProbeResponseLike {
   writeHead(code: number, headers?: Record<string, string>): unknown;
   end(body?: unknown): unknown;
   setHeader(name: string, value: string): unknown;
+  getHeader(name: string): unknown;
 }
 
 /**

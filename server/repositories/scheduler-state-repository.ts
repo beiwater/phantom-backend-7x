@@ -153,7 +153,10 @@ export class SchedulerStateRepository {
       effectiveStartAt = new Date(new Date(current.start_at).getTime() + 1).toISOString();
     }
 
-    this.database.exec('BEGIN IMMEDIATE');
+    // This can run during a larger game or scheduler transaction (for example,
+    // the first economy read inside a retail mutation). A savepoint keeps the
+    // phase history atomic without attempting a nested BEGIN on the connection.
+    this.database.exec('SAVEPOINT upsert_economy_phase');
     try {
       if (current && startsNewInterval) {
         this.database.prepare(
@@ -190,10 +193,11 @@ export class SchedulerStateRepository {
           phase_ends_at = NULL,
           source = excluded.source
       `).run(realmId, state, updatedAtIso, updatedAtIso, source, startsNewInterval ? 1 : 0);
-      this.database.exec('COMMIT');
+      this.database.exec('RELEASE SAVEPOINT upsert_economy_phase');
     } catch (err) {
       try {
-        this.database.exec('ROLLBACK');
+        this.database.exec('ROLLBACK TO SAVEPOINT upsert_economy_phase');
+        this.database.exec('RELEASE SAVEPOINT upsert_economy_phase');
       } catch {
         // Preserve the original transition error.
       }

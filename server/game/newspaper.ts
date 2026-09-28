@@ -1,9 +1,10 @@
 import { db } from '../db/database.ts';
+import type { SQLOutputValue } from 'node:sqlite';
 import { virtualClock } from '../core/virtual-clock.ts';
 import { getCompanyById, updateCompanySimBoosts, type CompanyRow } from './company.ts';
 import { DomainError, NotFoundError, UnauthorizedError } from '../errors/domain-error.ts';
 
-export interface NewspaperIssueDbRow {
+export interface NewspaperIssueDbRow extends Record<string, SQLOutputValue> {
   id: number;
   issue_id: number;
   realm_id: number;
@@ -11,7 +12,7 @@ export interface NewspaperIssueDbRow {
   created_at: string;
 }
 
-export interface NewspaperArticleDbRow {
+export interface NewspaperArticleDbRow extends Record<string, SQLOutputValue> {
   id: number;
   newspaper_id: number;
   realm_id: number;
@@ -32,7 +33,7 @@ export interface NewspaperArticleDbRow {
   created_at: string;
 }
 
-export interface NewspaperSponsorDbRow {
+export interface NewspaperSponsorDbRow extends Record<string, SQLOutputValue> {
   id: number;
   newspaper_id: number;
   position: number;

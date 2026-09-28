@@ -22,6 +22,7 @@
  *         exactly 64 chars and persists them.
  */
 import assert from 'node:assert/strict';
+import { CONFIG } from '../server/config.ts';
 
 const baseUrl = process.env.BASE_URL || `http://127.0.0.1:${process.env.PORT || '3403'}`;
 
@@ -311,7 +312,7 @@ async function main(): Promise<void> {
     const auth = await authCompany(cookie);
     assert.equal(
       auth.simBoosts,
-      250 + mintedBoosts,
+      CONFIG.INITIAL_SIMBOOSTS + mintedBoosts,
       `boost balance must reflect exactly the ${grants} capped grants`
     );
 

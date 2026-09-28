@@ -1,5 +1,6 @@
 import { db } from '../db/database.ts';
 import { virtualClock } from '../core/virtual-clock.ts';
+import { runInTransaction } from '../db/transaction.ts';
 import { updateCompanyMoney, getCompanyById } from './company.ts';
 
 // Assumption: a company may hold active loan principal up to 2x its level * 50000
@@ -126,7 +127,7 @@ export function repayLoan(companyId: number, loanId: number, amount: number) {
 
 // Overdue loans are settled by an explicit scheduler or mutation path, never by
 // a read helper. This keeps GET requests side-effect free.
-export function settleDueLoans(companyId?: number) {
+export async function settleDueLoans(companyId?: number): Promise<void> {
   ensureTable();
   const now = virtualClock.nowIso();
   const rows = (companyId !== undefined
@@ -139,25 +140,31 @@ export function settleDueLoans(companyId?: number) {
   ) as unknown as LoanRow[];
 
   for (const loan of rows) {
-    if ((Number(loan.remaining) || 0) <= 0) {
-      db.prepare(`UPDATE loans SET status = 'repaid' WHERE id = ?`).run(loan.id);
-      continue;
-    }
-    const comp = getCompanyById(loan.company_id);
-    const owed = Number(loan.remaining) || 0;
-    const affordable = comp ? Math.min(owed, Number(comp.money) || 0) : 0;
-    const rate = Number(loan.interest_rate) || DEFAULT_INTEREST_RATE;
-    const nextDue = new Date(
-      new Date(loan.due_at).getTime() + LOAN_TERM_DAYS * 24 * 60 * 60 * 1000
-    ).toISOString();
-    db.prepare('BEGIN IMMEDIATE').run();
     try {
-      if (affordable > 0) updateCompanyMoney(loan.company_id, -affordable);
-      const newRemaining = owed - affordable + owed * rate;
-      db.prepare('UPDATE loans SET remaining = ?, due_at = ? WHERE id = ?').run(newRemaining, nextDue, loan.id);
-      db.prepare('COMMIT').run();
+      await runInTransaction(() => {
+        const current = db.prepare('SELECT * FROM loans WHERE id = ?').get(loan.id) as LoanRow | undefined;
+        if (!current || current.status !== 'active' || current.due_at > now) return;
+
+        const owed = Number(current.remaining) || 0;
+        if (owed <= 0) {
+          db.prepare(`UPDATE loans SET status = 'repaid' WHERE id = ?`).run(current.id);
+          return;
+        }
+
+        const comp = getCompanyById(current.company_id);
+        const affordable = comp ? Math.min(owed, Number(comp.money) || 0) : 0;
+        const rate = Number(current.interest_rate) || DEFAULT_INTEREST_RATE;
+        const nextDue = new Date(
+          new Date(current.due_at).getTime() + LOAN_TERM_DAYS * 24 * 60 * 60 * 1000
+        ).toISOString();
+        if (affordable > 0) updateCompanyMoney(current.company_id, -affordable);
+        const newRemaining = Math.max(0, (owed - affordable) * (1 + rate));
+        const status = newRemaining <= 0 ? 'repaid' : 'active';
+        db.prepare('UPDATE loans SET remaining = ?, due_at = ?, status = ? WHERE id = ?')
+          .run(newRemaining, nextDue, status, current.id);
+      }, { immediate: true });
     } catch {
-      db.prepare('ROLLBACK').run();
+      // One malformed loan must not prevent other overdue loans from settling.
     }
   }
 }

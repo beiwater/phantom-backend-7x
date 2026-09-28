@@ -3,7 +3,7 @@ import { virtualClock } from '../../core/virtual-clock.ts';
 import { runInTransaction } from '../../db/transaction.ts';
 import { buildingRepository, type BuildingEntity } from '../../repositories/building-repository.ts';
 import { companyRepository } from '../../repositories/company-repository.ts';
-import { warehouseRepository } from '../../repositories/warehouse-repository.ts';
+import { aggregateResourceCostSnapshots, warehouseRepository, type ResourceTransactionEntity } from '../../repositories/warehouse-repository.ts';
 import { eventBus } from '../../events/event-bus.ts';
 import {
   estimateUpgradeCost,
@@ -51,6 +51,13 @@ export async function upgradeBuildingUseCase(
     // Issue #96: a robotized building cannot be upgraded or downgraded until
     // the robots are uninstalled (400 ROBOTICS_LOCKED).
     assertNotRoboticsLocked(building);
+    // Issue #213: production scales with size, but the client defines levels
+    // only through 15 (Academy level 20).
+    const maxSize = building.kind === 'y' ? 20 : 15;
+    const newSize = building.size + sizeDelta;
+    if (newSize > maxSize) {
+      throw new ValidationError(`Building level must be between 1 and ${maxSize}`);
+    }
     // 2. Calculate costs & required materials.
     // Issue #94: upgrade materials scale with the building's CURRENT size —
     // qp[resourceId] * costUnits * currentSize — not with the size delta.
@@ -61,8 +68,9 @@ export async function upgradeBuildingUseCase(
 
     // 4. Consume materials atomically
     const consumedList: Array<{ kind: number; quality: number; amount: number }> = [];
+    const materialTransactions: ResourceTransactionEntity[] = [];
     for (const mat of materials) {
-      warehouseRepository.consumeExact(ctx.companyId, mat.kind, 0, mat.amount);
+      materialTransactions.push(...warehouseRepository.consumeExact(ctx.companyId, mat.kind, 0, mat.amount));
       consumedList.push({
         kind: mat.kind,
         quality: 0,
@@ -71,14 +79,22 @@ export async function upgradeBuildingUseCase(
     }
 
     // 5. Update building size and busy state
-    const newSize = building.size + sizeDelta;
     const mode = FixtureService.getActiveConstructionTimeMode();
     const speedMultiplier = FixtureService.getConstructionSpeedMultiplier();
     const durationSeconds = calculateConstructionDurationSeconds(building.kind, sizeDelta, mode, speedMultiplier);
     const busyUntil = new Date(virtualClock.nowMs() + durationSeconds * 1000).toISOString();
-    const updatedBuilding = buildingRepository.updateSize(building.id, ctx.companyId, newSize);
+    buildingRepository.updateSize(building.id, ctx.companyId, newSize);
+    const withMaterialSnapshot = buildingRepository.appendConstructionMaterialCostSnapshot(
+      building.id,
+      ctx.companyId,
+      {
+        sizeBefore: building.size,
+        sizeAfter: newSize,
+        materials: aggregateResourceCostSnapshots(materialTransactions)
+      }
+    );
     buildingRepository.updateBusyUntil(building.id, ctx.companyId, busyUntil);
-    const finalizedBuilding = { ...updatedBuilding, busyUntil };
+    const finalizedBuilding = { ...withMaterialSnapshot, busyUntil };
 
     // 6. Publish domain event on transaction commit
     eventBus.publishCommitted(txCtx, 'BuildingUpgraded', {

@@ -21,48 +21,16 @@
  * Run: PORT=3604 node --experimental-strip-types tests/verify-issue-47-31-rest.test.ts
  */
 import assert from 'node:assert/strict';
-import { DatabaseSync } from 'node:sqlite';
-import path from 'node:path';
+import { withTestServer, type TestServer } from './support/test-server.ts';
 
-const baseUrl = process.env.BASE_URL || `http://127.0.0.1:${process.env.PORT || '3604'}`;
-
-
-const send = async (method: string, p: string, body?: unknown, cookie?: string) => {
-  const res = await fetch(`${baseUrl}${p}`, {
-    method,
-    headers: { 'Content-Type': 'application/json', ...(cookie ? { Cookie: cookie } : {}) },
-    body: body === undefined ? undefined : JSON.stringify(body)
-  });
-  let json: unknown = null;
-  try { json = await res.json(); } catch { /* empty body */ }
-  return { status: res.status, json };
-};
-
-async function register(label: string): Promise<{ cookie: string; companyId: number }> {
-  const email = `i4731_${label}_${Date.now()}_${Math.floor(Math.random() * 1e6)}@domain.local`;
-  const res = await fetch(`${baseUrl}/api/v2/auth/email/connect/`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password: 'Password123!', company: `Issue4731 Co ${label} ${Date.now()}` })
-  });
-  assert.equal(res.status, 200, `signup must succeed, got ${res.status}`);
-  const cookie = (res.headers.getSetCookie?.() || [])
-    .find(c => c.startsWith('sessionid='))?.split(';')[0];
-  assert.ok(cookie, 'signup must set sessionid cookie');
-  const auth = await (await fetch(`${baseUrl}/api/v3/companies/auth-data/`, { headers: { Cookie: cookie! } })).json() as { authCompany: AuthCompany };
-  return { cookie: cookie!, companyId: auth.authCompany.companyId };
-}
-
-/** Open the shared game DB read-only for orphan-row assertions. */
-function openDb(): DatabaseSync {
-  const dbPath = process.env.DATA_DIR
-    ? path.join(process.env.DATA_DIR, 'simcompanies.sqlite')
-    : path.join(process.cwd(), 'data', 'simcompanies.sqlite');
-  return new DatabaseSync(dbPath, { readOnly: true });
-}
+let server: TestServer;
+const send = (method: string, url: string, body?: unknown, cookie?: string) => server.request(method, url, {cookie, body});
+const register = (label: string) => server.registerCompany(label);
 
 async function main(): Promise<void> {
-  const db = openDb();
+  await withTestServer(async instance => {
+    server = instance;
+    const db = server.db;
 
   // ------------------------------------------------------------------
   // Issue #47-①: start production during construction busy → 409
@@ -85,7 +53,7 @@ async function main(): Promise<void> {
     assert.equal(queueItems.length, 0, 'rejected production start must not create a queue row');
 
     // After the busy window the same request succeeds.
-    await new Promise(r => setTimeout(r, 11000));
+    db.prepare('UPDATE buildings SET busy_until = ? WHERE id = ?').run(new Date(Date.now() - 1000).toISOString(), buildingId);
     const after = await send('POST', `/api/v1/buildings/${buildingId}/busy/`, { kind: 66, amount: 100 }, cookie);
     assert.equal(after.status, 200, `production must start after construction completes, got ${after.status}: ${JSON.stringify(after.json)}`);
     console.log('PASS #47: production during construction busy → 409; allowed after completion');
@@ -105,7 +73,7 @@ async function main(): Promise<void> {
       `upgrade during construction busy must be 409, got ${repeat.status}: ${JSON.stringify(repeat.json)}`);
 
     // Upgrade after completion works and re-arms the busy window.
-    await new Promise(r => setTimeout(r, 11000));
+    db.prepare('UPDATE buildings SET busy_until = ? WHERE id = ?').run(new Date(Date.now() - 1000).toISOString(), buildingId);
     const upgrade = await send('PATCH', `/api/v2/companies/me/buildings/${buildingId}/`, { size: 2 }, cookie);
     assert.equal(upgrade.status, 200, `upgrade after busy must succeed, got ${upgrade.status}`);
     const upgradedId = ((upgrade.json as { building?: { id: number } }).building?.id) ?? buildingId;
@@ -161,7 +129,7 @@ async function main(): Promise<void> {
     console.log('PASS #31: replace with active queue → 409; after cancel → 200 and no orphan rows');
   }
 
-  db.close();
+  }, { env: { SPEED_MULTIPLIER: '200' } });
   console.log('\nALL Issue #47/#31 rest regressions PASS');
 }
 

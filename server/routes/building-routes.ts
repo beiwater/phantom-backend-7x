@@ -556,6 +556,7 @@ export function registerBuildingRoutes(registry: RouteRegistry = globalRouteRegi
     pattern: '/api/v2/companies/buildings/:id/prospect/',
     auth: 'company',
     handler: async (_req, res, ctx, params) => {
+      if (!ctx) throw new UnauthorizedError();
       const buildingId = Number(params.id);
       const building = buildingRepository.findById(buildingId);
       if (!building) {

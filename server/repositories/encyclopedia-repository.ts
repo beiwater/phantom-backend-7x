@@ -1,4 +1,4 @@
-import type { DatabaseSync } from 'node:sqlite';
+import type { DatabaseSync, SQLOutputValue } from 'node:sqlite';
 import { db } from '../db/connection.ts';
 
 export interface ResourceProductionModifier {
@@ -10,7 +10,7 @@ export interface ResourceProductionModifier {
   until: string;
 }
 
-interface ResourceProductionModifierDbRow {
+interface ResourceProductionModifierDbRow extends Record<string, SQLOutputValue> {
   id: number;
   realm_id: number;
   kind: number;

@@ -22,7 +22,6 @@ import { rocketKindForLaunchRequest } from '../../game/aerospace.ts';
 import {
   getLegacyRestaurantProperties,
   getRestaurantBusy,
-  resolveDueRestaurantRunsSync,
   type LegacyRestaurantProperties
 } from '../../application/restaurant/restaurant-use-cases.ts';
 
@@ -136,7 +135,8 @@ export function toSimCompaniesBuildingDTO(
       productionOutputMultiplier: activeQueue.productionOutputMultiplier,
       ...(isAccumulatorQueue
         ? {
-            category: 'nurturing',
+            // Original bundle Ai.NURTURING = 'n' (offset 1195968).
+            category: 'n',
             accumulator: {
               value: Number(activeQueue.amount) || 0,
               unitCost: finiteOr(activeQueue.cost, 0)
@@ -145,7 +145,6 @@ export function toSimCompaniesBuildingDTO(
         : {})
     };
   } else if (building.kind === 'r') {
-    resolveDueRestaurantRunsSync(building.id, building.companyId);
     const restaurantBusy = getRestaurantBusy(building.id);
     if (restaurantBusy) busyObj = restaurantBusy;
   } else if (isRetailBuilding) {

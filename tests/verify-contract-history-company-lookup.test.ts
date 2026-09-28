@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { db } from '../server/db/database.ts';
+import { FixtureService } from '../server/services/fixture-service.ts';
 import { handleAuthRoutes } from '../server/routes/auth-routes.ts';
 import { globalRouteRegistry } from '../server/http/route-registry.ts';
 import { handleContractRoutes } from '../server/routes/contract-routes.ts';
@@ -67,6 +68,12 @@ function slugForCompany(name: string): string {
 }
 
 async function runContractHistoryAndLookupTests(): Promise<void> {
+  for (const label of ['owner', 'other']) {
+    await FixtureService.applyScenario({
+      email: `contract-history-${label}@test.local`,
+      companyName: `Contract History ${label}`
+    });
+  }
   const companies = db.prepare(
     'SELECT company_id, realm_id, name FROM companies ORDER BY id ASC LIMIT 2'
   ).all() as unknown as CompanyRow[];

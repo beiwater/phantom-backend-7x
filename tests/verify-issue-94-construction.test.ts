@@ -77,7 +77,7 @@ async function startTestServer(): Promise<ServerInstance> {
   const portAvailable = await isPortAvailable(TEST_PORT);
   assert.ok(portAvailable, `Port ${TEST_PORT} is not available for testing`);
 
-  const dataDir = path.resolve('data', `test-run-construction-94-${Date.now()}`);
+  const dataDir = path.resolve(process.env.DATA_DIR || 'data', `test-run-construction-94-${Date.now()}`);
   const nodeBinary = existsSync('/opt/magnate/.node22/bin/node')
     ? '/opt/magnate/.node22/bin/node'
     : process.execPath;
@@ -307,6 +307,9 @@ async function runTests() {
       { 101: -56, 102: -770, 108: -224, 111: -14 },
       'second upgrade must withdraw exactly the currentSize-scaled amounts'
     );
+    // The real client cannot demolish a building while its upgrade is still
+    // running; finish that work before verifying the scrap refund behavior.
+    clearConstructionBusy(db, mineId);
     console.log('✅ Test 3 passed');
 
     // -------------------------------------------------------------------------

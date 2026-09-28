@@ -23,6 +23,7 @@ export interface CompanyRow {
   logo: string;
   personal_assistant: string;
   note: string;
+  created_at: string;
   extra_building_slots?: number;
   extra_executive_slots?: number;
   display_case_slots?: number;

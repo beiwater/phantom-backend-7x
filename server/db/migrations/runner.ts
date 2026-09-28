@@ -2115,6 +2115,86 @@ export const MIGRATIONS: MigrationDefinition[] = [
       db.exec('ALTER TABLE production_queues ADD COLUMN input_ingredients_json TEXT DEFAULT NULL');
     }
   },
+  {
+    version: 38,
+    name: '038_restore_core_uniqueness',
+    up: (db: DatabaseSync) => {
+      // The schema-authority consolidation omitted these integrity constraints.
+      // Validate existing data before adding indexes; never discard duplicate
+      // inventory or a player's building to make an upgrade succeed.
+      const constraints = [
+        { table: 'buildings', columns: 'company_id, position', where: "WHERE position <> 'l'" },
+        { table: 'warehouse', columns: 'company_id, kind, quality', where: '' },
+        { table: 'research', columns: 'company_id, discipline', where: '' },
+        { table: 'display_case', columns: 'company_id, slot', where: '' }
+      ];
+      for (const { table, columns, where } of constraints) {
+        const duplicate = db.prepare(
+          `SELECT COUNT(*) AS count FROM ${table} ${where} GROUP BY ${columns} HAVING COUNT(*) > 1 LIMIT 1`
+        ).get();
+        if (duplicate) {
+          throw new Error(`Duplicate ${table} (${columns}) rows prevent restoring uniqueness; reconcile the rows before retrying this migration`);
+        }
+      }
+      db.exec(`
+        DROP INDEX IF EXISTS uq_buildings_company_position;
+        DROP INDEX IF EXISTS uq_warehouse_company_kind_quality;
+        DROP INDEX IF EXISTS uq_research_company_discipline;
+        DROP INDEX IF EXISTS uq_display_case_company_slot;
+        CREATE UNIQUE INDEX uq_buildings_company_position ON buildings(company_id, position) WHERE position <> 'l';
+        CREATE UNIQUE INDEX uq_warehouse_company_kind_quality ON warehouse(company_id, kind, quality);
+        CREATE UNIQUE INDEX uq_research_company_discipline ON research(company_id, discipline);
+        CREATE UNIQUE INDEX uq_display_case_company_slot ON display_case(company_id, slot);
+      `);
+    }
+  },
+  {
+    version: 39,
+    name: '039_building_material_cost_snapshots',
+    up: (db: DatabaseSync) => {
+      // Preserve the original cost buckets of materials consumed by each
+      // construction/upgrade segment and the currently-installed robot batch.
+      // NULL remains an explicit legacy marker: historical cost cannot be
+      // reconstructed from the building's cash price alone.
+      db.exec(`
+        ALTER TABLE buildings ADD COLUMN construction_material_cost_snapshots_json TEXT DEFAULT NULL;
+        ALTER TABLE buildings ADD COLUMN robot_install_cost_snapshots_json TEXT DEFAULT NULL;
+      `);
+    }
+  },
+  {
+    version: 40,
+    name: '040_unique_active_executive_employment',
+    up: (db: DatabaseSync) => {
+      const duplicate = db.prepare(`
+        SELECT executive_id
+        FROM executive_employment_history
+        WHERE ended_at IS NULL
+        GROUP BY executive_id
+        HAVING COUNT(*) > 1
+        LIMIT 1
+      `).get() as { executive_id: number } | undefined;
+      if (duplicate) {
+        throw new Error(
+          `Executive ${duplicate.executive_id} has multiple active employment-history rows; reconcile before applying migration 40`
+        );
+      }
+      db.exec(`
+        CREATE UNIQUE INDEX IF NOT EXISTS uq_executive_employment_history_active
+          ON executive_employment_history(executive_id)
+          WHERE ended_at IS NULL;
+      `);
+    }
+  },
+  {
+    version: 41,
+    name: '041_contract_material_cost_snapshot',
+    up: (db: DatabaseSync) => {
+      // Keep original inventory valuation independent from the offered price.
+      // Existing contracts have no recoverable historical cost snapshot.
+      db.exec('ALTER TABLE contracts ADD COLUMN cost_snapshot TEXT DEFAULT NULL');
+    }
+  },
 ];
 
 export class MigrationRunner {

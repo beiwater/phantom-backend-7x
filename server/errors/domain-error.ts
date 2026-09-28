@@ -37,8 +37,8 @@ export class NotFoundError extends DomainError {
 }
 
 export class ConflictError extends DomainError {
-  constructor(message: string = 'Conflict') {
-    super(message, 409, 'CONFLICT');
+  constructor(message: string = 'Conflict', details?: unknown) {
+    super(message, 409, 'CONFLICT', details);
   }
 }
 

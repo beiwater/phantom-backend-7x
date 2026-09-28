@@ -21,8 +21,7 @@ import { warehouseRepository } from '../../repositories/warehouse-repository.ts'
 import { getResourceDef } from '../../game-data/resources.ts';
 import { recordCashLedger } from '../../game/cash-ledger.ts';
 import { virtualClock } from '../../core/virtual-clock.ts';
-
-const EXCHANGE_FEE_RATE = 0.04;
+import { computeExchangeFee } from '../../domain/market/market-rules.ts';
 
 export interface PlaceBuyOrderInput {
   kind: number;
@@ -109,6 +108,7 @@ export async function cancelBuyOrder(ctx: GameContext, orderId: number): Promise
     recordCashLedger({
       companyId: ctx.companyId,
       amount: refund,
+      category: 'w',
       description: `Buy order cancelled: refund of resource #${order.kind} bid`,
       descriptionKey: `cancelbuyorder-${order.kind}-${order.quantity}-${order.quality}`,
       details: { resource: order.kind, amount: order.quantity, price: order.price, quality: order.quality }
@@ -179,7 +179,7 @@ export async function sellToBids(ctx: GameContext, input: SellToBidInput): Promi
 
       const takeAmount = Math.min(bid.quantity, remaining);
       const proceeds = takeAmount * bid.price;
-      const fee = Math.round(proceeds * EXCHANGE_FEE_RATE * 100) / 100;
+      const fee = computeExchangeFee(takeAmount, bid.price);
 
       marketTradeRepository.closeOrReduceBuyOrder(bid.id, bid.quantity - takeAmount);
 
@@ -225,6 +225,7 @@ export async function sellToBids(ctx: GameContext, input: SellToBidInput): Promi
           buyerCompanyId: bid.buyerId,
           sellerCompanyId: ctx.companyId,
           kind,
+          quality,
           amount: takeAmount,
           price: bid.price,
           fee

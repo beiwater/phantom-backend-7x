@@ -1,9 +1,9 @@
 import { db } from '../db/database.ts';
 import { virtualClock } from '../core/virtual-clock.ts';
 import { runInTransaction } from '../db/transaction.ts';
-import { getBuildingById, type BuildingDbRow } from './buildings.ts';
+import { getBuildingById, type BuildingRow } from './buildings.ts';
 import { buildingRepository } from '../repositories/building-repository.ts';
-import { restaurantRepository } from '../repositories/restaurant-repository.ts';
+import { restaurantRepository, type RestaurantRunDbRow } from '../repositories/restaurant-repository.ts';
 import { warehouseRepository } from '../repositories/warehouse-repository.ts';
 import { updateCompanyMoney } from './company.ts';
 import { getResourceDef } from './constants.ts';
@@ -588,37 +588,6 @@ export function getLegacyRestaurantRun(run: RestaurantRun, properties: LegacyRes
   };
 }
 
-interface RestaurantRunDbRow {
-  id: number;
-  building_id: number;
-  company_id: number;
-  datetime: string;
-  rating: number;
-  new_rating: number | null;
-  rating_before: number | null;
-  rating_after: number | null;
-  rating_delta: number | null;
-  occupied: number | null;
-  capacity: number;
-  occupancy: number | null;
-  revenue: number | null;
-  cost: number;
-  profit: number | null;
-  menu_price: number | null;
-  review: string | null;
-  menu_json: string | null;
-  good_service: number | null;
-  is_luxury: number | null;
-  resolved: number;
-  cycle_start: string | null;
-  cycle_end: string | null;
-  prepared: number | null;
-  served: number | null;
-  spoiled: number | null;
-  food_cost: number | null;
-  wages: number | null;
-}
-
 function mapRunRow(row: RestaurantRunDbRow): RestaurantRun {
   const cycleStart = row.cycle_start || row.datetime;
   const cycleDurationMs = getRestaurantCycleSeconds() * 1000;
@@ -707,7 +676,7 @@ function canStartRestaurantCycle(buildingId: number, companyId: number): boolean
 }
 
 interface StartCycleResult {
-  building: BuildingDbRow | null;
+  building: BuildingRow | null;
   run: RestaurantRun;
   resourceTransactions: Array<{ kind: number; quality: number; amount: number }>;
   moneyUpdate: number;
@@ -774,12 +743,14 @@ function startRestaurantCycleInTransaction(buildingId: number, companyId: number
     wages
   ]);
   restaurantRepository.touchLastCycle(buildingId, cycleStart);
-  const run = mapRunRow(restaurantRepository.findRunRow(runId) as RestaurantRunDbRow);
+  const row = restaurantRepository.findRunRow(runId);
+  if (!row) throw new Error('Inserted restaurant run not found');
+  const run = mapRunRow(row);
   return { building: getBuildingById(buildingId), run, resourceTransactions, moneyUpdate: -cost };
 }
 
 function settleRestaurantRunInTransaction(runId: number, now: Date): { run: RestaurantRun; nextCycle: RestaurantRun | null; moneyUpdate: number } {
-  const row = restaurantRepository.findRunRow(runId) as RestaurantRunDbRow | undefined;
+  const row = restaurantRepository.findRunRow(runId);
   if (!row) throw new Error('Restaurant run not found');
   if (row.resolved) return { run: mapRunRow(row), nextCycle: null, moneyUpdate: 0 };
   const end = new Date(row.cycle_end || row.datetime).getTime();
@@ -831,11 +802,13 @@ function settleRestaurantRunInTransaction(runId: number, now: Date): { run: Rest
   });
   if (revenue !== 0) updateCompanyMoney(row.company_id, revenue);
   restaurantRepository.updateRatingOccupancy(row.building_id, newRating, demandOccupancy);
-  const resolved = mapRunRow(restaurantRepository.findRunRow(runId) as RestaurantRunDbRow);
+  const resolvedRow = restaurantRepository.findRunRow(runId);
+  if (!resolvedRow) throw new Error('Resolved restaurant run not found');
+  const resolved = mapRunRow(resolvedRow);
   let nextCycle: RestaurantRun | null = null;
   if (properties.keepOpen && canStartRestaurantCycle(row.building_id, row.company_id)) {
     try {
-      nextCycle = startRestaurantCycleInTransaction(row.building_id, row.company_id, new Date(end));
+      nextCycle = startRestaurantCycleInTransaction(row.building_id, row.company_id, new Date(end)).run;
     } catch {
       // A cycle can settle successfully even if the warehouse cannot fund the
       // following cycle. The restaurant remains open for a later retry.
@@ -848,20 +821,16 @@ export async function resolveRestaurantRun(runId: number, now: Date = virtualClo
   return runInTransaction(() => settleRestaurantRunInTransaction(runId, now), { immediate: true });
 }
 
-export function resolveDueRestaurantRunsSync(buildingId?: number, companyId?: number | null, now: Date = virtualClock.now()): void {
-  runInTransaction(() => {
+export async function resolveDueRestaurantRuns(buildingId?: number, companyId?: number | null, now: Date = virtualClock.now()): Promise<void> {
+  await runInTransaction(() => {
     for (const runId of restaurantRepository.listDueRunIds(now.toISOString(), buildingId, companyId)) {
       settleRestaurantRunInTransaction(runId, now);
     }
   }, { immediate: true });
 }
-
-export async function resolveDueRestaurantRuns(buildingId?: number, companyId?: number | null, now: Date = virtualClock.now()): Promise<void> {
-  resolveDueRestaurantRunsSync(buildingId, companyId, now);
-}
 export async function getRestaurantRuns(buildingId: number, companyId?: number | null): Promise<RestaurantRun[]> {
   await resolveDueRestaurantRuns(buildingId, companyId);
-  const rows = restaurantRepository.listRecentRunRows(buildingId, companyId) as RestaurantRunDbRow[];
+  const rows = restaurantRepository.listRecentRunRows(buildingId, companyId);
   return rows.map(mapRunRow);
 }
 
@@ -882,7 +851,7 @@ export async function updateRestaurantProperties(
     menuPrice: number;
   }>
 ): Promise<{
-  building: BuildingDbRow | null;
+  building: BuildingRow | null;
   restaurantProperties: RestaurantProperties;
   moneyUpdate: number;
   cycle: RestaurantRun | null;

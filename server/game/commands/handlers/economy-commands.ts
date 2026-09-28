@@ -114,7 +114,7 @@ export const economyCommand: CommandDefinition = {
         success: true,
         message: systemMsg,
         assistantReply: `${assistantMsg}\n§a${systemMsg}`,
-        data: current
+        data: { ...current }
       };
     }
 
@@ -126,11 +126,11 @@ export const economyCommand: CommandDefinition = {
         success: true,
         message: systemMsg,
         assistantReply: `${assistantMsg}\n§a${systemMsg}`,
-        data: rolled
+        data: { ...rolled }
       };
     }
 
-    let targetState = 'normal';
+    let targetState: 'normal' | 'boom' | 'recession' = 'normal';
     if (sub === 'boom' || sub === '繁荣' || sub === '景气') {
       targetState = 'boom';
     } else if (sub === 'recession' || sub === '萧条' || sub === '衰退') {
@@ -154,7 +154,7 @@ export const economyCommand: CommandDefinition = {
       success: true,
       message: systemMsg,
       assistantReply: `${assistantMsg}\n§a${systemMsg}`,
-      data: updated
+      data: { ...updated }
     };
   }
 };

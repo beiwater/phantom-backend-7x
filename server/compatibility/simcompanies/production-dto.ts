@@ -5,7 +5,7 @@ import type { ProductionQueueEntity } from '../../repositories/production-reposi
 import type { LevelInfoDTO } from '../../domain/leveling/level-rules.ts';
 import { getResourceDef, getResourceName } from '../../game-data/resources.ts';
 import { db as database } from '../../db/database.ts';
-import { toSimCompaniesBuildingDTO } from './building-dto.ts';
+import { toSimCompaniesBuildingDTO, type SimCompaniesBuildingDTO } from './building-dto.ts';
 import { rocketKindForLaunchRequest } from '../../game/aerospace.ts';
 import { virtualClock } from '../../core/virtual-clock.ts';
 import { finiteOr, computeFallbackUnitCost } from './dto-utils.ts';

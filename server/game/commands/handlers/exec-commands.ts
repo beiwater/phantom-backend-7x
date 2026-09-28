@@ -96,7 +96,7 @@ export const execCommand: CommandDefinition = {
       let totalFired = 0;
       for (const target of targets) {
         const res = db.prepare('DELETE FROM executives WHERE company_id = ? AND position = ?').run(target.companyId, posCode);
-        totalFired += res.changes;
+        totalFired += Number(res.changes);
       }
 
       const pTitle = POSITION_TITLES[posCode]?.title || posCode.toUpperCase();

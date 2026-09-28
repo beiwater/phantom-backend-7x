@@ -11,6 +11,7 @@ import {
   DEFAULT_DISCIPLINE,
   DISCIPLINE_BY_PRODUCED_AT,
   RESOURCE_TO_DISCIPLINE,
+  MAX_RESEARCH_QUALITY,
   getQualityFromPatents,
   getPatentsNeededForNextQuality,
   getDisciplineForResource,
@@ -24,6 +25,7 @@ export {
   DEFAULT_DISCIPLINE,
   DISCIPLINE_BY_PRODUCED_AT,
   RESOURCE_TO_DISCIPLINE,
+  MAX_RESEARCH_QUALITY,
   getQualityFromPatents,
   getPatentsNeededForNextQuality,
   getDisciplineForResource,
@@ -166,14 +168,17 @@ export async function applyResearch(companyId: number, discipline: number, point
   }
 
   return runInTransaction(async () => {
+    const existing = db.prepare(`
+      SELECT * FROM research WHERE company_id = ? AND discipline = ?
+    `).get(companyId, discipline) as unknown as ResearchRow | undefined;
+    if (getQualityFromPatents(Number(existing?.patents ?? 0)) >= MAX_RESEARCH_QUALITY) {
+      throw new Error(`Research discipline ${discipline} has reached the maximum quality`);
+    }
+
     const consumed = consumeResourceExactWithTransactions(companyId, researchKind, 0, pointsToApply);
     if (!consumed) {
       throw new Error(`Insufficient research resource #${researchKind}`);
     }
-
-    const existing = db.prepare(`
-      SELECT * FROM research WHERE company_id = ? AND discipline = ?
-    `).get(companyId, discipline) as unknown as ResearchRow | undefined;
 
     const currentPoints = Number(existing?.points || 0);
     const newPoints = currentPoints + pointsToApply;

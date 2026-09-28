@@ -249,7 +249,13 @@ export async function handleMarketRoutes(
           sendJson(res, { contract });
           return true;
         }
-        const result = await placeMarketOrder(ctx, body);
+        const result = await placeMarketOrder(ctx, {
+          resourceId: body.resourceId === undefined ? undefined : Number(body.resourceId),
+          kind: Number(body.kind),
+          price: Number(body.price),
+          quantity: Number(body.quantity ?? body.amount),
+          quality: Number(body.quality ?? 0)
+        });
         sendJson(res, result);
       } catch (err: unknown) {
         sendDomainError(res, err);

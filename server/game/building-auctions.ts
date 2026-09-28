@@ -529,7 +529,7 @@ export function withdrawBid(companyId: number, bidId: number): void {
   }, { immediate: true });
 }
 
-export function promoteAuction(companyId: number, auctionId: number): AuctionDTO {
+export async function promoteAuction(companyId: number, auctionId: number): Promise<AuctionDTO> {
   return runInTransaction(() => {
     const auction = getAuctionRow(auctionId);
     if (!auction || auction.status !== 'active') {

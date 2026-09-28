@@ -52,9 +52,14 @@ export class RequestBodyError extends Error {
   }
 }
 
-export function readJsonBody<T>(req: IncomingMessage): Promise<T> {
+export function readJsonBody<T = Record<string, unknown>>(req: IncomingMessage): Promise<T> {
   const preparsed = Reflect.get(req, PREPARSED_BODY);
-  if (preparsed !== undefined) return Promise.resolve(preparsed as T);
+  if (preparsed !== undefined) {
+    if (preparsed === null || typeof preparsed !== 'object' || Array.isArray(preparsed)) {
+      return Promise.reject(new RequestBodyError('Request body must be a JSON object', 400));
+    }
+    return Promise.resolve(preparsed as T);
+  }
   const contentLength = Number(req.headers['content-length']);
   return new Promise<T>((resolve, reject) => {
     if (Number.isFinite(contentLength) && contentLength > MAX_REQUEST_BODY_BYTES) {
@@ -105,7 +110,7 @@ export function readJsonBody<T>(req: IncomingMessage): Promise<T> {
 
         try {
           const parsed: unknown = JSON.parse(data);
-          if (parsed === null || typeof parsed !== 'object') {
+          if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
             fail(new RequestBodyError('Request body must be a JSON object', 400));
             return;
           }

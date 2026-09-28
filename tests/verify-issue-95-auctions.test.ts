@@ -27,7 +27,7 @@ import path from 'node:path';
 // Isolated environment MUST be configured before any server module import so
 // the test process shares the spawned server's dedicated SQLite DATA_DIR.
 const PORT = '3850';
-const DATA_DIR = path.resolve('data', `test-run-auction-${PORT}-${Date.now()}`);
+const DATA_DIR = path.resolve(process.env.DATA_DIR || 'data', `test-run-auction-${PORT}-${Date.now()}`);
 process.env.PORT = PORT;
 process.env.DATA_DIR = DATA_DIR;
 

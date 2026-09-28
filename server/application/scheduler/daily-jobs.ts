@@ -8,6 +8,7 @@
  * scheduler contains no formulas, no SQL, and no money movement.
  */
 import { db } from '../../db/database.ts';
+import { CONFIG } from '../../config.ts';
 import { runInTransaction } from '../../db/transaction.ts';
 import { bondRepository } from '../../repositories/bond-repository.ts';
 import { companyRepository } from '../../repositories/company-repository.ts';
@@ -16,6 +17,8 @@ import { schedulerStateRepository } from '../../repositories/scheduler-state-rep
 import { recordCashLedger } from '../../game/cash-ledger.ts';
 import { getAllResourceDefs } from '../../game-data/resources.ts';
 import { virtualClock } from '../../core/virtual-clock.ts';
+import { settleMaturedBondsUseCase } from '../finance/bond-use-cases.ts';
+import { settleDueLoans } from '../../game/loans.ts';
 
 import { grantCycleCertificates } from '../../game/certificates.ts';
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -93,7 +96,7 @@ export function chargeDailyBondInterest(): void {
  * Booked to cash ledger category 'a' (accounting).
  */
 export function chargeDailyAccountingOverhead(): void {
-  for (const comp of bondRepository.listCompanyCash()) {
+  for (const comp of companyRepository.listExecutivePayrolls()) {
     const companyId = comp.companyId;
     const stats = companyRepository.getAccountingOverheadStats(companyId);
 
@@ -141,6 +144,12 @@ export function chargeDailyAccountingOverhead(): void {
     });
     companyRepository.updateMoney(companyId, -paid, { skipLedger: true });
   }
+}
+
+/** Run maturity and overdue-loan settlements before daily cash charges. */
+export async function settleDailyFinance(): Promise<void> {
+  await settleMaturedBondsUseCase();
+  await settleDueLoans();
 }
 
 // --- 04:00 UTC: executive salaries ---
@@ -195,18 +204,18 @@ export function publishGovernmentOrders(occurrence: Date): void {
 // --- 13:00 UTC Monday: Government Orders award fulfillment ---
 
 export function bidTotalValue(
-  bid: { price_breakdown_json: string | null },
-  template: { required_resources_json: string; unit_compensation_price: number }
+  bid: { priceBreakdownJson: string | null },
+  template: { requiredResourcesJson: string; unitCompensationPrice: number }
 ): number {
   let prices: Record<string, number> = {};
   try {
-    prices = JSON.parse(bid.price_breakdown_json || '{}') || {};
+    prices = JSON.parse(bid.priceBreakdownJson || '{}') || {};
   } catch {
     prices = {};
   }
   let required: Array<Record<string, unknown>> = [];
   try {
-    required = JSON.parse(template.required_resources_json || '[]') || [];
+    required = JSON.parse(template.requiredResourcesJson || '[]') || [];
   } catch {
     required = [];
   }
@@ -216,7 +225,7 @@ export function bidTotalValue(
     const kind = String(entry.kind);
     const price = prices[kind] !== undefined
       ? Number(prices[kind])
-      : Number(template.unit_compensation_price) || 0;
+      : Number(template.unitCompensationPrice) || 0;
     total += amount * price;
   }
   return total;
@@ -252,7 +261,7 @@ export function awardGovernmentBids(occurrence: Date): void {
       governmentOrdersRepository.markBidRejected(bid.id);
       for (const contractor of governmentOrdersRepository.listDepositHolders(bid.secret)) {
         if (companyRepository.findById(contractor.companyId)) {
-          updateCompanyMoney(contractor.companyId, contractor.depositPaid);
+          companyRepository.updateMoney(contractor.companyId, contractor.depositPaid);
         }
         governmentOrdersRepository.forfeitDeposits(bid.secret, contractor.companyId);
       }
@@ -292,6 +301,14 @@ export {
 import { setEconomyPhase } from '../../game/economy-phase.ts';
 
 export function rollEconomyPhase(occurrence: Date, realmId?: number): void {
+  const randomSetting = db.prepare(
+    "SELECT value FROM company_settings WHERE company_id = 0 AND key = 'economy_random'"
+  ).get() as { value: string } | undefined;
+  const randomEnabled = randomSetting?.value
+    ? randomSetting.value === 'true'
+    : CONFIG.ECONOMY_RANDOM;
+  if (!randomEnabled) return;
+
   const realms = realmId === undefined
     ? schedulerStateRepository.listEconomyRealms()
     : [realmId];

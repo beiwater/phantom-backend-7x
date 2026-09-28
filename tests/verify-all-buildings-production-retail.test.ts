@@ -6,7 +6,7 @@ import { addResource } from '../server/game/warehouse.ts';
 
 const baseUrl = process.env.BASE_URL || `http://127.0.0.1:${process.env.PORT || '3100'}`;
 
-const rootDir = path.resolve('/home/ubuntu/phantom-backend-7x');
+const rootDir = path.resolve(import.meta.dirname, '..');
 const resPath = path.join(rootDir, 'server/data/constants/resources.json');
 const bldPath = path.join(rootDir, 'server/data/constants/buildings.json');
 const CANONICAL_RESOURCES = JSON.parse(fs.readFileSync(resPath, 'utf-8'));

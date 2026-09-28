@@ -1,4 +1,5 @@
 import { db } from '../db/database.ts';
+import type { SQLOutputValue } from 'node:sqlite';
 import { virtualClock } from '../core/virtual-clock.ts';
 import { getCompanyById, type CompanyRow } from './company.ts';
 import { getResourceDef } from '../game-data/resources.ts';
@@ -13,7 +14,7 @@ export interface CertificateKindDefinition {
   resourceKind: number | null;
 }
 
-export interface CertificateDbRow {
+export interface CertificateDbRow extends Record<string, SQLOutputValue> {
   id: number;
   realm_id: number;
   kind: number;
@@ -182,7 +183,7 @@ function mapCertificate(row: CertificateDbRow): CertificateAward {
       id: company?.company_id ?? Number(row.company_id),
       company: company?.name || row.company_name || `Company #${row.company_id}`,
       logo: company?.logo || '',
-      realmId: company?.realmId ?? Number(row.realm_id)
+      realmId: company?.realm_id ?? Number(row.realm_id)
     },
     yearStarted: row.year_started === null ? null : Number(row.year_started),
     resourceKind: row.resource_kind === null ? null : Number(row.resource_kind),

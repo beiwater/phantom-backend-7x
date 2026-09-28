@@ -75,7 +75,7 @@ export const paCommand: CommandDefinition = {
           success: true,
           message: text,
           assistantReply: `老板，${text}`,
-          data: res
+          data: { ...res }
         };
       }
 

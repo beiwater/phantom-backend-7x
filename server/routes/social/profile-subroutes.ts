@@ -105,18 +105,18 @@ export async function handleProfileSubroutes(
         return true;
       }
       const body = await readJsonBody<{ category?: string; emailNotifications?: Record<string, boolean>; popupNotifications?: Record<string, boolean>; pushNotifications?: Record<string, boolean> }>(req);
-      const category = String(body?.category ?? "");
-      if (!(CATEGORIES as readonly string[]).includes(category)) {
+      const category = CATEGORIES.find(value => value === body?.category);
+      if (!category) {
         sendJson(res, { error: "Unknown notification category" }, 400);
         return true;
       }
       const { category: _ignoredCategory, ...rest } = body ?? {};
       const flags = rest[category] ?? {};
-      const columnMap: Record<string, string> = {
+      const columnMap = {
         emailNotifications: 'email_json',
         popupNotifications: 'popup_json',
         pushNotifications: 'push_json'
-      };
+      } as const;
       const column = columnMap[category] ?? 'push_json';
       socialRepository.upsertNotificationPreferences(currentCompanyId, column, JSON.stringify(flags), virtualClock.nowIso());
       sendJson(res, loadRow());

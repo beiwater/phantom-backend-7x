@@ -241,7 +241,7 @@ const handled = await handleSocialRoutes(mock1.req, mock1.res, '/api/v2/message/
 assert.strictEqual(handled, true);
 await new Promise(r => setTimeout(r, 50));
 const resultJson = mock1.getResult().json;
-assert(resultJson.sender && resultJson.sender.company === '个人助理', 'Sender must be Personal Assistant');
+assert(resultJson.sender && resultJson.sender.company === 'Your Personal Assistant', 'Sender must be Personal Assistant');
 assert(resultJson.body && resultJson.body.includes('老板'), 'Assistant reply should start with secretary tone');
 assert(resultJson.commandResult && resultJson.commandResult.success, 'Command execution result must be true');
 

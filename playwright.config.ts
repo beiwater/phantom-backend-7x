@@ -6,6 +6,7 @@ const baseURL = process.env.E2E_BASE_URL ?? `http://127.0.0.1:${port}`;
 
 export default defineConfig({
   testDir: './tests/e2e',
+  globalSetup: './scripts/e2e/start-server.mjs',
   outputDir: 'test-results/playwright',
   fullyParallel: false,
   workers: 1,
@@ -30,16 +31,6 @@ export default defineConfig({
     launchOptions: {
       executablePath: findBrowserExecutable(),
       args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
-    },
-  },
-  webServer: {
-    command: 'node scripts/e2e/start-server.mjs',
-    url: `${baseURL}/zh-cn/`,
-    timeout: 120_000,
-    reuseExistingServer: false,
-    env: {
-      E2E_PORT: String(port),
-      E2E_DATA_DIR: '',
     },
   },
 });

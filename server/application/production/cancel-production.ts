@@ -3,11 +3,11 @@ import { virtualClock } from '../../core/virtual-clock.ts';
 import { runInTransaction } from '../../db/transaction.ts';
 import { buildingRepository, type BuildingEntity } from '../../repositories/building-repository.ts';
 import { productionRepository, type ProductionQueueEntity } from '../../repositories/production-repository.ts';
-import { warehouseRepository } from '../../repositories/warehouse-repository.ts';
+import { warehouseRepository, type CostBreakdown } from '../../repositories/warehouse-repository.ts';
 import { eventBus } from '../../events/event-bus.ts';
 import { NotFoundError, ForbiddenError, ValidationError } from '../../errors/domain-error.ts';
 import { validateProductionRequest } from '../../domain/production/production-rules.ts';
-import { rocketKindForLaunchAmount } from '../../game/aerospace.ts';
+import { cancelQueuedLaunch, rocketKindForLaunchAmount } from '../../game/aerospace.ts';
 
 export interface CancelProductionInput {
   buildingId: number;
@@ -24,6 +24,39 @@ export async function cancelProductionUseCase(
   ctx: GameContext,
   input: CancelProductionInput
 ): Promise<CancelProductionResult> {
+  // Launch cancellations share the aerospace transaction so the generic busy
+  // and queue DELETE routes preserve launch cost basis and re-chain later work.
+  const candidateBuilding = buildingRepository.findById(input.buildingId);
+  if (candidateBuilding?.companyId === ctx.companyId && candidateBuilding.kind === 'l') {
+    const candidate = input.queueId != null
+      ? productionRepository.findById(input.queueId)
+      : productionRepository.findLatestActiveByBuilding(candidateBuilding.id, ctx.companyId);
+    if (candidate
+      && candidate.buildingId === candidateBuilding.id
+      && candidate.companyId === ctx.companyId
+      && !candidate.resolved
+      && candidate.kind === 100
+      && rocketKindForLaunchAmount(Number(candidate.amount)) !== null) {
+      let cancellation: Awaited<ReturnType<typeof cancelQueuedLaunch>>;
+      try {
+        cancellation = await cancelQueuedLaunch(ctx.companyId, candidateBuilding.id, candidate.id);
+      } catch (error: unknown) {
+        throw new ValidationError(error instanceof Error ? error.message : String(error));
+      }
+      const updatedBuilding = buildingRepository.findById(candidateBuilding.id);
+      if (!updatedBuilding) {
+        throw new NotFoundError(`Building ${candidateBuilding.id} not found`);
+      }
+      const refundedIngredients = [
+        { kind: cancellation.refunded.rocketKind, amount: cancellation.refunded.amount, quality: 0 },
+        ...(cancellation.refunded.researchPoints > 0
+          ? [{ kind: 100, amount: cancellation.refunded.researchPoints, quality: 0 }]
+          : [])
+      ];
+      return { cancelledItem: candidate, building: updatedBuilding, refundedIngredients };
+    }
+  }
+
   return runInTransaction(async txCtx => {
     // 1. Validate building ownership
     const building = buildingRepository.findById(input.buildingId);
@@ -47,22 +80,13 @@ export async function cancelProductionUseCase(
     }
 
 
-    // Issue #170: a kind-100 order on a launch pad is a rocket launch.
-    // Refund the rocket + research instead of generic ingredients; finished
-    // launches must be collected (order/take) so the outcome logs exactly once.
-    const isLaunch = building.kind === 'l' && queueItem.kind === 100;
-    if (isLaunch && Date.parse(queueItem.finishesAt) <= virtualClock.nowMs()) {
-      throw new ValidationError('Launch has already finished and must be collected');
+    // A race may have inserted a launch after the pre-read above. Never let a
+    // generic refund path delete it without the aerospace pending/re-chain rules.
+    if (building.kind === 'l'
+      && queueItem.kind === 100
+      && rocketKindForLaunchAmount(Number(queueItem.amount)) !== null) {
+      throw new ValidationError('Launch state changed; retry cancellation');
     }
-    const launchRefunds = isLaunch
-      ? (() => {
-          const rocketKind = rocketKindForLaunchAmount(Number(queueItem.amount));
-          return rocketKind === null ? [] : [
-            { kind: rocketKind, quality: Number(queueItem.quality) || 0, amount: 1 },
-            { kind: 100, quality: 0, amount: queueItem.amount }
-          ];
-        })()
-      : null;
 
     // 3. Delete queue item
     const deleted = productionRepository.delete(queueItem.id, ctx.companyId);
@@ -73,12 +97,27 @@ export async function cancelProductionUseCase(
     // The original client promises cancellation refunds at Q0. The queue's
     // amount is modified output, so use the saved original recipe quantities;
     // legacy rows without a snapshot retain the prior recipe fallback.
-    const refundedIngredients = launchRefunds ?? (queueItem.inputIngredients
-      ?? validateProductionRequest(building.kind, queueItem.kind, queueItem.amount).ingredients)
-      .map(ingredient => ({ ...ingredient, quality: 0 }));
+    const cancellationInputs: Array<{ kind: number; amount: number; quality?: number; cost?: CostBreakdown | number }> = queueItem.inputIngredients
+      ?? validateProductionRequest(building.kind, queueItem.kind, queueItem.amount).ingredients;
+    const refundedIngredients = cancellationInputs
+      .map(ingredient => ({
+        ...ingredient,
+        // The original client restores cancellation inputs at Q0.
+        quality: 0
+      }));
 
-    for (const ing of refundedIngredients) {
-      warehouseRepository.addResource(ctx.companyId, ing.kind, ing.quality, ing.amount);
+    for (const [index, ing] of refundedIngredients.entries()) {
+      const sourceCost = cancellationInputs[index]?.cost;
+      const cost = typeof sourceCost === 'number'
+        ? { market: sourceCost }
+        : sourceCost ?? {};
+      warehouseRepository.addResource(
+        ctx.companyId,
+        ing.kind,
+        ing.quality,
+        ing.amount,
+        cost
+      );
     }
 
     // 5. Update building busy state
@@ -99,7 +138,7 @@ export async function cancelProductionUseCase(
     return {
       cancelledItem: queueItem,
       building: updatedBuilding,
-      refundedIngredients
+      refundedIngredients: refundedIngredients.map(({ kind, amount, quality }) => ({ kind, amount, quality }))
     };
   }, { immediate: true });
 }

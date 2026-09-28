@@ -22,7 +22,9 @@
  */
 import { db } from '../db/database.ts';
 import { runInTransaction } from '../db/transaction.ts';
+import { virtualClock } from '../core/virtual-clock.ts';
 import {
+  settleDailyFinance,
   chargeDailyBondInterest,
   chargeDailyAccountingOverhead,
   debitExecutiveSalaries,
@@ -71,7 +73,9 @@ export interface SchedulerTaskDefinition {
   minuteUtc: number;
   /** 0=Sunday … 6=Saturday. Omit for tasks that run every day. */
   daysOfWeek?: readonly number[];
-  run(occurrence: Date): void;
+  /** Tasks that manage their own database operation cannot join the scheduler transaction. */
+  transactional?: boolean;
+  run(occurrence: Date): void | Promise<void>;
 }
 
 export interface SchedulerTaskState {
@@ -214,7 +218,8 @@ export const SCHEDULED_TASKS: readonly SchedulerTaskDefinition[] = [
     description: 'Bond interest deduction + accounting overhead charge per company',
     hourUtc: 0,
     minuteUtc: 0,
-    run: () => {
+    run: async () => {
+      await settleDailyFinance();
       chargeDailyBondInterest();
       chargeDailyAccountingOverhead();
     }
@@ -224,6 +229,7 @@ export const SCHEDULED_TASKS: readonly SchedulerTaskDefinition[] = [
     description: 'Daily automated SQLite hot backup and checksum verification (Issue #148)',
     hourUtc: 3,
     minuteUtc: 0,
+    transactional: false,
     run: () => {
       backupEngine.createBackup({ retentionCount: 14 });
     }
@@ -286,21 +292,52 @@ export function isSchedulerRunning(): boolean {
  * Serialized through a promise queue so the heartbeat interval and an admin
  * tick can never interleave two runs.
  */
-const schedulerRunQueue: Promise<unknown> = Promise.resolve();
+let schedulerRunQueue: Promise<void> = Promise.resolve();
 
 export function runDueSchedulerTasks(
-  now: Date = new Date(),
+  now: Date = virtualClock.now(),
   taskNames?: readonly string[]
 ): Promise<SchedulerRunReport> {
-  return schedulerRunQueue.then(() => runDueSchedulerTasksInner(now, taskNames));
+  const run = schedulerRunQueue.then(() => runDueSchedulerTasksInner(now, taskNames));
+  schedulerRunQueue = run.then(() => undefined, () => undefined);
+  return run;
 }
 
+
+function scheduledOccurrencesAfter(
+  task: SchedulerTaskDefinition,
+  now: Date,
+  state: SchedulerTaskState | null
+): Date[] {
+  const latest = latestOccurrence(task, now);
+  if (!latest) return [];
+  if (!state?.lastScheduledForUtc) return [latest];
+
+  const markerMs = new Date(state.lastScheduledForUtc).getTime();
+  const retryingFailure = state.lastStatus === 'error';
+  const lookbackStart = now.getTime() - 8 * DAY_MS;
+  const firstAllowedMs = retryingFailure
+    ? markerMs
+    : Math.max(markerMs + 1, lookbackStart);
+  const firstDayMs = utcDayStartMs(new Date(firstAllowedMs));
+  const lastDayMs = utcDayStartMs(now);
+  const occurrences: Date[] = [];
+
+  for (let dayMs = firstDayMs; dayMs <= lastDayMs; dayMs += DAY_MS) {
+    if (task.daysOfWeek && !task.daysOfWeek.includes(new Date(dayMs).getUTCDay())) continue;
+    const occurrenceMs = scheduledMsOnDay(task, dayMs);
+    if (occurrenceMs >= firstAllowedMs && occurrenceMs <= now.getTime()) {
+      occurrences.push(new Date(occurrenceMs));
+    }
+  }
+  return occurrences;
+}
 
 async function runDueSchedulerTasksInner(
   now: Date,
   taskNames?: readonly string[]
 ): Promise<SchedulerRunReport> {
-  const report: SchedulerRunReport = { ranAt: now.toISOString(), results: [] };
+  const report: SchedulerRunReport = { ranAt: virtualClock.nowIso(), results: [] };
   const selected = taskNames
     ? SCHEDULED_TASKS.filter(task => taskNames.includes(task.name))
     : SCHEDULED_TASKS;
@@ -315,29 +352,45 @@ async function runDueSchedulerTasksInner(
   }
 
   for (const task of selected) {
-    const occurrence = latestOccurrence(task, now);
-    if (!occurrence) {
+    const latest = latestOccurrence(task, now);
+    if (!latest) {
       report.results.push({ task: task.name, occurrence: null, outcome: 'skipped-not-due' });
       continue;
     }
-    const occurrenceIso = occurrence.toISOString();
     const state = getSchedulerTaskState(task.name);
-    if (state?.lastScheduledForUtc && state.lastScheduledForUtc >= occurrenceIso) {
-      report.results.push({ task: task.name, occurrence: occurrenceIso, outcome: 'skipped-already-run' });
+    const occurrences = scheduledOccurrencesAfter(task, now, state);
+    if (occurrences.length === 0) {
+      const latestIso = latest.toISOString();
+      const alreadyRun = state?.lastStatus !== 'error'
+        && Boolean(state?.lastScheduledForUtc && state.lastScheduledForUtc >= latestIso);
+      report.results.push({
+        task: task.name,
+        occurrence: latestIso,
+        outcome: alreadyRun ? 'skipped-already-run' : 'skipped-not-due'
+      });
       continue;
     }
-    try {
-      await runInTransaction(() => {
-        task.run(occurrence);
-        markTaskRan(task.name, now, occurrenceIso, 'ok', null);
-      });
-      report.results.push({ task: task.name, occurrence: occurrenceIso, outcome: 'ran' });
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      // Record the failure outside the rolled-back domain transaction so the
-      // error is observable; the task will retry on the next tick.
-      await runInTransaction(() => markTaskRan(task.name, now, occurrenceIso, 'error', message));
-      report.results.push({ task: task.name, occurrence: occurrenceIso, outcome: 'error', error: message });
+
+    for (const occurrence of occurrences) {
+      const occurrenceIso = occurrence.toISOString();
+      try {
+        if (task.transactional === false) {
+          await task.run(occurrence);
+          await runInTransaction(() => markTaskRan(task.name, virtualClock.now(), occurrenceIso, 'ok', null));
+        } else {
+          await runInTransaction(async () => {
+            await task.run(occurrence);
+            markTaskRan(task.name, virtualClock.now(), occurrenceIso, 'ok', null);
+          });
+        }
+        report.results.push({ task: task.name, occurrence: occurrenceIso, outcome: 'ran' });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        // Persist the failed occurrence and retry it before any later one.
+        await runInTransaction(() => markTaskRan(task.name, virtualClock.now(), occurrenceIso, 'error', message));
+        report.results.push({ task: task.name, occurrence: occurrenceIso, outcome: 'error', error: message });
+        break;
+      }
     }
   }
   return report;
@@ -351,11 +404,11 @@ async function runDueSchedulerTasksInner(
 export function startScheduler(intervalMs: number = SCHEDULER_TICK_INTERVAL_MS): NodeJS.Timeout {
   if (schedulerTimer) return schedulerTimer;
   schedulerRunning = true;
-  runDueSchedulerTasks(new Date()).catch(err => {
+  runDueSchedulerTasks().catch(err => {
     console.error('[scheduler] boot catch-up failed:', err);
   });
   schedulerTimer = setInterval(() => {
-    runDueSchedulerTasks(new Date()).catch(err => {
+    runDueSchedulerTasks().catch(err => {
       console.error('[scheduler] tick failed:', err);
     });
   }, intervalMs);
@@ -373,7 +426,7 @@ export function stopScheduler(): void {
 
 // --- Observability payload (GET /api/v2/scheduler/state/) ---
 
-export function buildSchedulerStatePayload(now: Date = new Date()) {
+export function buildSchedulerStatePayload(now: Date = virtualClock.now()) {
   const states: Record<string, SchedulerTaskState> = {};
   for (const state of getSchedulerState()) states[state.taskName] = state;
   const saturationDate = db.prepare('SELECT MAX(date) AS latest FROM retail_saturation')

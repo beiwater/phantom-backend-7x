@@ -1,6 +1,7 @@
-import type { DatabaseSync } from 'node:sqlite';
+import type { DatabaseSync, SQLOutputValue } from 'node:sqlite';
 import { db } from '../db/connection.ts';
 import { NotFoundError } from '../errors/domain-error.ts';
+import type { ConstructionMaterialCostSegment, ResourceCostSnapshot } from './warehouse-repository.ts';
 
 export interface BuildingEntity {
   id: number;
@@ -19,41 +20,55 @@ export interface BuildingEntity {
   robotsQuality: number;
   /** Specialized product the robotized building is locked to (null = not robotized). */
   lockedProduct: number | null;
+  /** Per-construction/upgrade material quantities and their consumed cost buckets. */
+  constructionMaterialCostSnapshots: ConstructionMaterialCostSegment[];
+  /** Cost buckets of the installed robot inventory, or null for legacy/no snapshot. */
+  robotInstallCostSnapshots: ResourceCostSnapshot[] | null;
+  createdAt: string;
 }
 
 export interface BuildingDbRow {
-  id: number;
-  company_id: number;
-  position: string;
-  kind: string;
-  size: number;
-  name: string;
-  cost: number;
-  category: string;
-  busy_until: string | null;
-  upkeep_active: number | null;
-  robots_installed: number | null;
-  robots_quality: number | null;
-  locked_product: number | null;
-  created_at: string;
+  [column: string]: SQLOutputValue;
+  id: SQLOutputValue;
+  company_id: SQLOutputValue;
+  position: SQLOutputValue;
+  kind: SQLOutputValue;
+  size: SQLOutputValue;
+  name: SQLOutputValue;
+  cost: SQLOutputValue;
+  category: SQLOutputValue;
+  busy_until: SQLOutputValue;
+  upkeep_active: SQLOutputValue;
+  robots_installed: SQLOutputValue;
+  robots_quality: SQLOutputValue;
+  locked_product: SQLOutputValue;
+  construction_material_cost_snapshots_json: SQLOutputValue;
+  robot_install_cost_snapshots_json: SQLOutputValue;
+  created_at: SQLOutputValue;
 }
 
 function mapBuildingRow(row: BuildingDbRow): BuildingEntity {
   return {
-    id: row.id,
-    companyId: row.company_id,
-    position: row.position,
-    kind: row.kind,
-    size: row.size,
-    name: row.name,
-    cost: row.cost,
-    category: row.category,
-    busyUntil: row.busy_until,
+    id: Number(row.id),
+    companyId: Number(row.company_id),
+    position: String(row.position),
+    kind: String(row.kind),
+    size: Number(row.size),
+    name: String(row.name),
+    cost: Number(row.cost),
+    category: String(row.category),
+    busyUntil: row.busy_until === null ? null : String(row.busy_until),
     upkeepActive: !!Number(row.upkeep_active),
     robotsInstalled: Number(row.robots_installed) || 0,
     robotsQuality: Number(row.robots_quality) || 0,
     lockedProduct: row.locked_product === null || row.locked_product === undefined ? null : Number(row.locked_product),
-    createdAt: row.created_at
+    constructionMaterialCostSnapshots: row.construction_material_cost_snapshots_json === null
+      ? []
+      : JSON.parse(String(row.construction_material_cost_snapshots_json)) as ConstructionMaterialCostSegment[],
+    robotInstallCostSnapshots: row.robot_install_cost_snapshots_json === null
+      ? null
+      : JSON.parse(String(row.robot_install_cost_snapshots_json)) as ResourceCostSnapshot[],
+    createdAt: String(row.created_at)
   };
 }
 
@@ -94,9 +109,9 @@ export class BuildingRepository {
   countByCompany(companyId: number): number {
     const row = this.database.prepare(
       'SELECT COUNT(*) as count FROM buildings WHERE company_id = ?'
-    ).get(companyId) as { count: number };
+    ).get(companyId) as { count: SQLOutputValue };
 
-    return row.count;
+    return Number(row.count);
   }
 
   create(data: {
@@ -229,6 +244,53 @@ export class BuildingRepository {
     if (!result) {
       throw new NotFoundError(`Building with id ${buildingId} not found for company ${companyId}`);
     }
+    return mapBuildingRow(result);
+  }
+
+  appendConstructionMaterialCostSnapshot(
+    buildingId: number,
+    companyId: number,
+    segment: ConstructionMaterialCostSegment
+  ): BuildingEntity {
+    const row = this.database.prepare(`
+      SELECT construction_material_cost_snapshots_json FROM buildings
+      WHERE id = ? AND company_id = ?
+    `).get(buildingId, companyId) as { construction_material_cost_snapshots_json: SQLOutputValue } | undefined;
+    if (!row) throw new NotFoundError(`Building with id ${buildingId} not found for company ${companyId}`);
+    const previous = row.construction_material_cost_snapshots_json === null
+      ? []
+      : JSON.parse(String(row.construction_material_cost_snapshots_json)) as ConstructionMaterialCostSegment[];
+    const result = this.database.prepare(`
+      UPDATE buildings SET construction_material_cost_snapshots_json = ?
+      WHERE id = ? AND company_id = ? RETURNING *
+    `).get(JSON.stringify([...previous, segment]), buildingId, companyId) as BuildingDbRow | undefined;
+    if (!result) throw new NotFoundError(`Building with id ${buildingId} not found for company ${companyId}`);
+    return mapBuildingRow(result);
+  }
+
+  setConstructionMaterialCostSnapshots(
+    buildingId: number,
+    companyId: number,
+    snapshots: ConstructionMaterialCostSegment[]
+  ): BuildingEntity {
+    const result = this.database.prepare(`
+      UPDATE buildings SET construction_material_cost_snapshots_json = ?
+      WHERE id = ? AND company_id = ? RETURNING *
+    `).get(JSON.stringify(snapshots), buildingId, companyId) as BuildingDbRow | undefined;
+    if (!result) throw new NotFoundError(`Building with id ${buildingId} not found for company ${companyId}`);
+    return mapBuildingRow(result);
+  }
+
+  setRobotInstallCostSnapshots(
+    buildingId: number,
+    companyId: number,
+    snapshots: ResourceCostSnapshot[] | null
+  ): BuildingEntity {
+    const result = this.database.prepare(`
+      UPDATE buildings SET robot_install_cost_snapshots_json = ?
+      WHERE id = ? AND company_id = ? RETURNING *
+    `).get(snapshots === null ? null : JSON.stringify(snapshots), buildingId, companyId) as BuildingDbRow | undefined;
+    if (!result) throw new NotFoundError(`Building with id ${buildingId} not found for company ${companyId}`);
     return mapBuildingRow(result);
   }
 

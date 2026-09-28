@@ -23,6 +23,11 @@ export interface ResourceTransaction {
   amount: number;
   /** Per-unit total cost of the consumed stock (workers+admin+materials+market). */
   cost?: number;
+  costWorkers?: number;
+  costAdmin?: number;
+  costMaterial1?: number;
+  costMaterial2?: number;
+  costMarket?: number;
 }
 
 export function getWarehouseResources(companyId: number) {
@@ -102,7 +107,12 @@ export function consumeResourceExactWithTransactions(
     amount: -amount,
     cost: (Number(row.cost_workers) || 0) + (Number(row.cost_admin) || 0) +
           (Number(row.cost_material1) || 0) + (Number(row.cost_material2) || 0) +
-          (Number(row.cost_market) || 0)
+          (Number(row.cost_market) || 0),
+    costWorkers: Number(row.cost_workers) || 0,
+    costAdmin: Number(row.cost_admin) || 0,
+    costMaterial1: Number(row.cost_material1) || 0,
+    costMaterial2: Number(row.cost_material2) || 0,
+    costMarket: Number(row.cost_market) || 0
   }];
 }
 
@@ -244,7 +254,12 @@ export function consumeResourceWithTransactions(
       amount: -takenAmount,
       cost: (Number(row.cost_workers) || 0) + (Number(row.cost_admin) || 0) +
             (Number(row.cost_material1) || 0) + (Number(row.cost_material2) || 0) +
-            (Number(row.cost_market) || 0)
+            (Number(row.cost_market) || 0),
+      costWorkers: Number(row.cost_workers) || 0,
+      costAdmin: Number(row.cost_admin) || 0,
+      costMaterial1: Number(row.cost_material1) || 0,
+      costMaterial2: Number(row.cost_material2) || 0,
+      costMarket: Number(row.cost_market) || 0
     });
   }
 

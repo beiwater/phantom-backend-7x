@@ -168,7 +168,13 @@ export async function startRetailOrderUseCase(ctx: GameContext, input: StartReta
 
   const costTotal = Math.round(units * 1.5 * 100) / 100;
   const createdAt = virtualClock.nowIso();
-  const durationSeconds = calculateRetailDuration(resourceKind, units, resolvedBuilding.size || 1, { economyState });
+  const durationSeconds = calculateRetailDuration(resourceKind, units, resolvedBuilding.size || 1, {
+    quality: requestedQuality,
+    price: sellingPrice,
+    saturation: 0.5,
+    buildingKind: resolvedBuilding.kind,
+    economyState
+  });
   const finishedAt = new Date(virtualClock.nowMs() + durationSeconds * 1000).toISOString();
 
   const order = retailRepository.insert({
@@ -240,6 +246,46 @@ export async function collectRetailOrderUseCase(
   const preferHighestQuality = options.highestQualityFirst ?? (options.lowestQualityFirst === false);
 
   return runInTransaction(async (tx: TransactionContext): Promise<CollectRetailResult> => {
+    // Legacy /api/v1/busy retail sales debit stock and credit revenue when
+    // started. Their row remains only to represent the building's busy
+    // window; collecting it must settle the history once without repeating
+    // either economic mutation.
+    if (order.revenueCredited) {
+      const revenue = Number(order.cost) || 0;
+      if (!retailRepository.deleteOwned(order.id, ctx.companyId)) {
+        throw new ConflictError('Retail order is no longer available');
+      }
+      retailRepository.recordSale({
+        realmId: ctx.realmId ?? 0,
+        companyId: ctx.companyId,
+        resourceKind: order.resourceKind,
+        quality: order.quality,
+        units: order.units,
+        unitPrice: order.unitPrice,
+        revenue,
+        soldAt: order.finishedAt || virtualClock.nowIso()
+      });
+      const moneyBalance = companyRepository.findById(ctx.companyId)?.money ?? 0;
+      tx.addAfterCommitHook(() => {
+        eventBus.emit('RetailSaleCompleted', {
+          companyId: ctx.companyId,
+          buildingId: order.buildingId,
+          resourceKind: order.resourceKind,
+          quality: order.quality,
+          units: order.units,
+          revenue
+        });
+      });
+      return {
+        success: true,
+        revenue: 0,
+        money: 0,
+        moneyBalance,
+        resource: { kind: order.resourceKind, quality: order.quality, units: 0 },
+        resourceTransactions: []
+      };
+    }
+
     // If sales office, consume from warehouse with flexible quality (>= order.quality)
     // matching player's lowestQualityFirst / highestQualityFirst preference.
     let consumed: Array<{ kind: number; quality: number; amount: number; cost: number }>;
@@ -430,11 +476,20 @@ export async function findSalesOfficeCustomerUseCase(
   }
 
   const { unitPrice } = getAuthoritativeRetailPrice(resourceKind, 0, undefined, 0.5, getEconomyPhase(ctx.realmId).state);
-  const fee = getSalesOfficeSearchFee(building.size || 1);
-  const finishedAt = new Date(virtualClock.nowMs() + getCustomerSearchDurationSeconds() * 1000).toISOString();
-  const createdAt = virtualClock.nowIso();
-
   return runInTransaction(async (): Promise<FindSalesOfficeCustomerResult> => {
+    // Re-read under the transaction lock so concurrent searches cannot both
+    // pass the pre-transaction busy check and reserve the same office.
+    const currentBuilding = buildingRepository.findById(building.id);
+    if (!currentBuilding || currentBuilding.companyId !== ctx.companyId) {
+      throw new NotFoundError('Building not found');
+    }
+    if (currentBuilding.busyUntil && new Date(currentBuilding.busyUntil).getTime() > virtualClock.nowMs()) {
+      throw new ValidationError('Building is currently busy');
+    }
+
+    const fee = getSalesOfficeSearchFee(currentBuilding.size || 1);
+    const finishedAt = new Date(virtualClock.nowMs() + getCustomerSearchDurationSeconds() * 1000).toISOString();
+    const createdAt = virtualClock.nowIso();
     // debitMoney fails the whole search when the balance cannot cover the fee.
     companyRepository.debitMoney(ctx.companyId, fee);
     recordCashLedger({
@@ -448,7 +503,7 @@ export async function findSalesOfficeCustomerUseCase(
     const qualityBonus = Math.round((0.8 + Math.random() * (2.0 - 0.8)) * 100) / 100;
 
     const order = retailRepository.insert({
-      buildingId: building.id,
+      buildingId: currentBuilding.id,
       companyId: ctx.companyId,
       resourceKind,
       quality: 0,
@@ -459,6 +514,7 @@ export async function findSalesOfficeCustomerUseCase(
       finishedAt,
       createdAt
     });
+    buildingRepository.updateBusyUntil(currentBuilding.id, ctx.companyId, finishedAt);
     return { salesOrder: formatSalesOfficeOrder(order, fee), money: -fee };
   }, { immediate: true });
 }

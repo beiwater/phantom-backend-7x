@@ -1,7 +1,11 @@
 import type { GameContext } from '../../context/game-context.ts';
 import { runInTransaction } from '../../db/transaction.ts';
 import { buildingRepository, type BuildingEntity } from '../../repositories/building-repository.ts';
-import { warehouseRepository } from '../../repositories/warehouse-repository.ts';
+import {
+  warehouseRepository,
+  type CostBreakdown,
+  type ResourceCostSnapshot
+} from '../../repositories/warehouse-repository.ts';
 import { productionRepository } from '../../repositories/production-repository.ts';
 import { eventBus } from '../../events/event-bus.ts';
 import { NotFoundError, ForbiddenError, ConflictError } from '../../errors/domain-error.ts';
@@ -9,6 +13,32 @@ import {
   ROBOT_RESOURCE_KIND,
   uninstallRobotReturnCount
 } from '../../game/robotics.ts';
+import { getResourceDef } from '../../game-data/resources.ts';
+
+function robotRefundCost(snapshots: readonly ResourceCostSnapshot[] | null): CostBreakdown {
+  const kindSnapshots = (snapshots ?? []).filter(snapshot => (
+    snapshot.kind === ROBOT_RESOURCE_KIND && snapshot.amount > 0
+  ));
+  const amount = kindSnapshots.reduce((total, snapshot) => total + snapshot.amount, 0);
+  if (amount <= 0) {
+    return { market: getResourceDef(ROBOT_RESOURCE_KIND)?.cost ?? 2.5 };
+  }
+
+  const totals = kindSnapshots.reduce((total, snapshot) => ({
+    workers: total.workers + snapshot.costs.workers,
+    admin: total.admin + snapshot.costs.admin,
+    material1: total.material1 + snapshot.costs.material1,
+    material2: total.material2 + snapshot.costs.material2,
+    market: total.market + snapshot.costs.market
+  }), { workers: 0, admin: 0, material1: 0, material2: 0, market: 0 });
+  return {
+    workers: totals.workers / amount,
+    admin: totals.admin / amount,
+    material1: totals.material1 / amount,
+    material2: totals.material2 / amount,
+    market: totals.market / amount
+  };
+}
 
 export interface UninstallRobotsResult {
   building: BuildingEntity;
@@ -54,10 +84,17 @@ export async function uninstallRobotsUseCase(
     // 3. Return 50% of the installed robots at quality 0 to the warehouse.
     const returnedRobots = uninstallRobotReturnCount(installed);
     if (returnedRobots > 0) {
-      warehouseRepository.addResource(ctx.companyId, ROBOT_RESOURCE_KIND, 0, returnedRobots);
+      warehouseRepository.addResource(
+        ctx.companyId,
+        ROBOT_RESOURCE_KIND,
+        0,
+        returnedRobots,
+        robotRefundCost(building.robotInstallCostSnapshots)
+      );
     }
 
     // 4. Clear the robotization: no robots, no product lock, no wage discount.
+    buildingRepository.setRobotInstallCostSnapshots(building.id, ctx.companyId, null);
     const updatedBuilding = buildingRepository.updateRobotics(building.id, ctx.companyId, {
       robotsInstalled: 0,
       robotsQuality: 0,

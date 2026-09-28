@@ -48,7 +48,7 @@ async function startTestServer(): Promise<ServerInstance> {
   const portAvailable = await isPortAvailable(TEST_PORT);
   assert.ok(portAvailable, `Port ${TEST_PORT} is not available for testing`);
 
-  const dataDir = path.resolve('data', `test-run-issue-85-${Date.now()}`);
+  const dataDir = path.resolve(process.env.DATA_DIR || 'data', `test-run-issue-85-${Date.now()}`);
   const nodeBinary = existsSync('/opt/magnate/.node22/bin/node')
     ? '/opt/magnate/.node22/bin/node'
     : process.execPath;
@@ -57,7 +57,7 @@ async function startTestServer(): Promise<ServerInstance> {
     nodeBinary,
     ['--experimental-strip-types', 'server/index.ts'],
     {
-      cwd: '/home/ubuntu/phantom-backend-7x',
+      cwd: path.resolve(import.meta.dirname, '..'),
       env: {
         ...process.env,
         PORT: String(TEST_PORT),

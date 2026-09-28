@@ -23,12 +23,14 @@ import {
   researchEmployerCommand,
   getHostileOffersQuery,
   getHostileOfferByIdQuery,
+  hireExecutiveCommand,
   counterHostileOfferCommand,
   letGoHostileOfferCommand,
   rejectHostileOfferCommand,
   researchPoacherCommand,
   type CreatePoachingOfferInput,
-  type CounterHostileOfferInput
+  type CounterHostileOfferInput,
+  type UpdateExecutiveInput
 } from '../application/executives/executive-use-cases.ts';
 import { unlockExecutiveSlot } from '../game/simboosts.ts';
 import { RouteRegistry, globalRouteRegistry, type AuthRequirement, type HttpMethod } from '../http/route-registry.ts';
@@ -244,7 +246,7 @@ export async function handleExecutiveRoutes(
 
     if (method === 'GET') {
       try {
-        const offer = getHostileOfferById(currentCompanyId, offerId);
+        const offer = getHostileOfferByIdQuery(currentCompanyId, offerId);
         sendJson(res, { ...offer, offer });
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -482,7 +484,7 @@ export async function handleExecutiveRoutes(
 
     if (method === 'PATCH') {
       if (requireCapability(res, currentCompanyId, 'executives', 'update executive')) return true;
-      const body = await readJsonBody<{ salary?: number; position?: string; strikeUntil?: string | null; plansToRetire?: boolean; rushSettle?: boolean }>(req);
+      const body = await readJsonBody<UpdateExecutiveInput>(req);
       try {
         const exec = await updateExecutiveCommand(gameCtx(), execId, body);
         sendJson(res, exec);
@@ -498,7 +500,7 @@ export async function handleExecutiveRoutes(
       if (requireCapability(res, currentCompanyId, 'executives', 'fire executive')) return true;
       try {
         const result = await fireExecutiveCommand(gameCtx(), execId);
-        sendJson(res, { moneyDelta: result.moneyDelta });
+        sendJson(res, result);
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
         sendJson(res, { error: msg }, 400);

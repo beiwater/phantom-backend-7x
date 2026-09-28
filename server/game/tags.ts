@@ -1,8 +1,9 @@
 import { db } from '../db/database.ts';
+import type { SQLOutputValue } from 'node:sqlite';
 import { virtualClock } from '../core/virtual-clock.ts';
 import { getCompanyById, type CompanyRow } from './company.ts';
 
-export interface CompanyTagDbRow {
+export interface CompanyTagDbRow extends Record<string, SQLOutputValue> {
   id: number;
   company_id: number;
   resource_kind: number;

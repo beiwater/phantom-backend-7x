@@ -419,7 +419,7 @@ export async function handleSimboostRoutes(
     if (targetId === 'fair') {
       try {
         const result = await exchangeCashForSimboosts(currentCompanyId, 10000);
-        sendJson(res, { done: true, ...result });
+        sendJson(res, result);
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
         sendJson(res, { error: msg }, 400);
@@ -431,7 +431,7 @@ export async function handleSimboostRoutes(
     if (story) {
       const choiceIdx = parseInt(targetAction, 10);
       const result = await storyEngine.advanceStoryChoice(currentCompanyId, targetId, choiceIdx);
-      sendJson(res, { done: true, ...result });
+      sendJson(res, result);
       return true;
     }
 

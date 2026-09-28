@@ -69,7 +69,7 @@ async function startTestServer(): Promise<ServerInstance> {
   const portAvailable = await isPortAvailable(TEST_PORT);
   assert.ok(portAvailable, `Port ${TEST_PORT} is not available for testing`);
 
-  const dataDir = path.resolve('data', `test-run-issue-99-${Date.now()}`);
+  const dataDir = path.resolve(process.env.DATA_DIR || 'data', `test-run-issue-99-${Date.now()}`);
   const nodeBinary = existsSync('/opt/magnate/.node22/bin/node')
     ? '/opt/magnate/.node22/bin/node'
     : process.execPath;
@@ -198,39 +198,51 @@ const APPLES = 3; // kind 3: farm raw rate 250/h, normal-state rate is salary-ad
 const FARM_PER_HOUR = calculateProductionRate(APPLES, 1, 0, { economyState: 1 });
 
 /** Largest amount within a duration limit and the first amount over it. */
-function productionAmountsFor(seconds: number): { exact: number; over: number } {
+function productionAmountsFor(seconds: number, productionModifier = 0, economyState = 1): { exact: number; over: number } {
+  const durationFor = (amount: number) => calculateProductionTime(
+    APPLES,
+    amount,
+    1,
+    productionModifier,
+    { economyState }
+  );
   let low = 0;
   let high = Math.max(1, Math.ceil((seconds / 3600) * FARM_PER_HOUR) + 1);
-  while (calculateProductionTime(APPLES, high, 1, 0, { economyState: 1 }) <= seconds) {
+  while (durationFor(high) <= seconds) {
     high *= 2;
   }
   while (low + 1 < high) {
     const middle = Math.floor((low + high) / 2);
-    if (calculateProductionTime(APPLES, middle, 1, 0, { economyState: 1 }) <= seconds) {
+    if (durationFor(middle) <= seconds) {
       low = middle;
     } else {
       high = middle;
     }
   }
-  assert.ok(calculateProductionTime(APPLES, low, 1, 0, { economyState: 1 }) <= seconds);
-  assert.ok(calculateProductionTime(APPLES, high, 1, 0, { economyState: 1 }) > seconds);
+  assert.ok(durationFor(low) <= seconds);
+  assert.ok(durationFor(high) > seconds);
   return { exact: low, over: high };
 }
 
-const RETAIL_PRICE = (() => {
-  const { defaultPrice, maxPrice } = getAuthoritativeRetailPrice(APPLES, 0);
+const retailPriceFor = (economyState: number) => {
+  const { defaultPrice, maxPrice } = getAuthoritativeRetailPrice(APPLES, 0, undefined, 0.5, economyState);
   return Math.min(Math.max(defaultPrice, 0), maxPrice); // start-retail's clamp
-})();
-const retailDuration = (units: number) =>
-  calculateRetailDuration(APPLES, units, 1, { quality: 0, price: RETAIL_PRICE, buildingKind: 'G' });
+};
+const retailDuration = (units: number, economyState = 1) =>
+  calculateRetailDuration(APPLES, units, 1, {
+    quality: 0,
+    price: retailPriceFor(economyState),
+    buildingKind: 'G',
+    economyState
+  });
 
 /** Smallest units count whose retail duration strictly exceeds `seconds`. */
-function retailUnitsExceeding(seconds: number): number {
+function retailUnitsExceeding(seconds: number, economyState = 1): number {
   let lo = 1;
   let hi = 200000; // duration cap is 7 days; far above every tier limit
   while (lo < hi) {
     const mid = Math.floor((lo + hi) / 2);
-    if (retailDuration(mid) > seconds) {
+    if (retailDuration(mid, economyState) > seconds) {
       hi = mid;
     } else {
       lo = mid + 1;
@@ -335,9 +347,23 @@ async function runIssue99LevelingTest(): Promise<void> {
     const mkFarm = (company: { companyId: number }, position: string) =>
       insertBuilding(db, company.companyId, position, 'P', 'production');
 
-    const exact0 = productionAmountsFor(LIMITS.L0);
-    const exact5 = productionAmountsFor(LIMITS.L5);
-    const exact15 = productionAmountsFor(LIMITS.L15);
+    const economyRow = db.prepare(`
+      SELECT e.state, COALESCE(h.production_modifier, 0) AS production_modifier
+      FROM economy_state e LEFT JOIN economy_phase_history h
+        ON h.realm_id = e.realm_id AND h.end_at IS NULL
+      WHERE e.realm_id = 0
+    `).get() as { state: number; production_modifier: number } | undefined;
+    const boostRow = db.prepare(
+      'SELECT production_modifier FROM company_boost_settings WHERE company_id = ?'
+    ).get(cL0.companyId) as { production_modifier: number } | undefined;
+    const economyState = Number(economyRow?.state ?? 1);
+    const combinedProductionModifier = Math.max(-0.75, Math.min(
+      3,
+      Number(economyRow?.production_modifier ?? 0) + Number(boostRow?.production_modifier ?? 0) / 100
+    ));
+    const exact0 = productionAmountsFor(LIMITS.L0, combinedProductionModifier, economyState);
+    const exact5 = productionAmountsFor(LIMITS.L5, combinedProductionModifier, economyState);
+    const exact15 = productionAmountsFor(LIMITS.L15, combinedProductionModifier, economyState);
 
     // L0: the largest amount within 2h is allowed...
     const farm0a = mkFarm(cL0, 'r1');
@@ -346,7 +372,7 @@ async function runIssue99LevelingTest(): Promise<void> {
       body: JSON.stringify({ kind: APPLES, amount: exact0.exact })
     });
     assert.equal(res.status, 200, `L0 production at the 2h boundary must be allowed: ${await res.text()}`);
-    const duration0 = calculateProductionTime(APPLES, exact0.exact, 1, 0, { economyState: 1 });
+    const duration0 = calculateProductionTime(APPLES, exact0.exact, 1, combinedProductionModifier, { economyState });
     assert.ok(duration0 <= LIMITS.L0);
     const q0 = db.prepare('SELECT duration_seconds FROM production_queues WHERE building_id = ?').get(farm0a) as { duration_seconds: number };
     assert.equal(q0.duration_seconds, duration0, 'queue row must persist the calculated duration');
@@ -408,15 +434,15 @@ async function runIssue99LevelingTest(): Promise<void> {
     const sell = (cookie: string, buildingId: number, units: number) =>
       fetch(`${BASE_URL}/api/v1/busy/${buildingId}/`, {
         method: 'POST', headers: headers(cookie),
-        body: JSON.stringify({ kind: APPLES, amount: units, price: RETAIL_PRICE })
+        body: JSON.stringify({ kind: APPLES, amount: units, price: retailPriceFor(economyState) })
       });
 
-    const unitsOver2h = retailUnitsExceeding(LIMITS.L0);
+    const unitsOver2h = retailUnitsExceeding(LIMITS.L0, economyState);
     const unitsAt2h = unitsOver2h - 1;
-    const unitsOver24h = retailUnitsExceeding(LIMITS.L5);
-    const unitsOver48h = retailUnitsExceeding(LIMITS.L15);
-    assert.ok(retailDuration(unitsAt2h) <= LIMITS.L0, 'mirror sanity: at-2h units fit the L0 band');
-    assert.ok(retailDuration(unitsOver24h) <= LIMITS.L15, 'mirror sanity: over-24h units fit the L15 band');
+    const unitsOver24h = retailUnitsExceeding(LIMITS.L5, economyState);
+    const unitsOver48h = retailUnitsExceeding(LIMITS.L15, economyState);
+    assert.ok(retailDuration(unitsAt2h, economyState) <= LIMITS.L0, 'mirror sanity: at-2h units fit the L0 band');
+    assert.ok(retailDuration(unitsOver24h, economyState) <= LIMITS.L15, 'mirror sanity: over-24h units fit the L15 band');
 
     // NOTE: accepted retail sales award duration-sized XP, which can promote
     // the company across a tier boundary mid-part. Every rejection case is
@@ -493,9 +519,11 @@ async function runIssue99LevelingTest(): Promise<void> {
     });
     const queueText = await res.text();
     assert.equal(res.status, 200, `power queue must start: ${queueText}`);
-    const queue = JSON.parse(queueText) as { id: number; finishes: string };
+    const queueItems = JSON.parse(queueText) as Array<{ id: number; kind: number; finishes: string }>;
+    const queue = queueItems.find(item => item.kind === 1);
+    assert.ok(queue && queue.id > 0, 'queue POST returns the started task in its updated queue array');
     await new Promise((r) => setTimeout(r, Math.max(0, Date.parse(queue.finishes) - Date.now()) + 500));
-    res = await fetch(`${BASE_URL}/api/v2/order/take/${queue.id}/`, {
+    res = await fetch(`${BASE_URL}/api/v2/order/take/${plant}/`, {
       method: 'POST', headers: headers(cXp.cookie)
     });
     const collectText = await res.text();

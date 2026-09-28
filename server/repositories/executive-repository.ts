@@ -8,6 +8,7 @@
  */
 import { db } from '../db/connection.ts';
 import { virtualClock } from '../core/virtual-clock.ts';
+import type { DatabaseSync } from 'node:sqlite';
 
 export interface ExecutiveRow {
   id: number;
@@ -155,7 +156,7 @@ export const executiveRepository = {
         .run(position, startingBonus, startingBonus, startingBonus, startingBonus, candidateId, companyId)
       : db.prepare("UPDATE executives SET status = 'employed', position = ? WHERE id = ? AND company_id = ? AND status = 'candidate'")
         .run(position, candidateId, companyId);
-    return updated.changes;
+    return Number(updated.changes);
   },
 
   beginEmploymentHistory(
@@ -184,11 +185,11 @@ export const executiveRepository = {
   },
 
   closeEmploymentHistory(executiveId: number, companyId: number, endedAt: string): number {
-    return db.prepare(`
+    return Number(db.prepare(`
       UPDATE executive_employment_history
       SET ended_at = ?
       WHERE executive_id = ? AND company_id = ? AND ended_at IS NULL
-    `).run(endedAt, executiveId, companyId).changes;
+    `).run(endedAt, executiveId, companyId).changes);
   },
 
   markFormer(executiveId: number, companyId: number, endedAt: string): number {
@@ -202,11 +203,11 @@ export const executiveRepository = {
     if (updated.changes === 1) {
       this.closeEmploymentHistory(executiveId, companyId, endedAt);
     }
-    return updated.changes;
+    return Number(updated.changes);
   },
 
   assignPosition(executiveId: number, companyId: number, position: string): number {
-    return db.prepare("UPDATE executives SET position = ? WHERE id = ? AND company_id = ? AND status = 'employed'").run(position, executiveId, companyId).changes;
+    return Number(db.prepare("UPDATE executives SET position = ? WHERE id = ? AND company_id = ? AND status = 'employed'").run(position, executiveId, companyId).changes);
   },
 
   updateSalary(executiveId: number, companyId: number, salary: number): void {
@@ -235,23 +236,23 @@ export const executiveRepository = {
   },
 
   addFourSkills(executiveId: number, gain: number): number {
-    return db.prepare(`
+    return Number(db.prepare(`
       UPDATE executives
       SET skill_management = skill_management + ?, skill_accounting = skill_accounting + ?,
           skill_science = skill_science + ?, skill_communication = skill_communication + ?
       WHERE id = ?
-    `).run(gain, gain, gain, gain, executiveId).changes;
+    `).run(gain, gain, gain, gain, executiveId).changes);
   },
 
   addFourSkillsInCompany(executiveId: number, companyId: number, gain: number): number {
-    return db.prepare(`
+    return Number(db.prepare(`
       UPDATE executives
       SET skill_management = skill_management + ?,
           skill_accounting = skill_accounting + ?,
           skill_science = skill_science + ?,
           skill_communication = skill_communication + ?
       WHERE id = ? AND company_id = ? AND status = 'employed'
-    `).run(gain, gain, gain, gain, executiveId, companyId).changes;
+    `).run(gain, gain, gain, gain, executiveId, companyId).changes);
   },
 
   getNextExecutiveSeq(): number {
@@ -386,7 +387,8 @@ export const executiveRepository = {
   },
 
   setSalaryById(executiveId: number, salary: number): void {
-    db.prepare("UPDATE executives SET salary = ? WHERE id = ? AND company_id = ?").run(salary, executiveId, db.prepare('SELECT company_id FROM executives WHERE id = ?').get(executiveId)?.company_id);
+    const row = db.prepare('SELECT company_id FROM executives WHERE id = ?').get(executiveId) as { company_id: number | null } | undefined;
+    db.prepare("UPDATE executives SET salary = ? WHERE id = ? AND company_id = ?").run(salary, executiveId, row?.company_id ?? null);
   },
 
   insertForeignTarget(foreignCompanyId: number, slotPos: string, baseSkill: number, salaryByTier: number, nowIso: string): ExecutiveRow {
@@ -453,12 +455,12 @@ export const executiveRepository = {
   },
 
   applyTrainingSkillUp(executiveId: number): number {
-    return db.prepare(`
+    return Number(db.prepare(`
       UPDATE executives
       SET skill_management = skill_management + 1, skill_accounting = skill_accounting + 1,
           skill_science = skill_science + 1, skill_communication = skill_communication + 1
       WHERE id = ?
-    `).run(executiveId).changes;
+    `).run(executiveId).changes);
   },
 
   /** Hostile-offer counter: raise the executive's salary (retention). */

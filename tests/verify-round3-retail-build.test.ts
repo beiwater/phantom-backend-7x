@@ -174,9 +174,9 @@ async function main() {
     // seed 5000 + 100 bought
     assert(appleStock && appleStock.amount === 5000 + 100, `warehouse received apples (got ${appleStock?.amount})`);
 
-    // Failure path: impossible quantity must not leave partial state.
+    // Failure path: a price below every offer must not leave partial state.
     const authBefore = await api(c.cookie, 'GET', '/api/v3/companies/auth-data/');
-    const bad = await api(c.cookie, 'POST', '/api/v2/market-order/take/', { resource: 76, quantity: 5, quality: 0, money: 100000 });
+    const bad = await api(c.cookie, 'POST', '/api/v2/market-order/take/', { resource: 76, quantity: 5, quality: 0, money: 100000, maxPrice: 0.01 });
     assert(bad.status === 400, `unsatisfiable take rejected (${bad.status})`);
     const authAfter = await api(c.cookie, 'GET', '/api/v3/companies/auth-data/');
     assert(authAfter.data.authCompany.money === authBefore.data.authCompany.money, 'no cash movement on failed take');

@@ -30,11 +30,7 @@
  */
 
 import assert from 'node:assert/strict';
-import { spawn, type ChildProcess } from 'node:child_process';
-import { rmSync, existsSync } from 'node:fs';
-import path from 'node:path';
-import net from 'node:net';
-import { DatabaseSync } from 'node:sqlite';
+import { startTestServer, type TestServer } from './support/test-server.ts';
 
 import {
   RETAIL_PRODUCTS,
@@ -47,124 +43,23 @@ import {
   calculateRetailUnitsPerHour
 } from '../server/game-data/retail.ts';
 
-const TEST_PORT = Number(process.env.PORT || '3720');
-const BASE_URL = `http://127.0.0.1:${TEST_PORT}`;
-
-function isPortAvailable(port: number): Promise<boolean> {
-  const { promise, resolve } = Promise.withResolvers<boolean>();
-  const tester = net
-    .createServer()
-    .once('error', () => resolve(false))
-    .once('listening', () => {
-      tester.once('close', () => resolve(true)).close();
-    })
-    .listen(port, '127.0.0.1');
-  return promise;
-}
-
-async function waitUntilReachable(url: string, timeoutMs: number = 30000): Promise<void> {
-  const start = Date.now();
-  while (Date.now() - start < timeoutMs) {
-    try {
-      const res = await fetch(url);
-      if (res.ok || res.status === 404 || res.status === 200) {
-        return;
-      }
-    } catch {
-      // Retry
-    }
-    await new Promise((r) => setTimeout(r, 150));
-  }
-  throw new Error(`Timeout waiting for ${url} after ${timeoutMs}ms`);
-}
-
-interface ServerInstance {
-  child: ChildProcess;
-  dataDir: string;
-  dbPath: string;
-}
-
-async function startTestServer(): Promise<ServerInstance> {
-  const portAvailable = await isPortAvailable(TEST_PORT);
-  assert.ok(portAvailable, `Port ${TEST_PORT} is not available for testing`);
-
-  const dataDir = path.resolve('data', `test-run-issue-91-${Date.now()}`);
-  const nodeBinary = existsSync('/opt/magnate/.node22/bin/node')
-    ? '/opt/magnate/.node22/bin/node'
-    : process.execPath;
-
-  const child = spawn(
-    nodeBinary,
-    ['--experimental-strip-types', 'server/index.ts'],
-    {
-      cwd: path.resolve(import.meta.dirname ?? '.', '..'),
-      env: {
-        ...process.env,
-        PORT: String(TEST_PORT),
-        DATA_DIR: dataDir,
-        SPEED_MULTIPLIER: '100'
-      },
-      stdio: ['ignore', 'ignore', 'pipe']
-    }
-  );
-
-  child.stderr?.on('data', (chunk) => {
-    const str = chunk.toString();
-    if (!str.includes('ExperimentalWarning')) {
-      process.stderr.write(`[server-3720] ${str}`);
-    }
-  });
-
-  await waitUntilReachable(`${BASE_URL}/version/`, 30000);
-  const dbPath = path.join(dataDir, 'simcompanies.sqlite');
-  return { child, dataDir, dbPath };
-}
-
-async function registerCompany(label: string): Promise<{ cookie: string; companyId: number }> {
-  const email = `retail_${label}_${Date.now()}@domain.local`;
-  const res = await fetch(`${BASE_URL}/api/v2/auth/email/connect/`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      email,
-      password: 'Password123!',
-      company: `Retail ${label} ${Date.now()}`
-    })
-  });
-  assert.equal(res.status, 200, 'Registration should return 200');
-
-  const cookies = res.headers.getSetCookie?.() || [res.headers.get('set-cookie') || ''];
-  const cookie = cookies.find((v) => v.startsWith('sessionid='))?.split(';')[0];
-  assert.ok(cookie, 'Session cookie must be returned');
-
-  const authRes = await fetch(`${BASE_URL}/api/v3/companies/auth-data/`, {
-    headers: { Cookie: cookie }
-  });
-  assert.equal(authRes.status, 200, 'Auth data should return 200');
-  const authData = (await authRes.json()) as {
-    companyPublicInfo?: { id: number };
-    authCompany?: { companyId?: number; id?: number };
-  };
-
-  const companyId = authData.companyPublicInfo?.id || authData.authCompany?.companyId || authData.authCompany?.id || 0;
-  assert.ok(companyId > 0, 'Valid companyId must be extracted');
-  return { cookie, companyId };
-}
+let BASE_URL = '';
 
 async function runTests() {
   console.log('================================================================');
   console.log(' Starting Issue #91: Direct Retail Cash Duplicate Fix & Mapping');
-  console.log(` Target Server: ${BASE_URL}`);
   console.log('================================================================\n');
 
-  let server: ServerInstance | null = null;
+  let server: TestServer | null = null;
 
   try {
-    console.log('[Setup] Launching isolated test server on port', TEST_PORT);
-    server = await startTestServer();
+    server = await startTestServer({ env: { SPEED_MULTIPLIER: '100' } });
+    BASE_URL = server.baseUrl;
+    console.log('[Setup] Launched isolated test server at', BASE_URL);
+    console.log(` Target Server: ${BASE_URL}`);
     console.log('  -> Test server ready.');
 
-    const directDb = new DatabaseSync(server.dbPath);
+    const directDb = server.db;
 
     // =========================================================================
     // PART 1: Unit & Invariant Checks for Retail Game Data & Formulas
@@ -248,7 +143,8 @@ async function runTests() {
     // =========================================================================
     console.log('--- PART 2: Retail Sale Flow & Queue Persistence Invariant ---');
 
-    const user = await registerCompany('player1');
+    const registered = await server.registerCompany('Issue 91 retail');
+    const user = { cookie: registered.cookie, companyId: registered.companyId };
     const headers = { 'Content-Type': 'application/json', Cookie: user.cookie };
 
     // Find the starter Grocery store
@@ -349,10 +245,12 @@ async function runTests() {
       headers,
       body: '{}'
     });
-    assert.ok(
-      takeAfterFinish.status === 404 || takeAfterFinish.status === 400,
-      `take on finished retail building must still fail (no production queue) -> got ${takeAfterFinish.status}`
+    assert.equal(
+      takeAfterFinish.status,
+      200,
+      'the completed retail order is valid to collect through the shared take endpoint'
     );
+    await takeAfterFinish.text();
 
     // Verify warehouse stock is STILL NOT duplicated
     const whCheck2 = directDb.prepare('SELECT amount FROM warehouse WHERE company_id = ? AND kind = 3 AND quality = 0').get(user.companyId) as { amount: number };
@@ -444,15 +342,7 @@ async function runTests() {
     console.log(' All Issue #91 Verification Tests PASSED with 0 Errors!');
     console.log('================================================================\n');
   } finally {
-    if (server) {
-      server.child.kill('SIGTERM');
-      await new Promise((r) => setTimeout(r, 500));
-      try {
-        rmSync(server.dataDir, { recursive: true, force: true });
-      } catch {
-        // Ignore cleanup error
-      }
-    }
+    if (server) await server.stop();
   }
 }
 

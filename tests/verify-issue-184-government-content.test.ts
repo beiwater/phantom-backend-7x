@@ -2,7 +2,12 @@ import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { db } from '../server/db/connection.ts';
-import { getGovernmentOrders } from '../server/game/government.ts';
+import { registerPlayer } from '../server/db/seed/index.ts';
+import {
+  createGovernmentBid,
+  getGovernmentBidByIdOrSecret,
+  getGovernmentOrders
+} from '../server/game/government.ts';
 import '../server/routes/government-routes.ts';
 import { globalRouteRegistry } from '../server/http/route-registry.ts';
 
@@ -70,4 +75,23 @@ assert.equal((detail.payload.governmentOrders as unknown[]).length, 7);
 
 const missing = await dispatch('/api/v3/government-orders/projects/999999999/');
 assert.equal(missing.status, 404);
-console.log('PASS stable government projects, resource mapping, v1/v3 parity, and detail errors (#184)');
+
+const contractors = ['main', 'sub1', 'sub2'].map(label => registerPlayer(
+  `gov-fulfilled-${label}-${Date.now()}@test.local`,
+  'password123',
+  `Government Fulfilled ${label} ${Date.now()}`
+));
+const bidTemplate = getGovernmentOrders(0)[0];
+assert.ok(bidTemplate, 'A government-order template is available for a bid');
+const bid = createGovernmentBid(contractors[0]!.companyId, 0, {
+  templateId: bidTemplate.id,
+  maxContractorCount: contractors.length,
+  contractors: contractors.map(company => company.companyId)
+});
+db.prepare('UPDATE government_bid_contractors SET fulfilled = 1 WHERE bid_secret = ?').run(bid.secret);
+const fulfilledBid = getGovernmentBidByIdOrSecret(bid.secret);
+assert.equal(fulfilledBid?.governmentorderbidderSet.length, contractors.length);
+assert.ok(fulfilledBid?.governmentorderbidderSet.every(contractor => contractor.fulfilled));
+assert.equal(fulfilledBid?.status, 'FULFILLED', 'A full, fulfilled contractor set reaches FULFILLED (#218)');
+
+console.log('PASS government project contracts and fulfilled bid status (#184, #218)');

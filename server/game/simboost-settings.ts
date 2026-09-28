@@ -152,12 +152,12 @@ export function realignCost(productionModifier: number, salesModifier: number, m
   let remaining = move;
   while (remaining !== 0) {
     if (remaining < 0) {
-      sales--;
-      cost += sales < 0 ? REALIGN_COST_EXPENSIVE : REALIGN_COST_CHEAP;
-      remaining++;
-    } else {
       prod--;
       cost += prod < 0 ? REALIGN_COST_EXPENSIVE : REALIGN_COST_CHEAP;
+      remaining++;
+    } else {
+      sales--;
+      cost += sales < 0 ? REALIGN_COST_EXPENSIVE : REALIGN_COST_CHEAP;
       remaining--;
     }
   }
@@ -168,11 +168,11 @@ export function realignCost(productionModifier: number, salesModifier: number, m
  * Apply a realignment atomically: debit SimBoosts, persist both modifiers.
  * Throws on insufficient SimBoosts (rolled back).
  */
-export function realignCompanyBonus(
+export async function realignCompanyBonus(
   companyId: number,
   move: number,
   debitSimBoosts: (companyId: number, cost: number) => number
-): { productionModifier: number; salesModifier: number; cost: number } {
+): Promise<{ productionModifier: number; salesModifier: number; cost: number }> {
   return runInTransaction(() => {
     const current = getCompanyBoostSettings(companyId);
     const cost = realignCost(current.productionModifier, current.salesModifier, move);
@@ -217,7 +217,7 @@ export interface FairExchangeResult {
  * double clicks because the debit + credit + counter bump commit as one unit;
  * a rejected request mutates nothing.
  */
-export function exchangeMoneyForSimboosts(input: FairExchangeInput): FairExchangeResult {
+export async function exchangeMoneyForSimboosts(input: FairExchangeInput): Promise<FairExchangeResult> {
   const { companyId, cash, getCompanyMoney, debitMoney, creditSimBoosts } = input;
   const now = input.now ?? virtualClock.now();
 

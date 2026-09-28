@@ -83,6 +83,13 @@ db.prepare(`
 
 const rawOffer = db.prepare('SELECT * FROM executive_offers WHERE id = ?').get(offerId) as any;
 const formattedOffer = formatOffer(rawOffer, elena as any);
+const hostileOfferRes = await dispatch(
+  `/api/v3/companies/executives/hostile-offers/${offerId}/`,
+  'GET',
+  companyId
+);
+assert.equal(hostileOfferRes.status, 200, 'Hostile-offer detail route resolves the imported query function');
+assert.ok(hostileOfferRes.body.offer, 'Hostile-offer detail includes its offer DTO');
 assert.ok(typeof formattedOffer.datetime === 'string', 'offer must have datetime for countdown');
 const parsedTime = Date.parse(formattedOffer.datetime);
 assert.ok(!isNaN(parsedTime), 'offer datetime must be parseable date');

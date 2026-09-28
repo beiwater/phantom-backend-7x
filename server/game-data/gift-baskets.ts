@@ -1,4 +1,5 @@
 import { db } from '../db/database.ts';
+import type { SQLOutputValue } from 'node:sqlite';
 import { runInTransaction } from '../db/transaction.ts';
 import { companyRepository } from '../repositories/company-repository.ts';
 import { virtualClock } from '../core/virtual-clock.ts';
@@ -16,10 +17,11 @@ export const BASKET_KINDS: Record<string, { image: string; imageWithSimboosts: s
 
 export const SIMBOOSTS_OPTIONS = [0, 10, 25, 100, 500];
 
-export interface BasketRow {
+export interface BasketRow extends Record<string, SQLOutputValue> {
   id: number; sender_company_id: number; recipient_company_id: number; kind: string;
   simboosts: number; quality: number | null; collectible_id: number | null;
   message: string | null; year: number; sent: number; simboosts_claimed: number; created_at: string;
+  sent_at: string | null;
 }
 
 function toDto(row: BasketRow, viewerCompanyId: number) {
@@ -50,7 +52,7 @@ export function getDraft(companyId: number, year: number): Record<string, unknow
 export function saveDraft(companyId: number, year: number, draft: Record<string, unknown>): Record<string, unknown> {
   db.prepare('INSERT INTO gift_basket_drafts (company_id, year, draft_json, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT (company_id, year) DO UPDATE SET draft_json = excluded.draft_json, updated_at = excluded.updated_at')
     .run(companyId, year, JSON.stringify(draft), virtualClock.nowIso());
-  return getDraft(companyId, year);
+  return getDraft(companyId, year) ?? draft;
 }
 
 export function listOutgoing(companyId: number, year: number): Array<ReturnType<typeof toDto>> {

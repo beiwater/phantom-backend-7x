@@ -1,3 +1,4 @@
+import type { DatabaseSync, SQLOutputValue } from 'node:sqlite';
 import { db } from '../db/database.ts';
 import { virtualClock } from '../core/virtual-clock.ts';
 import { PA_COMPANY_ID } from '../domain/company/constants.ts';
@@ -23,14 +24,14 @@ const SIMBOOST_ACTION_CODES: Record<string, string> = {
 };
 export interface PollRow { [key: string]: unknown }
 
-export interface ChatMessageRow { id: number; room: string; sender_id: number; sender_company: string; text: string; sent_at: string }
-export interface DirectMessageRow { id: number; sender_company_id: number; recipient_company_id: number; message: string; created_at: string }
+export interface ChatMessageRow extends Record<string, SQLOutputValue> { id: number; room: string; sender_id: number; sender_company: string; text: string; sent_at: string }
+export interface DirectMessageRow extends Record<string, SQLOutputValue> { id: number; sender_company_id: number; recipient_company_id: number; message: string; created_at: string }
 
-export interface CompanyRealmRow { company_id: number; realm_id: number }
+export interface CompanyRealmRow extends Record<string, SQLOutputValue> { company_id: number; realm_id: number }
 
-export interface CompanyNoteListRow { id: number; note: string; priority: number; company_id: number; name: string; realm_id: number; logo: string }
+export interface CompanyNoteListRow extends Record<string, SQLOutputValue> { id: number; note: string; priority: number; company_id: number; name: string; realm_id: number; logo: string }
 
-export interface CompanySearchRow { company_id: number; name: string; realm_id: number; logo: string }
+export interface CompanySearchRow extends Record<string, SQLOutputValue> { company_id: number; name: string; realm_id: number; logo: string }
 
 export class SocialRepository {
   private database: DatabaseSync;
