@@ -30,6 +30,30 @@ try {
   const companyB = createCompany('b');
   const companyC = createCompany('c');
   const companyD = createCompany('d');
+  const readOnlyCompany = createCompany('read-only');
+  const journal = await import('../server/repositories/cash-ledger-repository.ts');
+  const phases = await import('../server/application/scheduler/economy-phase-use-cases.ts');
+  const { runInTransaction } = await import('../server/db/transaction.ts');
+  const countRows = (table: string, companyId: number): number => Number(
+    (db.prepare(`SELECT COUNT(*) AS count FROM ${table} WHERE company_id = ?`).get(companyId) as { count: number }).count
+  );
+  assert.deepEqual(journal.getDailyFinanceSnapshots(readOnlyCompany), []);
+  assert.deepEqual(journal.getDailyFinanceSnapshots(readOnlyCompany), []);
+  assert.equal(countRows('finance_daily_snapshots', readOnlyCompany), 0, 'GET must not invent unobserved finance history (#179)');
+  const phaseHistoryBefore = (db.prepare('SELECT COUNT(*) AS count FROM economy_phase_history').get() as { count: number }).count;
+  phases.getEconomyPhase(0);
+  phases.getEconomyPhaseHistory(0);
+  assert.throws(() => phases.getEconomyPhase(987654), /not been initialized/);
+  assert.equal((db.prepare('SELECT COUNT(*) AS count FROM economy_phase_history').get() as { count: number }).count, phaseHistoryBefore,
+    'known and unknown realm queries never bootstrap durable state');
+  const cashBeforeRollback = companyRepository.findById(readOnlyCompany)!.money;
+  await assert.rejects(runInTransaction(() => {
+    companyRepository.creditMoney(readOnlyCompany, 50);
+    throw new Error('force journal rollback');
+  }), /force journal rollback/);
+  assert.equal(companyRepository.findById(readOnlyCompany)!.money, cashBeforeRollback);
+  assert.equal(countRows('cash_ledger', readOnlyCompany), 0);
+  assert.equal(countRows('finance_daily_snapshots', readOnlyCompany), 0, 'money, journal and snapshot roll back together (#68)');
 
   const setMoney = (companyId: number, value: number): void => {
     db.prepare('UPDATE companies SET money = ? WHERE company_id = ?').run(value, companyId);

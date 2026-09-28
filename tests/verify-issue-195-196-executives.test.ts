@@ -121,10 +121,97 @@ assert.ok(!isNaN(rp.employerAcceptedOffersMean));
 assert.ok(!isNaN(rp.employerRejectedOffersMean));
 assert.ok(!JSON.stringify(formattedResearch).includes('NaN'));
 
-// 5. Verify Former Executives endpoint
+// 5. Verify POST fire shares the persisted employment-history transition.
+const currentBalance = () => Number((db.prepare('SELECT money FROM companies WHERE company_id = ?')
+  .get(companyId) as { money: number }).money);
+const moneyBeforeFire = currentBalance();
+const fireRes = await dispatch(`/api/v4/executives/${elena.id}/fire/`, 'POST', companyId);
+assert.equal(fireRes.status, 200);
+assert.equal((fireRes.body as { success: boolean }).success, true);
+const moneyAfterFire = currentBalance();
+assert.ok(moneyAfterFire < moneyBeforeFire, 'dismissal severance is applied with the transition');
+assert.equal(
+  (db.prepare(`SELECT COUNT(*) AS count FROM executive_employment_history
+    WHERE executive_id = ? AND company_id = ? AND ended_at IS NOT NULL`).get(elena.id, companyId) as { count: number }).count,
+  1,
+  'the active employment-history row is closed exactly once'
+);
+assert.ok(!executiveRepository.listByCompany(companyId).some(executive => executive.id === elena.id));
+
+const repeatedFire = await dispatch(`/api/v4/executives/${elena.id}/fire/`, 'POST', companyId);
+assert.ok(repeatedFire.status >= 400, 'a repeated fire cannot severance-pay or add a second history entry');
+assert.equal(currentBalance(), moneyAfterFire);
+assert.equal(
+  (db.prepare(`SELECT COUNT(*) AS count FROM executive_employment_history
+    WHERE executive_id = ? AND company_id = ? AND ended_at IS NOT NULL`).get(elena.id, companyId) as { count: number }).count,
+  1
+);
+
+// 6. Verify Former Executives endpoint is owner-scoped and returns the exit.
 const formerRes = await dispatch(`/api/v2/companies/${companyId}/former-executives/`, 'GET', companyId);
 assert.equal(formerRes.status, 200);
 assert.ok(Array.isArray(formerRes.body.executives));
+assert.ok((formerRes.body.executives as Array<{ id: number; status: string }>).some(
+  executive => executive.id === elena.id && executive.status === 'former'
+));
 assert.ok(!JSON.stringify(formerRes.body).includes('NaN'));
+assert.equal(
+  (await dispatch(`/api/v2/companies/${companyId + 1}/former-executives/`, 'GET', companyId)).status,
+  401,
+  'foreign company former history is rejected'
+);
 
-console.log('PASS executive detail page rendering (#195) and no NaN in candidate/offer cards (#196)');
+// The legacy DELETE /api/v4/executives/:id/ route must share the same history transition.
+const legacyDeleteTarget = employedExecs.find(executive => executive.id !== elena.id);
+assert.ok(legacyDeleteTarget, 'fixture must include a second employed executive for legacy DELETE coverage');
+const balanceBeforeLegacyDelete = currentBalance();
+db.exec(`
+  CREATE TRIGGER issue_205_abort_former_transition
+  BEFORE UPDATE OF status ON executives
+  WHEN OLD.id = ${legacyDeleteTarget.id} AND NEW.status = 'former'
+  BEGIN SELECT RAISE(ABORT, 'issue 205 history transition rollback probe'); END;
+`);
+let failedLegacyDelete: DispatchResult;
+try {
+  failedLegacyDelete = await dispatch(`/api/v4/executives/${legacyDeleteTarget.id}/`, 'DELETE', companyId);
+} finally {
+  db.exec('DROP TRIGGER issue_205_abort_former_transition');
+}
+assert.ok(failedLegacyDelete!.status >= 400, 'failed departure persistence rejects the transition');
+assert.equal(currentBalance(), balanceBeforeLegacyDelete, 'failed history transition rolls back severance');
+assert.equal(
+  (db.prepare("SELECT status FROM executives WHERE id = ? AND company_id = ?").get(legacyDeleteTarget.id, companyId) as { status: string }).status,
+  'employed',
+  'failed history transition leaves the executive employed'
+);
+assert.equal(
+  (db.prepare(`SELECT COUNT(*) AS count FROM executive_employment_history
+    WHERE executive_id = ? AND company_id = ? AND ended_at IS NULL`).get(legacyDeleteTarget.id, companyId) as { count: number }).count,
+  1,
+  'failed transition preserves its open employment history'
+);
+const legacyDelete = await dispatch(`/api/v4/executives/${legacyDeleteTarget.id}/`, 'DELETE', companyId);
+assert.equal(legacyDelete.status, 200);
+assert.equal((legacyDelete.body as { success: boolean }).success, true);
+assert.equal(
+  (db.prepare(`SELECT COUNT(*) AS count FROM executive_employment_history
+    WHERE executive_id = ? AND company_id = ? AND ended_at IS NOT NULL`)
+    .get(legacyDeleteTarget.id, companyId) as { count: number }).count,
+  1,
+  'legacy DELETE closes the employment history exactly once'
+);
+const legacyDeleteRepeat = await dispatch(`/api/v4/executives/${legacyDeleteTarget.id}/`, 'DELETE', companyId);
+assert.ok(legacyDeleteRepeat.status >= 400, 'legacy DELETE repeat cannot apply severance twice');
+assert.equal(
+  (db.prepare(`SELECT COUNT(*) AS count FROM executive_employment_history
+    WHERE executive_id = ? AND company_id = ? AND ended_at IS NOT NULL`)
+    .get(legacyDeleteTarget.id, companyId) as { count: number }).count,
+  1
+);
+const allFormerAfterLegacyDelete = await dispatch(`/api/v2/companies/${companyId}/former-executives/`, 'GET', companyId);
+assert.equal(allFormerAfterLegacyDelete.status, 200);
+assert.ok((allFormerAfterLegacyDelete.body.executives as Array<{ id: number }>).some(
+  executive => executive.id === legacyDeleteTarget.id
+));
+
+console.log('PASS executive details (#195), candidate/offer DTOs (#196), and former history fire/read (#205)');

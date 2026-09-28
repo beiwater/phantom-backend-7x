@@ -30,7 +30,9 @@ export default defineConfig({
     trace: 'retain-on-failure',
     launchOptions: {
       executablePath: findBrowserExecutable(),
-      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+      // Isolate this ephemeral regression browser from machine cache state.
+      // This avoids Chromium cache-write failures without disabling browser security.
+      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-cache'],
     },
   },
 });

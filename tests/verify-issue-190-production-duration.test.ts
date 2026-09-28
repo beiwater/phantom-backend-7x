@@ -36,7 +36,7 @@ const expectedDuration = calculateProductionTime(
   3,
   100,
   farm!.size,
-  economy.productionModifier,
+  0, // Original client: neutral company slider, with salary phase below (#199).
   { economyState: economy.state }
 );
 assert.equal(result.queueItem.durationSeconds, expectedDuration);
@@ -97,7 +97,7 @@ assert.equal(
 );
 assert.equal(
   miningQ0.queueItem.durationSeconds,
-  calculateProductionTime(42, 1_000, 1, economy.productionModifier, { economyState: economy.state }),
+  calculateProductionTime(42, 1_000, 1, 0, { economyState: economy.state }),
   'mine duration uses the default 100% mining rate for all product quality levels'
 );
 

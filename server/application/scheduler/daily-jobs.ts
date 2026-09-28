@@ -7,20 +7,20 @@
  * retail saturation refresh) lives here as an Application job so the
  * scheduler contains no formulas, no SQL, and no money movement.
  */
-import { db } from '../../db/database.ts';
 import { CONFIG } from '../../config.ts';
 import { runInTransaction } from '../../db/transaction.ts';
 import { bondRepository } from '../../repositories/bond-repository.ts';
 import { companyRepository } from '../../repositories/company-repository.ts';
 import { governmentOrdersRepository } from '../../repositories/government-orders-repository.ts';
 import { schedulerStateRepository } from '../../repositories/scheduler-state-repository.ts';
-import { recordCashLedger } from '../../game/cash-ledger.ts';
+import { socialRepository } from '../../repositories/social-repository.ts';
+import { recordCashLedger } from '../../repositories/cash-ledger-repository.ts';
 import { getAllResourceDefs } from '../../game-data/resources.ts';
 import { virtualClock } from '../../core/virtual-clock.ts';
 import { settleMaturedBondsUseCase } from '../finance/bond-use-cases.ts';
-import { settleDueLoans } from '../../game/loans.ts';
+import { settleDueLoans } from '../finance/loan-use-cases.ts';
 
-import { grantCycleCertificates } from '../../game/certificates.ts';
+import { grantCycleCertificates } from '../achievements/certificate-use-cases.ts';
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 function round2(value: number): number {
@@ -296,16 +296,14 @@ export {
   getEconomyPhaseHistory,
   getEconomyPhaseStatistics,
   setEconomyPhase
-} from '../../game/economy-phase.ts';
+} from './economy-phase-use-cases.ts';
 
-import { setEconomyPhase } from '../../game/economy-phase.ts';
+import { setEconomyPhase } from './economy-phase-use-cases.ts';
 
 export function rollEconomyPhase(occurrence: Date, realmId?: number): void {
-  const randomSetting = db.prepare(
-    "SELECT value FROM company_settings WHERE company_id = 0 AND key = 'economy_random'"
-  ).get() as { value: string } | undefined;
-  const randomEnabled = randomSetting?.value
-    ? randomSetting.value === 'true'
+  const randomSetting = socialRepository.getCompanySetting(0, 'economy_random');
+  const randomEnabled = randomSetting
+    ? randomSetting === 'true'
     : CONFIG.ECONOMY_RANDOM;
   if (!randomEnabled) return;
 

@@ -2,6 +2,8 @@ import puppeteer, { type Page } from 'puppeteer';
 import fs from 'node:fs';
 import path from 'node:path';
 import { attachBrowserAudit, waitForUiStable, waitForUiTransition } from './e2e/support/browser-audit.ts';
+import { verifyCrawlerAccountPersists } from './e2e/support/crawler-evidence.ts';
+import { withTestServer } from './support/test-server.ts';
 
 function getFormattedTimestamp(): string {
   const now = new Date();
@@ -148,7 +150,7 @@ async function navigateByVisibleClicks(page: Page, pathFromRoot: string[], rootP
   }
 }
 
-async function runBFSCrawler(maxDepth: number = 3) {
+async function runBFSCrawler(baseUrl: string, maxDepth: number = 3) {
   const timestamp = getFormattedTimestamp();
   const roundDir = path.resolve('screenshots', `bfs_${timestamp}`);
   fs.mkdirSync(roundDir, { recursive: true });
@@ -158,10 +160,11 @@ async function runBFSCrawler(maxDepth: number = 3) {
   console.log(` Max Depth: ${maxDepth} | Artifact Directory: ${roundDir}`);
   console.log('================================================================');
 
-  const baseUrl = process.env.E2E_BASE_URL ?? 'http://127.0.0.1:3000';
+  const browserArgs = ['--no-sandbox', '--disable-setuid-sandbox', '--window-size=1440,900'];
+  if (browserArgs.includes('--disable-web-security')) throw new Error('BFS must run with normal browser web security enabled');
   const browser = await puppeteer.launch({
     headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox', '--window-size=1440,900']
+    args: browserArgs
   });
 
   const page = await browser.newPage();
@@ -186,6 +189,7 @@ async function runBFSCrawler(maxDepth: number = 3) {
   const failedButtonIds = new Set<string>();
   const unverifiedButtonIds = new Set<string>();
   const actionPenaltyMap = new Map<string, number>();
+  let setupMutationEvidence: Record<string, unknown> = {};
   let runFailed = false;
   let step = 1;
 
@@ -198,6 +202,7 @@ async function runBFSCrawler(maxDepth: number = 3) {
     console.log('========================================================');
 
     await page.goto(`${baseUrl}/zh-cn/signup/`, { waitUntil: 'domcontentloaded' });
+    const signupPageUrl = page.url();
     await waitForUiStable(page, { action: 'load signup page' });
     await assertDOMIntegrity(page, 'Signup Page');
     await takeTimestampedScreenshot(page, roundDir, 0, step++, 'signup_page');
@@ -217,12 +222,54 @@ async function runBFSCrawler(maxDepth: number = 3) {
     await passwordInput.type('Password123!');
     const beforeRegistration = await waitForUiStable(page, { action: 'before signup submission' });
     audit.recordAction('submit signup form');
+    const registrationResponsePromise = page.waitForResponse(response =>
+      response.request().method() === 'POST' && new URL(response.url()).pathname === '/api/v2/auth/email/connect/',
+      { timeout: 20_000 },
+    );
     await passwordInput.press('Enter');
+    const registrationResponse = await registrationResponsePromise;
+    if (registrationResponse.status() !== 200) throw new Error(`Signup response returned HTTP ${registrationResponse.status()}`);
+    const registrationPayload = await registrationResponse.json() as { status?: string; redirectUrl?: string };
+    if (registrationPayload.status !== 'redirect' || !['/zh-cn/create/', '/zh-cn/landscape/'].includes(registrationPayload.redirectUrl ?? '')) {
+      throw new Error(`Signup response did not satisfy the redirect contract: ${JSON.stringify(registrationPayload)}`);
+    }
     await waitForUiTransition(page, beforeRegistration, { action: 'submit signup form', timeoutMs: 20_000 });
 
+    let companyCreateEvidence: Record<string, unknown> | null = null;
+    if (/\/zh-cn\/create\//.test(page.url())) {
+      const companyNameInput = await page.waitForSelector('input:not([type="password"]):not([type="email"])', { visible: true, timeout: 20_000 });
+      if (!companyNameInput) throw new Error('[UI_ACTION_FAILED] Company-creation page did not expose the company-name input');
+      await companyNameInput.type(`BFS traversal ${Date.now()}`);
+      const companyResponsePromise = page.waitForResponse(response =>
+        response.request().method() === 'POST' && new URL(response.url()).pathname === '/api/v1/realm-create-company/0/',
+        { timeout: 20_000 },
+      );
+      if (!await clickVisibleButtonContaining(page, ['开始游戏'], audit, 'create company')) {
+        throw new Error('[UI_ACTION_FAILED] Company-creation page did not expose the visible start-game button');
+      }
+      const companyResponse = await companyResponsePromise;
+      if (companyResponse.status() !== 200) throw new Error(`Company creation returned HTTP ${companyResponse.status()}`);
+      const companyPayload = await companyResponse.json() as { status?: string; redirectUrl?: string; companyId?: number; realmId?: number };
+      if (companyPayload.status !== 'redirect' || !Number.isInteger(companyPayload.companyId) || companyPayload.companyId! <= 0) {
+        throw new Error(`Company creation response did not satisfy its contract: ${JSON.stringify(companyPayload)}`);
+      }
+      companyCreateEvidence = {
+        method: 'POST', path: '/api/v1/realm-create-company/0/', status: companyResponse.status(), response: companyPayload,
+        visibleTransition: { from: '/zh-cn/create/', to: companyPayload.redirectUrl }
+      };
+    }
     await page.waitForSelector('a[href*="/b/"], #main-menu-dropdown', { visible: true, timeout: 20_000 });
     await waitForUiStable(page, { action: 'load authenticated landscape root' });
     await assertDOMIntegrity(page, 'Landscape Map (Root)');
+    const persistence = await verifyCrawlerAccountPersists(page);
+    setupMutationEvidence = {
+      registration: {
+        method: 'POST', path: '/api/v2/auth/email/connect/', status: registrationResponse.status(), response: registrationPayload,
+        visibleTransition: { from: signupPageUrl, to: page.url(), displayedBalance: persistence.visibleBeforeRefresh.money }
+      },
+      companyCreation: companyCreateEvidence,
+      persistence,
+    };
     await takeTimestampedScreenshot(page, roundDir, 0, step++, 'authenticated_landscape_root');
 
     // ----------------------------------------------------
@@ -231,7 +278,6 @@ async function runBFSCrawler(maxDepth: number = 3) {
     const visitedUrls = new Set<string>();
     const normalizedRootUrl = '/zh-cn/landscape/';
     visitedUrls.add(normalizedRootUrl);
-    visitedUrls.add('/zh-cn/');
     let currentQueue: BFSNode[] = [
       { url: normalizedRootUrl, name: 'Landscape Map', depth: 1, path: [] }
     ];
@@ -377,20 +423,44 @@ async function runBFSCrawler(maxDepth: number = 3) {
       }
     }
 
+    const depthLimitedPaths = currentQueue.map(node => node.url);
+    const pageCoverageDenominator = totalVisitedPages + unreachableNodes;
+    const buttonCoverage = discoveredButtonIds.size === 0 ? 0 : exercisedButtonIds.size / discoveredButtonIds.size;
+    const pageCoverage = pageCoverageDenominator === 0 ? 0 : totalVisitedPages / pageCoverageDenominator;
     const report = {
+      browserSecurity: { webSecurityDisabled: browserArgs.includes('--disable-web-security'), mode: 'normal' },
+      setupMutationEvidence,
       pages: {
+        discovered: visitedUrls.size,
         attempted: totalAttemptedPages,
         visited: totalVisitedPages,
         unreachable: unreachableNodes,
-        unreachablePaths: [...unreachablePaths]
+        unreachablePaths: [...unreachablePaths],
+        depthLimitedPaths,
+        discoveryScope: 'unique same-origin /zh-cn/ links observed in stable DOM snapshots; coverage is bounded by maxDepth',
+        coverage: {
+          visited: totalVisitedPages,
+          denominator: pageCoverageDenominator,
+          percentage: Number((pageCoverage * 100).toFixed(2)),
+          denominatorDefinition: 'exploration pages actually attempted within maxDepth, including unreachable paths',
+        },
       },
       buttons: {
         discovered: discoveredButtonIds.size,
         exercised: exercisedButtonIds.size,
         failed: failedButtonIds.size,
-        failedIds: [...failedButtonIds]
+        failedIds: [...failedButtonIds],
+        unverified: unverifiedButtonIds.size,
+        unverifiedIds: [...unverifiedButtonIds],
+        coverage: {
+          exercised: exercisedButtonIds.size,
+          denominator: discoveredButtonIds.size,
+          percentage: Number((buttonCoverage * 100).toFixed(2)),
+          denominatorDefinition: 'unique visible button/tab controls observed in pages visited within maxDepth; mutation/ambiguous controls stay unverified',
+        },
       },
       runtimeErrors: audit.errors,
+      auditMetrics: audit.getSummary(),
       unverifiedButtonIds: [...unverifiedButtonIds],
       audit: audit.snapshot(),
       stubs: {
@@ -407,14 +477,15 @@ async function runBFSCrawler(maxDepth: number = 3) {
     console.log(` Unverified mutation controls: ${unverifiedButtonIds.size}`);
     console.log(` Stub endpoints: ${report.stubs.count}`);
     report.stubs.endpoints.forEach(endpoint => console.log(`   - ${endpoint}`));
-    console.log(` Total Browser Audit Errors: ${report.runtimeErrors.length}`);
+    console.log(` Fatal browser audit events: ${report.runtimeErrors.length}; exact observed optional events: ${report.auditMetrics.ignoredEvents}`);
+    console.log(` Browser security: ${report.browserSecurity.mode}; disable-web-security flag=${report.browserSecurity.webSecurityDisabled}`);
     console.log('================================================================');
 
     audit.assertClean('BFS crawler');
     if (failedButtonIds.size > 0 || unreachableNodes > 0) runFailed = true;
     if (runFailed) throw new Error(`BFS traversal had ${failedButtonIds.size} failed UI control(s) and ${unreachableNodes} unreachable page(s).`);
 
-    console.log('✅ BREADTH-FIRST SEARCH (BFS) TRAVERSAL COMPLETED SUCCESSFULLY WITH ZERO ERRORS!');
+    console.log(`✅ BREADTH-FIRST SEARCH completed; fatal audit events=${audit.errors.length}, exact optional events=${audit.getSummary().ignoredEvents}.`);
   } catch (err: unknown) {
     console.error('Fatal BFS Crawler error:', err instanceof Error ? err.message : String(err));
     await audit.writeFailureArtifacts(roundDir, 'bfs-failure');
@@ -424,4 +495,8 @@ async function runBFSCrawler(maxDepth: number = 3) {
   }
 }
 
-runBFSCrawler(3);
+void withTestServer(server => runBFSCrawler(server.baseUrl, 3), { env: { ECONOMY_RANDOM: 'false' } })
+  .catch((error: unknown) => {
+    console.error('BFS crawler runner failed:', error instanceof Error ? error.message : String(error));
+    process.exitCode = 1;
+  });

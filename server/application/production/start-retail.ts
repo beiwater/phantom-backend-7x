@@ -4,10 +4,10 @@ import { runInTransaction } from '../../db/transaction.ts';
 import { buildingRepository, type BuildingEntity } from '../../repositories/building-repository.ts';
 import { companyRepository } from '../../repositories/company-repository.ts';
 import { NotFoundError, ForbiddenError, ValidationError } from '../../errors/domain-error.ts';
-import { recordCashLedger, refreshDailyFinanceSnapshot } from '../../game/cash-ledger.ts';
+import { recordCashLedger, refreshDailyFinanceSnapshot } from '../../repositories/cash-ledger-repository.ts';
 import { getResourceDef } from '../../game-data/resources.ts';
 import { assertQueueDuration } from '../../domain/leveling/level-rules.ts';
-import { getWarehouseItemExact, consumeResourceExactWithTransactions } from '../../game/warehouse.ts';
+import { warehouseRepository } from '../../repositories/warehouse-repository.ts';
 import { retailRepository } from '../../repositories/retail-repository.ts';
 import {
   RETAIL_PRODUCTS,
@@ -75,7 +75,7 @@ export async function startRetailUseCase(
 
     // Stock check inside the transaction: failure aborts everything (no
     // partial sale, no cash movement).
-    const item = getWarehouseItemExact(ctx.companyId, input.kind, quality);
+    const item = warehouseRepository.findByCompanyAndResource(ctx.companyId, input.kind, quality);
     if (!item || Number(item.amount) < input.amount) {
       throw new ValidationError('Insufficient stock in warehouse to retail');
     }
@@ -102,15 +102,12 @@ export async function startRetailUseCase(
     );
 
     // 1. Consume warehouse stock atomically
-    const resourceTransactions = consumeResourceExactWithTransactions(
+    const resourceTransactions = warehouseRepository.consumeExact(
       ctx.companyId,
       input.kind,
       quality,
       input.amount
-    );
-    if (!resourceTransactions) {
-      throw new ValidationError('Insufficient stock in warehouse to retail');
-    }
+    ).map(tx => ({ ...tx, amount: -tx.amount }));
 
     // 2. Credit the revenue and write the cash_ledger row in the same transaction (skip generic fallback)
     const revenue = Math.round(input.amount * unitPrice * 100) / 100;

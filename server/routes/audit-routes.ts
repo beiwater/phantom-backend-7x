@@ -5,6 +5,7 @@ import { getCompanyById } from '../game/company.ts';
 import { CONFIG } from '../config.ts';
 import { buildingRepository } from '../repositories/building-repository.ts';
 import { toSimCompaniesBuildingDTO } from '../compatibility/simcompanies/building-dto.ts';
+import { RouteRegistry, globalRouteRegistry } from '../http/route-registry.ts';
 
 export async function handleAuditRoutes(
   req: IncomingMessage,
@@ -593,3 +594,47 @@ export async function handleAuditRoutes(
 
   return false;
 }
+
+export function registerAuditRoutes(registry: RouteRegistry = globalRouteRegistry): void {
+  const delegate = (method: 'GET' | 'POST' | 'PATCH', pattern: string, auth: 'none' | 'player' | 'company' = 'none') => {
+    registry.register({
+      method,
+      pattern,
+      auth,
+      owner: 'audit',
+      handler: async (req, res, ctx) => {
+        const pathname = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`).pathname;
+        await handleAuditRoutes(req, res, pathname, method, ctx?.playerId ?? null, ctx?.companyId ?? null);
+      }
+    });
+  };
+
+  // Exact declarations replace the legacy catch-all for API contracts that
+  // the official client calls. Their existing admin/ownership rules stay in
+  // the delegated handlers and are exercised by route-level tests.
+  delegate('GET', '/api/v2/audit/recently-deleted/');
+  delegate('GET', '/api/v2/audit/suspended-companies/');
+  delegate('GET', '/api/v2/audits/');
+  delegate('GET', '/api/v2/moderator-notes/');
+  delegate('GET', '/api/v2/players/:playerId(\\d+)/moderator-notes/');
+  delegate('GET', '/api/v2/players/:playerId(\\d+)/moderator-notes/:noteId(\\d+)/');
+  delegate('GET', '/api/v2/messages-cases/');
+  delegate('GET', '/api/v2/messages-cases/:caseId(\\d+)/');
+  delegate('PATCH', '/api/v2/messages-cases/:caseId(\\d+)/');
+  delegate('GET', '/api/v1/audit-requests/');
+  delegate('GET', '/api/v2/admin/purchase-detective/');
+  delegate('GET', '/api/v2/audit/:companyId(\\d+)/personal/');
+  delegate('GET', '/api/v2/audit/:companyId(\\d+)/audits/');
+  delegate('GET', '/api/v2/audit/:companyId(\\d+)/auth/');
+  delegate('GET', '/api/v2/audit/:companyId(\\d+)/payments/');
+  delegate('GET', '/api/v2/audit/:companyId(\\d+)/contracts/');
+  delegate('GET', '/api/v2/audit/:companyId(\\d+)/market-trades/');
+  delegate('GET', '/api/v2/companies/:companyId(\\d+)/ban/');
+  delegate('POST', '/api/v2/companies/:companyId(\\d+)/ban/');
+  delegate('GET', '/api/v2/audit-ip/:playerId(\\d+)/:ip/');
+  delegate('GET', '/api/v2/players/:playerId(\\d+)/personal-data/', 'player');
+  delegate('GET', '/api/v2/newcomers/');
+  delegate('POST', '/api/v2/redeem-code/:playerId(\\d+)/');
+}
+
+registerAuditRoutes(globalRouteRegistry);

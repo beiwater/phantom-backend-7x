@@ -3,23 +3,11 @@
  *
  * Owns the game_notifications table: per-company feed entries written from
  * post-commit domain events. Pure persistence — event wiring lives in
- * notifications.ts, schema bootstrap here.
+ * notifications.ts, schema belongs to versioned migrations.
  */
 import type { DatabaseSync } from 'node:sqlite';
 import { db } from '../db/connection.ts';
 
-db.exec(`
-  CREATE TABLE IF NOT EXISTS game_notifications (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    company_id INTEGER NOT NULL,
-    type TEXT NOT NULL,
-    payload_json TEXT DEFAULT '{}',
-    read INTEGER DEFAULT 0,
-    created_at TEXT NOT NULL
-  );
-  CREATE INDEX IF NOT EXISTS idx_game_notifications_company
-    ON game_notifications(company_id, read, created_at);
-`);
 
 export interface GameNotificationEntity {
   id: number;

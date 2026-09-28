@@ -187,6 +187,7 @@ export function attachDiagnostics(page: Page): DiagnosticsController {
     },
     async flush(): Promise<void> {
       await Promise.all([...pendingResponseBodies]);
+      await audit.flush();
     },
     async write(testInfo: TestInfo): Promise<void> {
       await controller.flush();

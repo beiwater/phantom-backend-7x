@@ -2195,6 +2195,55 @@ export const MIGRATIONS: MigrationDefinition[] = [
       db.exec('ALTER TABLE contracts ADD COLUMN cost_snapshot TEXT DEFAULT NULL');
     }
   },
+  {
+    version: 42,
+    name: '042_remaining_runtime_schema',
+    up: (db: DatabaseSync) => {
+      // Existing databases may already carry these runtime-added columns.
+      // Moving the same definitions into a versioned migration preserves them (#68).
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS realm_phase_settings (
+          id INTEGER PRIMARY KEY CHECK (id = 1),
+          preset TEXT NOT NULL DEFAULT 'full',
+          phase INTEGER NOT NULL DEFAULT 8,
+          research_limit INTEGER NOT NULL DEFAULT 12,
+          bonds_enabled INTEGER NOT NULL DEFAULT 1,
+          gov_orders_enabled INTEGER NOT NULL DEFAULT 1,
+          executives_enabled INTEGER NOT NULL DEFAULT 1,
+          rec_buildings_enabled INTEGER NOT NULL DEFAULT 1,
+          collectibles_enabled INTEGER NOT NULL DEFAULT 1,
+          robots_enabled INTEGER NOT NULL DEFAULT 1,
+          purchases_enabled INTEGER NOT NULL DEFAULT 1,
+          simboosts_exchange_limit INTEGER NOT NULL DEFAULT 10000,
+          retail_modeling INTEGER NOT NULL DEFAULT 0,
+          updated_at TEXT
+        );
+      `);
+      const additions: Record<string, Record<string, string>> = {
+        display_case: { item_kind: "TEXT NOT NULL DEFAULT 'resource'", item_ref: 'TEXT' },
+        restaurant_properties: {
+          menu_price: 'REAL DEFAULT 60', professional_staff: 'INTEGER DEFAULT 0',
+          last_cycle_at: 'TEXT', reconstruction_started_at: 'TEXT',
+          reconstruction_until: 'TEXT', rating_penalty_applied: 'INTEGER DEFAULT 0'
+        },
+        restaurant_runs: {
+          new_rating: 'REAL', rating_before: 'REAL', rating_after: 'REAL', rating_delta: 'REAL',
+          occupancy: 'REAL', menu_price: 'REAL', review: 'TEXT', menu_json: 'TEXT',
+          good_service: 'INTEGER', is_luxury: 'INTEGER', cycle_start: 'TEXT', cycle_end: 'TEXT',
+          prepared: 'INTEGER DEFAULT 0', served: 'INTEGER', spoiled: 'INTEGER',
+          food_cost: 'REAL DEFAULT 0', wages: 'REAL DEFAULT 0'
+        }
+      };
+      for (const [table, definitions] of Object.entries(additions)) {
+        const columns = new Set(
+          (db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>).map(row => row.name)
+        );
+        for (const [column, definition] of Object.entries(definitions)) {
+          if (!columns.has(column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+        }
+      }
+    }
+  },
 ];
 
 export class MigrationRunner {

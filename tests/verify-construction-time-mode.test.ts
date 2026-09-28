@@ -59,7 +59,9 @@ const initialMode = FixtureService.getConstructionTimeMode();
 console.log(`  Initial mode: ${initialMode.mode}`);
 
 // Toggle to realistic
-const realisticRes = await FixtureService.setConstructionTimeMode('realistic');
+// This test asserts encyclopedia wall-clock durations. The shared test runner
+// accelerates production cycles, so pin construction speed for this fixture.
+const realisticRes = await FixtureService.setConstructionTimeMode('realistic', 1);
 assert.equal(realisticRes.mode, 'realistic', 'Mode must be realistic');
 assert.equal(FixtureService.getActiveConstructionTimeMode(), 'realistic');
 assert.ok(realisticRes.description.includes('Realistic'));

@@ -209,6 +209,14 @@ export class ProductionRepository {
     return result.changes === 1;
   }
 
+  updateSchedule(queueId: number, companyId: number, startedAt: string, finishesAt: string): void {
+    const updated = this.database.prepare(`
+      UPDATE production_queues SET started_at = ?, finishes_at = ?
+      WHERE id = ? AND company_id = ? AND resolved = 0
+    `).run(startedAt, finishesAt, queueId, companyId);
+    if (updated.changes !== 1) throw new NotFoundError(`Active queue item ${queueId} not found for company ${companyId}`);
+  }
+
   finishImmediately(queueId: number, companyId: number, nowIso: string = virtualClock.nowIso()): ProductionQueueEntity {
     const result = this.database.prepare(`
       UPDATE production_queues

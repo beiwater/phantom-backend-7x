@@ -25,6 +25,9 @@ const building = db.prepare('SELECT id FROM buildings WHERE company_id = ? ORDER
 
 // Isolate this cycle while retaining the catalog and the rest of the realm.
 db.prepare('DELETE FROM certificates WHERE realm_id = ?').run(realmId);
+assert.deepEqual(getLatestCertificates(realmId), [], 'reading an empty certificate history must not seed fake awards (#179)');
+assert.deepEqual(getRarestCertificates(realmId), []);
+assert.equal((db.prepare('SELECT COUNT(*) AS count FROM certificates WHERE realm_id = ?').get(realmId) as { count: number }).count, 0);
 db.prepare('DELETE FROM production_queues WHERE company_id = ? AND started_at >= ? AND started_at < ?')
   .run(companyId, cycleStart.toISOString(), cycleEnd.toISOString());
 db.prepare('DELETE FROM retail_orders WHERE company_id = ? AND created_at >= ? AND created_at < ?')

@@ -10,6 +10,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { RouteRegistry, globalRouteRegistry } from '../http/route-registry.ts';
 import { sendJson } from './utils.ts';
 import { HealthService } from '../services/health-service.ts';
+import { virtualClock } from '../core/virtual-clock.ts';
 
 export function handleHealthRoutes(
   _req: IncomingMessage,
@@ -57,6 +58,12 @@ export function handleHealthRoutes(
 }
 export function registerHealthRoutes(registry: RouteRegistry = globalRouteRegistry): void {
   registry
+    .register({
+      method: 'GET',
+      pattern: '/api/time/',
+      owner: 'health',
+      handler: async (_req, res) => { sendJson(res, virtualClock.nowMs()); }
+    })
     .register({
       method: 'GET',
       pattern: '/health/',

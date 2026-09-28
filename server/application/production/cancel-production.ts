@@ -7,7 +7,9 @@ import { warehouseRepository, type CostBreakdown } from '../../repositories/ware
 import { eventBus } from '../../events/event-bus.ts';
 import { NotFoundError, ForbiddenError, ValidationError } from '../../errors/domain-error.ts';
 import { validateProductionRequest } from '../../domain/production/production-rules.ts';
-import { cancelQueuedLaunch, rocketKindForLaunchAmount } from '../../game/aerospace.ts';
+import { cancelQueuedLaunch } from '../aerospace/launch-use-cases.ts';
+import { rocketKindForLaunchAmount } from '../../domain/aerospace/launch-rules.ts';
+
 
 export interface CancelProductionInput {
   buildingId: number;

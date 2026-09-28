@@ -19,24 +19,6 @@ import { CONSTANTS_BUILDINGS, CONSTANTS_RESOURCES, type BuildingDef, type Resour
 import { logger } from '../core/logger.ts';
 
 // Persisted realm phase state
-db.exec(`
-  CREATE TABLE IF NOT EXISTS realm_phase_settings (
-    id INTEGER PRIMARY KEY CHECK (id = 1),
-    preset TEXT NOT NULL DEFAULT 'full',
-    phase INTEGER NOT NULL DEFAULT 8,
-    research_limit INTEGER NOT NULL DEFAULT 12,
-    bonds_enabled INTEGER NOT NULL DEFAULT 1,
-    gov_orders_enabled INTEGER NOT NULL DEFAULT 1,
-    executives_enabled INTEGER NOT NULL DEFAULT 1,
-    rec_buildings_enabled INTEGER NOT NULL DEFAULT 1,
-    collectibles_enabled INTEGER NOT NULL DEFAULT 1,
-    robots_enabled INTEGER NOT NULL DEFAULT 1,
-    purchases_enabled INTEGER NOT NULL DEFAULT 1,
-    simboosts_exchange_limit INTEGER NOT NULL DEFAULT 10000,
-    retail_modeling INTEGER NOT NULL DEFAULT 0,
-    updated_at TEXT
-  );
-`);
 
 export interface RealmPhaseConfig {
   preset: string;

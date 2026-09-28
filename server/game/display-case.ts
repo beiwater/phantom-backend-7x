@@ -8,14 +8,6 @@ import { CANONICAL_ACHIEVEMENTS } from './achievement-definitions.ts';
 // certificate, an achievement, or a collectible (NFT). item_kind records
 // which, item_ref the achievement id / certificate id / nft asset id.
 // Legacy rows default to 'resource' so pre-existing cases keep rendering.
-const displayCaseCols = db.prepare('PRAGMA table_info(display_case)').all() as Array<{ name: string }>;
-if (!displayCaseCols.some((c) => c.name === 'item_kind')) {
-  db.exec("ALTER TABLE display_case ADD COLUMN item_kind TEXT NOT NULL DEFAULT 'resource'");
-}
-if (!displayCaseCols.some((c) => c.name === 'item_ref')) {
-  db.exec('ALTER TABLE display_case ADD COLUMN item_ref TEXT');
-}
-
 export interface DisplayCaseRow {
   id: number;
   company_id: number;

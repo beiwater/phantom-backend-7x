@@ -6,6 +6,7 @@
  */
 import type { DatabaseSync } from 'node:sqlite';
 import { db } from '../db/connection.ts';
+import type { SchedulerTaskState } from '../domain/scheduler/schedule.ts';
 
 export interface EconomyPhaseRow {
   state: number;
@@ -203,6 +204,70 @@ export class SchedulerStateRepository {
       }
       throw err;
     }
+  }
+
+  getTaskState(taskName: string): SchedulerTaskState | null {
+    const row = this.database.prepare(`
+      SELECT task_name, last_run_utc, last_scheduled_for_utc, last_status, last_error, runs, updated_at
+      FROM scheduler_state WHERE task_name = ?
+    `).get(taskName) as {
+      task_name: string; last_run_utc: string | null; last_scheduled_for_utc: string | null;
+      last_status: string; last_error: string | null; runs: number; updated_at: string | null;
+    } | undefined;
+    if (!row) return null;
+    return {
+      taskName: row.task_name,
+      lastRunUtc: row.last_run_utc,
+      lastScheduledForUtc: row.last_scheduled_for_utc,
+      lastStatus: row.last_status,
+      lastError: row.last_error,
+      runs: Number(row.runs) || 0,
+      updatedAt: row.updated_at
+    };
+  }
+
+  listTaskStates(): SchedulerTaskState[] {
+    const rows = this.database.prepare(`
+      SELECT task_name, last_run_utc, last_scheduled_for_utc, last_status, last_error, runs, updated_at
+      FROM scheduler_state ORDER BY task_name
+    `).all() as Array<{
+      task_name: string; last_run_utc: string | null; last_scheduled_for_utc: string | null;
+      last_status: string; last_error: string | null; runs: number; updated_at: string | null;
+    }>;
+    return rows.map(row => ({
+      taskName: row.task_name,
+      lastRunUtc: row.last_run_utc,
+      lastScheduledForUtc: row.last_scheduled_for_utc,
+      lastStatus: row.last_status,
+      lastError: row.last_error,
+      runs: Number(row.runs) || 0,
+      updatedAt: row.updated_at
+    }));
+  }
+
+  markTaskRan(
+    taskName: string,
+    ranAt: Date,
+    occurrenceIso: string,
+    status: 'ok' | 'error',
+    error: string | null
+  ): void {
+    this.database.prepare(`
+      INSERT INTO scheduler_state (task_name, last_run_utc, last_scheduled_for_utc, last_status, last_error, runs, updated_at)
+      VALUES (?, ?, ?, ?, ?, 1, ?)
+      ON CONFLICT(task_name) DO UPDATE SET
+        last_run_utc = excluded.last_run_utc,
+        last_scheduled_for_utc = excluded.last_scheduled_for_utc,
+        last_status = excluded.last_status,
+        last_error = excluded.last_error,
+        runs = runs + 1,
+        updated_at = excluded.updated_at
+    `).run(taskName, ranAt.toISOString(), occurrenceIso, status, error, ranAt.toISOString());
+  }
+  latestRetailSaturationDate(): string | null {
+    const row = this.database.prepare('SELECT MAX(date) AS latest FROM retail_saturation')
+      .get() as { latest: string | null };
+    return row.latest;
   }
 
   getRetailSaturation(dateKey: string, kind: number): number | undefined {

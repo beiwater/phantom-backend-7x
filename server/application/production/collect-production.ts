@@ -8,8 +8,10 @@ import { companyRepository } from '../../repositories/company-repository.ts';
 import { eventBus } from '../../events/event-bus.ts';
 import { NotFoundError, ValidationError, ConflictError } from '../../errors/domain-error.ts';
 import { computeLevelInfo, type LevelInfoDTO } from '../../domain/leveling/level-rules.ts';
-import { applyAbundanceCycleDecay } from '../../game/buildings.ts';
-import { rocketKindForLaunchAmount, resolveRocketLaunch, type RocketLaunchOutcome } from '../../game/aerospace.ts';
+import { applyAbundanceCycleDecay } from '../buildings/abundance-use-cases.ts';
+import { resolveRocketLaunch } from '../aerospace/launch-use-cases.ts';
+import { rocketKindForLaunchAmount, type RocketLaunchOutcome } from '../../domain/aerospace/launch-rules.ts';
+
 
 export interface CollectProductionInput {
   buildingOrQueueId: number;

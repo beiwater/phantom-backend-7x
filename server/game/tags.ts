@@ -23,17 +23,6 @@ function findCompany(idOrCompanyId: number | string): CompanyRow | null {
 }
 
 // 1. Initialize Tables
-db.exec(`
-  CREATE TABLE IF NOT EXISTS company_tags (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    company_id INTEGER,
-    resource_kind INTEGER,
-    kind TEXT,
-    buy_sell TEXT,
-    created_at TEXT,
-    expires_at TEXT
-  );
-`);
 
 // 2. Seed Default Tags
 (function seedTags() {

@@ -8,6 +8,7 @@ import {
   waitForUiStable,
   waitForUiTransition,
 } from './e2e/support/browser-audit.ts';
+import { withTestServer } from './support/test-server.ts';
 
 const SCREENSHOT_DIR = path.resolve('screenshots');
 fs.mkdirSync(SCREENSHOT_DIR, { recursive: true });
@@ -26,7 +27,7 @@ async function clickVisibleLink(
   await waitForUiTransition(page, before, { action });
 }
 
-async function runE2E(): Promise<void> {
+async function runE2E(baseUrl: string): Promise<void> {
   console.log('====================================================');
   console.log(' Starting SimCompanies Strict Real-Browser E2E Suite');
   console.log('====================================================');
@@ -41,8 +42,6 @@ async function runE2E(): Promise<void> {
   let runFailed = false;
 
   try {
-    const baseUrl = process.env.E2E_BASE_URL ?? 'http://127.0.0.1:3000';
-
     console.log('\n[Step 1] Load Dashboard / Map');
     await page.goto(`${baseUrl}/zh-cn/`, { waitUntil: 'domcontentloaded', timeout: 30_000 });
     await waitForUiStable(page, { action: 'load dashboard' });
@@ -101,7 +100,7 @@ async function runE2E(): Promise<void> {
   }
 }
 
-void runE2E().catch((error: unknown) => {
+void withTestServer(server => runE2E(server.baseUrl), { env: { ECONOMY_RANDOM: 'false' } }).catch((error: unknown) => {
   console.error('[E2E_SUITE_FAILED]', error instanceof Error ? error.message : String(error));
   process.exitCode = 1;
 });

@@ -7,6 +7,7 @@ import {
   waitForUiStable,
   waitForUiTransition,
 } from './e2e/support/browser-audit.ts';
+import { withTestServer } from './support/test-server.ts';
 
 function getFormattedTimestamp(): string {
   const now = new Date();
@@ -71,7 +72,7 @@ async function clickButtonContaining(page: Page, textFragments: string[], audit:
   return false;
 }
 
-async function executeE2ERound(round: number) {
+async function executeE2ERound(baseUrl: string, round: number) {
   const timestamp = getFormattedTimestamp();
   const roundDir = path.resolve('screenshots', `round_${String(round).padStart(2, '0')}_${timestamp}`);
   fs.mkdirSync(roundDir, { recursive: true });
@@ -84,7 +85,6 @@ async function executeE2ERound(round: number) {
   // 1. Create Pre-test Git Checkpoint
   createGitCheckpoint(round, timestamp);
 
-  const baseUrl = process.env.E2E_BASE_URL ?? 'http://127.0.0.1:3000';
   const browser = await puppeteer.launch({
     headless: true,
     args: ['--no-sandbox', '--disable-setuid-sandbox', '--window-size=1440,900'],
@@ -196,7 +196,7 @@ async function executeE2ERound(round: number) {
 }
 
 // Run round 1
-void executeE2ERound(1).catch((error: unknown) => {
+void withTestServer(server => executeE2ERound(server.baseUrl, 1), { env: { ECONOMY_RANDOM: 'false' } }).catch((error: unknown) => {
   console.error('[E2E_ROUND_FAILED]', error instanceof Error ? error.message : String(error));
   process.exitCode = 1;
 });

@@ -11,6 +11,7 @@
  */
 import assert from 'node:assert/strict';
 import { withTestServer } from './support/test-server.ts';
+import { CONFIG } from '../server/config.ts';
 
 const REALM_ID = 0;
 const APPLES = 3;
@@ -165,6 +166,39 @@ async function runIssue199Verification(): Promise<void> {
     const modifiersResponse = await fetch(`${BASE_URL}/api/v2/production-modifiers/${REALM_ID}/`);
     assert.equal(modifiersResponse.status, 200);
     assert.deepEqual(await modifiersResponse.json(), { resourceProductionModifiers: [event] });
+
+    // The original sNt/oNt calculator uses salary state, the company slider
+    // and the active event. A persisted private cycle bonus must not silently
+    // change either the requested output quantity or the displayed rate.
+    const farm = db.prepare("SELECT id FROM buildings WHERE company_id = ? AND kind = 'P' LIMIT 1")
+      .get(user.companyId) as { id: number };
+    db.prepare(`INSERT INTO company_boost_settings (company_id, production_modifier)
+      VALUES (?, 10) ON CONFLICT(company_id) DO UPDATE SET production_modifier = 10`).run(user.companyId);
+    db.prepare('UPDATE economy_phase_history SET production_modifier = 0.12 WHERE realm_id = ? AND end_at IS NULL')
+      .run(REALM_ID);
+    for (const [state, salaryMid] of [[0, 655], [2, 745]]) {
+      db.prepare('UPDATE economy_state SET state = ? WHERE realm_id = ?').run(state, REALM_ID);
+      server.setStock(user.companyId, 2, 300, 2);
+      server.setStock(user.companyId, 66, 100, 50);
+      const start = await server.request('POST', `/api/v1/buildings/${farm.id}/busy/`, {
+        cookie: user.cookie, body: { kind: APPLES, amount: 100 }
+      });
+      assert.equal(start.status, 200, start.text);
+      const queue = db.prepare(`SELECT amount, duration_seconds, production_modifier, production_output_multiplier
+        FROM production_queues WHERE building_id = ? AND resolved = 0 ORDER BY id DESC LIMIT 1`)
+        .get(farm.id) as { amount: number; duration_seconds: number; production_modifier: number; production_output_multiplier: number };
+      const clientRate = 250 * Math.pow(345 / salaryMid, 0.3) * 1.17 / 0.9;
+      const expectedSeconds = Math.max(3, Math.round(Math.max(5, Math.ceil(100 / clientRate * 3600))
+        / CONFIG.PRODUCTION_SPEED_MULTIPLIER));
+      assert.equal(queue.amount, 100, 'original formula delivers the quantity ordered');
+      assert.equal(queue.production_output_multiplier, 1);
+      assert.equal(queue.production_modifier, 0.1, 'queue stores the actual company slider only');
+      assert.equal(queue.duration_seconds, expectedSeconds, `phase ${state} uses the same original calculator rate`);
+      const cancel = await server.request('DELETE', `/api/v1/buildings/${farm.id}/busy/`, { cookie: user.cookie });
+      assert.equal(cancel.status, 200, cancel.text);
+      assert.equal((db.prepare('SELECT amount FROM warehouse WHERE company_id = ? AND kind = 66 AND quality = 0')
+        .get(user.companyId) as { amount: number }).amount, 100);
+    }
 
     // [4] Supporters are backed by persisted certificates and include every
     // official listing field, rather than an empty/generic response.

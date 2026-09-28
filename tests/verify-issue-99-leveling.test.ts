@@ -357,10 +357,9 @@ async function runIssue99LevelingTest(): Promise<void> {
       'SELECT production_modifier FROM company_boost_settings WHERE company_id = ?'
     ).get(cL0.companyId) as { production_modifier: number } | undefined;
     const economyState = Number(economyRow?.state ?? 1);
-    const combinedProductionModifier = Math.max(-0.75, Math.min(
-      3,
-      Number(economyRow?.production_modifier ?? 0) + Number(boostRow?.production_modifier ?? 0) / 100
-    ));
+    // Original client: company slider plus salary state, without a second
+    // private cycle bonus (#199). Keep the boundary rejection assertions.
+    const combinedProductionModifier = Number(boostRow?.production_modifier ?? 0) / 100;
     const exact0 = productionAmountsFor(LIMITS.L0, combinedProductionModifier, economyState);
     const exact5 = productionAmountsFor(LIMITS.L5, combinedProductionModifier, economyState);
     const exact15 = productionAmountsFor(LIMITS.L15, combinedProductionModifier, economyState);

@@ -1,4 +1,5 @@
 import { db } from './connection.ts';
+import { seedEconomyPhases } from './seed/economy-phases.ts';
 import { runMigrations, hashPassword, verifyPassword } from './migrations/index.ts';
 import {
   seedDefaultDisplayCase,
@@ -14,6 +15,7 @@ import {
 runMigrations(db);
 // 2. Seed initial game data if needed
 seedInitialDatabase(db);
+seedEconomyPhases(db);
 
 
 // Re-export symbols for backward compatibility across existing modules

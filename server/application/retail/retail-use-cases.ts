@@ -8,7 +8,7 @@
 import type { GameContext } from '../../context/game-context.ts';
 import { virtualClock } from '../../core/virtual-clock.ts';
 import { runInTransaction, type TransactionContext } from '../../db/transaction.ts';
-import { recordCashLedger } from '../../game/cash-ledger.ts';
+import { recordCashLedger } from '../../repositories/cash-ledger-repository.ts';
 import { eventBus } from '../../events/event-bus.ts';
 import { ValidationError, NotFoundError, ConflictError } from '../../errors/domain-error.ts';
 import {

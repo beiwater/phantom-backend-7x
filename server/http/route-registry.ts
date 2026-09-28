@@ -1,5 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { readJsonBody, sendJson } from '../routes/utils.ts';
+import { readJsonBody, sendJson, setPreparsedBody } from '../routes/utils.ts';
 import { createGameContext, type GameContext } from '../context/game-context.ts';
 import { companyRepository } from '../repositories/company-repository.ts';
 import { sendDomainError } from '../compatibility/simcompanies/response-helpers.ts';
@@ -41,16 +41,21 @@ interface CompiledRoute {
 
 function compilePattern(pattern: string): { regex: RegExp; paramNames: string[]; specificity: number } {
   // Normalize trailing slash
-  const normalized = pattern.endsWith('/') ? pattern : `${pattern}/`;
+  const normalized = normalizePattern(pattern);
   const segments = normalized.split('/').filter(Boolean);
   const paramNames: string[] = [];
   let specificity = 0;
 
   const regexParts = segments.map((seg, idx) => {
-    if (seg.startsWith(':')) {
-      paramNames.push(seg.slice(1));
+    const parameter = parseParameter(seg);
+    if (parameter) {
+      paramNames.push(parameter.name);
       specificity += 10; // Parameter segment
-      return '([^/]+)';
+      const constraint = parameter.constraint ?? '[^/]+';
+      if (/(^|[^\\])\((?!\?:)/.test(constraint)) {
+        throw new Error(`Route parameter constraints cannot contain capturing groups: ${pattern}`);
+      }
+      return `(${constraint})`;
     }
     specificity += 100; // Static segment (higher priority)
     return seg.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -64,19 +69,32 @@ function compilePattern(pattern: string): { regex: RegExp; paramNames: string[];
   };
 }
 
+function normalizePattern(pattern: string): string {
+  if (!pattern.startsWith('/')) {
+    throw new Error(`Route pattern must start with "/": ${pattern}`);
+  }
+  return pattern.endsWith('/') ? pattern : `${pattern}/`;
+}
+
+function parseParameter(segment: string): { name: string; constraint?: string } | null {
+  const match = segment.match(/^:([A-Za-z_][A-Za-z0-9_]*)(?:\((.+)\))?$/);
+  return match ? { name: match[1], constraint: match[2] } : null;
+}
+
 export class RouteRegistry {
   private routes: CompiledRoute[] = [];
 
   register<TBody = unknown>(route: RouteDefinition<TBody>): this {
     const { regex, paramNames, specificity } = compilePattern(route.pattern);
+    const normalizedPattern = normalizePattern(route.pattern);
 
-    // Conflict detection: prevent registering duplicate routes for the exact same method and normalized pattern
+    // Normalize before conflict checks so `/x` and `/x/` cannot claim the same endpoint.
     const existing = this.routes.find(
-      r => r.method === route.method && r.pattern === route.pattern
+      r => r.method === route.method && normalizePattern(r.pattern) === normalizedPattern
     );
     if (existing) {
       throw new Error(
-        `Route conflict: ${route.method} ${route.pattern} has already been registered`
+        `Route conflict: ${route.method} ${normalizedPattern} has already been registered`
       );
     }
 
@@ -91,8 +109,9 @@ export class RouteRegistry {
       handler: route.handler
     });
 
-    // Sort by specificity descending so more specific static routes match before parameter wildcard routes
-    this.routes.sort((a, b) => b.specificity - a.specificity);
+    // Compare static-vs-parameter positions lexicographically. This gives a
+    // deterministic winner for paths whose old static-count score tied.
+    this.routes.sort((a, b) => comparePatternsSpecificity(b, a) || a.pattern.localeCompare(b.pattern));
     return this;
   }
 
@@ -160,6 +179,10 @@ export class RouteRegistry {
     if (method === 'POST' || method === 'PATCH' || method === 'PUT') {
       try {
         body = await readJsonBody(req);
+        // Handlers migrated from the legacy router may still read request
+        // bodies through readJsonBody(req). Cache the validated value so the
+        // registry and its route handler share one parse of the same stream.
+        setPreparsedBody(req, body);
       } catch (err: unknown) {
         sendDomainError(res, err);
         return true;
@@ -216,19 +239,41 @@ export class RouteRegistry {
     return overlaps;
   }
 
+  findAmbiguousOverlaps(): Array<{ a: { method: string; pattern: string }; b: { method: string; pattern: string } }> {
+    const overlaps: Array<{ a: { method: string; pattern: string }; b: { method: string; pattern: string } }> = [];
+    for (let i = 0; i < this.routes.length; i++) {
+      for (let j = i + 1; j < this.routes.length; j++) {
+        const a = this.routes[i];
+        const b = this.routes[j];
+        if (a.method === b.method && comparePatternsSpecificity(a, b) === 0 && patternsCanOverlap(a, b)) {
+          overlaps.push({
+            a: { method: a.method, pattern: a.pattern },
+            b: { method: b.method, pattern: b.pattern }
+          });
+        }
+      }
+    }
+    return overlaps;
+  }
+
+  assertNoAmbiguousOverlaps(): void {
+    const overlaps = this.findAmbiguousOverlaps();
+    if (overlaps.length === 0) return;
+    const detail = overlaps
+      .map(({ a, b }) => `${a.method} ${a.pattern} <-> ${b.pattern}`)
+      .join('; ');
+    throw new Error(`[RouteRegistry] ${overlaps.length} equal-specificity overlapping route pair(s): ${detail}`);
+  }
+
   /**
-   * Startup report for ambiguous ownership (#178). Existing registrations
-   * resolve deterministically via specificity ordering, so overlaps are
-   * surfaced loudly (log) instead of failing boot; the ownership test locks
-   * the historical resolutions. New registrations must not add overlaps.
+   * Startup summary for deterministically prioritized overlaps (#178).
+   * Equal-specificity overlaps fail the gate; listing every legal overlap
+   * would bury useful startup output without adding ownership information.
    */
   reportOverlaps(): void {
     const overlaps = this.findOverlaps();
     if (overlaps.length > 0) {
-      const detail = overlaps
-        .map(o => `${o.a.method} ${o.a.pattern} <-> ${o.b.pattern}`)
-        .join('; ');
-      console.warn(`[RouteRegistry] ${overlaps.length} overlapping route pair(s) resolve by specificity: ${detail}`);
+      console.info(`[RouteRegistry] ${overlaps.length} overlapping route pair(s) have deterministic specificity ordering; equal-specificity ownership is clear.`);
     }
   }
   clear(): void {
@@ -253,9 +298,37 @@ function patternsCanOverlap(a: CompiledRoute, b: CompiledRoute): boolean {
   for (let i = 0; i < partsA.length; i++) {
     const pa = partsA[i];
     const pb = partsB[i];
-    const isParamA = pa.startsWith(':');
-    const isParamB = pb.startsWith(':');
-    if (!isParamA && !isParamB && pa !== pb) return false;
+    const parameterA = parseParameter(pa);
+    const parameterB = parseParameter(pb);
+    if (!parameterA && !parameterB && pa !== pb) return false;
+    if (parameterA && !parameterB && !parameterMatches(parameterA, pb)) return false;
+    if (!parameterA && parameterB && !parameterMatches(parameterB, pa)) return false;
   }
   return true;
+}
+
+function parameterMatches(parameter: { constraint?: string }, value: string): boolean {
+  if (!parameter.constraint) return true;
+  try {
+    return new RegExp(`^(?:${parameter.constraint})$`).test(value);
+  } catch {
+    throw new Error(`Invalid route parameter constraint: ${parameter.constraint}`);
+  }
+}
+
+function comparePatternsSpecificity(a: CompiledRoute, b: CompiledRoute): number {
+  const partsA = normalizePattern(a.pattern).split('/').filter(Boolean);
+  const partsB = normalizePattern(b.pattern).split('/').filter(Boolean);
+  const length = Math.min(partsA.length, partsB.length);
+  for (let i = 0; i < length; i++) {
+    const parameterA = parseParameter(partsA[i]);
+    const parameterB = parseParameter(partsB[i]);
+    if (!parameterA && parameterB) return 1;
+    if (parameterA && !parameterB) return -1;
+    if (parameterA && parameterB) {
+      if (!parameterA.constraint && parameterB.constraint) return -1;
+      if (parameterA.constraint && !parameterB.constraint) return 1;
+    }
+  }
+  return partsA.length === partsB.length ? 0 : partsA.length > partsB.length ? 1 : -1;
 }

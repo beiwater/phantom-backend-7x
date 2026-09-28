@@ -80,6 +80,23 @@ for (const table of expectedTables) {
   assert.ok(tables.includes(table), `Table ${table} must exist in migrated database`);
 }
 
+// #68: upgrades must preserve columns/data previously added by runtime code,
+// while adding the missing columns on databases with only part of that schema.
+const upgradeDb = new DatabaseSync(':memory:');
+for (const migration of MIGRATIONS.filter(migration => migration.version < 42)) migration.up(upgradeDb);
+// Model an older runtime schema which already has menu_price, but not staff.
+upgradeDb.exec('ALTER TABLE restaurant_properties DROP COLUMN professional_staff');
+upgradeDb.prepare('INSERT INTO restaurant_properties (building_id, menu_price) VALUES (?, ?)').run(4242, 83);
+const remainingSchema = MIGRATIONS.find(migration => migration.version === 42);
+assert.ok(remainingSchema);
+remainingSchema.up(upgradeDb);
+remainingSchema.up(upgradeDb);
+assert.strictEqual((upgradeDb.prepare('SELECT menu_price FROM restaurant_properties WHERE building_id = ?')
+  .get(4242) as { menu_price: number }).menu_price, 83, 'upgrade retains real restaurant configuration');
+assert.ok((upgradeDb.prepare('PRAGMA table_info(restaurant_properties)').all() as Array<{ name: string }>)
+  .some(column => column.name === 'professional_staff'), 'upgrade adds the other missing runtime columns');
+upgradeDb.close();
+
 console.log('================================================================');
 console.log(' [OK] ISSUE #145 DATABASE MIGRATION CHECKS PASSED ALL TESTS');
 console.log('================================================================');

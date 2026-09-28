@@ -18,7 +18,7 @@ import { FixtureService } from '../../services/fixture-service.ts';
 import { getTierForLevel } from '../../domain/leveling/level-rules.ts';
 import { getBuildingMeta } from '../../game-data/buildings.ts';
 import { ConflictError, ValidationError, NotFoundError } from '../../errors/domain-error.ts';
-import { initialAbundanceForKind } from '../../game/buildings.ts';
+import { initialAbundanceForKind } from './abundance-use-cases.ts';
 import { RealmPhaseService } from '../../services/realm-phase-service.ts';
 
 export interface ConstructBuildingInput {

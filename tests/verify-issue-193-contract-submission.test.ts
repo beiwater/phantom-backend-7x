@@ -151,26 +151,86 @@ console.log('PASS contract submission via market-order creates contract atomical
 await withTestServer(async server => {
   const seller = await server.registerCompany('contract-refund-seller');
   const buyer = await server.registerCompany('contract-refund-buyer');
+  const outsider = await server.registerCompany('contract-refund-outsider');
   server.db.prepare('UPDATE companies SET level = 30 WHERE company_id IN (?, ?)').run(seller.companyId, buyer.companyId);
+  const sourceCost = { workers: 1, admin: 2, material1: 3, material2: 4, market: 50 };
   for (const action of ['cancel', 'reject']) {
     server.setStock(seller.companyId, 2, 100, 50);
+    server.db.prepare(`
+      UPDATE warehouse SET cost_workers = ?, cost_admin = ?, cost_material1 = ?,
+        cost_material2 = ?, cost_market = ?
+      WHERE company_id = ? AND kind = 2 AND quality = 0
+    `).run(sourceCost.workers, sourceCost.admin, sourceCost.material1, sourceCost.material2, sourceCost.market, seller.companyId);
     const sent = await server.request<{ id: number }>('POST', '/api/v2/contracts/', {
       cookie: seller.cookie, body: { recipient: buyer.companyId, kind: 2, quality: 0, amount: 25, price: 1 }
     });
     assert.equal(sent.status, 200, sent.text);
-    const balance = () => server.db.prepare('SELECT amount, cost_market FROM warehouse WHERE company_id = ? AND kind = 2 AND quality = 0').get(seller.companyId);
-    assert.equal(balance()?.amount, 75);
+    const balance = () => server.db.prepare(`
+      SELECT amount, cost_workers, cost_admin, cost_material1, cost_material2, cost_market
+      FROM warehouse WHERE company_id = ? AND kind = 2 AND quality = 0
+    `).get(seller.companyId) as {
+      amount: number;
+      cost_workers: number;
+      cost_admin: number;
+      cost_material1: number;
+      cost_material2: number;
+      cost_market: number;
+    };
+    assert.equal(balance().amount, 75);
+    assert.equal(balance().amount * balance().cost_market, 3750, 'the outgoing contract removes its inventory valuation');
     const method = action === 'cancel' ? 'DELETE' : 'POST';
     const url = `/api/v2/contracts/${sent.json.id}/${action === 'reject' ? 'reject/' : ''}`;
     const cookie = action === 'cancel' ? seller.cookie : buyer.cookie;
+
+    const wrongOwner = await server.request(method, url, {
+      cookie: action === 'cancel' ? buyer.cookie : outsider.cookie
+    });
+    assert.ok(wrongOwner.status >= 400, 'only the sender can cancel or the recipient can reject');
+    assert.equal(balance().amount, 75);
+    const outgoingBalance = { ...balance() };
+    assert.deepEqual(outgoingBalance, {
+      amount: 75,
+      cost_workers: sourceCost.workers,
+      cost_admin: sourceCost.admin,
+      cost_material1: sourceCost.material1,
+      cost_material2: sourceCost.material2,
+      cost_market: sourceCost.market
+    });
+
+    server.db.exec(`
+      CREATE TRIGGER issue_227_abort_contract_refund
+      BEFORE UPDATE OF amount ON warehouse
+      WHEN NEW.company_id = ${seller.companyId} AND NEW.kind = 2 AND NEW.quality = 0
+      BEGIN SELECT RAISE(ABORT, 'issue 227 contract rollback probe'); END;
+    `);
+    try {
+      const failedRefund = await server.request(method, url, { cookie });
+      assert.ok(failedRefund.status >= 400, 'warehouse failure rejects the contract transition');
+    } finally {
+      server.db.exec('DROP TRIGGER issue_227_abort_contract_refund');
+    }
+    assert.equal(balance().amount, 75, 'failed contract refund rolls back the contract state and inventory');
+    assert.deepEqual({ ...balance() }, outgoingBalance, 'failed refund preserves every stored cost bucket');
+
     const refunded = await server.request(method, url, { cookie });
     assert.equal(refunded.status, 200, refunded.text);
-    assert.equal(balance()?.amount, 100);
-    assert.equal(balance()?.cost_market, 50, 'refund restores original $50 unit valuation, independent of the $1 contract price');
+    assert.equal(balance().amount, 100);
+    assert.deepEqual(
+      {
+        workers: balance().cost_workers,
+        admin: balance().cost_admin,
+        material1: balance().cost_material1,
+        material2: balance().cost_material2,
+        market: balance().cost_market
+      },
+      sourceCost,
+      'refund restores all original cost buckets, independent of the $1 contract price'
+    );
+    assert.equal(balance().amount * balance().cost_market, 5000, 'warehouse valuation returns to its pre-contract value');
     const repeated = await server.request(method, url, { cookie });
     assert.ok(repeated.status >= 400, 'settled contract cannot refund twice');
-    assert.equal(balance()?.amount, 100);
-    assert.equal(balance()?.cost_market, 50);
+    assert.equal(balance().amount, 100);
+    assert.equal(balance().amount * balance().cost_market, 5000);
   }
   console.log('PASS contract cancel/reject restore quantity and original valuation idempotently (#227)');
 });

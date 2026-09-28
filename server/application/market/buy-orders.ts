@@ -19,7 +19,7 @@ import { marketTradeRepository } from '../../repositories/market-repository.ts';
 import { companyRepository } from '../../repositories/company-repository.ts';
 import { warehouseRepository } from '../../repositories/warehouse-repository.ts';
 import { getResourceDef } from '../../game-data/resources.ts';
-import { recordCashLedger } from '../../game/cash-ledger.ts';
+import { recordCashLedger } from '../../repositories/cash-ledger-repository.ts';
 import { virtualClock } from '../../core/virtual-clock.ts';
 import { computeExchangeFee } from '../../domain/market/market-rules.ts';
 

@@ -8,7 +8,7 @@
  * 3. CTO science skill multiplier: points * (1 + ctoScience / 100).
  */
 
-import { getResourceDef } from '../../game/constants.ts';
+import { getResourceDef } from '../../game-data/resources.ts';
 
 export const MAX_RESEARCH_QUALITY = 12;
 

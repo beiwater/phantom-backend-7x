@@ -2,18 +2,16 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { EventEmitter } from 'node:events';
 import assert from 'node:assert';
 import {
-  methodManifest,
   getCanonicalLegacyOrder,
   setLegacyHandlerOrderForTests,
   resolveLegacyOwnerForTests
 } from '../server/router.ts';
-import { globalRouteRegistry } from '../server/http/route-registry.ts';
+import { RouteRegistry, globalRouteRegistry } from '../server/http/route-registry.ts';
 
 /**
  * Issue #178: endpoint ownership must not depend on handler registration
  * order. Locks the three historical shadowing fixes (#83 newspaper-before-
- * social, #42 bond-before-finance, #95 auction-before-achievement) and
- * enforces the registry/manifest boundary.
+ * social, #42 bond-before-finance, #95 auction-before-achievement).
  */
 
 const HISTORICAL_OWNERSHIP: Array<{ method: string; path: string; owner: string }> = [
@@ -70,7 +68,15 @@ async function testHistoricalOwnershipIsStable(): Promise<void> {
 
 function samplePathOf(pattern: string): string {
   const segments = pattern.split('/').filter(Boolean);
-  return '/' + segments.map(s => (s.startsWith(':') ? '1' : s)).join('/') + '/';
+  return '/' + segments.map(segment => {
+    if (!segment.startsWith(':')) return segment;
+    const match = segment.match(/^:[A-Za-z_][A-Za-z0-9_]*(?:\((.+)\))?$/);
+    const constraint = match?.[1];
+    if (!constraint) return '1';
+    const firstAlternative = constraint.split('|')[0];
+    if (firstAlternative === '\\d+' || firstAlternative === '[0-9]+') return '1';
+    return firstAlternative.replace(/^\^|\$$/g, '').replace(/\\./g, 'x') || '1';
+  }).join('/') + '/';
 }
 
 async function testHistoricalRegistryOwnership(): Promise<void> {
@@ -83,12 +89,70 @@ async function testHistoricalRegistryOwnership(): Promise<void> {
     { method: 'GET', path: '/api/v2/resources/1/', owner: 'warehouse' },
     { method: 'GET', path: '/api/v2/market-ticker/', owner: 'market' },
     { method: 'GET', path: '/api/v2/constants/core/', owner: 'encyclopedia' },
+    { method: 'GET', path: '/api/v2/time-millis/', owner: 'encyclopedia' },
+    { method: 'GET', path: '/api/v2/weather/0/', owner: 'encyclopedia' },
+    { method: 'GET', path: '/api/csrf/', owner: 'encyclopedia' },
+    { method: 'GET', path: '/api/v4/0/0/encyclopedia/ranking/0/0/', owner: 'encyclopedia' },
+    { method: 'GET', path: '/api/v4/0/0/encyclopedia/eva-ranking/0/0/', owner: 'encyclopedia' },
     { method: 'GET', path: '/api/v3/companies/auth-data/', owner: 'auth' },
     { method: 'GET', path: '/api/v1/sales-orders/', owner: 'retail' },
     { method: 'GET', path: '/api/v2/restaurants/', owner: 'restaurant' },
     { method: 'GET', path: '/api/v2/payment-pricing/', owner: 'simboost' },
     { method: 'GET', path: '/api/v2/debug/state/', owner: 'debug' },
-    { method: 'GET', path: '/api/v3/pages/zh-cn/economy-model/', owner: 'pages' }
+    { method: 'GET', path: '/api/v3/pages/zh-cn/economy-model/', owner: 'pages' },
+    { method: 'GET', path: '/api/v4/zh-cn/0/stats/top/largest-value/', owner: 'encyclopedia' },
+    { method: 'GET', path: '/api/v4/zh-cn/0/stats/top/contest-winners/', owner: 'encyclopedia' },
+    { method: 'GET', path: '/api/v4/zh-cn/0/stats/top/top-egg-collectors/', owner: 'encyclopedia' },
+    { method: 'GET', path: '/api/v4/0/encyclopedia/resources/3/', owner: 'encyclopedia' },
+    { method: 'GET', path: '/api/v2/error-announcement/', owner: 'social' },
+    { method: 'POST', path: '/api/v2/error-announcement/', owner: 'social' },
+    { method: 'GET', path: '/api/v2/contacts/', owner: 'social' },
+    { method: 'PATCH', path: '/api/v2/contacts/1/', owner: 'social' },
+    { method: 'DELETE', path: '/api/v2/contacts/1/', owner: 'social' },
+    { method: 'GET', path: '/api/v2/help-chatroom/', owner: 'social' },
+    { method: 'POST', path: '/api/v2/message/', owner: 'social' },
+    { method: 'POST', path: '/api/v2/messages/', owner: 'social' },
+    { method: 'GET', path: '/api/messages/', owner: 'social' },
+    { method: 'PATCH', path: '/api/messages/', owner: 'social' },
+    { method: 'GET', path: '/api/messages_by_company/', owner: 'social' },
+    { method: 'GET', path: '/api/courses/', owner: 'social' },
+    { method: 'POST', path: '/api/courses/', owner: 'social' },
+    { method: 'GET', path: '/api/courses/1/', owner: 'social' },
+    { method: 'PATCH', path: '/api/courses/1/', owner: 'social' },
+    { method: 'DELETE', path: '/api/courses/1/', owner: 'social' },
+    { method: 'POST', path: '/api/courses/1/join/', owner: 'social' },
+    { method: 'GET', path: '/api/v1/challenges/current/', owner: 'social' },
+    { method: 'POST', path: '/api/v1/challenges/attempt/', owner: 'social' },
+    { method: 'POST', path: '/api/v1/challenges/restart/', owner: 'social' },
+    { method: 'GET', path: '/api/v1/challenges/1/leaderboard/', owner: 'social' },
+    { method: 'GET', path: '/api/v2/players/unlocked-hqs/', owner: 'social' },
+    { method: 'POST', path: '/api/v2/players/unlocked-hqs/', owner: 'social' },
+    { method: 'GET', path: '/api/v2/players/unlocked-pas/', owner: 'social' },
+    { method: 'POST', path: '/api/v2/players/unlocked-pas/', owner: 'social' },
+    { method: 'GET', path: '/api/v2/audit/recently-deleted/', owner: 'audit' },
+    { method: 'GET', path: '/api/v2/audit/suspended-companies/', owner: 'audit' },
+    { method: 'GET', path: '/api/v2/audits/', owner: 'audit' },
+    { method: 'GET', path: '/api/v2/moderator-notes/', owner: 'audit' },
+    { method: 'GET', path: '/api/v2/players/1/moderator-notes/', owner: 'audit' },
+    { method: 'GET', path: '/api/v2/players/1/moderator-notes/2/', owner: 'audit' },
+    { method: 'GET', path: '/api/v2/messages-cases/', owner: 'audit' },
+    { method: 'GET', path: '/api/v2/messages-cases/1/', owner: 'audit' },
+    { method: 'PATCH', path: '/api/v2/messages-cases/1/', owner: 'audit' },
+    { method: 'GET', path: '/api/v1/audit-requests/', owner: 'audit' },
+    { method: 'GET', path: '/api/v2/admin/purchase-detective/', owner: 'audit' },
+    { method: 'GET', path: '/api/v2/audit/1/personal/', owner: 'audit' },
+    { method: 'GET', path: '/api/v2/audit/1/audits/', owner: 'audit' },
+    { method: 'GET', path: '/api/v2/audit/1/auth/', owner: 'audit' },
+    { method: 'GET', path: '/api/v2/audit/1/payments/', owner: 'audit' },
+    { method: 'GET', path: '/api/v2/audit/1/contracts/', owner: 'audit' },
+    { method: 'GET', path: '/api/v2/audit/1/market-trades/', owner: 'audit' },
+    { method: 'GET', path: '/api/v2/companies/1/ban/', owner: 'audit' },
+    { method: 'POST', path: '/api/v2/companies/1/ban/', owner: 'audit' },
+    { method: 'GET', path: '/api/v2/audit-ip/1/127.0.0.1/', owner: 'audit' },
+    { method: 'GET', path: '/api/v2/players/1/personal-data/', owner: 'audit' },
+    { method: 'GET', path: '/api/v2/newcomers/', owner: 'audit' },
+    { method: 'POST', path: '/api/v2/redeem-code/1/', owner: 'audit' },
+    { method: 'GET', path: '/api/time/', owner: 'health' }
   ];
   for (const probe of probes) {
     assert.strictEqual(
@@ -110,64 +174,50 @@ async function testHistoricalRegistryOwnership(): Promise<void> {
       end(body?: unknown) { response.body = body === undefined ? '' : String(body); },
       getHeader() { return undefined; }
     } as unknown as ServerResponse;
-    const handled = await globalRouteRegistry.dispatch(req, res, probe.path, probe.method, null);
+    const dispatch = globalRouteRegistry.dispatch(req, res, probe.path, probe.method, null);
+    if (['POST', 'PUT', 'PATCH'].includes(probe.method)) {
+      req.emit('data', Buffer.from('{}'));
+      req.emit('end');
+    }
+    const handled = await dispatch;
     assert.strictEqual(handled, true, `registry must handle ${probe.method} ${probe.path}`);
     assert.ok(response.code !== null, `registry must send a response for ${probe.path}`);
+    if (probe.owner === 'encyclopedia') {
+      assert.strictEqual(response.code, 200, `documented encyclopedia URL must not regress to 404: ${probe.path}`);
+    }
   }
 }
 
-async function testRegistryVsLegacyPrecedence(): Promise<void> {
-  // Registry dispatch runs BEFORE the legacy chain. A registry-owned path
-  // must never be 405-blocked by a manifest entry that excludes its method
-  // (the manifest would otherwise become a second method authority).
-  const routes = globalRouteRegistry.getRegisteredRoutes();
-  assert.ok(routes.length > 0, 'registry must contain registered routes');
-  for (const route of routes) {
+async function testRegistryRegistrationOrderDoesNotChangeOwnership(): Promise<void> {
+  const definitions = globalRouteRegistry.getRegisteredRoutes();
+  const makeRegistry = (ordered: typeof definitions): RouteRegistry => {
+    const registry = new RouteRegistry();
+    for (const route of ordered) {
+      registry.register({
+        method: route.method as 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'OPTIONS',
+        pattern: route.pattern,
+        auth: route.auth as 'none' | 'player' | 'company',
+        owner: route.owner,
+        handler: async () => {}
+      });
+    }
+    return registry;
+  };
+  const forward = makeRegistry(definitions);
+  const reverse = makeRegistry([...definitions].reverse());
+  const probes = new Map<string, { method: string; path: string }>();
+  for (const route of definitions) {
     const path = samplePathOf(route.pattern);
-    for (const entry of methodManifest) {
-      if (entry.pattern.test(path)) {
-        assert.ok(
-          entry.methods.includes(route.method),
-          `manifest entry (${entry.owner}) blocks registry route ${route.method} ${route.pattern}`
-        );
-      }
-    }
+    probes.set(`${route.method} ${path}`, { method: route.method, path });
   }
-}
 
-async function testManifestBoundaries(): Promise<void> {
-  // Every manifest entry declares an explicit owner (bounded exception list).
-  for (const entry of methodManifest) {
-    assert.ok(entry.owner.startsWith('legacy:'), `manifest entry must declare a legacy owner: ${JSON.stringify(entry)}`);
-    assert.ok(entry.methods.length > 0, 'manifest entry must allow at least one method');
+  for (const probe of probes.values()) {
+    assert.strictEqual(
+      forward.getOwner(probe.path, probe.method),
+      reverse.getOwner(probe.path, probe.method),
+      `reversing declarative registrations changed ${probe.method} ${probe.path} ownership`
+    );
   }
-  // Two manifest entries whose patterns can match the same concrete path
-  // must agree on at least one shared method (otherwise one 405s a path the
-  // other allows).
-  for (let i = 0; i < methodManifest.length; i++) {
-    for (let j = i + 1; j < methodManifest.length; j++) {
-      const a = methodManifest[i];
-      const b = methodManifest[j];
-      const pathA = samplePathOfRegex(a.pattern);
-      const pathB = samplePathOfRegex(b.pattern);
-      const crosses = a.pattern.test(pathB) || b.pattern.test(pathA);
-      if (crosses) {
-        const shared = a.methods.filter(m => b.methods.includes(m));
-        assert.ok(shared.length > 0, `manifest entries ${a.owner} and ${b.owner} overlap with disjoint methods`);
-      }
-    }
-  }
-}
-
-function samplePathOfRegex(pattern: RegExp): string {
-  const source = pattern.source.replace(/^\^/, '').replace(/\$$/, '');
-  const segments = source.split('/').filter(Boolean);
-  const concrete = segments.map(seg =>
-    seg === '[^/]+' || seg.includes('\\d') || seg.startsWith('(?:') || seg === '[^/]+'
-      ? '1'
-      : seg.replace(/[^a-z0-9_.-]/gi, '')
-  ).filter(Boolean);
-  return '/' + concrete.join('/') + '/';
 }
 
 async function main(): Promise<void> {
@@ -175,10 +225,8 @@ async function main(): Promise<void> {
   console.log('PASS historical shadowing ownership stable under order permutation');
   await testHistoricalRegistryOwnership();
   console.log('PASS declarative registry claims historical shadowing endpoints');
-  await testRegistryVsLegacyPrecedence();
-  console.log('PASS registry routes are not preempted by the manifest');
-  await testManifestBoundaries();
-  console.log('PASS manifest entries carry explicit legacy owners');
+  await testRegistryRegistrationOrderDoesNotChangeOwnership();
+  console.log('PASS declarative route ownership is stable when registrations reverse');
   console.log('Issue #178 route ownership: ALL PASS');
   process.exit(0);
 }

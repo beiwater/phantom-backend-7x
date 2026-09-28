@@ -6,7 +6,7 @@ import { financeRepository } from '../repositories/finance-repository.ts';
 
 const REPORT_CATEGORIES = ['Production', 'Retail', 'Financial', 'Warehouse', 'Market'];
 import { getCompanyById } from '../game/company.ts';
-import { takeLoan, repayLoan, getActiveLoans } from '../game/loans.ts';
+import { takeLoan, repayLoan, getActiveLoans } from '../application/finance/loan-use-cases.ts';
 import {
   getRecentCashLedger,
   readStatementWindow,
@@ -310,7 +310,7 @@ export async function handleFinanceRoutes(
     if (companyId === null) return true;
     const body = await readJsonBody<{ amount: number }>(req);
     try {
-      sendJson(res, takeLoan(companyId, Number(body.amount)));
+      sendJson(res, await takeLoan(companyId, Number(body.amount)));
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       sendJson(res, { error: msg }, 400);
@@ -323,7 +323,7 @@ export async function handleFinanceRoutes(
     if (companyId === null) return true;
     const body = await readJsonBody<{ amount: number }>(req);
     try {
-      sendJson(res, repayLoan(companyId, Number(loanRepayMatch[2]), Number(body.amount)));
+      sendJson(res, await repayLoan(companyId, Number(loanRepayMatch[2]), Number(body.amount)));
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       sendJson(res, { error: msg }, 400);
@@ -500,7 +500,7 @@ export function registerFinanceRoutes(registry: RouteRegistry = globalRouteRegis
         const companyId = authorize(ctx, params, res);
         if (companyId === null) return;
         try {
-          sendJson(res, takeLoan(companyId, Number(bodyField(body, 'amount'))));
+          sendJson(res, await takeLoan(companyId, Number(bodyField(body, 'amount'))));
         } catch (err: unknown) { sendJson(res, commandError(err), 400); }
       }
     })
@@ -518,7 +518,7 @@ export function registerFinanceRoutes(registry: RouteRegistry = globalRouteRegis
         const companyId = authorize(ctx, params, res);
         if (companyId === null) return;
         try {
-          sendJson(res, repayLoan(companyId, Number(params.loanId), Number(bodyField(body, 'amount'))));
+          sendJson(res, await repayLoan(companyId, Number(params.loanId), Number(bodyField(body, 'amount'))));
         } catch (err: unknown) { sendJson(res, commandError(err), 400); }
       }
     })

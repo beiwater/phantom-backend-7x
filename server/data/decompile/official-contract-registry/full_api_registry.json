@@ -3099,8 +3099,32 @@
       "normalizedUrl": "/api/v2/companies/:e/royalties/",
       "bundleSourceOffset": 671167,
       "confidence": "verified_bundle_static",
-      "backendStatus": "unimplemented",
-      "backendImplementation": null
+      "responseSchema": {
+        "type": "object",
+        "required": ["royalties"],
+        "properties": {
+          "royalties": { "type": "number" }
+        }
+      },
+      "sourceEvidence": [
+        "The original client requests this endpoint for a company ID and reads data.royalties as a numeric value (bundle offset 2331643).",
+        "The official Executives Guide says former employers receive part of the offered salary based on tenure after a move to another company; fired executives do not pay, and payments resume if rehired from unemployment: https://guides.simcompanies.com/books/executives-guide/page/executives-guide",
+        "The official Changelog Archive says on June 25, 2025 that prior companies receive a percentage of an executive's future salaries, including executives poached before the update; on June 26, 2025 it specifies the royalty percentage changed to 1% from 1.5%: https://guides.simcompanies.com/books/moderators-important-stuff/page/changelog-archive",
+        "The original client labels the expected amount as a per-day royalty on an executive offer and explains it assumes the executive keeps receiving the offered salary; this is an estimate display contract, not an authoritative tenure calculation (bundle symbols ExecutiveDetail.perDay / ExecutiveDetail.royaltiesExplanation)."
+      ],
+      "unknownCalculationFactors": [
+        "The precise application of the official 1% rate across tenure (including the tenure unit, accrual/decay period, and any cap) is not specified in the official guide/changelog or exposed by the available client bundle.",
+        "Rounding, payout interval, treatment of multiple former employments, and how a later salary raise changes each former employer's allocation remain unspecified."
+      ],
+      "backendStatus": "blocked_source_contract",
+      "backendImplementation": [
+        {
+          "file": "server/routes/social/activity-subroutes.ts",
+          "method": "GET",
+          "path": "/api/v2/companies/:companyId/royalties/",
+          "note": "Authenticated 501 guard until the authoritative royalty calculation contract is available."
+        }
+      ]
     },
     {
       "name": "api_v2_company_building_auctions",

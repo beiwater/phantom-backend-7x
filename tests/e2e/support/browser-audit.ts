@@ -4,12 +4,13 @@ import path from 'node:path';
 import type { Page as PlaywrightPage } from '@playwright/test';
 import type { Page as PuppeteerPage } from 'puppeteer';
 
-export type AuditErrorType = 'pageerror' | 'console.error' | 'requestfailed' | 'http5xx' | 'api4xx';
+export type AuditErrorType = 'pageerror' | 'unhandledrejection' | 'console.error' | 'requestfailed' | 'http5xx' | 'api4xx';
 
 export interface AuditError {
   type: AuditErrorType;
   message: string;
   url?: string;
+  source?: string;
   timestamp: string;
 }
 
@@ -20,6 +21,7 @@ export interface AuditNetworkEntry {
   status?: number;
   failed?: string;
   localApi: boolean;
+  source?: string;
 }
 
 export interface BrowserAuditSnapshot {
@@ -33,6 +35,8 @@ export interface BrowserAuditSnapshot {
 export interface BrowserAuditController {
   readonly errors: AuditError[];
   recordAction(actionName: string): void;
+  expectExecutiveRoyaltiesContractBlock(companyId: number): void;
+  flush(): Promise<void>;
   snapshot(): BrowserAuditSnapshot;
   writeFailureArtifacts(directory: string, prefix?: string): Promise<string | undefined>;
   assertClean(contextMessage?: string): void;
@@ -43,6 +47,7 @@ export interface BrowserAuditController {
     requestFailures: number;
     httpFailures: number;
     localApiResponses: number;
+    ignoredEvents: number;
   };
 }
 
@@ -104,17 +109,6 @@ function callNumber(value: unknown, method: string): number | undefined {
     return typeof result === 'number' ? result : undefined;
   } catch {
     return undefined;
-  }
-}
-
-function callBoolean(value: unknown, method: string): boolean {
-  const record = asRecord(value);
-  const candidate = record?.[method];
-  if (typeof candidate !== 'function') return false;
-  try {
-    return candidate.call(value) === true;
-  } catch {
-    return false;
   }
 }
 
@@ -187,11 +181,80 @@ function isOptionalReviewEndpoint(url: string): boolean {
   }
 }
 
-function isOptionalSignupReviewRequest(url: string, currentPageUrl: string): boolean {
+function isOptionalWidgetCancellation(message: string, pageUrl: string): boolean {
+  if (!/^CanceledError: canceled(?:\r?\n|$)/u.test(message)) return false;
   try {
-    const pageUrl = new URL(currentPageUrl);
-    return isOptionalReviewEndpoint(url)
-      && /^\/zh-cn\/(?:signup|signin)\/$/.test(pageUrl.pathname);
+    const page = new URL(pageUrl);
+    return /^\/zh-cn\/(?:|signup|signin)\/$/.test(page.pathname)
+      && /at Object\.cancel \(https?:\/\/[^/]+\/static\/bundle\/assets\/index-[^/]+\.js:97:5276\)/u.test(message)
+      && /\/static\/bundle\/assets\/index-[^/]+\.js:1709:95653/u.test(message);
+  } catch {
+    return false;
+  }
+}
+
+function isBlockedOptionalFontRequest(url: string, failure: string, sourceUrl: string): boolean {
+  if (!/ERR_NETWORK_ACCESS_DENIED/u.test(failure)) return false;
+  try {
+    const requestUrl = new URL(url);
+    const source = new URL(sourceUrl);
+    const family = requestUrl.searchParams.get('family');
+    return ['fonts.googleapis.com', 'fonts.bunny.net'].includes(requestUrl.hostname)
+      && requestUrl.pathname === '/css'
+      && /^(?:Roboto(?: Condensed)?|Montserrat|Anton)(?::400,700)?$/u.test(family ?? '')
+      && requestUrl.searchParams.get('display') === 'swap'
+      && (source.hostname === '127.0.0.1' || source.hostname === 'localhost')
+      && source.pathname.startsWith('/zh-cn/');
+  } catch {
+    return false;
+  }
+}
+
+function isSignupOrSigninPage(url: string): boolean {
+  try {
+    const pageUrl = new URL(url);
+    return /^\/zh-cn\/(?:signup|signin)\/$/.test(pageUrl.pathname);
+  } catch {
+    return false;
+  }
+}
+
+function isOptionalReviewWidgetSource(url: string): boolean {
+  try {
+    const pageUrl = new URL(url);
+    return (pageUrl.hostname === '127.0.0.1' || pageUrl.hostname === 'localhost')
+      && /^\/zh-cn\/(?:|signup|signin)\/$/.test(pageUrl.pathname);
+  } catch {
+    return false;
+  }
+}
+
+function sameReviewWidgetPage(left: string, right: string): boolean {
+  try {
+    const leftUrl = new URL(left);
+    const rightUrl = new URL(right);
+    return leftUrl.origin === rightUrl.origin && leftUrl.pathname === rightUrl.pathname;
+  } catch {
+    return false;
+  }
+}
+
+function requestFrameUrl(request: unknown): string | undefined {
+  const frame = callValue(request, 'frame');
+  return callString(frame, 'url');
+}
+
+function executivePage(url: string): boolean {
+  try {
+    return /^\/zh-cn\/headquarters\/executives(?:\/\d+)?\/$/.test(new URL(url).pathname);
+  } catch {
+    return false;
+  }
+}
+
+function isExecutiveRoyaltiesUrl(url: string, companyId: number): boolean {
+  try {
+    return new URL(url).pathname === `/api/v2/companies/${companyId}/royalties/`;
   } catch {
     return false;
   }
@@ -206,7 +269,7 @@ function currentUrl(page: GenericBrowserPage): string {
 }
 
 function displayError(error: AuditError): string {
-  return `  ${error.timestamp} [${error.type}] ${error.message}${error.url ? ` (at ${error.url})` : ''}`;
+  return `  ${error.timestamp} [${error.type}] ${error.message}${error.url ? ` (at ${error.url})` : ''}${error.source ? ` (from ${error.source})` : ''}`;
 }
 
 export function attachBrowserAudit(
@@ -217,45 +280,139 @@ export function attachBrowserAudit(
   const page = browserPage as unknown as GenericBrowserPage;
   const errors: AuditError[] = [];
   const network: AuditNetworkEntry[] = [];
-  const pendingOptionalReviewRequests = new Map<string, number>();
+  const pendingOptionalReviewRequests = new Map<string, { count: number; source: string }>();
+  const expectedRoyaltiesCompanyIds = new Set<number>();
+  const pendingRoyaltiesRequests: Array<{ url: string; source: string; timestamp: number }> = [];
+  const verifiedRoyaltiesBlocks: Array<{ url: string; source: string; timestamp: number; consoleAvailable: boolean; rejectionAvailable: boolean }> = [];
+  const pendingRoyaltiesSideEffects: Array<{ kind: 'console.error' | 'unhandledrejection'; message: string; source: string; timestamp: number }> = [];
+  const pendingAuditWork = new Set<Promise<void>>();
   const recentActions: string[] = [];
   const ignored: BrowserAuditSnapshot['ignored'] = [];
   let pendingAnonymousPrefetches = 0;
   const pendingAnonymousConsole401s: string[] = [];
   const expectedAnonymousConsole401s: number[] = [];
+  const pendingBlockedFontConsoleErrors = new Map<string, number>();
+  const recentOptionalReviewAborts: Array<{ timestamp: number; url: string; source: string }> = [];
 
   const recordIgnored = (message: string, reason: string): void => {
     ignored.push({ message, reason, timestamp: new Date().toISOString() });
   };
-  const recordError = (type: AuditErrorType, message: string, url?: string): void => {
-    errors.push({ type, message, url, timestamp: new Date().toISOString() });
+  const recordError = (type: AuditErrorType, message: string, url?: string, source?: string): void => {
+    errors.push({ type, message, url, source, timestamp: new Date().toISOString() });
   };
+  const recordRoyaltiesSideEffect = (kind: 'console.error' | 'unhandledrejection', message: string, source: string): boolean => {
+    const now = Date.now();
+    const sourceMatches = (candidate: string): boolean => executivePage(source)
+      && executivePage(candidate)
+      && sameReviewWidgetPage(source, candidate);
+    const block = verifiedRoyaltiesBlocks.find(candidate => now - candidate.timestamp <= 2_000
+      && sourceMatches(candidate.source)
+      && (kind === 'console.error' ? candidate.consoleAvailable : candidate.rejectionAvailable));
+    if (block) {
+      if (kind === 'console.error') block.consoleAvailable = false;
+      else block.rejectionAvailable = false;
+      recordIgnored(message, `Paired within 2 seconds with the same executives page's exact declared GET ${safeUrl(block.url)} response: HTTP 501 code SOURCE_CONTRACT_BLOCKED. This test-scoped exception documents the unavailable upstream royalty contract; it does not allow other 501s or Axios failures.`);
+      return true;
+    }
+    const requestIsPending = pendingRoyaltiesRequests.some(candidate => now - candidate.timestamp <= 2_000
+      && sourceMatches(candidate.source));
+    if (requestIsPending) {
+      pendingRoyaltiesSideEffects.push({ kind, message, source, timestamp: now });
+      return true;
+    }
+    return false;
+  };
+  const acceptRoyaltiesSideEffect = (block: { url: string; source: string; timestamp: number; consoleAvailable: boolean; rejectionAvailable: boolean }, sideEffect: typeof pendingRoyaltiesSideEffects[number]): boolean => {
+    if (Date.now() - sideEffect.timestamp > 2_000 || !sameReviewWidgetPage(block.source, sideEffect.source)) return false;
+    if (sideEffect.kind === 'console.error') {
+      if (!block.consoleAvailable) return false;
+      block.consoleAvailable = false;
+    } else {
+      if (!block.rejectionAvailable) return false;
+      block.rejectionAvailable = false;
+    }
+    recordIgnored(sideEffect.message, `Paired within 2 seconds with the same executives page's exact declared GET ${safeUrl(block.url)} response: HTTP 501 code SOURCE_CONTRACT_BLOCKED. This test-scoped exception documents the unavailable upstream royalty contract; it does not allow other 501s or Axios failures.`);
+    return true;
+  };
+  const observeUnhandledRejections = (): void => {
+    window.addEventListener('unhandledrejection', event => {
+      event.preventDefault();
+      const reason = event.reason instanceof Error
+        ? event.reason.stack || event.reason.message
+        : String(event.reason);
+      console.error(`[BROWSER_AUDIT_UNHANDLED_REJECTION] ${reason}`);
+    });
+  };
+  const pageWithInitScript = browserPage as unknown as {
+    addInitScript?: (script: () => void) => Promise<unknown>;
+    evaluateOnNewDocument?: (script: () => void) => Promise<unknown>;
+  };
+  const installInitScript = pageWithInitScript.addInitScript ?? pageWithInitScript.evaluateOnNewDocument;
+  if (installInitScript) {
+    void Promise.resolve(installInitScript.call(browserPage, observeUnhandledRejections)).catch(error => {
+      recordError('pageerror', `Could not install unhandled-rejection audit: ${error instanceof Error ? error.message : String(error)}`, safeUrl(currentUrl(page)));
+    });
+  } else {
+    recordError('pageerror', 'Browser page does not support a new-document audit script for unhandled rejections.', safeUrl(currentUrl(page)));
+  }
   const flushUnpairedAnonymousConsoleErrors = (): void => {
     if (pendingAnonymousPrefetches > 0) return;
     while (pendingAnonymousConsole401s.length > 0) {
       recordError('console.error', pendingAnonymousConsole401s.shift() ?? 'Unpaired anonymous 401 console error', safeUrl(currentUrl(page)));
     }
   };
-  const takeOptionalReviewRequest = (method: string, url: string): boolean => {
+  const takeOptionalReviewRequest = (method: string, url: string): string | undefined => {
     const key = `${method} ${url}`;
-    const pending = pendingOptionalReviewRequests.get(key) ?? 0;
-    if (pending === 0) return false;
-    if (pending === 1) pendingOptionalReviewRequests.delete(key);
-    else pendingOptionalReviewRequests.set(key, pending - 1);
-    return true;
+    const pending = pendingOptionalReviewRequests.get(key) ?? { count: 0, source: '' };
+    if (pending.count === 0) return undefined;
+    if (pending.count === 1) pendingOptionalReviewRequests.delete(key);
+    else pendingOptionalReviewRequests.set(key, { ...pending, count: pending.count - 1 });
+    return pending.source;
   };
 
   page.on('pageerror', (payload) => {
     const message = readStringProperty(payload, 'stack')
       || readStringProperty(payload, 'message')
       || String(payload);
-    recordError('pageerror', safeMessage(message), safeUrl(currentUrl(page)));
+      recordError('pageerror', safeMessage(message), safeUrl(currentUrl(page)), safeUrl(currentUrl(page)));
   });
 
   page.on('console', (payload) => {
     const type = callString(payload, 'type');
     if (type !== 'error') return;
     const message = callString(payload, 'text') || String(payload);
+    if (message.startsWith('[BROWSER_AUDIT_UNHANDLED_REJECTION] ')) {
+      const rejection = message.slice('[BROWSER_AUDIT_UNHANDLED_REJECTION] '.length);
+      const sourceUrl = safeUrl(currentUrl(page));
+      if (/^AxiosError: Request failed with status code 501(?:\r?\n|$)/u.test(rejection)
+        && recordRoyaltiesSideEffect('unhandledrejection', rejection, sourceUrl)) return;
+      if (isOptionalWidgetCancellation(rejection, currentUrl(page))) {
+        const matchIndex = recentOptionalReviewAborts.findIndex(abort =>
+          Date.now() - abort.timestamp <= 2_000
+          && isOptionalReviewWidgetSource(abort.source)
+          && isOptionalReviewWidgetSource(currentUrl(page))
+          && sameReviewWidgetPage(abort.source, currentUrl(page)));
+        if (matchIndex >= 0) {
+          const [abort] = recentOptionalReviewAborts.splice(matchIndex, 1);
+          recordIgnored(message, `The public landing/signup/signin page's optional MyReviews widget rejected during its verified cleanup (index bundle 1709:95653), paired within 2 seconds with ${safeUrl(abort.url)} failing ERR_ABORTED from request frame ${safeUrl(abort.source)}; rejection page was ${sourceUrl}.`);
+          return;
+        }
+      }
+      recordError('unhandledrejection', safeMessage(rejection), sourceUrl, sourceUrl);
+      return;
+    }
+    if (message === 'Failed to load resource: the server responded with a status of 501 (Not Implemented)'
+      && recordRoyaltiesSideEffect('console.error', message, safeUrl(currentUrl(page)))) return;
+    if (message === 'Failed to load resource: net::ERR_NETWORK_ACCESS_DENIED') {
+      const sourceUrl = safeUrl(currentUrl(page));
+      const pending = pendingBlockedFontConsoleErrors.get(sourceUrl) ?? 0;
+      if (pending > 0) {
+        if (pending === 1) pendingBlockedFontConsoleErrors.delete(sourceUrl);
+        else pendingBlockedFontConsoleErrors.set(sourceUrl, pending - 1);
+        recordIgnored(message, `Paired with an observed ERR_NETWORK_ACCESS_DENIED for one exact optional Google Fonts/Bunny CSS family request; source page was ${sourceUrl}. Other console and network failures remain fatal.`);
+        return;
+      }
+    }
     if (isAnonymousContractPrefetchConsoleError(message, currentUrl(page))) {
       const recentExpected = expectedAnonymousConsole401s.findIndex(timestamp => Date.now() - timestamp < 2_000);
       if (recentExpected >= 0) {
@@ -268,7 +425,7 @@ export function attachBrowserAudit(
         return;
       }
     }
-    recordError('console.error', safeMessage(message), safeUrl(currentUrl(page)));
+    recordError('console.error', safeMessage(message), safeUrl(currentUrl(page)), safeUrl(currentUrl(page)));
   });
 
   page.on('requestfailed', (payload) => {
@@ -280,21 +437,24 @@ export function attachBrowserAudit(
       || 'network failure';
     const message = `${method} ${safeUrl(url)} (${failure})`;
     const localApi = sameOriginApi(url, currentUrl(page));
-    const optionalReview = isOptionalReviewEndpoint(url) && takeOptionalReviewRequest(method, url);
-    if (optionalReview) {
-      network.push({ method, url: safeUrl(url), timestamp: new Date().toISOString(), failed: failure, localApi: false });
-      recordIgnored(message, 'Optional third-party review widget request initiated on signup/signin; this exact myreviews.ai endpoint is external to the application and does not block account creation.');
+    const sourceUrl = requestFrameUrl(payload) || currentUrl(page);
+    if (method === 'GET' && isBlockedOptionalFontRequest(url, failure, sourceUrl)) {
+      const safeSourceUrl = safeUrl(sourceUrl);
+      pendingBlockedFontConsoleErrors.set(safeSourceUrl, (pendingBlockedFontConsoleErrors.get(safeSourceUrl) ?? 0) + 1);
+      network.push({ method, url: safeUrl(url), timestamp: new Date().toISOString(), failed: failure, localApi: false, source: safeSourceUrl });
+      recordIgnored(message, `Optional font CSS could not leave the isolated browser environment. Matched only ERR_NETWORK_ACCESS_DENIED for the exact Roboto/Roboto Condensed/Montserrat/Anton CSS URL from ${safeSourceUrl}.`);
+      return;
+    }
+    const optionalReviewSource = isOptionalReviewEndpoint(url) ? takeOptionalReviewRequest(method, url) : undefined;
+    if (optionalReviewSource && /\bERR_ABORTED\b/u.test(failure)) {
+      recentOptionalReviewAborts.push({ timestamp: Date.now(), url, source: optionalReviewSource });
+      network.push({ method, url: safeUrl(url), timestamp: new Date().toISOString(), failed: failure, localApi: false, source: safeUrl(optionalReviewSource) });
+      recordIgnored(message, `Optional review widget request to the exact myreviews.ai reviews endpoint; its browser request frame was ${safeUrl(optionalReviewSource)} on the public landing/signup/signin route.`);
       return;
     }
     if (pendingAnonymousPrefetches > 0 && isAnonymousContractPrefetchEndpoint(url, method)) {
       pendingAnonymousPrefetches--;
       flushUnpairedAnonymousConsoleErrors();
-    }
-    const isNavigationAbort = callBoolean(payload, 'isNavigationRequest')
-      && /ERR_ABORTED|aborted/i.test(failure);
-    if (isNavigationAbort) {
-      recordIgnored(message, 'The browser canceled an in-flight document request while navigating to a different visible page.');
-      return;
     }
     network.push({
       method,
@@ -302,22 +462,29 @@ export function attachBrowserAudit(
       timestamp: new Date().toISOString(),
       failed: failure,
       localApi,
+      source: safeUrl(sourceUrl),
     });
-    recordError('requestfailed', message, safeUrl(url));
+    recordError('requestfailed', message, safeUrl(url), safeUrl(sourceUrl));
   });
 
   page.on('request', (payload) => {
     const url = callString(payload, 'url') || 'unknown';
     const method = callString(payload, 'method') || 'GET';
-    if (method === 'GET' && isOptionalSignupReviewRequest(url, currentUrl(page))) {
+    const sourceUrl = requestFrameUrl(payload) || currentUrl(page);
+    if (method === 'GET' && executivePage(sourceUrl)
+      && [...expectedRoyaltiesCompanyIds].some(companyId => isExecutiveRoyaltiesUrl(url, companyId))) {
+      pendingRoyaltiesRequests.push({ url, source: sourceUrl, timestamp: Date.now() });
+    }
+    if (method === 'GET' && isOptionalReviewEndpoint(url) && isOptionalReviewWidgetSource(sourceUrl)) {
       const key = `${method} ${url}`;
-      pendingOptionalReviewRequests.set(key, (pendingOptionalReviewRequests.get(key) ?? 0) + 1);
-      network.push({ method, url: safeUrl(url), timestamp: new Date().toISOString(), localApi: false, failed: 'pending optional third-party request' });
+      const existing = pendingOptionalReviewRequests.get(key);
+      pendingOptionalReviewRequests.set(key, { count: (existing?.count ?? 0) + 1, source: existing?.source ?? sourceUrl });
+      network.push({ method, url: safeUrl(url), timestamp: new Date().toISOString(), localApi: false, failed: 'pending optional third-party request', source: safeUrl(sourceUrl) });
     }
     const localApi = sameOriginApi(url, currentUrl(page));
     if (!localApi) return;
     if (isAnonymousContractPrefetch(url, method, currentUrl(page))) pendingAnonymousPrefetches++;
-    network.push({ method, url: safeUrl(url), timestamp: new Date().toISOString(), localApi, failed: 'pending' });
+    network.push({ method, url: safeUrl(url), timestamp: new Date().toISOString(), localApi, failed: 'pending', source: safeUrl(sourceUrl) });
   });
 
   page.on('response', (payload) => {
@@ -327,10 +494,45 @@ export function attachBrowserAudit(
     const method = callString(request, 'method') || 'GET';
     const localApi = sameOriginApi(url, currentUrl(page));
     const timestamp = new Date().toISOString();
-    network.push({ method, url: safeUrl(url), timestamp, status, localApi });
+    const sourceUrl = requestFrameUrl(request) || currentUrl(page);
+    const optionalReviewSource = isOptionalReviewEndpoint(url) ? takeOptionalReviewRequest(method, url) : undefined;
+    network.push({ method, url: safeUrl(url), timestamp, status, localApi, ...(optionalReviewSource ? { source: safeUrl(optionalReviewSource) } : localApi ? { source: safeUrl(sourceUrl) } : {}) });
 
-    if (isOptionalReviewEndpoint(url) && takeOptionalReviewRequest(method, url) && status !== undefined && status >= 400) {
-      recordIgnored(`HTTP ${status}: ${method} ${safeUrl(url)}`, 'Optional third-party review widget response for a request initiated on signup/signin; this exact myreviews.ai endpoint is external to the application and does not block account creation.');
+    const royaltiesRequestIndex = method === 'GET' && status === 501 && executivePage(sourceUrl)
+      ? pendingRoyaltiesRequests.findIndex(candidate => candidate.url === url
+        && Date.now() - candidate.timestamp <= 2_000
+        && sameReviewWidgetPage(candidate.source, sourceUrl))
+      : -1;
+    if (royaltiesRequestIndex >= 0) {
+      const royaltiesRequest = pendingRoyaltiesRequests[royaltiesRequestIndex];
+      const companyId = [...expectedRoyaltiesCompanyIds].find(id => isExecutiveRoyaltiesUrl(url, id));
+      if (companyId !== undefined) {
+        const work = Promise.resolve(callValue(payload, 'json')).then(body => {
+          const pendingRequestIndex = pendingRoyaltiesRequests.indexOf(royaltiesRequest);
+          if (pendingRequestIndex >= 0) pendingRoyaltiesRequests.splice(pendingRequestIndex, 1);
+          const bodyCode = readStringProperty(body, 'code');
+          if (bodyCode !== 'SOURCE_CONTRACT_BLOCKED') {
+            recordError('http5xx', safeMessage(`HTTP 501 with unexpected body for ${method} ${url}; code=${bodyCode ?? 'missing'}`), safeUrl(url), safeUrl(sourceUrl));
+            return;
+          }
+          const block = { url, source: royaltiesRequest.source, timestamp: Date.now(), consoleAvailable: true, rejectionAvailable: true };
+          verifiedRoyaltiesBlocks.push(block);
+          recordIgnored(`HTTP 501: ${method} ${safeUrl(url)} code SOURCE_CONTRACT_BLOCKED`, `This executive-history test explicitly declared the authenticated company's own royalties endpoint (${companyId}) as a known unavailable upstream contract; response came from ${safeUrl(royaltiesRequest.source)}. This exception is local to this BrowserAudit instance.`);
+          for (let index = pendingRoyaltiesSideEffects.length - 1; index >= 0; index--) {
+            if (acceptRoyaltiesSideEffect(block, pendingRoyaltiesSideEffects[index])) pendingRoyaltiesSideEffects.splice(index, 1);
+          }
+        }).catch(error => {
+          const pendingRequestIndex = pendingRoyaltiesRequests.indexOf(royaltiesRequest);
+          if (pendingRequestIndex >= 0) pendingRoyaltiesRequests.splice(pendingRequestIndex, 1);
+          recordError('http5xx', safeMessage(`Could not verify SOURCE_CONTRACT_BLOCKED body for ${method} ${url}: ${error instanceof Error ? error.message : String(error)}`), safeUrl(url), safeUrl(sourceUrl));
+        }).finally(() => pendingAuditWork.delete(work));
+        pendingAuditWork.add(work);
+        return;
+      }
+    }
+
+    if (optionalReviewSource && status !== undefined && status >= 400) {
+      recordIgnored(`HTTP ${status}: ${method} ${safeUrl(url)}`, `Optional review widget response from the exact myreviews.ai endpoint; its browser request frame was ${safeUrl(optionalReviewSource)} on the public landing/signup/signin route.`);
       return;
     }
     if (status === undefined) return;
@@ -352,11 +554,11 @@ export function attachBrowserAudit(
       if (status === 401) return;
     }
     if (status >= 500) {
-      recordError('http5xx', safeMessage(`HTTP ${status}: ${method} ${url}`), safeUrl(url));
+      recordError('http5xx', safeMessage(`HTTP ${status}: ${method} ${url}`), safeUrl(url), safeUrl(sourceUrl));
       return;
     }
     if (localApi && status >= 400) {
-      recordError('api4xx', safeMessage(`API HTTP ${status}: ${method} ${url}`), safeUrl(url));
+      recordError('api4xx', safeMessage(`API HTTP ${status}: ${method} ${url}`), safeUrl(url), safeUrl(sourceUrl));
     }
   });
 
@@ -367,6 +569,16 @@ export function attachBrowserAudit(
     recordAction(actionName: string): void {
       recentActions.push(`[${new Date().toISOString()}] ${actionName}`);
       if (recentActions.length > 20) recentActions.shift();
+    },
+    expectExecutiveRoyaltiesContractBlock(companyId: number): void {
+      assert.ok(Number.isInteger(companyId) && companyId > 0, 'expected royalty company id must be a positive integer');
+      expectedRoyaltiesCompanyIds.add(companyId);
+    },
+    async flush(): Promise<void> {
+      await Promise.all([...pendingAuditWork]);
+      for (const sideEffect of pendingRoyaltiesSideEffects.splice(0)) {
+        recordError(sideEffect.kind, sideEffect.message, undefined, safeUrl(sideEffect.source));
+      }
     },
     snapshot(): BrowserAuditSnapshot {
       return {
@@ -414,6 +626,7 @@ export function attachBrowserAudit(
         requestFailures: errors.filter(error => error.type === 'requestfailed').length,
         httpFailures: errors.filter(error => error.type === 'http5xx' || error.type === 'api4xx').length,
         localApiResponses: network.filter(entry => entry.localApi && entry.status !== undefined).length,
+        ignoredEvents: ignored.length,
       };
     },
   };

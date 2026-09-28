@@ -1,7 +1,6 @@
 import { getResourceDef } from '../../game-data/resources.ts';
 import { calculateProductionTime } from '../../game-data/buildings.ts';
 import { ValidationError } from '../../errors/domain-error.ts';
-import { getProductionQualityCap } from '../../game/research.ts';
 
 export interface ProductionRequirement {
   kind: number;
@@ -59,11 +58,9 @@ export function validateProductionRequest(
 }
 
 export function resolveAchievableQuality(
-  companyId: number,
-  resourceKind: number,
+  researchCap: number,
   requestedQuality?: number | null
 ): number {
-  const researchCap = getProductionQualityCap(companyId, resourceKind);
   if (requestedQuality !== undefined && requestedQuality !== null) {
     return Math.min(requestedQuality, researchCap);
   }

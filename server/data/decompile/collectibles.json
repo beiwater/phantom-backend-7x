@@ -348,5 +348,86 @@
     "chunk_MRn.js": "Display case API functions",
     "chunk_Mor_2.js": "Route/API endpoint definitions",
     "entry.js": "Egg type constants (Py), i18n strings, transaction types, collectible resource definitions"
+  },
+
+  "currentBundleEvidence": {
+    "source": "frontend-original/static/bundle/assets/index-cgzgptQ8.js",
+    "anchors": {
+      "probabilities": "jBe=.013888888888888888,FBe=.0013888888888888887,RR={COMMON:9e4,RARE:9e3,SPECIAL:980,MYTHIC:20},NR=1e5",
+      "dropRateUI": "function p0e(): h=jBe+FBe*m; m=sum of Spring Market building sizes",
+      "collection": "Wen / Zen / ttn / rtn",
+      "swaps": "Qen / Jen / etn / hy / vEt"
+    },
+    "dropRate": {
+      "basePerActivityHour": 0.013888888888888888,
+      "additionalPerSpringMarketLevelPerHour": 0.001388888888888889,
+      "rarityWeights": {
+        "COMMON": 90000,
+        "RARE": 9000,
+        "SPECIAL": 980,
+        "MYTHIC": 20
+      },
+      "rarityDenominator": 100000,
+      "appliesWhen": "building finishes activity; UI requires an active freeAndLocked Spring Market",
+      "unverified": [
+        "Aggregation over partial or long activity durations",
+        "Random selection within a rarity tier",
+        "Server-side claim timing and repeat/cancel rules",
+        "Future event dates and expiration behavior"
+      ]
+    },
+    "inventoryShape": {
+      "fields": [
+        "id",
+        "kind",
+        "amount"
+      ],
+      "source": "swapEggs reducer; swaps consume one sender egg and add one receiver egg only when response.swapped is true"
+    },
+    "collectionAPI": {
+      "collect": "POST /api/v2/egg-collect/{buildingId}/",
+      "collection": "GET /api/v2/companies/{companyId}/egg-collection/",
+      "mint": "POST /api/v2/companies/{companyId}/egg-collection/",
+      "movements": "GET /api/v2/companies/{companyId}/egg-movements/",
+      "response": "collection/mint/collect use {eggs}; movement uses {movements}; GET timestamp comes from x-timestamp header"
+    },
+    "swapAPI": {
+      "propose": "POST /api/v2/companies/{companyId}/egg-swaps/",
+      "body": [
+        "receiverCompanyId",
+        "senderEggKind",
+        "receiverEggKind"
+      ],
+      "responseField": "swapped:boolean",
+      "accept": "vEt accept button calls proposeEggSwap(original.senderId, original.receiverEggKind, original.senderEggKind): acceptance is a reciprocal proposal through the same POST",
+      "cancelOrReject": "DELETE /api/v2/companies/{companyId}/egg-swaps/{swapId}/",
+      "list": "GET /api/v2/companies/{companyId}/egg-swaps/",
+      "rowFields": [
+        "id",
+        "senderId",
+        "receiverId",
+        "senderEggKind",
+        "receiverEggKind",
+        "datetime",
+        "sender.company",
+        "sender.logo",
+        "sender.realmId",
+        "receiver.company",
+        "receiver.logo",
+        "receiver.realmId"
+      ],
+      "unverified": [
+        "Official error status/code payloads",
+        "Proposal deduplication and conflicting proposals",
+        "Stock reservation and event expiration on pending proposals"
+      ]
+    },
+    "officialEvent2026": {
+      "source": "https://www.simcompanies.com/library/0/newspaper/393/",
+      "since": "2026-04-02",
+      "until": "2026-04-12",
+      "scope": "Published 2026 event only; does not establish a rule for future annual events"
+    },
+    "status": "partial-source-contract; generation/expiration remain blocked; do not invent private rules"
   }
 }

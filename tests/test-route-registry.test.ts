@@ -1,5 +1,7 @@
 import assert from 'node:assert';
+import { EventEmitter } from 'node:events';
 import { RouteRegistry } from '../server/http/route-registry.ts';
+import { readJsonBody } from '../server/routes/utils.ts';
 
 // Mock response for unit testing
 function createMockResponse() {
@@ -131,6 +133,55 @@ async function testRouteRegistry() {
   }
   assert.strictEqual(duplicateConflictCaught, true, 'Registering duplicate route must throw conflict error at startup');
 
+  // 4b. Patterns with an optional trailing slash have one canonical owner.
+  let normalizedDuplicateCaught = false;
+  try {
+    const normalizedRegistry = new RouteRegistry();
+    normalizedRegistry.register({ method: 'GET', pattern: '/api/v2/status', handler: async () => {} });
+    normalizedRegistry.register({ method: 'GET', pattern: '/api/v2/status/', handler: async () => {} });
+  } catch {
+    normalizedDuplicateCaught = true;
+  }
+  assert.strictEqual(normalizedDuplicateCaught, true, 'Trailing-slash aliases must be duplicate routes');
+
+  // 4c. Equal-specificity patterns that overlap fail the startup gate in
+  // either order; the deterministic tie-break still has stable ownership.
+  const overlapping = [
+    '/api/v2/:scope/:realmId/',
+    '/api/v2/:tenant/:world/'
+  ];
+  for (const patterns of [overlapping, [...overlapping].reverse()]) {
+    const ambiguousRegistry = new RouteRegistry();
+    for (const pattern of patterns) {
+      ambiguousRegistry.register({ method: 'GET', pattern, owner: pattern, handler: async () => {} });
+    }
+    assert.strictEqual(ambiguousRegistry.findAmbiguousOverlaps().length, 1);
+    assert.throws(
+      () => ambiguousRegistry.assertNoAmbiguousOverlaps(),
+      /equal-specificity overlapping route pair/,
+      'Equal-specificity overlapping ownership must fail the startup gate'
+    );
+    assert.strictEqual(ambiguousRegistry.getOwner('/api/v2/companies/123/', 'GET'), [...patterns].sort()[0]);
+  }
+
+  // A numeric identifier constraint disambiguates numeric company paths from
+  // static resource names while retaining exact parameter extraction.
+  const constrainedRegistry = new RouteRegistry();
+  constrainedRegistry.register({
+    method: 'GET',
+    pattern: '/api/v2/companies/:companyId(\\d+)/buildings/',
+    owner: 'company-buildings',
+    handler: async () => {}
+  });
+  constrainedRegistry.register({
+    method: 'GET',
+    pattern: '/api/v2/companies/buildings/:id/',
+    owner: 'building-detail',
+    handler: async () => {}
+  });
+  assert.strictEqual(constrainedRegistry.getOwner('/api/v2/companies/123/buildings/', 'GET'), 'company-buildings');
+  assert.strictEqual(constrainedRegistry.getOwner('/api/v2/companies/buildings/123/', 'GET'), 'building-detail');
+
   // 5. Test 405 Method Not Allowed
   const registry4 = new RouteRegistry();
   registry4.register({
@@ -145,6 +196,32 @@ async function testRouteRegistry() {
   assert.strictEqual(handled4, true, '405 handler should consume request');
   assert.strictEqual(res4.statusCode, 405, 'Should return 405 status code');
   assert.strictEqual(res4.headers['allow'], 'POST', 'Allow header must include POST');
+
+  // Delegated legacy handlers may still parse request bodies themselves. The
+  // registry must cache its parsed body so that both layers observe one value
+  // without consuming the request stream twice.
+  const bodyRegistry = new RouteRegistry();
+  let bodyFromHandler: unknown;
+  bodyRegistry.register({
+    method: 'POST',
+    pattern: '/api/v2/body-check/',
+    handler: async (req, _res, _ctx, _params, body) => {
+      bodyFromHandler = await readJsonBody(req);
+      assert.deepStrictEqual(body, { answer: 42 });
+    }
+  });
+  const bodyReq = new EventEmitter() as any;
+  Object.assign(bodyReq, {
+    method: 'POST',
+    url: '/api/v2/body-check/',
+    headers: { 'content-length': '13', 'content-type': 'application/json' }
+  });
+  const bodyRes = createMockResponse();
+  const bodyDispatch = bodyRegistry.dispatch(bodyReq, bodyRes as any, '/api/v2/body-check/', 'POST', null);
+  bodyReq.emit('data', Buffer.from('{"answer":42}'));
+  bodyReq.emit('end');
+  await bodyDispatch;
+  assert.deepStrictEqual(bodyFromHandler, { answer: 42 });
 
   // 6. Test Auth Enforcement
   const registry5 = new RouteRegistry();

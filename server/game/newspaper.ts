@@ -111,26 +111,6 @@ function findCompany(idOrCompanyId: number): CompanyRow | null {
 }
 
 // 1. Initialize Tables
-db.exec(`
-  CREATE TABLE IF NOT EXISTS newspaper_issues (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    issue_id INTEGER,
-    realm_id INTEGER DEFAULT 0,
-    published TEXT,
-    created_at TEXT
-  );
-
-  CREATE TABLE IF NOT EXISTS newspaper_sponsors (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    newspaper_id INTEGER,
-    position INTEGER,
-    company_id INTEGER,
-    company_name TEXT,
-    text TEXT,
-    logo TEXT,
-    created_at TEXT
-  );
-`);
 
 // 2. Seed initial issues & articles
 //

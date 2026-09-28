@@ -3,7 +3,7 @@ import { virtualClock } from '../core/virtual-clock.ts';
 import { db } from '../db/connection.ts';
 import { ConflictError, InsufficientFundsError, NotFoundError } from '../errors/domain-error.ts';
 import { getXpRequiredForLevel } from '../domain/leveling/level-rules.ts';
-import { recordCashLedger, refreshDailyFinanceSnapshot } from '../game/cash-ledger.ts';
+import { recordCashLedger, refreshDailyFinanceSnapshot } from './cash-ledger-repository.ts';
 import { getInitialCompanySettings } from '../config.ts';
 import { seedDefaultDisplayCase } from '../db/seed/index.ts';
 import { executiveRepository } from './executive-repository.ts';

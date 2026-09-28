@@ -31,7 +31,6 @@ import { handleAerospaceRoutes } from './routes/aerospace-routes.ts';
 import { handleBuildingAuctionRoutes } from './routes/building-auction-routes.ts';
 import { handleCollectibleRoutes } from './routes/collectible-routes.ts';
 import { handleNewspaperRoutes } from './routes/newspaper-routes.ts';
-import { virtualClock } from './core/virtual-clock.ts';
 import { handleDebugRoutes } from './routes/debug-routes.ts';
 import './routes/health-routes.ts';
 import './routes/economy-routes.ts';
@@ -41,29 +40,8 @@ import { isGeoAllowed } from './security/client-ip.ts';
 // Issue #178: all route modules have self-registered by import; surface any
 // ambiguous ownership loudly at startup. Existing overlaps resolve
 // deterministically via specificity and are locked by the ownership test.
+globalRouteRegistry.assertNoAmbiguousOverlaps();
 globalRouteRegistry.reportOverlaps();
-
-// Issue #178: the manifest is the explicit exception ledger for endpoints
-// NOT yet owned by the declarative registry (server/http/route-registry.ts).
-// It provides 405/Allow for legacy paths only and must never conflict with a
-// registry-owned route — tests/test-route-ownership.test.ts enforces that
-// boundary. New API routes must register in the registry, not here.
-export const methodManifest: Array<{ pattern: RegExp; methods: string[]; owner: string }> = [
-  { pattern: /^\/api\/time\/$/, methods: ['GET'], owner: 'legacy:time' },
-  { pattern: /^\/api\/v2\/auth\/email\/(?:auth|connect|reset)\/$/, methods: ['POST'], owner: 'legacy:auth' },
-  { pattern: /^\/api\/v2\/auth\/device\/(?:auth|connect)\/$/, methods: ['POST'], owner: 'legacy:auth' },
-  { pattern: /^\/api\/v2\/companies\/me\/buildings\/$/, methods: ['GET', 'POST'], owner: 'legacy:buildings' },
-  { pattern: /^\/api\/v2\/market-order\/(?:take\/)?$/, methods: ['POST'], owner: 'legacy:market' },
-  { pattern: /^\/api\/v4\/executives\/$/, methods: ['GET'], owner: 'legacy:executives' },
-  { pattern: /^\/api\/v4\/executives\/candidates\/$/, methods: ['GET'], owner: 'legacy:executives' },
-  { pattern: /^\/api\/v4\/executives\/hire\/$/, methods: ['POST'], owner: 'legacy:executives' },
-  { pattern: /^\/api\/v2\/market\/bonds\/$/, methods: ['GET'], owner: 'legacy:bonds' },
-  { pattern: /^\/api\/v2\/bonds\/sell\/$/, methods: ['POST'], owner: 'legacy:bonds' },
-  { pattern: /^\/api\/v2\/bonds\/\d+\/buy\/$/, methods: ['POST'], owner: 'legacy:bonds' },
-  { pattern: /^\/api\/v2\/bonds\/\d+\/call\/$/, methods: ['POST'], owner: 'legacy:bonds' },
-  { pattern: /^\/api\/v3\/companies\/auth-data\/$/, methods: ['GET'], owner: 'legacy:auth' },
-  { pattern: /^\/api\/v2\/constants\/resources\/$/, methods: ['GET'], owner: 'legacy:encyclopedia' }
-];
 
 export async function handleRequest(req: IncomingMessage, res: ServerResponse) {
   const startMs = Date.now();
@@ -120,17 +98,6 @@ export async function handleRequest(req: IncomingMessage, res: ServerResponse) {
     return;
   }
 
-  const methodEntry = methodManifest.find(entry => entry.pattern.test(pathname));
-  if (methodEntry && !methodEntry.methods.includes(method)) {
-    sendJson(res, {
-      error: 'Method not allowed',
-      code: 'METHOD_NOT_ALLOWED',
-      method,
-      path: pathname
-    }, 405, { Allow: methodEntry.methods.join(', ') });
-    return;
-  }
-
   // 1. Static Assets
   if (
     pathname.startsWith('/static/') ||
@@ -169,10 +136,6 @@ export async function handleRequest(req: IncomingMessage, res: ServerResponse) {
   if (pathname === '/version/' && method === 'GET') {
     res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
     res.end('dd7ff2122fa75facbc8862ed32ddd282df300a6b\n');
-    return;
-  }
-  if (pathname === '/api/time/' && method === 'GET') {
-    sendJson(res, virtualClock.nowMs());
     return;
   }
   if ((pathname === '/historical/2019/' || pathname === '/historical/2019/index.html') && method === 'GET') {

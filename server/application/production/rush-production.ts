@@ -6,11 +6,11 @@ import { productionRepository, type ProductionQueueEntity } from '../../reposito
 import { warehouseRepository } from '../../repositories/warehouse-repository.ts';
 import { companyRepository } from '../../repositories/company-repository.ts';
 import { eventBus } from '../../events/event-bus.ts';
-import { applyAbundanceCycleDecay } from '../../game/buildings.ts';
+import { applyAbundanceCycleDecay } from '../buildings/abundance-use-cases.ts';
 import { NotFoundError, ForbiddenError, ValidationError } from '../../errors/domain-error.ts';
 import { recordSimboostSpend } from '../social/simboost-history.ts';
 import { getAccumulatorParameters } from '../../game-data/accumulator.ts';
-import { rocketKindForLaunchAmount } from '../../game/aerospace.ts';
+import { rocketKindForLaunchAmount } from '../../domain/aerospace/launch-rules.ts';
 
 export interface RushProductionInput {
   buildingId: number;

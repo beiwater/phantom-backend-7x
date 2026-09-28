@@ -112,6 +112,12 @@ export interface ExecutiveFormerRow extends ExecutiveRow {
 // --- Executives --------------------------------------------------------------
 
 export const executiveRepository = {
+  listForCommand(companyId: number): ExecutiveRow[] {
+    return db.prepare(
+      'SELECT * FROM executives WHERE company_id = ? ORDER BY id ASC'
+    ).all(companyId) as unknown as ExecutiveRow[];
+  },
+
   listByCompany(companyId: number): ExecutiveRow[] {
     return db.prepare(`
       SELECT * FROM executives
@@ -143,6 +149,83 @@ export const executiveRepository = {
   countEmployed(companyId: number): number {
     const row = db.prepare("SELECT COUNT(*) AS count FROM executives WHERE company_id = ? AND status = 'employed'").get(companyId) as { count: number };
     return row.count;
+  },
+
+  findByCompanyAndPosition(companyId: number, position: string): ExecutiveRow | undefined {
+    return db.prepare(
+      'SELECT * FROM executives WHERE company_id = ? AND position = ? LIMIT 1'
+    ).get(companyId, position) as unknown as ExecutiveRow | undefined;
+  },
+
+  updateForCommandHire(
+    executiveId: number,
+    companyId: number,
+    input: {
+      name: string;
+      position: string;
+      management: number;
+      accounting: number;
+      science: number;
+      communication: number;
+      salary: number;
+    }
+  ): number {
+    return Number(db.prepare(`
+      UPDATE executives
+      SET name = ?, skill_management = ?, skill_accounting = ?, skill_science = ?,
+          skill_communication = ?, salary = ?, status = 'employed', position = ?
+      WHERE id = ? AND company_id = ?
+    `).run(
+      input.name,
+      input.management,
+      input.accounting,
+      input.science,
+      input.communication,
+      input.salary,
+      input.position,
+      executiveId,
+      companyId
+    ).changes);
+  },
+
+  insertForCommandHire(
+    companyId: number,
+    input: {
+      name: string;
+      position: string;
+      management: number;
+      accounting: number;
+      science: number;
+      communication: number;
+      salary: number;
+      createdAt: string;
+    }
+  ): number {
+    const inserted = db.prepare(`
+      INSERT INTO executives (
+        company_id, name, avatar, position, skill_management, skill_accounting,
+        skill_science, skill_communication, salary, status, created_at
+      ) VALUES (?, ?, 'images/avatars/male_01.png', ?, ?, ?, ?, ?, ?, 'employed', ?)
+    `).run(
+      companyId,
+      input.name,
+      input.position,
+      input.management,
+      input.accounting,
+      input.science,
+      input.communication,
+      input.salary,
+      input.createdAt
+    );
+    return Number(inserted.lastInsertRowid);
+  },
+
+  updateActiveHistoryPosition(executiveId: number, companyId: number, position: string): void {
+    db.prepare(`
+      UPDATE executive_employment_history
+      SET position = ?
+      WHERE executive_id = ? AND company_id = ? AND ended_at IS NULL
+    `).run(position, executiveId, companyId);
   },
 
   hireCandidate(candidateId: number, companyId: number, position: string, startingBonus: number): number {

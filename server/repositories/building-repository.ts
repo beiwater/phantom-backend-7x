@@ -87,6 +87,18 @@ export class BuildingRepository {
     return row ? mapBuildingRow(row) : null;
   }
 
+  findAbundance(buildingId: number): { kind: string; abundance: number; originalAbundance: number } | null {
+    const row = this.database.prepare('SELECT kind, abundance, original_abundance FROM buildings WHERE id = ?')
+      .get(buildingId) as { kind: string; abundance: number | null; original_abundance: number | null } | undefined;
+    if (!row) return null;
+    const abundance = row.abundance === null ? 100 : Number(row.abundance);
+    return { kind: row.kind, abundance, originalAbundance: row.original_abundance === null ? abundance : Number(row.original_abundance) };
+  }
+
+  updateAbundance(buildingId: number, abundance: number): void {
+    this.database.prepare('UPDATE buildings SET abundance = ? WHERE id = ?').run(abundance, buildingId);
+  }
+
   findByCompany(companyId: number): BuildingEntity[] {
     const rows = this.database.prepare(
       'SELECT * FROM buildings WHERE company_id = ? ORDER BY CAST(position AS INTEGER) ASC, id ASC'

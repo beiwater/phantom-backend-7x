@@ -10,15 +10,20 @@ import { NotFoundError, ForbiddenError, ValidationError, ConflictError } from '.
 import { validateProductionRequest, resolveAchievableQuality } from '../../domain/production/production-rules.ts';
 import { assertQueueDuration } from '../../domain/leveling/level-rules.ts';
 import { calculateProductionTime } from '../../game-data/buildings.ts';
-import { isAbundanceExtractorKind, getBuildingAbundance, scaleExtractorOutput } from '../../game/buildings.ts';
+import { isAbundanceExtractorKind, scaleExtractorOutput } from '../../domain/buildings/building-rules.ts';
+import { getBuildingAbundance } from '../buildings/abundance-use-cases.ts';
 import { assertAllowedProduct } from '../../game/robotics.ts';
-import { queueRocketLaunch, rocketKindForLaunchRequest } from '../../game/aerospace.ts';
+import { queueRocketLaunch } from '../aerospace/launch-use-cases.ts';
+import { rocketKindForLaunchRequest } from '../../domain/aerospace/launch-rules.ts';
+
 import { getEconomyPhase } from '../scheduler/daily-jobs.ts';
 import { getCompanyBoostSettings } from '../../game/simboost-settings.ts';
 import { accumulatorRepository } from '../../repositories/accumulator-repository.ts';
 import { getAccumulatorParameters, accumulatorBonusForResearch } from '../../game-data/accumulator.ts';
 import { getProductionQualityCap } from '../../game/research.ts';
 import { resolveDueAccumulatorGrowth } from './collect-accumulator.ts';
+import { encyclopediaRepository } from '../../repositories/encyclopedia-repository.ts';
+import { financeRepository } from '../../repositories/finance-repository.ts';
 
 export interface StartProductionInput {
   buildingId: number;
@@ -135,17 +140,18 @@ export async function startProductionUseCase(
     // Issue #99: the queue item's duration must fit the company tier limit
     // (2h below L5, 24h below L15, 48h at L15+). Enforced BEFORE any
     // ingredients are consumed so the duration rejection is side-effect free.
-    const combinedProductionModifier = Math.max(
-      -0.75,
-      Math.min(3, economy.productionModifier + (companyBoost.productionModifier / 100))
-    );
+    // The original calculator uses the company slider and salary state.
+    // Its formula has no extra random cycle bonus or output multiplier (#199).
+    const combinedProductionModifier = companyBoost.productionModifier / 100;
+    const calculationTime = virtualClock.now().toISOString();
+    const activeEvent = encyclopediaRepository
+      .listActiveResourceProductionModifiers(ctx.realmId, calculationTime)
+      .find(event => event.kind === input.kind);
     const researchedAccumulatorQuality = isAccumulator
       ? getProductionQualityCap(ctx.companyId, input.kind)
       : 0;
     const accumulatorBonus = accumulatorBonusForResearch(input.kind, researchedAccumulatorQuality);
-    const productionOutputMultiplier = isAccumulator
-      ? 1
-      : Math.max(0.5, Math.min(1.5, 1 + economy.productionModifier));
+    const productionOutputMultiplier = 1;
     const durationSeconds = calculateProductionTime(
       input.kind,
       input.amount,
@@ -153,7 +159,9 @@ export async function startProductionUseCase(
       combinedProductionModifier,
       {
         economyState: economy.state,
-        accumulatorBonus
+        accumulatorBonus,
+        eventSpeedModifier: activeEvent?.speedModifier ?? 0,
+        recreationBonus: financeRepository.recreationBonus(ctx.companyId, calculationTime)
       }
     );
     assertQueueDuration(
@@ -196,7 +204,7 @@ export async function startProductionUseCase(
       allTransactions.push(...txs);
     }
     const averageInputQuality = totalInputAmount > 0 ? weightedQualitySum / totalInputAmount : 0;
-    // Inputs are consumed for the requested base amount, but economy and
+    // Inputs are consumed for the requested base amount, but extractor
     // abundance can change delivered quantity. Preserve total input value
     // across the actual output (accumulator progress remains one-for-one).
     const inputCostPerOutputUnit = outputAmount > 0 ? totalInputCost / outputAmount : 0;
@@ -224,8 +232,7 @@ export async function startProductionUseCase(
     // (P0-02: persisted at queue time so it survives refresh).
     const requested = input.quality ?? null;
     const achievableQuality = resolveAchievableQuality(
-      ctx.companyId,
-      input.kind,
+      getProductionQualityCap(ctx.companyId, input.kind),
       requested
     );
     const persistedQuality = requested !== null
@@ -247,7 +254,7 @@ export async function startProductionUseCase(
       economySource: economy.source,
       productionModifier: combinedProductionModifier,
       productionOutputMultiplier,
-      // The queued amount is output after abundance/economy modifiers. Keep
+      // The queued amount is output after abundance modifiers. Keep
       // the original inputs so cancellation refunds the amount actually spent.
       inputIngredients: allTransactions.map(transaction => ({
         kind: Number(transaction.kind),

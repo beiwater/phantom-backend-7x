@@ -61,6 +61,17 @@ async function runVerification() {
       VALUES (?, 91, 0, 10, 0, 0, 0, 0, 1000.0, ?)
     `).run(companyId, now);
     server.setStock(companyId, 100, 50000, 10);
+    const researchCost = { workers: 1, admin: 2, material1: 3, material2: 4, market: 10 };
+    const rocketCost = { workers: 2, admin: 3, material1: 4, material2: 5, market: 1000 };
+    db.prepare(`
+      UPDATE warehouse SET cost_workers = ?, cost_admin = ?, cost_material1 = ?, cost_material2 = ?
+      WHERE company_id = ? AND kind = 100 AND quality = 0
+    `).run(researchCost.workers, researchCost.admin, researchCost.material1, researchCost.material2, companyId);
+    db.prepare(`
+      UPDATE warehouse SET cost_workers = ?, cost_admin = ?, cost_material1 = ?, cost_material2 = ?
+      WHERE company_id = ? AND kind = 91 AND quality = 0
+    `).run(rocketCost.workers, rocketCost.admin, rocketCost.material1, rocketCost.material2, companyId);
+    const otherCompany = await server.registerCompany('launchpad-issue-170-other');
     server.setStock(companyId, 94, 10, 2000);
     console.log(`✔ Created L1 Launch Pad #${buildingId} + stocked rockets/research`);
 
@@ -163,7 +174,44 @@ async function runVerification() {
     assert.equal(threeLaunches.length, 3);
     const [running, middle, later] = threeLaunches;
     assert.ok(Date.parse(middle.started) > Date.now() && Date.parse(later.started) > Date.now(), 'later launches must be pending');
-    const middleCost = db.prepare('SELECT amount, cost_market FROM warehouse WHERE company_id = ? AND kind = 100').get(companyId) as { amount: number; cost_market: number };
+    const readRefundBasis = (kind: number) => db.prepare(`
+      SELECT amount, cost_workers, cost_admin, cost_material1, cost_material2, cost_market
+      FROM warehouse WHERE company_id = ? AND kind = ? AND quality = 0
+    `).get(companyId, kind) as {
+      amount: number;
+      cost_workers: number;
+      cost_admin: number;
+      cost_material1: number;
+      cost_material2: number;
+      cost_market: number;
+    };
+    const middleResearchBefore = readRefundBasis(100);
+    const middleRocketBefore = readRefundBasis(91);
+    const foreignCancel = await fetch(`${BASE_URL}/api/v2/companies/buildings/${buildingId}/queue/${middle.id}/`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json', Cookie: otherCompany.cookie }
+    });
+    assert.ok(foreignCancel.status >= 400, 'another company cannot cancel a launch');
+    assert.equal(readRefundBasis(100).amount, middleResearchBefore.amount);
+    assert.equal((await (await fetch(`${BASE_URL}/api/v2/companies/buildings/${buildingId}/queue/`, { headers })).json() as QueueItemDTO[]).length, 3);
+
+    db.exec(`
+      CREATE TRIGGER issue_227_abort_launch_refund
+      BEFORE UPDATE OF amount ON warehouse
+      WHEN NEW.company_id = ${companyId} AND NEW.kind = 100 AND NEW.quality = 0
+      BEGIN SELECT RAISE(ABORT, 'issue 227 launch rollback probe'); END;
+    `);
+    try {
+      const failedRefund = await fetch(`${BASE_URL}/api/v2/companies/buildings/${buildingId}/queue/${middle.id}/`, {
+        method: 'DELETE', headers
+      });
+      assert.ok(failedRefund.status >= 400, 'failed warehouse credit aborts launch cancellation');
+    } finally {
+      db.exec('DROP TRIGGER issue_227_abort_launch_refund');
+    }
+    assert.deepEqual(readRefundBasis(100), middleResearchBefore, 'failed launch cancellation rolls back research amount and all cost buckets');
+    assert.deepEqual(readRefundBasis(91), middleRocketBefore, 'failed launch cancellation rolls back rocket amount and all cost buckets');
+
     const cancelRes = await fetch(`${BASE_URL}/api/v2/companies/buildings/${buildingId}/queue/${middle.id}/`, {
       method: 'DELETE',
       headers
@@ -178,9 +226,29 @@ async function runVerification() {
     assert.equal(Date.parse(laterAfterRechain.finishes), Date.parse(later.finishes) - middle.duration * 1000);
     const busyAfterRechain = db.prepare('SELECT busy_until FROM buildings WHERE id = ?').get(buildingId) as { busy_until: string };
     assert.equal(busyAfterRechain.busy_until, laterAfterRechain.finishes, 'busy_until uses post-rechain finish times');
-    const middleRefund = db.prepare('SELECT amount, cost_market FROM warehouse WHERE company_id = ? AND kind = 100').get(companyId) as { amount: number; cost_market: number };
-    assert.equal(middleRefund.amount, middleCost.amount + 400, 'cancelled launch refunds its research');
-    assert.ok(Math.abs(middleRefund.cost_market - middleCost.cost_market) < 1e-9, 'launch refund preserves the consumed per-unit cost basis');
+    const middleResearchRefund = readRefundBasis(100);
+    const middleRocketRefund = readRefundBasis(91);
+    assert.equal(middleResearchRefund.amount, middleResearchBefore.amount + 400, 'cancelled launch refunds its research');
+    assert.equal(middleRocketRefund.amount, middleRocketBefore.amount + 1, 'cancelled launch refunds its rocket');
+    for (const [before, after] of [
+      [middleResearchBefore, middleResearchRefund],
+      [middleRocketBefore, middleRocketRefund]
+    ]) {
+      for (const bucket of ['cost_workers', 'cost_admin', 'cost_material1', 'cost_material2', 'cost_market'] as const) {
+        assert.ok(Math.abs(after[bucket] - before[bucket]) < 1e-9, `${bucket} basis survives launch refund`);
+      }
+    }
+    assert.ok(Math.abs(
+      middleResearchRefund.amount * middleResearchRefund.cost_market
+        - middleResearchBefore.amount * middleResearchBefore.cost_market
+    - 400 * middleResearchBefore.cost_market) < 1e-7,
+    `research valuation increases by exactly the refunded consumed basis (before=${middleResearchBefore.amount} @ ${middleResearchBefore.cost_market}, after=${middleResearchRefund.amount} @ ${middleResearchRefund.cost_market})`);
+    const repeatedCancel = await fetch(`${BASE_URL}/api/v2/companies/buildings/${buildingId}/queue/${middle.id}/`, {
+      method: 'DELETE', headers
+    });
+    assert.ok(repeatedCancel.status >= 400, 'cancelled launch cannot refund twice');
+    assert.equal(readRefundBasis(100).amount, middleResearchRefund.amount);
+    assert.equal(readRefundBasis(91).amount, middleRocketRefund.amount);
 
     // The legacy v1 busy DELETE has no queue id, so it cancels the latest
     // pending launch using the same aerospace helper and re-chain rules.
@@ -207,7 +275,7 @@ async function runVerification() {
     const launches = db.prepare('SELECT COUNT(*) AS n FROM rocket_launches WHERE company_id = ?').get(companyId) as { n: number };
     assert.equal(launches.n, 1, 'launch must be logged in rocket_launches');
     const researchFinal = db.prepare('SELECT amount FROM warehouse WHERE company_id = ? AND kind = 100').get(companyId) as { amount: number };
-    assert.equal(researchFinal.amount, middleRefund.amount + 400, 'launch collect produces no research resource after both pending refunds');
+    assert.equal(researchFinal.amount, middleResearchRefund.amount + 400, 'launch collect produces no research resource after both pending refunds');
 
     // Idempotency: second take must fail.
     const take2Res = await fetch(`${BASE_URL}/api/v2/order/take/${buildingId}/`, {

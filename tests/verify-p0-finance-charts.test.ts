@@ -187,7 +187,7 @@ async function runFinanceChartsTest(): Promise<void> {
   assert.equal(ov1.status, 200, `past-finances-overview must return 200 (got ${ov1.status})`);
   const overview = ov1.body as Array<Record<string, unknown>>;
   assert.ok(Array.isArray(overview), 'overview must be an array');
-  assert.ok(overview.length >= 1, `overview must have at least today's snapshot (got ${overview.length})`);
+  assert.equal(overview.length, 1, 'a new company has today\'s actual snapshot, no fabricated prior 30 days (#179)');
   for (const row of overview) {
     assertFieldsPresent(row, OVERVIEW_FIELDS, 'overview row');
     assert.ok(typeof row.total === 'number' && row.total > 0, 'snapshot total must be positive');
