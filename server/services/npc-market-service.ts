@@ -19,6 +19,7 @@ import { CONSTANTS_RESOURCES, type ResourceDef } from '../game/constants.ts';
 import { virtualClock } from '../core/virtual-clock.ts';
 import { getPriceTickSize } from '../domain/market/market-rules.ts';
 import { logger } from '../core/logger.ts';
+import { RealmPhaseService } from './realm-phase-service.ts';
 
 export const NPC_SELLER_ID = 999900;
 
@@ -296,8 +297,7 @@ export class NpcMarketService {
     restockCount: number;
     timestamp: string;
   }> {
-    return runInTransaction(async () => {
-      const { RealmPhaseService } = await import('./realm-phase-service.ts');
+    return runInTransaction(() => {
       const realmConfig = RealmPhaseService.getActiveRealmConfig(database);
       const effectiveMaxQuality = Math.min(
         CONFIG.NPC_MARKET_Q0_ONLY ? 0 : Number(CONFIG.NPC_MARKET_MAX_QUALITY),
@@ -305,7 +305,7 @@ export class NpcMarketService {
       );
       let ordersUpdated = 0;
       let ordersCreated = 0;
-
+    
       // 1. Deactivate NPC orders that exceed max allowed quality (e.g. Q>0 in Q0-only mode or phase research limit)
       const deactRes = database.prepare(`
         UPDATE market_orders
@@ -313,29 +313,29 @@ export class NpcMarketService {
         WHERE seller_id = ? AND quality > ? AND active = 1
       `).run(NPC_SELLER_ID, effectiveMaxQuality);
       let ordersDeactivated = Number(deactRes.changes) || 0;
-
+    
       const nowIso = virtualClock.nowIso();
       const findExistingStmt = database.prepare(`
         SELECT id, quantity, active, price FROM market_orders
         WHERE seller_id = ? AND kind = ? AND quality = ?
       `);
-
+    
       const updateOrderStmt = database.prepare(`
         UPDATE market_orders
         SET quantity = ?, price = ?, active = 1, posted_at = ?
         WHERE id = ?
       `);
-
+    
       const insertOrderStmt = database.prepare(`
         INSERT INTO market_orders (seller_id, kind, quality, quantity, price, fees, posted_at, active, is_npc)
         VALUES (?, ?, ?, ?, ?, 0, ?, 1, 1)
       `);
-
+    
       // 2. Iterate all tradable resources and qualities up to effectiveMaxQuality
       for (const [k, def] of Object.entries(CONSTANTS_RESOURCES)) {
         const kind = Number(k);
         if (def.isExchangeTradable === false) continue;
-
+    
         // Phase gate: do not stock resources introduced in future phases
         if (!RealmPhaseService.isResourceUnlocked(kind, database)) {
           const deactLocked = database.prepare(`
@@ -345,7 +345,7 @@ export class NpcMarketService {
           ordersDeactivated += Number(deactLocked.changes) || 0;
           continue;
         }
-
+    
         for (let q = 0; q <= effectiveMaxQuality; q++) {
           const { adjustedBatch, maxCap } = this.calculateDynamicBatch(kind, q, database);
           const price = this.calculateUnitPrice(kind, q, database);
@@ -355,13 +355,13 @@ export class NpcMarketService {
             active: number;
             price: number;
           } | undefined;
-
+    
           if (existing) {
             const currentQty = existing.active === 1 ? Math.max(0, existing.quantity) : 0;
             const spaceAvailable = Math.max(0, maxCap - currentQty);
             const addQty = Math.min(adjustedBatch, spaceAvailable);
             const newQty = currentQty + addQty;
-
+    
             // Restock if there is room to add, reactivate if empty, or price needs updating to realistic
             if (addQty > 0 || (currentQty > 0 && existing.active === 0) || Math.abs(existing.price - price) > 0.0001) {
               updateOrderStmt.run(newQty, price, nowIso, existing.id);
@@ -375,10 +375,10 @@ export class NpcMarketService {
           }
         }
       }
-
+    
       // 3. Reset temporary demand counters after cycle settlement
       database.prepare(`UPDATE npc_resource_demand SET total_bought = 0, updated_at = ?`).run(nowIso);
-
+    
       // 4. Update persistent state
       const virtualNowMs = virtualClock.nowMs();
       const wallNowMs = Date.now();
@@ -391,12 +391,12 @@ export class NpcMarketService {
           restock_count = restock_count + 1,
           updated_at = excluded.updated_at
       `).run(virtualNowMs, wallNowMs, nowIso);
-
+    
       const stateRow = database.prepare('SELECT restock_count FROM npc_market_state WHERE id = 1').get() as { restock_count: number } | undefined;
       const restockCount = stateRow?.restock_count || 1;
-
+    
       logger.info(`[NpcMarket] Restock cycle #${restockCount} completed: ${ordersUpdated} updated, ${ordersCreated} created, ${ordersDeactivated} deactivated`);
-
+    
       return {
         ordersUpdated,
         ordersCreated,

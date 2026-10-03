@@ -34,7 +34,7 @@ export async function collectProductionUseCase(
   ctx: GameContext,
   input: CollectProductionInput
 ): Promise<CollectProductionResult> {
-  return runInTransaction(async txCtx => {
+  return runInTransaction(txCtx => {
     let targetItem: ProductionQueueEntity | null = null;
     if (input.preferBuildingId) {
       // The public order/take route supplies a building ID. Resolve it before
@@ -67,7 +67,7 @@ export async function collectProductionUseCase(
       if (itemByQueue && itemByQueue.companyId === ctx.companyId) {
         targetItem = itemByQueue;
       }
-
+  
       if (!targetItem) {
         // Legacy callers may also pass a building ID when no owned queue ID matches.
         const activeByBuilding = productionRepository.findActiveByBuilding(input.buildingOrQueueId, ctx.companyId);
@@ -75,31 +75,31 @@ export async function collectProductionUseCase(
         targetItem = activeByBuilding.find(item => Date.parse(item.finishesAt) <= now) ?? null;
       }
     }
-
+  
     if (!targetItem) {
       throw new NotFoundError(`No completed production order found for ID ${input.buildingOrQueueId}`);
     }
-
+  
     if (targetItem.companyId !== ctx.companyId) {
       throw new NotFoundError(`No completed production order found for ID ${input.buildingOrQueueId}`);
     }
-
+  
     if (targetItem.resolved) {
       throw new ConflictError('Production order has already been collected');
     }
-
+  
     const finishTime = Date.parse(targetItem.finishesAt);
     if (!Number.isFinite(finishTime) || finishTime > virtualClock.nowMs()) {
       throw new ValidationError('Production has not finished yet');
     }
-
-
+  
+  
     // 2. Atomically mark as resolved (idempotency barrier)
     const marked = productionRepository.markResolved(targetItem.id, ctx.companyId);
     if (!marked) {
       throw new ConflictError('Production order has already been collected');
     }
-
+  
     // Issue #170: a kind-100 order on a launch pad is a rocket launch. Its
     // collect resolves the launch — crash roll, rocket_launches log, patents —
     // and produces no warehouse resource.
@@ -117,7 +117,7 @@ export async function collectProductionUseCase(
         Number(targetItem.quality) || 0
       );
     }
-
+  
     // 3. Add produced resource to warehouse (launches produce none)
     const warehouseItem = launchOutcome ? null : warehouseRepository.addResource(
       ctx.companyId,
@@ -125,7 +125,7 @@ export async function collectProductionUseCase(
       targetItem.quality,
       targetItem.amount
     );
-
+  
     // 4. Update building busy state
     const remainingActive = productionRepository.findLatestActiveByBuilding(targetItem.buildingId, ctx.companyId);
     const newBusyUntil = remainingActive ? remainingActive.finishesAt : null;
@@ -135,12 +135,12 @@ export async function collectProductionUseCase(
     // been delivered; a rolled-back collect never decays.
     applyAbundanceCycleDecay(targetItem.buildingId);
     const updatedBuilding = buildingRepository.updateBusyUntil(targetItem.buildingId, ctx.companyId, newBusyUntil);
-
+  
     // 5. Query company balance and level state BEFORE the reward
     const company = companyRepository.findById(ctx.companyId);
     const currentMoney = company?.money ?? 0;
     const levelBefore = company?.level ?? 0;
-
+  
     // 6. Award production experience INSIDE the same transaction (P1-05).
     // Flat reward per completed production order; server-side rule is
     // deliberately simple because the official XP curve is not exposed.
@@ -148,14 +148,14 @@ export async function collectProductionUseCase(
     companyRepository.addExperience(ctx.companyId, experienceGained);
     const companyAfter = companyRepository.findById(ctx.companyId);
     const levelAfter = companyAfter?.level ?? levelBefore;
-
+  
     const levelInfo = computeLevelInfo({
       level: companyAfter?.level ?? 0,
       experience: companyAfter?.experience ?? 0,
       rating: companyAfter?.rating,
       extra_building_slots: companyAfter?.extraBuildingSlots ?? 0
     });
-
+  
     // 7. Publish domain event on transaction commit
     if (launchOutcome) {
       eventBus.publishCommitted(txCtx, 'RocketLaunched', {
@@ -180,7 +180,7 @@ export async function collectProductionUseCase(
       level: levelAfter,
       collectedAt: virtualClock.nowIso()
     });
-
+  
     return {
       collectedItem: targetItem,
       warehouseItem,

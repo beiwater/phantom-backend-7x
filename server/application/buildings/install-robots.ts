@@ -54,7 +54,7 @@ export async function installRobotsUseCase(
     throw new ValidationError(`Robot specialization product must be a positive integer: ${input.kind}`);
   }
 
-  return runInTransaction(async txCtx => {
+  return runInTransaction(txCtx => {
     // 1. Validate building ownership
     const building = buildingRepository.findById(input.buildingId);
     if (!building) {
@@ -63,19 +63,19 @@ export async function installRobotsUseCase(
     if (building.companyId !== ctx.companyId) {
       throw new ForbiddenError('You do not own this building');
     }
-
+  
     // 2. A robotized building cannot be re-robotized; uninstall first.
     if (hasRobotsInstalled(building)) {
       throw new ConflictError(`Building ${building.id} already has robots installed`);
     }
-
+  
     // 3. The specialization must be a product this building can produce.
     assertSpecializableProduct(building.kind, kind);
-
+  
     // 4. Requirements scale with the building kind and its current size.
     const requiredRobots = requiredRobotCount(building.kind, building.size);
     const requiredQuality = requiredRobotQuality(building.size);
-
+  
     // 5. Consume the robots atomically (lowest sufficient quality first).
     const consumed = warehouseRepository.consumeWithTransactions(
       ctx.companyId,
@@ -83,19 +83,19 @@ export async function installRobotsUseCase(
       requiredQuality,
       requiredRobots
     );
-
+  
     // 6. Persist the robotization: count, display quality (weighted average of
     // what was actually consumed) and the product lock.
     const totalConsumed = consumed.reduce((sum, tx) => sum + tx.amount, 0);
     const weightedQuality = consumed.reduce((sum, tx) => sum + tx.amount * (Number(tx.quality) || 0), 0);
     const installedQuality = totalConsumed > 0 ? Math.floor(weightedQuality / totalConsumed) : requiredQuality;
-
+  
     const updatedBuilding = buildingRepository.updateRobotics(building.id, ctx.companyId, {
       robotsInstalled: totalConsumed,
       robotsQuality: installedQuality,
       lockedProduct: kind
     });
-
+  
     // 7. Publish domain event on transaction commit
     eventBus.publishCommitted(txCtx, 'RobotsInstalled', {
       companyId: ctx.companyId,
@@ -104,7 +104,7 @@ export async function installRobotsUseCase(
       robotsQuality: installedQuality,
       lockedProduct: kind
     });
-
+  
     return {
       building: updatedBuilding,
       robotics: {

@@ -142,7 +142,7 @@ export async function purchasePaymentPackage(companyId: number, sku: string, now
   // (paired with the C-9 exchange cap on the cash->boosts direction). The cap
   // check + grant + counter bump commit as one transaction; a rejected
   // request mutates nothing.
-  const result = await runInTransaction(async () => {
+  const result = await runInTransaction(() => {
     const purchasesToday = getPurchasesToday(companyId, new Date(now));
     if (purchasesToday >= DAILY_PURCHASE_LIMIT) {
       throw new Error(`Daily purchase limit of ${DAILY_PURCHASE_LIMIT} packages reached`);
@@ -199,12 +199,12 @@ export async function exchangeSimBoosts(companyId: number, amount: number) {
     throw new Error('Exchange amount must be a positive integer');
   }
 
-  return runInTransaction(async () => {
+  return runInTransaction(() => {
     const comp = getCompanyById(companyId);
     if (!comp || comp.simboosts < amount) {
       throw new Error('Insufficient SimBoosts');
     }
-
+  
     // C-9: boosts->cash exchanges share the same per-UTC-day bucket as the
     // official "fair" money->boosts exchange (simboostsExchangeLimit,
     // phase-based, capped at 10000 cash/day) so neither direction of the
@@ -214,11 +214,11 @@ export async function exchangeSimBoosts(companyId: number, amount: number) {
     if (alreadyExchanged + cashAmount > EXCHANGE_DAILY_LIMIT) {
       throw new Error('You cannot exchange that many simboosts today');
     }
-
+  
     updateCompanySimBoosts(companyId, -amount);
     const newMoney = updateCompanyMoney(companyId, cashAmount);
     const exchangedToday = recordExchange(companyId, cashAmount);
-
+  
     const updatedComp = getCompanyById(companyId);
     return {
       success: true,
@@ -275,10 +275,10 @@ export function getCompanyBonusModifiers(companyId: number) {
 
 export async function unlockBuildingSlot(companyId: number) {
   const costs = [50, 100, 500, 500];
-  return runInTransaction(async () => {
+  return runInTransaction(() => {
     const comp = getCompanyById(companyId);
     if (!comp) throw new Error('Company not found');
-
+  
     const row = db.prepare('SELECT extra_building_slots FROM companies WHERE company_id = ? OR id = ?')
       .get(companyId, companyId) as { extra_building_slots?: number } | undefined;
     const currentSlots = Math.max(0, Math.floor(Number(row?.extra_building_slots) || 0));
@@ -289,7 +289,7 @@ export async function unlockBuildingSlot(companyId: number) {
     if (Number(comp.simboosts) < cost) {
       throw new Error(`Need at least ${cost} SimBoosts to unlock an additional building slot`);
     }
-
+  
     const newSimBoosts = updateCompanySimBoosts(companyId, -cost);
     const newSlots = currentSlots + 1;
     const updated = db.prepare(`
@@ -297,7 +297,7 @@ export async function unlockBuildingSlot(companyId: number) {
       WHERE company_id = ? OR id = ?
     `).run(newSlots, companyId, companyId);
     if (updated.changes < 1) throw new Error('Company not found');
-
+  
     const updatedComp = getCompanyById(companyId);
     const sb = updatedComp ? Number(updatedComp.simboosts) : newSimBoosts;
     return {
@@ -311,19 +311,19 @@ export async function unlockBuildingSlot(companyId: number) {
 }
 
 export async function unlockDisplayCaseSlot(companyId: number) {
-  return runInTransaction(async () => {
+  return runInTransaction(() => {
     const comp = getCompanyById(companyId);
     if (!comp || Number(comp.simboosts) < 50) {
       throw new Error('Need at least 50 SimBoosts to unlock a display case slot');
     }
-
+  
     const row = db.prepare('SELECT display_case_slots FROM companies WHERE company_id = ? OR id = ?')
       .get(companyId, companyId) as { display_case_slots?: number } | undefined;
     const currentSlots = Math.max(1, Math.floor(Number(row?.display_case_slots) || 1));
     if (currentSlots >= 12) {
       throw new Error('Maximum display case slots reached');
     }
-
+  
     const newSimBoosts = updateCompanySimBoosts(companyId, -50);
     const newSlots = currentSlots + 1;
     const updated = db.prepare(`
@@ -331,7 +331,7 @@ export async function unlockDisplayCaseSlot(companyId: number) {
       WHERE company_id = ? OR id = ?
     `).run(newSlots, companyId, companyId);
     if (updated.changes < 1) throw new Error('Company not found');
-
+  
     const updatedComp = getCompanyById(companyId);
     const sb = updatedComp ? Number(updatedComp.simboosts) : newSimBoosts;
     return {
@@ -346,23 +346,23 @@ export async function unlockDisplayCaseSlot(companyId: number) {
 }
 
 export async function unlockExecutiveSlot(companyId: number) {
-  return runInTransaction(async () => {
+  return runInTransaction(() => {
     const comp = getCompanyById(companyId);
     if (!comp) throw new Error('Company not found');
-
+  
     const row = db.prepare('SELECT extra_executive_slots FROM companies WHERE company_id = ? OR id = ?')
       .get(companyId, companyId) as { extra_executive_slots?: number } | undefined;
     const currentSlots = Math.max(0, Math.floor(Number(row?.extra_executive_slots) || 0));
     if (currentSlots >= 20) {
       throw new Error('Maximum executive slots reached');
     }
-
+  
     // Cost schedule: 1st slot is 50, 2nd is 100, 3rd is 200, 4th is 400, etc.
     const cost = currentSlots === 0 ? 50 : (currentSlots === 1 ? 100 : (currentSlots === 2 ? 200 : (currentSlots === 3 ? 400 : 500)));
     if (Number(comp.simboosts) < cost) {
       throw new Error(`Need at least ${cost} SimBoosts to unlock an executive slot`);
     }
-
+  
     const newSimBoosts = updateCompanySimBoosts(companyId, -cost);
     const newSlots = currentSlots + 1;
     const updated = db.prepare(`
@@ -370,7 +370,7 @@ export async function unlockExecutiveSlot(companyId: number) {
       WHERE company_id = ? OR id = ?
     `).run(newSlots, companyId, companyId);
     if (updated.changes < 1) throw new Error('Company not found');
-
+  
     const updatedComp = getCompanyById(companyId);
     const sb = updatedComp ? Number(updatedComp.simboosts) : newSimBoosts;
     return {
@@ -385,19 +385,19 @@ export async function unlockExecutiveSlot(companyId: number) {
 }
 
 export async function unlockTagSlot(companyId: number) {
-  return runInTransaction(async () => {
+  return runInTransaction(() => {
     const comp = getCompanyById(companyId);
     if (!comp || Number(comp.simboosts) < 200) {
       throw new Error('Need at least 200 SimBoosts to unlock a search tag slot');
     }
-
+  
     const row = db.prepare('SELECT max_tags FROM companies WHERE company_id = ? OR id = ?')
       .get(companyId, companyId) as { max_tags?: number } | undefined;
     const currentTags = Math.max(1, Math.floor(Number(row?.max_tags) || 1));
     if (currentTags >= 10) {
       throw new Error('Maximum tag slots reached');
     }
-
+  
     const newSimBoosts = updateCompanySimBoosts(companyId, -200);
     const newTags = currentTags + 1;
     const updated = db.prepare(`
@@ -405,7 +405,7 @@ export async function unlockTagSlot(companyId: number) {
       WHERE company_id = ? OR id = ?
     `).run(newTags, companyId, companyId);
     if (updated.changes < 1) throw new Error('Company not found');
-
+  
     const updatedComp = getCompanyById(companyId);
     const sb = updatedComp ? Number(updatedComp.simboosts) : newSimBoosts;
     return {

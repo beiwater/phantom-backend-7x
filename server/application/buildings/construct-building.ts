@@ -43,21 +43,21 @@ export async function constructBuildingUseCase(
   const meta = getBuildingMeta(kind);
   const { cost, materials } = estimateConstructionCost(kind, 1);
 
-  return runInTransaction(async txCtx => {
+  return runInTransaction(txCtx => {
     // 0. Validate building slot limits and locked positions
     // Realm Phase Gate (realms-guide)
     if (!RealmPhaseService.isBuildingUnlocked(kind)) {
       const activeCfg = RealmPhaseService.getActiveRealmConfig();
       throw new ValidationError(`Building '${kind}' is not unlocked in ${activeCfg.name}`);
     }
-
+  
     const comp = companyRepository.findById(ctx.companyId);
     if (!comp) throw new NotFoundError(`Company ${ctx.companyId} not found`);
     // Issue #71: canonical slot policy lives in the leveling domain
     // (getTierForLevel). Do not duplicate level formulas here.
     const maxSlots = getTierForLevel(Number(comp.level) || 0).maxBuildings
       + (Number(comp.extraBuildingSlots) || 0);
-
+  
     // P0-07: "B<n>" lots are the star-unlocked slots. "B<n>" is unlocked when
     // n < extraBuildingSlots; plain numeric positions stay below maxSlots.
     const extraIndex = extraSlotIndex(normPosition);
@@ -71,7 +71,7 @@ export async function constructBuildingUseCase(
         throw new ValidationError(`Position ${position} is locked. You currently have ${maxSlots} slots unlocked. Unlock more building slots with SimBoosts.`);
       }
     }
-
+  
     // 1. Validate position and existing buildings
     const existingAtPos = buildingRepository.findByCompanyAndPosition(ctx.companyId, normPosition);
     if (existingAtPos) {
@@ -98,10 +98,10 @@ export async function constructBuildingUseCase(
       }
       validateConstructionPosition(normPosition, [], false);
     }
-
+  
     // 2. Debit construction cost atomically (fails if insufficient funds)
     const newMoney = companyRepository.debitMoney(ctx.companyId, cost);
-
+  
     // 3. Consume construction materials atomically
     const consumedList: Array<{ kind: number; quality: number; amount: number }> = [];
     for (const mat of materials) {
@@ -112,7 +112,7 @@ export async function constructBuildingUseCase(
         amount: mat.amount
       });
     }
-
+  
     // 4. Create building
     const now = virtualClock.nowIso();
     const mode = FixtureService.getActiveConstructionTimeMode();
@@ -133,10 +133,10 @@ export async function constructBuildingUseCase(
       originalAbundance: abundance.originalAbundance
     });
     companyRepository.addExperience(ctx.companyId, 20);
-
+  
     buildingRepository.updateBusyUntil(building.id, ctx.companyId, busyUntil);
     const finalizedBuilding = { ...building, busyUntil };
-
+  
     // 5. Publish domain event on transaction commit
     eventBus.publishCommitted(txCtx, 'BuildingConstructed', {
       companyId: ctx.companyId,
@@ -145,7 +145,7 @@ export async function constructBuildingUseCase(
       position: finalizedBuilding.position,
       cost
     });
-
+  
     return {
       building: finalizedBuilding,
       cost,

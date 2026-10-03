@@ -194,13 +194,13 @@ export interface QueueRocketLaunchOptions {
   consumeResearch?: boolean;
 }
 
-export async function queueRocketLaunch(
+export function queueRocketLaunch(
   companyId: number,
   buildingId: number,
   rocketKind: number,
   quality: number = 0,
   options: QueueRocketLaunchOptions = {}
-): Promise<QueuedLaunchItem & { queueItem: ProductionQueueEntity; transactions: Array<{ kind: number; quality: number; amount: number }> }> {
+): QueuedLaunchItem & { queueItem: ProductionQueueEntity; transactions: Array<{ kind: number; quality: number; amount: number }> } {
   // 1. Fetch building and validate
   const building = db.prepare('SELECT * FROM buildings WHERE id = ?').get(buildingId) as DbBuildingRow | undefined;
   if (!building) {

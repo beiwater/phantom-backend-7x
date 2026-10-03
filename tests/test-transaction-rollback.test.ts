@@ -22,7 +22,7 @@ async function testTransactionCommitAndRollback() {
   });
 
   // 1. Test Successful Transaction Commit
-  await runInTransaction(async txCtx => {
+  await runInTransaction(txCtx => {
     companyRepository.debitMoney(companyId, 500);
     eventBus.publishCommitted(txCtx, 'BuildingConstructed', {
       companyId,
@@ -40,7 +40,7 @@ async function testTransactionCommitAndRollback() {
   // 2. Test Transaction Rollback
   let rollbackErrorCaught = false;
   try {
-    await runInTransaction(async txCtx => {
+    await runInTransaction(txCtx => {
       companyRepository.debitMoney(companyId, 1000);
       eventBus.publishCommitted(txCtx, 'BuildingConstructed', {
         companyId,

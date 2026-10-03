@@ -57,7 +57,7 @@ export async function collectAccumulatorUseCase(
   ctx: GameContext,
   buildingId: number
 ): Promise<CollectAccumulatorResult> {
-  return runInTransaction(async txCtx => {
+  return runInTransaction(txCtx => {
     const building = buildingRepository.findById(buildingId);
     if (!building) {
       throw new NotFoundError(`Building ${buildingId} not found`);
@@ -65,12 +65,12 @@ export async function collectAccumulatorUseCase(
     if (building.companyId !== ctx.companyId) {
       throw new ForbiddenError('You do not own this building');
     }
-
+  
     const params = getAccumulatorParameters(150);
     if (!params || building.kind !== 'v') {
       throw new ValidationError('Building does not support accumulator production');
     }
-
+  
     const queue = findAccumulatorQueue(buildingId, ctx.companyId);
     if (!queue.active) {
       if (queue.latest?.resolved) {
@@ -78,12 +78,12 @@ export async function collectAccumulatorUseCase(
       }
       throw new NotFoundError(`No accumulator production found for building ${buildingId}`);
     }
-
+  
     const finishTime = Date.parse(queue.active.finishesAt);
     if (!Number.isFinite(finishTime) || finishTime > virtualClock.nowMs()) {
       throw new ValidationError('Accumulator production has not finished yet');
     }
-
+  
     const state = accumulatorRepository.ensureForBuilding(buildingId, ctx.companyId, 150);
     if (state.resourceKind !== 150) {
       throw new ValidationError('Accumulator resource does not belong to this building');
@@ -98,12 +98,12 @@ export async function collectAccumulatorUseCase(
       || !Number.isFinite(growthCost) || growthCost < 0) {
       throw new ValidationError('Accumulator state is outside the canonical bounds');
     }
-
+  
     const completedValue = priorValue + growth;
     if (!Number.isFinite(completedValue) || completedValue > params.max) {
       throw new ValidationError(`Accumulator value exceeds maximum ${params.max}`);
     }
-
+  
     const completedQuality = accumulatorQualityForValue(completedValue, 150);
     const outputAmount = completedQuality === null ? 0 : Math.max(1, Math.floor(building.size));
     const outputQuality = completedQuality ?? 0;
@@ -118,7 +118,7 @@ export async function collectAccumulatorUseCase(
       ? completedValue
       : Math.max(0, completedValue - consumedThreshold);
     const nextCost = Math.max(0, totalCost - consumedCost);
-
+  
     if (!productionRepository.markResolved(queue.active.id, ctx.companyId)) {
       throw new ConflictError('Accumulator production has already been collected');
     }
@@ -137,14 +137,14 @@ export async function collectAccumulatorUseCase(
         { market: outputAmount > 0 ? consumedCost / outputAmount : 0 }
       )
       : null;
-
+  
     const remainingActive = productionRepository.findLatestActiveByBuilding(buildingId, ctx.companyId);
     const updatedBuilding = buildingRepository.updateBusyUntil(
       buildingId,
       ctx.companyId,
       remainingActive ? remainingActive.finishesAt : null
     );
-
+  
     const company = companyRepository.findById(ctx.companyId);
     const levelBefore = company?.level ?? 0;
     const currentMoney = company?.money ?? 0;
@@ -158,7 +158,7 @@ export async function collectAccumulatorUseCase(
       rating: companyAfter?.rating,
       extra_building_slots: companyAfter?.extraBuildingSlots ?? 0
     });
-
+  
     eventBus.publishCommitted(txCtx, 'ProductionCollected', {
       companyId: ctx.companyId,
       buildingId,
@@ -168,7 +168,7 @@ export async function collectAccumulatorUseCase(
       amount: outputAmount,
       collectedAt: virtualClock.nowIso()
     });
-
+  
     return {
       resource: { kind: 150, quality: outputQuality, amount: outputAmount },
       building: updatedBuilding,

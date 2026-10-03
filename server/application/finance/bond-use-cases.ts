@@ -53,7 +53,7 @@ export function issueBondsUseCase(ctx: GameContext, amount: number, interestRate
 
   const now = virtualClock.nowIso();
   const maturityDate = new Date(virtualClock.nowMs() + 30 * 24 * 60 * 60 * 1000).toISOString();
-  return runInTransaction(async () => {
+  return runInTransaction(() => {
     const row = bondRepository.insertBond(ctx.companyId, interestRate, amount, now, maturityDate);
     return {
       bond: bondRepository.formatBond(row),
@@ -64,28 +64,28 @@ export function issueBondsUseCase(ctx: GameContext, amount: number, interestRate
 }
 
 export function buyBondsUseCase(ctx: GameContext, bondId: number) {
-  return runInTransaction(async () => {
+  return runInTransaction(() => {
     const bond = bondRepository.findById(bondId);
     if (!bond || bond.status !== 'active' || bond.buyer_company_id !== null) {
       throw new Error('Bond is no longer available');
     }
-
+  
     const buyer = companyRepository.findById(ctx.companyId);
     if (!buyer || !Number.isFinite(Number(buyer.money)) || Number(buyer.money) < bond.amount) {
       throw new Error('Not enough money to buy bond');
     }
-
+  
     const claimed = bondRepository.claimForBuyer(ctx.companyId, bondId);
     if (claimed !== 1) {
       throw new Error('Bond is no longer available');
     }
-
+  
     const newMoney = companyRepository.updateMoney(ctx.companyId, -bond.amount);
     // Real issuers receive face value when purchased.
     if (bond.seller_company_id !== 999900 && companyRepository.findById(bond.seller_company_id)) {
       companyRepository.updateMoney(bond.seller_company_id, bond.amount);
     }
-
+  
     const updated = bondRepository.findById(bondId) as BondRow;
     return {
       bond: bondRepository.formatBond(updated),
@@ -96,7 +96,7 @@ export function buyBondsUseCase(ctx: GameContext, bondId: number) {
 }
 
 export function callBondsUseCase(ctx: GameContext, bondId: number) {
-  return runInTransaction(async () => {
+  return runInTransaction(() => {
     const bond = bondRepository.findById(bondId);
     if (!bond || bond.status !== 'active' || bond.seller_company_id !== ctx.companyId) {
       throw new Error('Bond not found');
@@ -104,12 +104,12 @@ export function callBondsUseCase(ctx: GameContext, bondId: number) {
     if (bond.maturity_date && bond.maturity_date <= virtualClock.nowIso()) {
       throw new Error('Bond has matured and can no longer be called early');
     }
-
+  
     const seller = companyRepository.findById(ctx.companyId);
     if (!seller) {
       throw new Error('Company not found');
     }
-
+  
     let newSellerMoney = Number(seller.money) || 0;
     const isSold = bond.buyer_company_id !== null;
     if (isSold && bond.buyer_company_id) {
@@ -123,7 +123,7 @@ export function callBondsUseCase(ctx: GameContext, bondId: number) {
     if (updated !== 1) {
       throw new Error('Bond is no longer active');
     }
-
+  
     return {
       success: true,
       money: newSellerMoney,
@@ -146,13 +146,13 @@ export async function settleMaturedBondsUseCase(): Promise<void> {
     // (runInTransaction gives the same BEGIN/COMMIT/ROLLBACK as the legacy
     // raw db.exec calls, while keeping raw SQL out of the application layer).
     try {
-      await runInTransaction(async () => {
+      await runInTransaction(() => {
         const payout = Math.round(b.amount * (1 + b.interest_rate) * 100) / 100;
         const seller = companyRepository.findById(b.seller_company_id);
         const sellerMoney = Math.max(0, Number(seller?.money) || 0);
         const paid = Math.min(sellerMoney, payout);
         const defaulted = sellerMoney < payout;
-
+      
         if (paid > 0) companyRepository.updateMoney(b.seller_company_id, -paid);
         if (b.buyer_company_id) companyRepository.updateMoney(b.buyer_company_id, paid);
         bondRepository.markSettled(b.id, defaulted ? 'defaulted' : 'matured');

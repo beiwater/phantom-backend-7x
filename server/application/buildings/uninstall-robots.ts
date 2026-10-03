@@ -29,7 +29,7 @@ export async function uninstallRobotsUseCase(
   ctx: GameContext,
   buildingId: number
 ): Promise<UninstallRobotsResult> {
-  return runInTransaction(async txCtx => {
+  return runInTransaction(txCtx => {
     // 1. Validate building ownership
     const building = buildingRepository.findById(buildingId);
     if (!building) {
@@ -38,39 +38,39 @@ export async function uninstallRobotsUseCase(
     if (building.companyId !== ctx.companyId) {
       throw new ForbiddenError('You do not own this building');
     }
-
+  
     const installed = Number(building.robotsInstalled) || 0;
     if (installed <= 0) {
       throw new ConflictError(`Building ${building.id} has no robots installed`);
     }
-
+  
     // 2. A busy building cannot have its robots uninstalled (original
     // contract: "Building is currently busy and robots cannot be uninstalled").
     const activeQueues = productionRepository.findActiveByBuilding(building.id, ctx.companyId);
     if (activeQueues.length > 0) {
       throw new ConflictError('Building is currently busy and robots cannot be uninstalled');
     }
-
+  
     // 3. Return 50% of the installed robots at quality 0 to the warehouse.
     const returnedRobots = uninstallRobotReturnCount(installed);
     if (returnedRobots > 0) {
       warehouseRepository.addResource(ctx.companyId, ROBOT_RESOURCE_KIND, 0, returnedRobots);
     }
-
+  
     // 4. Clear the robotization: no robots, no product lock, no wage discount.
     const updatedBuilding = buildingRepository.updateRobotics(building.id, ctx.companyId, {
       robotsInstalled: 0,
       robotsQuality: 0,
       lockedProduct: null
     });
-
+  
     // 5. Publish domain event on transaction commit
     eventBus.publishCommitted(txCtx, 'RobotsUninstalled', {
       companyId: ctx.companyId,
       buildingId: building.id,
       returnedRobots
     });
-
+  
     return {
       building: updatedBuilding,
       returnedRobots,

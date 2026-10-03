@@ -24,7 +24,7 @@ export async function cancelProductionUseCase(
   ctx: GameContext,
   input: CancelProductionInput
 ): Promise<CancelProductionResult> {
-  return runInTransaction(async txCtx => {
+  return runInTransaction(txCtx => {
     // 1. Validate building ownership
     const building = buildingRepository.findById(input.buildingId);
     if (!building) {
@@ -33,7 +33,7 @@ export async function cancelProductionUseCase(
     if (building.companyId !== ctx.companyId) {
       throw new ForbiddenError('You do not own this building');
     }
-
+  
     // 2. Find queue item to cancel
     let queueItem: ProductionQueueEntity | null = null;
     if (input.queueId) {
@@ -41,12 +41,12 @@ export async function cancelProductionUseCase(
     } else {
       queueItem = productionRepository.findLatestActiveByBuilding(building.id, ctx.companyId);
     }
-
+  
     if (!queueItem || queueItem.buildingId !== building.id || queueItem.companyId !== ctx.companyId || queueItem.resolved) {
       throw new ValidationError('Building has no active cancellable production order');
     }
-
-
+  
+  
     // Issue #170: a kind-100 order on a launch pad is a rocket launch.
     // Refund the rocket + research instead of generic ingredients; finished
     // launches must be collected (order/take) so the outcome logs exactly once.
@@ -63,29 +63,29 @@ export async function cancelProductionUseCase(
           ];
         })()
       : null;
-
+  
     // 3. Delete queue item
     const deleted = productionRepository.delete(queueItem.id, ctx.companyId);
     if (!deleted) {
       throw new ValidationError('Failed to cancel production order: order may have already completed');
     }
-
+  
     // The original client promises cancellation refunds at Q0. The queue's
     // amount is modified output, so use the saved original recipe quantities;
     // legacy rows without a snapshot retain the prior recipe fallback.
     const refundedIngredients = launchRefunds ?? (queueItem.inputIngredients
       ?? validateProductionRequest(building.kind, queueItem.kind, queueItem.amount).ingredients)
       .map(ingredient => ({ ...ingredient, quality: 0 }));
-
+  
     for (const ing of refundedIngredients) {
       warehouseRepository.addResource(ctx.companyId, ing.kind, ing.quality, ing.amount);
     }
-
+  
     // 5. Update building busy state
     const remainingActive = productionRepository.findLatestActiveByBuilding(building.id, ctx.companyId);
     const newBusyUntil = remainingActive ? remainingActive.finishesAt : null;
     const updatedBuilding = buildingRepository.updateBusyUntil(building.id, ctx.companyId, newBusyUntil);
-
+  
     // 6. Publish domain event on transaction commit
     eventBus.publishCommitted(txCtx, 'ProductionCancelled', {
       companyId: ctx.companyId,
@@ -95,7 +95,7 @@ export async function cancelProductionUseCase(
       amount: queueItem.amount,
       quality: queueItem.quality
     });
-
+  
     return {
       cancelledItem: queueItem,
       building: updatedBuilding,

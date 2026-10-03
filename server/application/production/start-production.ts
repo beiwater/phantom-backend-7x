@@ -40,7 +40,7 @@ export async function startProductionUseCase(
 ): Promise<StartProductionResult> {
   const economy = getEconomyPhase(ctx.realmId);
   const companyBoost = getCompanyBoostSettings(ctx.companyId);
-  return runInTransaction(async txCtx => {
+  return runInTransaction(txCtx => {
     // 1. Validate building ownership
     const building = buildingRepository.findById(input.buildingId);
     if (!building) {
@@ -49,7 +49,7 @@ export async function startProductionUseCase(
     if (building.companyId !== ctx.companyId) {
       throw new ForbiddenError('You do not own this building');
     }
-
+  
     // Launch-pad cards identify the actual rocket product. Keep accepting the
     // legacy kind-100 payload only as an amount-based compatibility form.
     if (building.kind === 'l' && (input.kind === 100 || input.kind === 91 || input.kind === 94)) {
@@ -67,7 +67,7 @@ export async function startProductionUseCase(
         && productionRepository.findActiveByBuilding(building.id, ctx.companyId).length === 0) {
         throw new ConflictError('Building is still under construction or upgrade');
       }
-      const launch = await queueRocketLaunch(
+      const launch = queueRocketLaunch(
         ctx.companyId,
         building.id,
         rocketKind,
@@ -90,12 +90,12 @@ export async function startProductionUseCase(
         message: 'Launch queued successfully',
       } satisfies StartProductionResult;
     }
-
+  
     const accumulatorParameters = building.kind === 'v'
       ? getAccumulatorParameters(input.kind)
       : null;
     const isAccumulator = accumulatorParameters !== null;
-
+  
     // Issue #200: Forest Nursery growth is progress, not immediate inventory.
     // Keep the requested growth amount in the queue and persist the accumulator
     // row before any material debit so max-boundary rejection is atomic.
@@ -105,7 +105,7 @@ export async function startProductionUseCase(
         throw new ValidationError(`Accumulator value exceeds maximum ${accumulatorParameters.max}`);
       }
     }
-
+  
     // Issue #96: a robotized building is locked to its specialized product;
     // any other production request is rejected while robots are installed.
     assertAllowedProduct(building, input.kind);
@@ -121,7 +121,7 @@ export async function startProductionUseCase(
       }
       throw new ConflictError('Building is busy with an active production order');
     }
-
+  
     // 2. Validate production rules & ingredients
     const { ingredients } = validateProductionRequest(
       building.kind,
@@ -129,7 +129,7 @@ export async function startProductionUseCase(
       input.amount,
       input.quality ?? null
     );
-
+  
     // Issue #99: the queue item's duration must fit the company tier limit
     // (2h below L5, 24h below L15, 48h at L15+). Enforced BEFORE any
     // ingredients are consumed so the duration rejection is side-effect free.
@@ -196,11 +196,11 @@ export async function startProductionUseCase(
     }
     const averageInputQuality = totalInputAmount > 0 ? weightedQualitySum / totalInputAmount : 0;
     const inputCostPerOutputUnit = input.amount > 0 ? totalInputCost / input.amount : 0;
-
+  
     // 4. Queue chaining (durationSeconds was computed and validated against
     // the tier limit before ingredients were consumed)
     const latestActive = productionRepository.findLatestActiveByBuilding(building.id, ctx.companyId);
-
+  
     const now = virtualClock.now();
     let startTime = now;
     if (latestActive) {
@@ -209,11 +209,11 @@ export async function startProductionUseCase(
         startTime = latestFinish;
       }
     }
-
+  
     const finishTime = new Date(startTime.getTime() + durationSeconds * 1000);
     const startedAt = startTime.toISOString();
     const finishesAt = finishTime.toISOString();
-
+  
     // 5. Determine quality: the requested (research-capped) quality drives the
     // output tier; when not explicitly requested the output quality is the
     // input-amount-weighted average input quality, floored to an integer
@@ -227,7 +227,7 @@ export async function startProductionUseCase(
     const persistedQuality = requested !== null
       ? achievableQuality
       : Math.max(0, Math.floor(averageInputQuality));
-
+  
     const queueItem = productionRepository.create({
       buildingId: building.id,
       companyId: ctx.companyId,
@@ -247,10 +247,10 @@ export async function startProductionUseCase(
       // the original inputs so cancellation refunds the amount actually spent.
       inputIngredients: ingredients
     });
-
+  
     // 7. Update building busy state
     const updatedBuilding = buildingRepository.updateBusyUntil(building.id, ctx.companyId, finishesAt);
-
+  
     // 8. Publish domain event on transaction commit
     eventBus.publishCommitted(txCtx, 'ProductionStarted', {
       companyId: ctx.companyId,
@@ -265,7 +265,7 @@ export async function startProductionUseCase(
       productionModifier: combinedProductionModifier,
       productionOutputMultiplier
     });
-
+  
     return {
       queueItem,
       building: updatedBuilding,

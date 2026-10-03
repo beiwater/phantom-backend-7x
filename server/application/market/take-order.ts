@@ -51,7 +51,7 @@ export interface TakeMarketOrderResult {
 export async function takeMarketOrder(ctx: GameContext, input: TakeMarketOrderInput): Promise<TakeMarketOrderResult> {
   const { resourceKind, quantity, minQuality, maxPrice } = validateTakeOrderInput(input);
 
-  return runInTransaction(async (tx: TransactionContext): Promise<TakeMarketOrderResult> => {
+  return runInTransaction((tx: TransactionContext): TakeMarketOrderResult => {
     const buyer = companyRepository.findById(ctx.companyId);
     if (!buyer) {
       throw new NotFoundError('Buyer company not found');

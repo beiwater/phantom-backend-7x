@@ -239,7 +239,7 @@ export async function collectRetailOrderUseCase(
   const isSalesOffice = building?.kind === SALES_OFFICE_KIND;
   const preferHighestQuality = options.highestQualityFirst ?? (options.lowestQualityFirst === false);
 
-  return runInTransaction(async (tx: TransactionContext): Promise<CollectRetailResult> => {
+  return runInTransaction((tx: TransactionContext): CollectRetailResult => {
     // If sales office, consume from warehouse with flexible quality (>= order.quality)
     // matching player's lowestQualityFirst / highestQualityFirst preference.
     let consumed: Array<{ kind: number; quality: number; amount: number; cost: number }>;
@@ -434,7 +434,7 @@ export async function findSalesOfficeCustomerUseCase(
   const finishedAt = new Date(virtualClock.nowMs() + getCustomerSearchDurationSeconds() * 1000).toISOString();
   const createdAt = virtualClock.nowIso();
 
-  return runInTransaction(async (): Promise<FindSalesOfficeCustomerResult> => {
+  return runInTransaction((): FindSalesOfficeCustomerResult => {
     // debitMoney fails the whole search when the balance cannot cover the fee.
     companyRepository.debitMoney(ctx.companyId, fee);
     recordCashLedger({

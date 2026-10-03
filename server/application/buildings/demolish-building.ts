@@ -17,11 +17,11 @@ export interface DemolishBuildingResult {
   newMoney: number;
 }
 
-export async function demolishBuildingUseCase(
+export function demolishBuildingUseCase(
   ctx: GameContext,
   buildingId: number
-): Promise<DemolishBuildingResult> {
-  return runInTransaction(async txCtx => {
+): DemolishBuildingResult {
+  return runInTransaction(txCtx => {
     // 1. Validate building ownership
     const building = buildingRepository.findById(buildingId);
     if (!building) {
@@ -37,7 +37,7 @@ export async function demolishBuildingUseCase(
     if (activeQueues.length > 0) {
       throw new ConflictError('Building has an active production order; cancel it before demolishing');
     }
-
+  
     // 2. Issue #94: bond collateral floor. Buildings collateralize issued
     // bonds; demolition must not push the remaining building valuation below
     // 80% of the outstanding bond liability. Checked inside the transaction so
@@ -49,7 +49,7 @@ export async function demolishBuildingUseCase(
       const remainingBuildingValue = totalBuildingValue - building.cost * building.size;
       assertBondCollateralFloor(remainingBuildingValue, bondLiability);
     }
-
+  
     // 3. Issue #94: scrap refund. 50% of the construction materials that went
     // into the building return to the warehouse at quality 0. No cash is
     // refunded — the old cash refund (baseCost * size * 0.5) is replaced by
@@ -60,10 +60,10 @@ export async function demolishBuildingUseCase(
         warehouseRepository.addResource(ctx.companyId, mat.kind, 0, mat.amount);
       }
     }
-
+  
     // 4. Delete building
     buildingRepository.delete(building.id, ctx.companyId);
-
+  
     // 5. Publish domain event on transaction commit
     eventBus.publishCommitted(txCtx, 'BuildingDemolished', {
       companyId: ctx.companyId,
@@ -71,7 +71,7 @@ export async function demolishBuildingUseCase(
       scrapValue,
       refundMaterials: materialRefund
     });
-
+  
     const comp = companyRepository.findById(ctx.companyId);
     return {
       demolishedBuilding: building,

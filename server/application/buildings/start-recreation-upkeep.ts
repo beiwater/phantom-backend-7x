@@ -51,7 +51,7 @@ export async function startRecreationUpkeepUseCase(
   ctx: GameContext,
   buildingId: number
 ): Promise<StartRecreationUpkeepResult> {
-  return runInTransaction(async txCtx => {
+  return runInTransaction(txCtx => {
     const building = buildingRepository.findById(buildingId);
     if (!building || building.companyId !== ctx.companyId) {
       throw new NotFoundError(`Building ${buildingId} not found`);
@@ -59,26 +59,26 @@ export async function startRecreationUpkeepUseCase(
     if (building.category !== 'recreation') {
       throw new ValidationError(`Building ${buildingId} is not a recreation building`);
     }
-
+  
     // Idempotency guard: an active (or construction/upgrade) busy period must
     // not be silently double-charged on repeat POSTs.
     const busyUntilMs = building.busyUntil ? new Date(building.busyUntil).getTime() : 0;
     if (busyUntilMs > virtualClock.nowMs()) {
       throw new ConflictError('Building is already busy — upkeep is already running');
     }
-
+  
     // Official cost ladder for the 1st / 2nd / 3rd recreation building upkeep.
     const activeUpkeeps = countActiveRecreationUpkeeps(ctx.companyId);
     const cost = RECREATION_UPKEEP_COSTS[Math.min(activeUpkeeps, RECREATION_UPKEEP_COSTS.length - 1)];
-
+  
     // Atomic debit: fails with InsufficientFundsError (400) before any state
     // changes when the balance is too low.
     const simboostsRemaining = companyRepository.debitSimboosts(ctx.companyId, cost);
     recordSimboostSpend(ctx.companyId, 'RECREATION_UPKEEP', cost);
-
+  
     const busyUntil = new Date(virtualClock.nowMs() + RECREATION_UPKEEP_DURATION_SECONDS * 1000).toISOString();
     const updated = buildingRepository.updateUpkeep(buildingId, ctx.companyId, busyUntil, true);
-
+  
     // Post-commit side effect only; the economic mutation above is already
     // committed atomically.
     eventBus.publishCommitted(txCtx, 'RecreationUpkeepStarted', {
@@ -87,7 +87,7 @@ export async function startRecreationUpkeepUseCase(
       cost,
       busyUntil
     });
-
+  
     return {
       building: updated,
       spent: cost,

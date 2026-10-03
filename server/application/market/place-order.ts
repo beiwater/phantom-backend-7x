@@ -53,7 +53,7 @@ export async function placeMarketOrder(ctx: GameContext, input: PlaceMarketOrder
 
   const transportNeeded = computeTransportNeeded(resDef.transportation || 0, quantity);
 
-  return runInTransaction(tx => {
+  const partial = runInTransaction(tx => {
     // Snapshot the unit cost basis before consuming (order cancel restores it).
     const item = input.resourceId
       ? warehouseRepository.findById(input.resourceId)
@@ -106,18 +106,16 @@ export async function placeMarketOrder(ctx: GameContext, input: PlaceMarketOrder
       sellOrder: toCompatibilityShape(order),
       resourceTransactions: consumed.map(t => ({ ...t, dbLetter: t.kind, delta: -t.amount, amount: -t.amount }))
     } as PlaceMarketOrderResult;
-  }, { immediate: true }).then(partial => {
-    // Money is a pure post-commit query; companyRepository money read does
-    // not mutate and the ledger row was already written inside the tx path
-    // only when money moved (it did not here).
-    const company = companyRepository.findById(ctx.companyId);
-    const currentMoney = company ? Number(company.money) : null;
-    return {
-      sellOrder: partial.sellOrder,
-      money: currentMoney,
-      remainingCash: currentMoney,
-      moneyDelta: 0,
-      resourceTransactions: partial.resourceTransactions
-    };
-  });
+  }, { immediate: true });
+
+  // Money is a pure post-commit read; placing a sell order does not move cash.
+  const company = companyRepository.findById(ctx.companyId);
+  const currentMoney = company ? Number(company.money) : null;
+  return {
+    sellOrder: partial.sellOrder,
+    money: currentMoney,
+    remainingCash: currentMoney,
+    moneyDelta: 0,
+    resourceTransactions: partial.resourceTransactions
+  };
 }

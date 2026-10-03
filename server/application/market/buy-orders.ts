@@ -151,7 +151,7 @@ export async function sellToBids(ctx: GameContext, input: SellToBidInput): Promi
   if (!getResourceDef(kind)) throw new ValidationError(`Unknown resource kind: ${kind}`);
   if (!Number.isFinite(quantity) || quantity <= 0) throw new ValidationError('Invalid quantity');
 
-  return runInTransaction(async (tx: TransactionContext): Promise<SellToBidResult> => {
+  return runInTransaction((tx: TransactionContext): SellToBidResult => {
     const seller = companyRepository.findById(ctx.companyId);
     if (!seller) throw new NotFoundError('Seller company not found');
 

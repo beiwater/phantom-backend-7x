@@ -165,16 +165,16 @@ export async function applyResearch(companyId: number, discipline: number, point
     throw new Error(`Insufficient research resource #${researchKind}`);
   }
 
-  return runInTransaction(async () => {
+  return runInTransaction(() => {
     const consumed = consumeResourceExactWithTransactions(companyId, researchKind, 0, pointsToApply);
     if (!consumed) {
       throw new Error(`Insufficient research resource #${researchKind}`);
     }
-
+  
     const existing = db.prepare(`
       SELECT * FROM research WHERE company_id = ? AND discipline = ?
     `).get(companyId, discipline) as unknown as ResearchRow | undefined;
-
+  
     const currentPoints = Number(existing?.points || 0);
     const newPoints = currentPoints + pointsToApply;
     const ctoScience = getCompanyCtoScienceSkill(companyId);
@@ -191,7 +191,7 @@ export async function applyResearch(companyId: number, discipline: number, point
         VALUES (?, ?, ?, ?)
       `).run(companyId, discipline, newPoints, newPatents);
     }
-
+  
     return getCompanyResearch(companyId);
   }, { immediate: true });
 }

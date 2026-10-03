@@ -29,7 +29,7 @@ export async function rushBuildingConstructionUseCase(
 ): Promise<RushConstructionResult> {
   const cost = input.simboostsCost ?? 5;
 
-  return runInTransaction(async txCtx => {
+  return runInTransaction(txCtx => {
     const building = buildingRepository.findById(input.buildingId);
     if (!building) {
       throw new NotFoundError(`Building ${input.buildingId} not found`);
@@ -37,23 +37,23 @@ export async function rushBuildingConstructionUseCase(
     if (building.companyId !== ctx.companyId) {
       throw new ForbiddenError('You do not own this building');
     }
-
+  
     const busyUntilMs = building.busyUntil ? new Date(building.busyUntil).getTime() : 0;
     if (busyUntilMs <= virtualClock.nowMs()) {
       throw new ValidationError('Building is not under construction or upgrade');
     }
-
+  
     const simboostsRemaining = companyRepository.debitSimboosts(ctx.companyId, cost);
     recordSimboostSpend(ctx.companyId, 'RUSH_CONSTRUCTION', cost);
     const updatedBuilding = buildingRepository.updateBusyUntil(building.id, ctx.companyId, null);
-
+  
     eventBus.publishCommitted(txCtx, 'ProductionRushed', {
       companyId: ctx.companyId,
       buildingId: building.id,
       queueId: null,
       simboostsCost: cost
     });
-
+  
     return {
       building: updatedBuilding,
       simboostsRemaining

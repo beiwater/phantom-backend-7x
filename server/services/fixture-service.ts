@@ -214,11 +214,11 @@ export class FixtureService {
     const extraSlots = input.extraBuildingSlots ?? 20;
     const nowIso = new Date().toISOString();
 
-    return runInTransaction(async () => {
+    return runInTransaction(() => {
       // 1. Ensure Player exists
       const playerRow = db.prepare('SELECT player_id, email FROM players WHERE email = ?').get(email) as IdRow | undefined;
       let playerId: number;
-
+    
       if (playerRow && playerRow.player_id) {
         playerId = playerRow.player_id;
         db.prepare('UPDATE players SET is_admin = 0 WHERE player_id = ?').run(playerId);
@@ -230,11 +230,11 @@ export class FixtureService {
           'INSERT INTO players (player_id, email, password_hash, is_admin, created_at) VALUES (?, ?, ?, 0, ?)'
         ).run(playerId, email, hashPassword(password), nowIso);
       }
-
+    
       // 2. Ensure Company exists
       const companyRow = db.prepare('SELECT company_id FROM companies WHERE player_id = ?').get(playerId) as IdRow | undefined;
       let companyId: number;
-
+    
       if (companyRow && companyRow.company_id) {
         companyId = companyRow.company_id;
         db.prepare(`
@@ -251,7 +251,7 @@ export class FixtureService {
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, '', 'old', 'QA Fixture Created', ?, ?)
         `).run(companyId, playerId, companyName, money, simboosts, level, experience, rating, realmId, extraSlots, nowIso);
       }
-
+    
       // 3. Buildings setup
       if (input.clearExistingBuildings !== false) {
         db.prepare('DELETE FROM buildings WHERE company_id = ?').run(companyId);
@@ -259,7 +259,7 @@ export class FixtureService {
         db.prepare('DELETE FROM restaurant_properties WHERE company_id = ?').run(companyId);
         db.prepare('DELETE FROM restaurant_runs WHERE company_id = ?').run(companyId);
       }
-
+    
       let buildingsCount = 0;
       if (input.buildings && input.buildings.length > 0) {
         for (let i = 0; i < input.buildings.length; i++) {
@@ -268,7 +268,7 @@ export class FixtureService {
           const abundance = b.abundance ?? 100;
           const maxBldgRow = db.prepare('SELECT COALESCE(MAX(id), 1000) AS m FROM buildings').get() as MaxRow | undefined;
           const buildingId = (maxBldgRow?.m ?? 1000) + 1;
-
+    
           const posName = `slot_${slot}`;
           const buildingMeta = getBuildingMeta(b.kind);
           db.prepare(`
@@ -287,7 +287,7 @@ export class FixtureService {
             nowIso
           );
           buildingsCount++;
-
+    
           // If restaurant, initialize properties
           if (b.kind === 'r') {
             db.prepare(`
@@ -298,12 +298,12 @@ export class FixtureService {
           }
         }
       }
-
+    
       // 4. Warehouse setup
       if (input.clearExistingWarehouse !== false) {
         db.prepare('DELETE FROM warehouse WHERE company_id = ?').run(companyId);
       }
-
+    
       let warehouseRows = 0;
       if (input.warehouse && input.warehouse.length > 0) {
         for (const w of input.warehouse) {
@@ -323,12 +323,12 @@ export class FixtureService {
           warehouseRows++;
         }
       }
-
+    
       // 5. Executives setup
       if (input.clearExistingExecutives !== false) {
         db.prepare('DELETE FROM executives WHERE company_id = ?').run(companyId);
       }
-
+    
       let executivesCount = 0;
       if (input.executives && input.executives.length > 0) {
         for (const exec of input.executives) {
@@ -340,7 +340,7 @@ export class FixtureService {
           const sci = exec.skills.science ?? exec.skills.cto ?? 10;
           const comm = exec.skills.communication ?? exec.skills.cmo ?? 10;
           const salary = exec.salary ?? 350;
-
+    
           db.prepare(`
             INSERT INTO executives (
               id, company_id, name, avatar, position, skill_management, skill_accounting, skill_science, skill_communication, salary, status, created_at
@@ -349,10 +349,10 @@ export class FixtureService {
           executivesCount++;
         }
       }
-
+    
       // 6. Generate active session token
       const sessionToken = createSession(playerId, companyId);
-
+    
       return {
         playerId,
         companyId,
@@ -434,10 +434,10 @@ export class FixtureService {
     const nowIso = new Date().toISOString();
     const samplePrices: Array<{ resource: string; q0: number; q2: number; estHourlyProfit: number }> = [];
     let ordersUpdated = 0;
-    return runInTransaction(async () => {
+    return runInTransaction(() => {
       // 1. Delete previous NPC seeded market orders (seller_id = 999900)
       database.prepare('DELETE FROM market_orders WHERE seller_id = 999900').run();
-
+    
       // Load latest retail saturations to compute product demand factors
       const saturationRows = database.prepare(`
         SELECT kind, saturation FROM retail_saturation
@@ -447,20 +447,20 @@ export class FixtureService {
       for (const row of saturationRows) {
         saturationMap.set(Number(row.kind), Number(row.saturation));
       }
-
+    
       const insertStmt = database.prepare(`
         INSERT INTO market_orders (seller_id, kind, quality, quantity, price, fees, posted_at, active)
         VALUES (999900, ?, ?, ?, ?, 0, ?, 1)
       `);
-
+    
       for (const [k, def] of Object.entries(CONSTANTS_RESOURCES)) {
         const kind = Number(k);
         if (def.isExchangeTradable === false) continue;
-
+    
         const model = economyModels[String(kind)]?.state_1 || economyModels[String(kind)]?.state_0;
         const baseCost = Number(model?.modeledProductionCostPerUnit) || Number(def.cost) || 2.0;
         const levelsNeeded = Number(model?.buildingLevelsNeededPerUnitPerHour) || 0;
-
+    
         // Demand-adjusted pricing:
         // - Baseline saturation ~0.50 yields demand = 1.0 (hourly profit ~ $300)
         // - High saturation (low demand) compresses terminal price & profit (< $300)
@@ -469,7 +469,7 @@ export class FixtureService {
         const demand = rawSat !== undefined
           ? Math.max(0.4, Math.min(2.0, Math.round((0.5 / Math.max(0.1, rawSat)) * 100) / 100))
           : 1.0;
-
+    
         const effectiveProfitTarget = targetProfit * demand;
         const unitProfitTarget = levelsNeeded > 0
           ? effectiveProfitTarget * levelsNeeded
@@ -477,7 +477,7 @@ export class FixtureService {
         const targetQ0BasePrice = baseCost + unitProfitTarget;
         let q0Price = 1.0;
         let q2Price = 1.02;
-
+    
         for (let q = 0; q <= maxQuality; q++) {
           let unitPrice = 1.0 + q;
           if (mode === 'realistic') {
@@ -490,10 +490,10 @@ export class FixtureService {
           } else {
             unitPrice = roundToTick(1.0 + q * 0.01);
           }
-
+    
           if (q === 0) q0Price = unitPrice;
           if (q === 2) q2Price = unitPrice;
-
+    
           const dynamicQty = NpcMarketService.calculateDynamicBatch(kind, q, database).adjustedBatch;
           insertStmt.run(kind, q, dynamicQty, unitPrice, nowIso);
           ordersUpdated++;
@@ -509,13 +509,13 @@ export class FixtureService {
           });
         }
       }
-
+    
       database.prepare(`
         INSERT INTO company_settings (company_id, key, value)
         VALUES (0, 'market_pricing_mode', ?)
         ON CONFLICT(company_id, key) DO UPDATE SET value = excluded.value
       `).run(mode);
-
+    
       return { mode, targetProfit, volatility, ordersUpdated, samplePrices };
     });
   }

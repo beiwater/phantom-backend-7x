@@ -35,7 +35,7 @@ export async function upgradeBuildingUseCase(
     throw new ValidationError('Building size change must be a positive integer');
   }
 
-  return runInTransaction(async txCtx => {
+  return runInTransaction(txCtx => {
     // 1. Validate building ownership
     const building = buildingRepository.findById(buildingId);
     if (!building) {
@@ -44,7 +44,7 @@ export async function upgradeBuildingUseCase(
     if (building.companyId !== ctx.companyId) {
       throw new ForbiddenError('You do not own this building');
     }
-
+  
     // Issue #47: repeated upgrades during construction/upgrade busy must be a
     // 409 conflict, not a validation error (official busy contract).
     assertNotBusyForConstructionWork(building.busyUntil, virtualClock.nowMs());
@@ -55,10 +55,10 @@ export async function upgradeBuildingUseCase(
     // Issue #94: upgrade materials scale with the building's CURRENT size —
     // qp[resourceId] * costUnits * currentSize — not with the size delta.
     const { cost, materials } = estimateUpgradeCost(building.kind, sizeDelta, building.size);
-
+  
     // 3. Debit upgrade cost atomically
     const newMoney = companyRepository.debitMoney(ctx.companyId, cost);
-
+  
     // 4. Consume materials atomically
     const consumedList: Array<{ kind: number; quality: number; amount: number }> = [];
     for (const mat of materials) {
@@ -69,7 +69,7 @@ export async function upgradeBuildingUseCase(
         amount: mat.amount
       });
     }
-
+  
     // 5. Update building size and busy state
     const newSize = building.size + sizeDelta;
     const mode = FixtureService.getActiveConstructionTimeMode();
@@ -79,7 +79,7 @@ export async function upgradeBuildingUseCase(
     const updatedBuilding = buildingRepository.updateSize(building.id, ctx.companyId, newSize);
     buildingRepository.updateBusyUntil(building.id, ctx.companyId, busyUntil);
     const finalizedBuilding = { ...updatedBuilding, busyUntil };
-
+  
     // 6. Publish domain event on transaction commit
     eventBus.publishCommitted(txCtx, 'BuildingUpgraded', {
       companyId: ctx.companyId,
@@ -87,7 +87,7 @@ export async function upgradeBuildingUseCase(
       newSize: finalizedBuilding.size,
       cost
     });
-
+  
     return {
       building: finalizedBuilding,
       cost,

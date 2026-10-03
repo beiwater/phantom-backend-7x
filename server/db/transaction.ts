@@ -1,5 +1,4 @@
 import type { DatabaseSync } from 'node:sqlite';
-import { AsyncLocalStorage } from 'node:async_hooks';
 import { db } from './connection.ts';
 
 export type AfterCommitHook = () => void | Promise<void>;
@@ -14,120 +13,114 @@ export interface TransactionOptions {
   database?: DatabaseSync;
 }
 
-/**
- * Per-async-execution-context transaction state (#176).
- *
- * Each call chain gets its own depth counter and after-commit hook list, so
- * two concurrent requests that await across each other can never see each
- * other's transaction as "nested" or share hook ownership.
- */
-interface TxState {
-  db: DatabaseSync;
-  depth: number;
+interface TxFrame {
   hooks: AfterCommitHook[];
 }
 
-const txStorage = new AsyncLocalStorage<TxState>();
-
 /**
- * Serialization for the single SQLite connection (#176).
+ * Open transaction frames per connection. Index 0 is the outermost
+ * BEGIN/COMMIT; deeper frames are SAVEPOINTs.
  *
- * SQLite allows only one open transaction per connection. While transaction A
- * is open, transaction B from a different async context must WAIT instead of
- * being mis-detected as nested. The lock is a promise queue keyed by database
- * instance; same-call-chain nesting never re-enters it (the ALS store marks
- * the chain as already inside a transaction).
+ * The work callback is synchronous, so a transaction can never stay open
+ * across an `await`. node:sqlite is synchronous and JavaScript is
+ * single-threaded, therefore no other request can observe or join an open
+ * transaction, and no connection lock is needed.
  */
-const connectionLocks = new WeakMap<DatabaseSync, Promise<void>>();
+const openFrames = new WeakMap<DatabaseSync, TxFrame[]>();
+let savepointSeq = 0;
 
-function withConnectionLock<T>(database: DatabaseSync, fn: () => Promise<T>): Promise<T> {
-  const prev = connectionLocks.get(database) ?? Promise.resolve();
-  let release!: () => void;
-  const gate = new Promise<void>(resolve => {
-    release = resolve;
-  });
-  connectionLocks.set(database, gate);
-  return prev.then(() => fn()).finally(release);
+function isThenable(value: unknown): value is PromiseLike<unknown> {
+  return value !== null
+    && (typeof value === 'object' || typeof value === 'function')
+    && 'then' in value
+    && typeof value.then === 'function';
+}
+
+function runAfterCommitHooks(hooks: AfterCommitHook[]): void {
+  for (const hook of hooks) {
+    try {
+      const outcome = hook();
+      if (outcome instanceof Promise) {
+        outcome.catch(err => {
+          console.error('[Transaction afterCommit async error]:', err);
+        });
+      }
+    } catch (err) {
+      console.error('[Transaction afterCommit sync error]:', err);
+    }
+  }
 }
 
 /**
- * Execute work inside an atomic database transaction.
+ * Execute synchronous work inside an atomic database transaction.
  *
  * Guarantees:
- * 1. Synchronous atomic commit/rollback on SQLite.
- * 2. Same-call-chain nesting reuses the outermost transaction boundary.
- * 3. Transactions from different async contexts are fully isolated: their own
- *    BEGIN/COMMIT, serialized on the connection, and disjoint after-commit
- *    hooks (#176). Overlapping awaits no longer merge transactions.
- * 4. After-commit hooks run ONLY when the outermost transaction of their own
- *    call chain commits; a rollback in another chain never touches them.
+ * 1. The outermost call issues BEGIN (or BEGIN IMMEDIATE) and COMMIT/ROLLBACK.
+ * 2. A nested call runs inside a SAVEPOINT: if it throws, only its own writes
+ *    are rolled back and the error propagates; the caller may catch it and
+ *    continue the outer transaction.
+ * 3. After-commit hooks run once, after the outermost COMMIT. Hooks registered
+ *    by a nested call that rolled back are discarded.
+ * 4. `work` MUST be synchronous. Returning a Promise/thenable rolls the
+ *    transaction back and throws a TypeError: perform awaits before entering
+ *    the transaction.
  */
-export async function runInTransaction<T>(
-  work: (ctx: TransactionContext) => T | Promise<T>,
+export function runInTransaction<T>(
+  work: (ctx: TransactionContext) => T,
   options: TransactionOptions = {}
-): Promise<T> {
+): T {
   const targetDb = options.database || db;
-  const outer = txStorage.getStore();
-
-  // Same async call chain: reuse the outer transaction boundary. Hooks append
-  // to the outermost state and run once, when it commits.
-  if (outer && outer.db === targetDb) {
-    outer.depth++;
-    const context: TransactionContext = {
-      db: targetDb,
-      addAfterCommitHook(hook: AfterCommitHook) {
-        outer.hooks.push(hook);
-      }
-    };
-    try {
-      return await work(context);
-    } finally {
-      outer.depth--;
-    }
+  let frames = openFrames.get(targetDb);
+  if (!frames) {
+    frames = [];
+    openFrames.set(targetDb, frames);
   }
 
-  return withConnectionLock(targetDb, async () => {
-    const state: TxState = { db: targetDb, depth: 1, hooks: [] };
-    return txStorage.run(state, async () => {
-      const context: TransactionContext = {
-        db: targetDb,
-        addAfterCommitHook(hook: AfterCommitHook) {
-          state.hooks.push(hook);
-        }
-      };
+  const nested = frames.length > 0;
+  if (!nested && targetDb.isTransaction === true) {
+    throw new Error('runInTransaction: connection already has a transaction not opened by runInTransaction (raw BEGIN)');
+  }
 
-      targetDb.exec(options.immediate ? 'BEGIN IMMEDIATE' : 'BEGIN');
+  const savepoint = nested ? `tx_sp_${++savepointSeq}` : null;
+  targetDb.exec(savepoint ? `SAVEPOINT ${savepoint}` : (options.immediate ? 'BEGIN IMMEDIATE' : 'BEGIN'));
 
-      let result: T;
-      try {
-        result = await work(context);
-        targetDb.exec('COMMIT');
-      } catch (error) {
-        try {
-          targetDb.exec('ROLLBACK');
-        } catch (rollbackErr) {
-          console.error('[Transaction rollback error]:', rollbackErr);
-        }
-        // Discard this chain's hooks on rollback.
-        state.hooks.length = 0;
-        throw error;
-      }
+  const frame: TxFrame = { hooks: [] };
+  frames.push(frame);
+  const context: TransactionContext = {
+    db: targetDb,
+    addAfterCommitHook(hook: AfterCommitHook) {
+      frame.hooks.push(hook);
+    }
+  };
 
-      // Execute afterCommit hooks safely outside the SQL transaction boundary.
-      for (const hook of state.hooks.splice(0)) {
-        try {
-          const outcome = hook();
-          if (outcome instanceof Promise) {
-            outcome.catch(err => {
-              console.error('[Transaction afterCommit async error]:', err);
-            });
-          }
-        } catch (err) {
-          console.error('[Transaction afterCommit sync error]:', err);
-        }
-      }
+  let result: T;
+  try {
+    result = work(context);
+    if (isThenable(result)) {
+      // Keep a rejected orphan promise from becoming an unhandled rejection.
+      Promise.resolve(result).catch(() => undefined);
+      throw new TypeError('runInTransaction work must be synchronous; await before entering the transaction');
+    }
+    if (!savepoint) {
+      targetDb.exec('COMMIT');
+    }
+  } catch (error) {
+    frames.pop();
+    try {
+      targetDb.exec(savepoint ? `ROLLBACK TO ${savepoint}; RELEASE ${savepoint}` : 'ROLLBACK');
+    } catch (rollbackErr) {
+      console.error('[Transaction rollback error]:', rollbackErr);
+    }
+    throw error;
+  }
 
-      return result;
-    });
-  });
+  frames.pop();
+  if (savepoint) {
+    targetDb.exec(`RELEASE ${savepoint}`);
+    frames[frames.length - 1].hooks.push(...frame.hooks);
+    return result;
+  }
+
+  runAfterCommitHooks(frame.hooks);
+  return result;
 }

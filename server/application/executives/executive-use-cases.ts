@@ -488,20 +488,20 @@ function getExecutiveById(companyId: number, executiveId: number) {
 }
 
 function hireExecutive(companyId: number, candidateId: number, position: string = 'unassigned') {
-  return runInTransaction(async () => {
+  return runInTransaction(() => {
     const c = executiveRepository.findByIdAndCompany(candidateId, companyId);
     if (!c) throw new Error('Candidate not found');
     if (c.status !== 'candidate') throw new Error('Executive is not an available candidate');
-
+  
     const comp = companyRepository.findById(companyId);
     if (!comp) throw new Error('Company not found');
-
+  
     const countRow = executiveRepository.countEmployed(companyId);
     const maxSlots = 4 + (Number(comp.extraExecutiveSlots) || 0);
     if (countRow >= maxSlots) {
       throw new Error(`Executive slot limit reached (${countRow}/${maxSlots}). Unlock more slots with SimBoosts.`);
     }
-
+  
     // #154: the academy raises the starting skills of in-house candidates
     // (same 5-levels-per-point cadence as training; max +2).
     const startingBonus = academySkillBonus(getAcademyLevels(companyId).active);
@@ -515,14 +515,14 @@ function hireExecutive(companyId: number, candidateId: number, position: string 
 }
 
 function fireExecutive(companyId: number, executiveId: number) {
-  return runInTransaction(async () => {
+  return runInTransaction(() => {
     const exec = executiveRepository.findEmployed(executiveId, companyId);
     if (!exec) throw new Error('Employed executive not found');
-
+  
     // Dismissal severance = executive.salary * 3.
     const severance = Math.round((Number(exec.salary) || 250) * 3);
     const endedAt = virtualClock.nowIso();
-
+  
     companyRepository.updateMoney(companyId, -severance);
     const former = executiveRepository.markFormer(executiveId, companyId, endedAt);
     if (former !== 1) throw new Error('Employed executive not found');
@@ -535,7 +535,7 @@ function fireExecutive(companyId: number, executiveId: number) {
 }
 
 function assignExecutive(companyId: number, executiveId: number, position: string) {
-  return runInTransaction(async () => {
+  return runInTransaction(() => {
     const updated = executiveRepository.assignPosition(executiveId, companyId, position);
     if (updated !== 1) throw new Error('Employed executive not found');
     const row = executiveRepository.findById(executiveId) as ExecutiveRow;
@@ -548,12 +548,12 @@ function updateExecutive(
   executiveId: number,
   updates: UpdateExecutiveInput
 ) {
-  return runInTransaction(async () => {
+  return runInTransaction(() => {
     const exec = executiveRepository.findEmployed(executiveId, companyId);
     if (!exec) throw new Error('Employed executive not found');
     const comp = companyRepository.findById(companyId);
     if (!comp) throw new Error('Company not found');
-
+  
     if (updates.salary !== undefined) {
       if (!Number.isFinite(updates.salary) || updates.salary <= 0) {
         throw new Error('Salary must be a positive number');
@@ -563,7 +563,7 @@ function updateExecutive(
     if (updates.position !== undefined) {
       executiveRepository.updatePosition(executiveId, companyId, updates.position);
     }
-
+  
     // Issue #165: rush settling in. The client prices the rush as
     // ceil((start + 3h - now) / 6min) SimBoosts; settle instantly by
     // marking the work history accelerated so the client-side window closes.
@@ -580,7 +580,7 @@ function updateExecutive(
         executiveRepository.markWorkHistoryAccelerated(executiveId);
       }
     }
-
+  
     if (updates.strikeUntil !== undefined) {
       const iso = updates.strikeUntil === null ? null : validIsoOrNull(updates.strikeUntil);
       executiveRepository.updateStrikeUntil(executiveId, iso);
@@ -588,7 +588,7 @@ function updateExecutive(
     if (updates.plansToRetire !== undefined) {
       executiveRepository.updatePlansToRetire(executiveId, updates.plansToRetire);
     }
-
+  
     const row = executiveRepository.findById(executiveId) as ExecutiveRow;
     return formatExecutive(row);
   }, { immediate: true });
@@ -602,18 +602,18 @@ function scheduleExecutiveTraining(
   executiveId: number,
   trainingCode: ExecutiveTrainingCode = 'o'
 ) {
-  return runInTransaction(async () => {
+  return runInTransaction(() => {
     const exec = executiveRepository.findEmployed(executiveId, companyId);
     if (!exec) throw new Error('Employed executive not found');
     if (executiveRepository.findActiveTraining(executiveId)) throw new Error('Executive already has a training in progress');
     const count = executiveRepository.countTrainings(executiveId);
     if (count >= 20) throw new Error('Executive training limit reached (20)');
-
+  
     const comp = companyRepository.findById(companyId);
     if (!comp || comp.money < EXECUTIVE_TRAINING_MONEY_COST) {
       throw new Error(`Not enough money for executive training ($${EXECUTIVE_TRAINING_MONEY_COST})`);
     }
-
+  
     const now = virtualClock.nowIso();
     recordCashLedger({
       companyId,
@@ -624,30 +624,30 @@ function scheduleExecutiveTraining(
       details: { executiveId, name: exec.name, training: trainingCode }
     });
     companyRepository.updateMoney(companyId, -EXECUTIVE_TRAINING_MONEY_COST, { skipLedger: true });
-
+  
     const row = executiveRepository.insertTraining(executiveId, companyId, now, trainingCode);
     return { training: serializeTraining(row, exec), moneyDelta: -EXECUTIVE_TRAINING_MONEY_COST };
   }, { immediate: true });
 }
 
 function rushExecutiveTraining(companyId: number, executiveId: number, trainingId: number) {
-  return runInTransaction(async () => {
+  return runInTransaction(() => {
     const training = executiveRepository.findUnfinishedTraining(trainingId, executiveId, companyId);
     if (!training) throw new Error('Training not found or already finished');
     const comp = companyRepository.findById(companyId);
     if (!comp) throw new Error('Company not found');
-
+  
     const finishMs = new Date(training.datetime).getTime() + getExecutiveTrainingWindowSeconds() * 1000;
     const cost = Math.max(1, Math.ceil((finishMs - virtualClock.nowMs()) / 360000));
     if (Number(comp.simboosts) < cost) {
       throw new Error(`Not enough SimBoosts to rush training (requires ${cost})`);
     }
     companyRepository.updateSimBoosts(companyId, -cost);
-
+  
     const applied = executiveRepository.addFourSkills(executiveId, 1);
     if (applied !== 1) throw new Error('Executive training failed');
     executiveRepository.markTrainingAccelerated(trainingId);
-
+  
     const updated = executiveRepository.findById(executiveId) as ExecutiveRow;
     const updatedTraining = executiveRepository.findUnfinishedTraining(trainingId, executiveId, companyId)
       || ({ ...training, accelerated: 1, skills_applied: 1 } as ExecutiveTrainingRow);
@@ -660,7 +660,7 @@ function rushExecutiveTraining(companyId: number, executiveId: number, trainingI
 }
 
 function cancelExecutiveTraining(companyId: number, executiveId: number, trainingId: number) {
-  return runInTransaction(async () => {
+  return runInTransaction(() => {
     const training = executiveRepository.findUnfinishedTraining(trainingId, executiveId, companyId);
     if (!training) throw new Error('Training not found or already finished');
     executiveRepository.deleteTraining(trainingId);
@@ -674,17 +674,17 @@ function trainExecutive(companyId: number, executiveId: number) {
   const academy = getAcademyLevels(companyId);
   const skillGain = 1 + academySkillBonus(academy.active);
 
-  return runInTransaction(async () => {
+  return runInTransaction(() => {
     const exec = executiveRepository.findEmployed(executiveId, companyId);
     if (!exec) {
       throw new Error('Employed executive not found');
     }
-
+  
     const comp = companyRepository.findById(companyId);
     if (!comp || comp.money < trainingCost) {
       throw new Error('Not enough money for executive training');
     }
-
+  
     recordCashLedger({
       companyId,
       amount: -trainingCost,
@@ -694,10 +694,10 @@ function trainExecutive(companyId: number, executiveId: number) {
       details: { executiveId, name: exec.name }
     });
     companyRepository.updateMoney(companyId, -trainingCost, { skipLedger: true });
-
+  
     const updated = executiveRepository.addFourSkillsInCompany(executiveId, companyId, skillGain);
     if (updated !== 1) throw new Error('Executive training failed');
-
+  
     const row = executiveRepository.findById(executiveId) as ExecutiveRow;
     return {
       executive: formatExecutive(row),
@@ -912,16 +912,16 @@ export async function createPoachingOffer(poacherCompanyId: number, input: Creat
   const hasTrainings = input.hasTrainings === true;
   const onlyUnemployed = input.onlyUnemployed === true;
 
-  return runInTransaction(async () => {
+  return runInTransaction(() => {
     const poacherComp = companyRepository.findById(poacherCompanyId);
     if (!poacherComp) throw new Error('Company not found');
-
+  
     // Explicit targets are retained for the legacy/internal poaching caller.
     // Official agency searches omit this field and always enter `l` first.
     if (input.targetExecutiveId !== undefined && input.targetExecutiveId !== null) {
       const targetExecutive = executiveRepository.findById(input.targetExecutiveId);
       if (!targetExecutive) throw new Error('Target executive not found');
-
+  
       const targetStatus = String(targetExecutive.status || '').toLowerCase();
       let targetCompanyId = targetExecutive.company_id;
       if (targetCompanyId === poacherCompanyId) {
@@ -933,7 +933,7 @@ export async function createPoachingOffer(poacherCompanyId: number, input: Creat
       } else if (targetCompanyId === null) {
         throw new Error('Target executive has no employer');
       }
-
+  
       const expectedSalaryInput = input.expectedSalary;
       if (expectedSalaryInput !== undefined
           && (!Number.isFinite(expectedSalaryInput) || expectedSalaryInput <= 0)) {
@@ -954,7 +954,7 @@ export async function createPoachingOffer(poacherCompanyId: number, input: Creat
           idempotent: true
         };
       }
-
+  
       const agencyFee = Math.round(expectedSalary * multiplier);
       if (poacherComp.money < agencyFee) {
         throw new Error(`Insufficient funds for agency fee ($${agencyFee})`);
@@ -962,7 +962,7 @@ export async function createPoachingOffer(poacherCompanyId: number, input: Creat
       if (agencyFee > 0) {
         companyRepository.updateMoney(poacherCompanyId, -agencyFee);
       }
-
+  
       const now = virtualClock.nowIso();
       const offerRow = executiveRepository.insertOffer({
         poacherCompanyId,
@@ -981,7 +981,7 @@ export async function createPoachingOffer(poacherCompanyId: number, input: Creat
       });
       return formatOffer(offerRow, targetExecutive);
     }
-
+  
     const existingSearch = executiveRepository.findOpenOfferForSearch(
       poacherCompanyId,
       agencyTier,
@@ -1003,13 +1003,13 @@ export async function createPoachingOffer(poacherCompanyId: number, input: Creat
         ? formatted
         : { ...formatted, idempotent: true };
     }
-
+  
     const expectedSalaryInput = input.expectedSalary;
     if (expectedSalaryInput !== undefined
         && (!Number.isFinite(expectedSalaryInput) || expectedSalaryInput <= 0)) {
       throw new Error('Expected salary must be a positive number');
     }
-
+  
     const now = virtualClock.nowIso();
     const offerRow = executiveRepository.insertOffer({
       poacherCompanyId,
@@ -1055,19 +1055,19 @@ async function updatePoachingOffer(
   offerId: number,
   payload: { status?: string; executive?: boolean; salary?: number; accelerated?: boolean }
 ) {
-  return runInTransaction(async () => {
+  return runInTransaction(() => {
     let offer = executiveRepository.findOfferForPoacher(offerId, poacherCompanyId);
     if (!offer) throw new Error('Poaching offer not found');
-
+  
     const nowMs = virtualClock.nowMs();
     const now = virtualClock.nowIso();
     let status = normalizeOfferStatus(offer.status);
-
+  
     if (status === 'l' && searchDeadlineMs(offer) <= nowMs) {
       offer = resolveSearchOffer(offer, now);
       status = normalizeOfferStatus(offer.status);
     }
-
+  
     let simboostsDelta = 0;
     if (status === 'l') {
       if (payload.accelerated === true) {
@@ -1092,12 +1092,12 @@ async function updatePoachingOffer(
         simboostsDelta: 0
       };
     }
-
+  
     const requestedStatus = payload.status ? normalizeOfferStatus(payload.status) : undefined;
     const wantsFormalOffer = payload.executive === true
       || payload.salary !== undefined
       || requestedStatus === 's';
-
+  
     if (!wantsFormalOffer && requestedStatus) {
       if (requestedStatus === 'l') {
         const refreshed = executiveRepository.refreshOffer(
@@ -1114,21 +1114,21 @@ async function updatePoachingOffer(
         simboostsDelta: 0
       };
     }
-
+  
     if (!wantsFormalOffer) {
       return {
         offer: formattedOfferWithExecutive(offer),
         simboostsDelta: 0
       };
     }
-
+  
     if (status !== 'f') {
       throw new Error('Offer is no longer awaiting a candidate response');
     }
     if (offer.target_executive_id === null) {
       throw new Error('Offer has no candidate');
     }
-
+  
     const target = executiveRepository.findById(offer.target_executive_id);
     if (!target) throw new Error('Target executive is no longer available');
     const expectedSalary = Number(offer.expected_salary) > 0
@@ -1145,14 +1145,14 @@ async function updatePoachingOffer(
     if (salary < expectedSalary * 0.9 || salary > expectedSalary * 10) {
       throw new Error(`Salary must be between ${Math.ceil(expectedSalary * 0.9)} and ${Math.floor(expectedSalary * 10)}`);
     }
-
+  
     const targetStatus = String(target.status || '').toLowerCase();
     const agencyTier = Number(offer.agency) || AgencyTier.IN_HOUSE;
     const multiplier = AGENCY_FEE_MULTIPLIERS[agencyTier] ?? 0;
     const agencyFee = Number(offer.agency_fee) > 0
       ? Number(offer.agency_fee)
       : Math.round(expectedSalary * multiplier);
-
+  
     if (targetStatus === 'candidate') {
       const comp = companyRepository.findById(poacherCompanyId);
       if (!comp) throw new Error('Company not found');
@@ -1183,7 +1183,7 @@ async function updatePoachingOffer(
         simboostsDelta: 0
       };
     }
-
+  
     if (targetStatus !== 'employed' || target.company_id === null
         || target.company_id !== offer.target_company_id) {
       throw new Error('Target executive is no longer available');
@@ -1210,7 +1210,7 @@ async function dismissPoachingOffer(poacherCompanyId: number, offerId: number) {
   const offer = executiveRepository.findOfferForPoacher(offerId, poacherCompanyId);
   if (!offer) throw new Error('Poaching offer not found');
 
-  return runInTransaction(async () => {
+  return runInTransaction(() => {
     executiveRepository.deleteOffer(offerId, poacherCompanyId);
     return { success: true };
   }, { immediate: true });
@@ -1220,7 +1220,7 @@ async function refreshPoachingOffer(poacherCompanyId: number, offerId: number) {
   const offer = executiveRepository.findOfferForPoacher(offerId, poacherCompanyId);
   if (!offer) throw new Error('Poaching offer not found');
 
-  return runInTransaction(async () => {
+  return runInTransaction(() => {
     const now = virtualClock.nowIso();
     const updated = executiveRepository.refreshOffer(
       offerId,
@@ -1249,9 +1249,9 @@ async function researchEmployerByPoacher(poacherCompanyId: number, offerId: numb
 
   const RESEARCH_COST_SB = 5;
 
-  return runInTransaction(async () => {
+  return runInTransaction(() => {
     companyRepository.updateSimBoosts(poacherCompanyId, -RESEARCH_COST_SB);
-
+  
     const researchData = {
       marketSalary: Math.round((Number(exec?.salary) || 400) * 1.1),
       acceptingSalary: Math.round(Number(offer.expected_salary) * 1.05),
@@ -1264,12 +1264,12 @@ async function researchEmployerByPoacher(poacherCompanyId: number, offerId: numb
       employerAcceptedOffersMean: 1.25,
       employerRejectedOffersMean: 1.5
     };
-
+  
     const researchJson = JSON.stringify(researchData);
     const now = virtualClock.nowIso();
-
+  
     const updatedOffer = executiveRepository.setResearchPoacher(offerId, researchJson, now);
-
+  
     const formatted = formatOffer(updatedOffer, exec || null);
     return {
       ...formatted,
@@ -1307,9 +1307,9 @@ async function researchPoacherByEmployer(targetCompanyId: number, offerId: numbe
 
   const RESEARCH_COST_SB = 5;
 
-  return runInTransaction(async () => {
+  return runInTransaction(() => {
     companyRepository.updateSimBoosts(targetCompanyId, -RESEARCH_COST_SB);
-
+  
     const researchData = {
       marketSalary: Math.round((Number(exec?.salary) || 400) * 1.1),
       poacherCompanyValue: Number(poacherComp?.money) || 750000,
@@ -1317,12 +1317,12 @@ async function researchPoacherByEmployer(targetCompanyId: number, offerId: numbe
       poacherFiredEmployeesCount: 0,
       poacherAverageYearsSpendAtCompany: 1.5
     };
-
+  
     const researchJson = JSON.stringify(researchData);
     const now = virtualClock.nowIso();
-
+  
     const updatedOffer = executiveRepository.setResearchEmployer(offerId, researchJson, now);
-
+  
     const formatted = formatHostileOffer(updatedOffer, exec || null);
     return {
       ...formatted,
@@ -1344,9 +1344,9 @@ async function counterHostileOffer(targetCompanyId: number, offerId: number, bod
   const isDecline = body.action === 'decline' || body.accept === false;
   const isCounter = body.action === 'counter' || (body.salary !== undefined && !isAccept && !isDecline);
 
-  return runInTransaction(async () => {
+  return runInTransaction(() => {
     const now = virtualClock.nowIso();
-
+  
     if (isCounter && body.salary !== undefined) {
       if (!Number.isFinite(body.salary) || body.salary <= 0) {
         throw new Error('Counter salary must be a positive number');
@@ -1354,9 +1354,9 @@ async function counterHostileOffer(targetCompanyId: number, offerId: number, bod
       // Target employer counters with higher salary (retaining executive)
       executiveRepository.setSalaryForCompany(exec.id, targetCompanyId, body.salary);
       const updatedOffer0 = executiveRepository.setOfferStatus(offerId, 'r', now);
-
+  
       const updatedExec = executiveRepository.findById(exec.id) as ExecutiveRow;
-
+  
       return {
         success: true,
         retained: true,
@@ -1365,16 +1365,16 @@ async function counterHostileOffer(targetCompanyId: number, offerId: number, bod
         offer: formatHostileOffer(updatedOffer0, updatedExec)
       };
     }
-
+  
     if (isAccept) {
       // Declines to counter / accepts departure (executive leaves, 0 severance)
       // Executive leaves employer company and transfers to poacher company
       const offeredSalary = offer.salary || offer.expected_salary;
       executiveRepository.transferToCompany(exec.id, offer.poacher_company_id, offeredSalary);
       const updatedOffer1 = executiveRepository.setOfferStatus(offerId, 'a', now);
-
+  
       const transferredExec = executiveRepository.findById(exec.id) as ExecutiveRow;
-
+  
       return {
         success: true,
         stayed: false,
@@ -1383,10 +1383,10 @@ async function counterHostileOffer(targetCompanyId: number, offerId: number, bod
         offer: formatHostileOffer(updatedOffer1, transferredExec)
       };
     }
-
+  
     // Default decline/reject
     const updatedOffer2 = executiveRepository.setOfferStatus(offerId, 'r', now);
-
+  
     return {
       success: true,
       stayed: true,

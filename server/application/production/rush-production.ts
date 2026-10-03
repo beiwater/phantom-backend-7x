@@ -27,7 +27,7 @@ export async function rushProductionUseCase(
 ): Promise<RushProductionResult> {
   const cost = input.simboostsCost ?? 1;
 
-  return runInTransaction(async txCtx => {
+  return runInTransaction(txCtx => {
     // 1. Validate building ownership
     const building = buildingRepository.findById(input.buildingId);
     if (!building) {
@@ -36,7 +36,7 @@ export async function rushProductionUseCase(
     if (building.companyId !== ctx.companyId) {
       throw new ForbiddenError('You do not own this building');
     }
-
+  
     // 2. Find queue item to rush
     let queueItem: ProductionQueueEntity | null = null;
     if (input.queueId) {
@@ -44,15 +44,15 @@ export async function rushProductionUseCase(
     } else {
       queueItem = productionRepository.findLatestActiveByBuilding(building.id, ctx.companyId);
     }
-
+  
     if (!queueItem || queueItem.buildingId !== building.id || queueItem.companyId !== ctx.companyId || queueItem.resolved) {
       throw new ValidationError('Building has no active production order to rush');
     }
-
+  
     // 3. Debit SimBoosts
     const simboostsRemaining = companyRepository.debitSimboosts(ctx.companyId, cost);
     recordSimboostSpend(ctx.companyId, 'RUSH_PRODUCTION', cost);
-
+  
     // 4. Finish immediately and DELIVER the output now (legacy semantics:
     // resolved=1, output added to warehouse, building freed — Issue #68:
     // inventory credit must be inside the same atomic transaction).
@@ -62,10 +62,10 @@ export async function rushProductionUseCase(
       throw new ValidationError('Production queue is no longer active');
     }
     warehouseRepository.addResource(ctx.companyId, queueItem.kind, queueItem.quality, queueItem.amount);
-
+  
     // 5. Free the building (legacy: busy_until = NULL)
     const updatedBuilding = buildingRepository.updateBusyUntil(building.id, ctx.companyId, null);
-
+  
     // 6. Publish domain event on transaction commit
     eventBus.publishCommitted(txCtx, 'ProductionRushed', {
       companyId: ctx.companyId,
@@ -73,7 +73,7 @@ export async function rushProductionUseCase(
       queueId: finishedItem.id,
       simboostsCost: cost
     });
-
+  
     return {
       queueItem: { ...finishedItem, resolved: true },
       building: updatedBuilding,

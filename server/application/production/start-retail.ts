@@ -45,7 +45,7 @@ export async function startRetailUseCase(
 ): Promise<StartRetailResult> {
   const economy = getEconomyPhase(ctx.realmId);
   const economyState = economy.state;
-  return runInTransaction(async txCtx => {
+  return runInTransaction(txCtx => {
     const building = buildingRepository.findById(input.buildingId);
     if (!building) {
       throw new NotFoundError(`Building ${input.buildingId} not found`);
@@ -61,7 +61,7 @@ export async function startRetailUseCase(
     if (building.busyUntil && new Date(building.busyUntil).getTime() > virtualClock.nowMs()) {
       throw new ValidationError('Building is busy with an active sales order');
     }
-
+  
     const quality = Math.max(0, Math.min(12, Math.floor(Number(input.forceQuality ?? 0)) || 0));
     const allowedProducts = RETAIL_PRODUCTS[building.kind] || [];
     if (!allowedProducts.includes(input.kind)) {
@@ -72,19 +72,19 @@ export async function startRetailUseCase(
     if (!Number.isSafeInteger(input.amount) || input.amount <= 0) {
       throw new ValidationError(`Retail amount must be a positive integer: ${input.amount}`);
     }
-
+  
     // Stock check inside the transaction: failure aborts everything (no
     // partial sale, no cash movement).
     const item = getWarehouseItemExact(ctx.companyId, input.kind, quality);
     if (!item || Number(item.amount) < input.amount) {
       throw new ValidationError('Insufficient stock in warehouse to retail');
     }
-
+  
     // Price is clamped to the authoritative maximum; the widget always sends
     // its modeled price, the server remains the pricing authority.
     const { maxPrice } = getAuthoritativeRetailPrice(input.kind, quality, undefined, 0.5, economy.state);
     const unitPrice = Math.min(Math.max(input.price, 0), maxPrice);
-
+  
     // Issue #99: the sale's busy-window duration must fit the company tier
     // limit (2h below L5, 24h below L15, 48h at L15+). Enforced BEFORE stock
     // is consumed or revenue credited so the 400 QUEUE_DURATION_LIMIT
@@ -100,7 +100,7 @@ export async function startRetailUseCase(
       durationSeconds,
       'Retail'
     );
-
+  
     // 1. Consume warehouse stock atomically
     const resourceTransactions = consumeResourceExactWithTransactions(
       ctx.companyId,
@@ -111,7 +111,7 @@ export async function startRetailUseCase(
     if (!resourceTransactions) {
       throw new ValidationError('Insufficient stock in warehouse to retail');
     }
-
+  
     // 2. Credit the revenue and write the cash_ledger row in the same transaction (skip generic fallback)
     const revenue = Math.round(input.amount * unitPrice * 100) / 100;
     const newMoney = companyRepository.creditMoney(ctx.companyId, revenue);
@@ -134,14 +134,14 @@ export async function startRetailUseCase(
       }
     });
     refreshDailyFinanceSnapshot(ctx.companyId);
-
+  
     // 3. Occupy the building's busy window for the sale duration and persist in retail_orders
     // (durationSeconds was computed and validated against the tier limit
     // before stock was consumed)
     const now = virtualClock.nowIso();
     const finishesAt = new Date(virtualClock.nowMs() + durationSeconds * 1000).toISOString();
     const updatedBuilding = buildingRepository.updateBusyUntil(building.id, ctx.companyId, finishesAt);
-
+  
     // Track in retail_orders table (NOT active production_queues to prevent
     // collect-production duplication exploit) — via the retail repository.
     retailRepository.insert({
@@ -162,7 +162,7 @@ export async function startRetailUseCase(
     // 4. Award leveling XP (1s retail = 1 XP per building size unit)
     const xpEarned = Math.max(1, Math.round(durationSeconds * (building.size || 1)));
     companyRepository.addExperience(ctx.companyId, xpEarned);
-
+  
     return {
       building: updatedBuilding,
       revenue,

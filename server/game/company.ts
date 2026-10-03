@@ -252,7 +252,7 @@ export function getSupporterState(
  * early never loses days; after expiry the term restarts from `now`.
  */
 export async function activateSupporter(companyId: number, now: number = virtualClock.nowMs()): Promise<SupporterState> {
-  return runInTransaction(async () => {
+  return runInTransaction(() => {
     const comp = getCompanyById(companyId);
     if (!comp) {
       throw new Error('Company not found');

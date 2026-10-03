@@ -43,6 +43,7 @@
     "@babel/parser": "^7.29.8",
     "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.62.1",
+    "@types/node": "^22.20.5",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.7",
     "@vitejs/plugin-react": "^6.1.1",

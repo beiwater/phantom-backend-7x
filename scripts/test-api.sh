@@ -20,8 +20,12 @@ fi
 # Suites that must run standalone (spawn isolated servers).
 STANDALONE_RE="verify-issue-70-rest|verify-issue-7[8-9]|verify-issue-8[0-9]|verify-issue-9[0-9]|verify-issue-84-90"
 
-pkill -9 -f "server/index.ts" 2>/dev/null || true
-sleep 1
+# Never kill other processes: a developer's running game server must survive
+# a test run. Refuse to start when the chosen port is taken.
+if node -e 'const s=require("net").createServer();s.once("error",()=>process.exit(0));s.listen(Number(process.argv[1]),"127.0.0.1",()=>s.close(()=>process.exit(1)))' "$PORT"; then
+  echo "FAIL: port $PORT is already in use; set PORT to a free port"
+  exit 1
+fi
 PORT="$PORT" DATA_DIR="$TEST_DATA_DIR" SPEED_MULTIPLIER="${SPEED_MULTIPLIER:-200}" $NODE_BIN server/index.ts >/dev/null 2>&1 &
 SERVER_PID=$!
 sleep 2
@@ -44,7 +48,8 @@ for t in tests/verify-*.test.ts tests/test-*.test.ts; do
   fi
 done
 
-kill -9 $SERVER_PID 2>/dev/null || true
+kill $SERVER_PID 2>/dev/null || true
+wait $SERVER_PID 2>/dev/null || true
 echo "=============================="
 echo "Suites: $TOTAL, Failed: ${#FAILED[@]}"
 [ ${#FAILED[@]} -eq 0 ] && echo "ALL API SUITES PASSED" || { printf 'Failed: %s\n' "${FAILED[@]}"; exit 1; }

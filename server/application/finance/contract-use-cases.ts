@@ -134,15 +134,15 @@ export async function sendContractUseCase(ctx: GameContext, input: SendContractI
     throw new Error('Not enough resources in warehouse to send contract');
   }
 
-  return runInTransaction(async () => {
+  return runInTransaction(() => {
     const consumed = consumeResourceExactWithTransactions(senderCompanyId, kind, quality, amount);
     if (!consumed) {
       throw new Error('Not enough resources in warehouse to send contract');
     }
-
+  
     const now = virtualClock.nowIso();
     const contractId = contractRepository.insertPending(senderCompanyId, recipientCompanyId, kind, quality, amount, price, now);
-
+  
     const row = contractRepository.findPendingById(contractId);
     if (!row) {
       throw new Error('Contract not found');
@@ -167,16 +167,16 @@ export async function acceptContractUseCase(ctx: GameContext, contractId: number
     throw new Error('Not enough money to accept contract');
   }
 
-  return runInTransaction(async () => {
+  return runInTransaction(() => {
     const accepted = contractRepository.markAccepted(contractId, buyerCompanyId);
     if (accepted !== 1) {
       throw new Error('Contract is no longer available');
     }
-
+  
     const newBuyerMoney = companyRepository.updateMoney(buyerCompanyId, -totalCost);
     companyRepository.updateMoney(c.sender_company_id, totalCost);
     addResource(buyerCompanyId, c.kind, c.quality, c.amount, { market: c.price });
-
+  
     return {
       success: true,
       money: newBuyerMoney,
@@ -191,7 +191,7 @@ export async function acceptContractUseCase(ctx: GameContext, contractId: number
 }
 
 export async function rejectContractUseCase(ctx: GameContext, contractId: number) {
-  return runInTransaction(async () => {
+  return runInTransaction(() => {
     const c = contractRepository.findPendingById(contractId);
     if (!c) {
       throw new Error('Contract not found');
@@ -199,7 +199,7 @@ export async function rejectContractUseCase(ctx: GameContext, contractId: number
     if (c.recipient_company_id !== ctx.companyId && c.sender_company_id !== ctx.companyId) {
       throw new Error('Unauthorized');
     }
-
+  
     const rejected = contractRepository.markRejected(contractId);
     if (rejected !== 1) {
       throw new Error('Contract is no longer available');
@@ -210,12 +210,12 @@ export async function rejectContractUseCase(ctx: GameContext, contractId: number
 }
 
 export async function cancelContractUseCase(ctx: GameContext, contractId: number) {
-  return runInTransaction(async () => {
+  return runInTransaction(() => {
     const c = contractRepository.findPendingById(contractId);
     if (!c || c.sender_company_id !== ctx.companyId) {
       throw new Error('Contract not found');
     }
-
+  
     const cancelled = contractRepository.markCancelled(contractId, ctx.companyId);
     if (cancelled !== 1) {
       throw new Error('Contract is no longer available');

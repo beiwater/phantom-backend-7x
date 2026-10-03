@@ -38,7 +38,7 @@ export async function cancelMarketOrder(ctx: GameContext, input: CancelMarketOrd
     throw new ValidationError(`Invalid market order id: ${input.orderId}`);
   }
 
-  return runInTransaction(async (tx: TransactionContext): Promise<CancelMarketOrderResult> => {
+  return runInTransaction((tx: TransactionContext): CancelMarketOrderResult => {
     const order = marketRepository.findOwnedActiveOrder(orderId, ctx.companyId);
     if (!order) {
       throw new ValidationError('Market order not found or no longer active');
