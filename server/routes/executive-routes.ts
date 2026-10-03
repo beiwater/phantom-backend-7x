@@ -8,6 +8,7 @@ import {
   getFormerExecutivesQuery,
   getExecutiveNoteQuery,
   fireExecutiveCommand,
+  hireExecutiveCommand,
   assignExecutiveCommand,
   updateExecutiveCommand,
   trainExecutiveCommand,
@@ -33,12 +34,6 @@ import {
 import { unlockExecutiveSlot } from '../game/simboosts.ts';
 import { RouteRegistry, globalRouteRegistry, type AuthRequirement, type HttpMethod } from '../http/route-registry.ts';
 
-// Executive commands require an authenticated company; build the context
-// once per request past the route-level ownership checks.
-let _companyId: number | null = null;
-function gameCtx(): GameContext {
-  return createGameContext(_companyId as number, _companyId as number, 0);
-}
 
 export async function handleExecutiveRoutes(
   req: IncomingMessage,
@@ -47,7 +42,7 @@ export async function handleExecutiveRoutes(
   method: string,
   currentCompanyId: number | null
 ): Promise<boolean> {
-  _companyId = currentCompanyId;
+  const gameCtx = (): GameContext => createGameContext(currentCompanyId as number, currentCompanyId as number, 0);
   // Current executives list (v3 & v4)
   const executiveCompanyMatch = pathname.match(/^\/api\/v(3|4)\/(?:companies|executives\/company)\/(\d+|me)\/executives\/?$/) ||
     pathname.match(/^\/api\/v4\/executives\/company\/(\d+|me)\/$/);
@@ -244,7 +239,7 @@ export async function handleExecutiveRoutes(
 
     if (method === 'GET') {
       try {
-        const offer = getHostileOfferById(currentCompanyId, offerId);
+        const offer = getHostileOfferByIdQuery(currentCompanyId, offerId);
         sendJson(res, { ...offer, offer });
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);

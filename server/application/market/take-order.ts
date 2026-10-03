@@ -82,10 +82,9 @@ export async function takeMarketOrder(ctx: GameContext, input: TakeMarketOrderIn
       }
 
       const available = order.quantity;
-      const takeAmount = Math.min(available, quantityToBuy);
+      const takeAmount = Math.min(available, quantityToBuy, Math.max(0, buyer.money - totalCost) / order.price);
       const cost = takeAmount * order.price;
       if (!Number.isFinite(takeAmount) || !Number.isFinite(cost) || takeAmount <= 0) continue;
-      if (buyer.money < totalCost + cost) break;
 
       const remaining = available - takeAmount;
       if (!marketRepository.applyFill(order.id, takeAmount, remaining)) continue;
@@ -94,13 +93,13 @@ export async function takeMarketOrder(ctx: GameContext, input: TakeMarketOrderIn
       // proceeds at fill time; the buyer always pays the full amount × price.
       let fillFee = 0;
       if (order.sellerId !== 999900) {
-        fillFee = computeExchangeFee(takeAmount, order.price);
+        fillFee = Math.min(cost, computeExchangeFee(takeAmount, order.price));
         companyRepository.creditMoney(order.sellerId, cost - fillFee);
         // Issue #68: every money mutation gets a ledger row. The seller's
         // proceeds and the exchange fee are separate localized rows.
         recordCashLedger({
           companyId: order.sellerId,
-          amount: cost - fillFee,
+          amount: cost,
           category: 'm',
           description: `Sold ${takeAmount} units of resource #${resourceKind} on market`,
           descriptionKey: `marketfilled-${resourceKind}`,

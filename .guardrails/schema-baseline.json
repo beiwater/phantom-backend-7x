@@ -196,6 +196,11 @@
   },
   {
     "type": "index",
+    "name": "idx_player_story_state_story_status",
+    "sql": "CREATE INDEX idx_player_story_state_story_status ON player_story_state(story_id, status)"
+  },
+  {
+    "type": "index",
     "name": "idx_players_email",
     "sql": "CREATE INDEX idx_players_email ON players(email)"
   },
@@ -228,6 +233,11 @@
     "type": "index",
     "name": "idx_simboost_use_history_company_datetime",
     "sql": "CREATE INDEX idx_simboost_use_history_company_datetime ON simboost_use_history (company_id, datetime DESC)"
+  },
+  {
+    "type": "index",
+    "name": "idx_story_rewards_claimed_company",
+    "sql": "CREATE INDEX idx_story_rewards_claimed_company ON player_story_rewards_claimed(company_id, story_id)"
   },
   {
     "type": "index",
@@ -362,7 +372,7 @@
   {
     "type": "table",
     "name": "company_achievements",
-    "sql": "CREATE TABLE company_achievements ( company_id INTEGER NOT NULL, achievement_id TEXT NOT NULL, collected_at TEXT NOT NULL, PRIMARY KEY (company_id, achievement_id) )"
+    "sql": "CREATE TABLE company_achievements ( company_id INTEGER NOT NULL, achievement_id TEXT NOT NULL, collected_at TEXT NOT NULL, completed_tiers INTEGER NOT NULL DEFAULT 1, PRIMARY KEY (company_id, achievement_id) )"
   },
   {
     "type": "table",
@@ -527,7 +537,7 @@
   {
     "type": "table",
     "name": "market_orders",
-    "sql": "CREATE TABLE market_orders ( id INTEGER PRIMARY KEY AUTOINCREMENT, seller_id INTEGER, kind INTEGER, quality INTEGER DEFAULT 0, quantity REAL, price REAL, fees REAL DEFAULT 0, posted_at TEXT, active INTEGER DEFAULT 1, is_npc INTEGER DEFAULT 0, cost_workers REAL DEFAULT 0, cost_admin REAL DEFAULT 0, cost_material1 REAL DEFAULT 0, cost_material2 REAL DEFAULT 0, cost_market REAL DEFAULT 0, is_buy INTEGER DEFAULT 0 )"
+    "sql": "CREATE TABLE market_orders ( id INTEGER PRIMARY KEY AUTOINCREMENT, seller_id INTEGER, kind INTEGER, quality INTEGER DEFAULT 0, quantity REAL, price REAL, fees REAL DEFAULT 0, posted_at TEXT, active INTEGER DEFAULT 1, is_npc INTEGER DEFAULT 0, cost_workers REAL DEFAULT 0, cost_admin REAL DEFAULT 0, cost_material1 REAL DEFAULT 0, cost_material2 REAL DEFAULT 0, cost_market REAL DEFAULT 0, is_buy INTEGER DEFAULT 0 , escrow_remaining REAL NOT NULL DEFAULT 0)"
   },
   {
     "type": "table",
@@ -581,8 +591,23 @@
   },
   {
     "type": "table",
+    "name": "password_reset_tokens",
+    "sql": "CREATE TABLE password_reset_tokens ( player_id INTEGER PRIMARY KEY REFERENCES players(player_id) ON DELETE CASCADE, token_hash TEXT NOT NULL, expires_at TEXT NOT NULL )"
+  },
+  {
+    "type": "table",
     "name": "player_devices",
     "sql": "CREATE TABLE player_devices ( id INTEGER PRIMARY KEY AUTOINCREMENT, player_id INTEGER, device_uuid TEXT, device_name TEXT, last_login TEXT )"
+  },
+  {
+    "type": "table",
+    "name": "player_story_rewards_claimed",
+    "sql": "CREATE TABLE player_story_rewards_claimed ( company_id INTEGER NOT NULL, story_id TEXT NOT NULL, reward_key TEXT NOT NULL, claimed_at TEXT NOT NULL, PRIMARY KEY (company_id, story_id, reward_key) )"
+  },
+  {
+    "type": "table",
+    "name": "player_story_state",
+    "sql": "CREATE TABLE player_story_state ( company_id INTEGER PRIMARY KEY, story_id TEXT NOT NULL, current_stage TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'active', choices_history TEXT DEFAULT '[]', ending_id TEXT DEFAULT NULL, updated_at TEXT NOT NULL, created_at TEXT NOT NULL )"
   },
   {
     "type": "table",
@@ -602,7 +627,7 @@
   {
     "type": "table",
     "name": "production_queues",
-    "sql": "CREATE TABLE production_queues ( id INTEGER PRIMARY KEY AUTOINCREMENT, building_id INTEGER, company_id INTEGER, kind INTEGER, quality INTEGER DEFAULT 0, cost REAL, amount REAL, duration_seconds REAL, started_at TEXT, finishes_at TEXT, resolved INTEGER DEFAULT 0 , economy_phase INTEGER DEFAULT 1, economy_phase_started_at TEXT, economy_source TEXT DEFAULT 'migration', production_modifier REAL DEFAULT 0, production_output_multiplier REAL DEFAULT 1, launch_consumes_research INTEGER NOT NULL DEFAULT 1)"
+    "sql": "CREATE TABLE production_queues ( id INTEGER PRIMARY KEY AUTOINCREMENT, building_id INTEGER, company_id INTEGER, kind INTEGER, quality INTEGER DEFAULT 0, cost REAL, amount REAL, duration_seconds REAL, started_at TEXT, finishes_at TEXT, resolved INTEGER DEFAULT 0 , economy_phase INTEGER DEFAULT 1, economy_phase_started_at TEXT, economy_source TEXT DEFAULT 'migration', production_modifier REAL DEFAULT 0, production_output_multiplier REAL DEFAULT 1, launch_consumes_research INTEGER NOT NULL DEFAULT 1, input_ingredients_json TEXT DEFAULT NULL)"
   },
   {
     "type": "table",
@@ -612,7 +637,7 @@
   {
     "type": "table",
     "name": "research",
-    "sql": "CREATE TABLE research ( id INTEGER PRIMARY KEY AUTOINCREMENT, company_id INTEGER, discipline INTEGER, points INTEGER DEFAULT 0, patents INTEGER DEFAULT 0 )"
+    "sql": "CREATE TABLE research ( id INTEGER PRIMARY KEY AUTOINCREMENT, company_id INTEGER, discipline INTEGER, points INTEGER DEFAULT 0, patents INTEGER DEFAULT 0 , patent_progress REAL NOT NULL DEFAULT 0)"
   },
   {
     "type": "table",

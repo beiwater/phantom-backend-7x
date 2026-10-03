@@ -182,7 +182,7 @@ function mapCertificate(row: CertificateDbRow): CertificateAward {
       id: company?.company_id ?? Number(row.company_id),
       company: company?.name || row.company_name || `Company #${row.company_id}`,
       logo: company?.logo || '',
-      realmId: company?.realmId ?? Number(row.realm_id)
+      realmId: company?.realm_id ?? Number(row.realm_id)
     },
     yearStarted: row.year_started === null ? null : Number(row.year_started),
     resourceKind: row.resource_kind === null ? null : Number(row.resource_kind),

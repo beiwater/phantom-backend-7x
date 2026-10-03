@@ -3,6 +3,7 @@ import type { CancelProductionResult } from '../../application/production/cancel
 import type { CollectProductionResult } from '../../application/production/collect-production.ts';
 import type { ProductionQueueEntity } from '../../repositories/production-repository.ts';
 import type { LevelInfoDTO } from '../../domain/leveling/level-rules.ts';
+import type { SimCompaniesBuildingDTO } from './building-dto.ts';
 import { getResourceDef, getResourceName } from '../../game-data/resources.ts';
 import { db as database } from '../../db/database.ts';
 import { toSimCompaniesBuildingDTO } from './building-dto.ts';

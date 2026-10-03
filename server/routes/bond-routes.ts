@@ -11,11 +11,6 @@ import {
 } from '../application/finance/finance-use-cases.ts';
 import { createGameContext, type GameContext } from '../context/game-context.ts';
 
-// Bond commands require an authenticated company; bound at handler entry.
-let _bondCompanyId: number | null = null;
-function bondCtx(): GameContext {
-  return createGameContext(_bondCompanyId as number, _bondCompanyId as number, 0);
-}
 
 export async function handleBondRoutes(
   req: IncomingMessage,
@@ -24,7 +19,7 @@ export async function handleBondRoutes(
   method: string,
   currentCompanyId: number | null
 ): Promise<boolean> {
-  _bondCompanyId = currentCompanyId;
+  const bondCtx = (): GameContext => createGameContext(currentCompanyId as number, currentCompanyId as number, 0);
   // Bonds owned
   const ownedMatch = pathname.match(/^\/api\/v2\/companies\/(\d+|me)\/bonds\/owned\/$/);
   if (ownedMatch) {
@@ -60,7 +55,7 @@ export async function handleBondRoutes(
       if (requireCapability(res, currentCompanyId, 'bonds', 'issue bonds')) return true;
       const body = await readJsonBody<{ amount?: number; interest?: number }>(req);
       try {
-        const result = await issueBondsCommand(bondCtx(), Number(body.amount), Number(body.interest ?? 0.005));
+        const result = await issueBondsCommand(bondCtx(), Number(body.amount), Number(body.interest ?? 0.5) / 100);
         sendJson(res, result);
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -236,7 +231,7 @@ export function registerBondRoutes(registry: RouteRegistry = globalRouteRegistry
         if (!companyRequired(ctx, res)) return;
         if (requireCapability(res, ctx!.companyId, 'bonds', 'issue bonds')) return;
         try {
-          const result = await issueBondsCommand(ctx!, Number(bodyField(body, 'amount')), Number(bodyField(body, 'interest') ?? 0.005));
+          const result = await issueBondsCommand(ctx!, Number(bodyField(body, 'amount')), Number(bodyField(body, 'interest') ?? 0.5) / 100);
           sendJson(res, result);
         } catch (err: unknown) {
           sendJson(res, commandError(err), 400);

@@ -53,10 +53,10 @@ function findAccumulatorQueue(buildingId: number, companyId: number): {
  * separate state row: collecting emits one tree per nursery slot only after a
  * stage threshold is reached, then carries residual growth and cost forward.
  */
-export async function collectAccumulatorUseCase(
+export function collectAccumulatorUseCase(
   ctx: GameContext,
   buildingId: number
-): Promise<CollectAccumulatorResult> {
+): CollectAccumulatorResult {
   return runInTransaction(txCtx => {
     const building = buildingRepository.findById(buildingId);
     if (!building) {

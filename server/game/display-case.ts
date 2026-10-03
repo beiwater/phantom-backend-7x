@@ -1,4 +1,5 @@
 import { db } from '../db/database.ts';
+import { runInTransaction } from '../db/transaction.ts';
 import { DomainError } from '../errors/domain-error.ts';
 import { getResourceDef } from './constants.ts';
 import { getNftAsset } from './collectibles.ts';
@@ -151,18 +152,13 @@ export function updateDisplayCase(companyId: number, placement: DisplayCasePlace
     if (!Number.isSafeInteger(quality) || quality < 0 || quality > 12) {
       throw new DomainError('Resource quality must be between 0 and 12', 400, 'INVALID_ITEM');
     }
-    db.exec('BEGIN');
-    try {
+    runInTransaction(() => {
       db.prepare('DELETE FROM display_case WHERE company_id = ? AND slot = ?').run(companyId, slot);
       db.prepare(`
         INSERT INTO display_case (company_id, slot, resource_kind, quality, title, item_kind, item_ref)
         VALUES (?, ?, ?, ?, ?, 'resource', NULL)
       `).run(companyId, slot, resourceKind, quality, placement.title ?? '');
-      db.exec('COMMIT');
-    } catch (err) {
-      db.exec('ROLLBACK');
-      throw err;
-    }
+    });
     return getDisplayCase(companyId);
   }
 
@@ -185,18 +181,13 @@ export function updateDisplayCase(companyId: number, placement: DisplayCasePlace
     title = placement.title ?? `Collectible #${itemRef}`;
   }
 
-  db.exec('BEGIN');
-  try {
+  runInTransaction(() => {
     db.prepare('DELETE FROM display_case WHERE company_id = ? AND slot = ?').run(companyId, slot);
     db.prepare(`
       INSERT INTO display_case (company_id, slot, resource_kind, quality, title, item_kind, item_ref)
       VALUES (?, ?, 0, 0, ?, ?, ?)
     `).run(companyId, slot, title, placement.itemKind, itemRef);
-    db.exec('COMMIT');
-  } catch (err) {
-    db.exec('ROLLBACK');
-    throw err;
-  }
+  });
 
   return getDisplayCase(companyId);
 }

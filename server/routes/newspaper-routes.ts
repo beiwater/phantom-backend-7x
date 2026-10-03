@@ -202,7 +202,7 @@ export async function handleNewspaperRoutes(
     if (v3IssueListMatch && method === 'GET') {
       const belowIdRaw = new URL(req.url || '/', 'http://localhost').searchParams.get('below_id');
       const belowId = belowIdRaw !== null && !isNaN(Number(belowIdRaw)) ? Number(belowIdRaw) : undefined;
-      sendJson(res, getNewspaperIssues(Number(v3IssueListMatch[1]), belowId, 20));
+      sendJson(res, getNewspaperIssues(Number(v3IssueListMatch[1]), belowId, 20, true));
       return true;
     }
     const v3IssueMatch = pathname.match(/^\/api\/v3\/[^/]+\/(\d+)\/newspaper\/(\d+)\/$/);
@@ -455,7 +455,7 @@ export function registerNewspaperRoutes(registry: RouteRegistry = globalRouteReg
       handler: async (req, res, _ctx, params) => {
         const belowIdRaw = new URL(req.url || '/', 'http://localhost').searchParams.get('below_id');
         const belowId = belowIdRaw !== null && !isNaN(Number(belowIdRaw)) ? Number(belowIdRaw) : undefined;
-        sendJson(res, getNewspaperIssues(Number(params.realmId), belowId, 20));
+        sendJson(res, getNewspaperIssues(Number(params.realmId), belowId, 20, true));
       }
     })
     .register({

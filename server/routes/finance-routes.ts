@@ -3,6 +3,7 @@ import { sendJson, readJsonBody } from './utils.ts';
 import { RouteRegistry, globalRouteRegistry } from '../http/route-registry.ts';
 import { fpaReportsRepository } from '../repositories/fpa-reports-repository.ts';
 import { financeRepository } from '../repositories/finance-repository.ts';
+import { bondRepository } from '../repositories/bond-repository.ts';
 
 const REPORT_CATEGORIES = ['Production', 'Retail', 'Financial', 'Warehouse', 'Market'];
 import { getCompanyById } from '../game/company.ts';
@@ -60,7 +61,8 @@ function buildBalanceSheet(companyId: number): BalanceSheetResponse {
   const buildings = round2(financeRepository.buildingsValue(companyId));
   const bondsHeld = round2(financeRepository.bondsHeldValue(companyId));
   const patents = round2(financeRepository.patentsValue(companyId));
-  const liabilities = round2(financeRepository.loansOutstanding(companyId));
+  const bondsPayable = round2(bondRepository.outstandingSoldLiability(companyId));
+  const liabilities = round2(financeRepository.loansOutstanding(companyId) + bondsPayable);
   const adjustments = financeRepository.balanceAdjustments(companyId, nowIso);
   // Tentative compatibility baseline: companies have no contributed-capital
   // column; their persisted starter-money default is 100,000.
@@ -96,7 +98,7 @@ function buildBalanceSheet(companyId: number): BalanceSheetResponse {
     buildings,
     constructionInProgress: 0,
     patents,
-    bondsPayable: liabilities,
+    bondsPayable,
     liabilities,
     contributedCapital,
     retainedEarnings,

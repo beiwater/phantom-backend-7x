@@ -4,7 +4,7 @@ import { socialRepository } from '../../repositories/social-repository.ts';
 import { PA_COMPANY_ID } from '../../repositories/company-repository.ts';
 import { getCompanyById, updateCompanyMoney, updateCompanySimBoosts } from '../company.ts';
 import { addResource } from '../warehouse.ts';
-import { broadcastAll, broadcastToCompany } from '../../ws/websocket.ts';
+import { broadcastToCompany, broadcastToCompanies } from '../../ws/websocket.ts';
 import { storyLoader } from './story-loader.ts';
 import type { PlayerStoryStateRow, StoryChoice, StoryStage, StoryJson } from './types.ts';
 
@@ -171,7 +171,7 @@ export class StoryEngine {
       isHtml: false
     };
     broadcastToCompany(companyId, playerMsgFormatted);
-    broadcastAll('NEW_MESSAGE', playerMsgFormatted);
+    broadcastToCompanies([companyId], 'NEW_MESSAGE', playerMsgFormatted);
 
     const nextStageName = chosen.nextStage;
     const nextStageConfig = story.stages[nextStageName];
@@ -262,7 +262,7 @@ export class StoryEngine {
           deleted: false,
           isHtml: true
         };
-        broadcastAll('NEW_MESSAGE', formatted);
+        broadcastToCompanies([companyId], 'NEW_MESSAGE', formatted);
       }
     }
 
@@ -311,7 +311,7 @@ export class StoryEngine {
         isHtml: true
       };
       broadcastToCompany(companyId, dmFormatted);
-      broadcastAll('NEW_MESSAGE', dmFormatted);
+      broadcastToCompanies([companyId], 'NEW_MESSAGE', dmFormatted);
     }
 
     // 3. Handle Ending if present
@@ -353,7 +353,7 @@ export class StoryEngine {
         deleted: false,
         isHtml: false
       };
-      broadcastAll('NEW_MESSAGE', endingGroupFormatted);
+      broadcastToCompanies([companyId], 'NEW_MESSAGE', endingGroupFormatted);
 
       // DM ending confirmation
       const dmEndingHtml = `<div><b>🏆 剧本达成：${ending.title}</b><br/><br/>${ending.evaluation || ''}<br/><br/><i>输入 /story 可查看剧本状态或重新开始体验其他分支结局。</i></div>`;
@@ -390,7 +390,7 @@ export class StoryEngine {
         isHtml: true
       };
       broadcastToCompany(companyId, dmEndingFormatted);
-      broadcastAll('NEW_MESSAGE', dmEndingFormatted);
+      broadcastToCompanies([companyId], 'NEW_MESSAGE', dmEndingFormatted);
     }
   }
 

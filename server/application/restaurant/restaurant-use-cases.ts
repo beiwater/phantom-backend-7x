@@ -137,7 +137,7 @@ export async function updateRestaurantPropertiesUseCase(
 export {
   getRestaurantBusy,
   getLegacyRestaurantProperties,
-  resolveDueRestaurantRunsSync,
+  resolveDueRestaurantRuns,
   getRestaurantProperties,
   getRestaurantMenuGuide,
   getRestaurantRatings,
@@ -145,3 +145,4 @@ export {
   RESTAURANT_DISHES,
   validateRestaurantMenuPrice
 } from '../../game/restaurant.ts';
+export type { LegacyRestaurantProperties } from '../../game/restaurant.ts';

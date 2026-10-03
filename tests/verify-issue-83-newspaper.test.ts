@@ -457,6 +457,8 @@ async function runNewspaperVerification(): Promise<void> {
     assert.equal((topNumeric.body as { topArticles: Array<{ id: number }> }).topArticles[0].id, testArticleId, 'numeric variant returns the real ranking');
 
     // Issue payload shows the booked sponsor slots and the test article.
+    // Draft metadata is public, but articles become visible only after publication.
+    db.prepare('UPDATE newspaper_issues SET published = ? WHERE id = ?').run(new Date().toISOString(), bookableIssueId);
     const issue = await api('GET', `/api/v3/en/0/newspaper/${listBody.issueId}/`);
     assert.equal(issue.status, 200, 'issue fetch must return 200');
     const issueBody = issue.body as { articles: Array<{ id: number }>; sponsor0?: { companyName: string; logo: string } };

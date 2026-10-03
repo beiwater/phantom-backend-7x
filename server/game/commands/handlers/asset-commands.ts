@@ -1,3 +1,4 @@
+import { getResourceName } from '../../../game-data/resources.ts';
 import { addResource } from '../../warehouse.ts';
 import { updateCompanyMoney, updateCompanySimBoosts, getCompanyById } from '../../company.ts';
 import { getResourceDef } from '../../constants.ts';
@@ -48,14 +49,13 @@ function resolveResourceKind(input: string): { kind: number; name: string } | un
     const kind = Number(clean);
     const def = getResourceDef(kind);
     if (def) {
-      return { kind, name: def.name };
+      return { kind, name: getResourceName(kind) };
     }
   }
 
   const kind = RESOURCE_ALIASES[clean] || RESOURCE_ALIASES[clean.replace(/[\s_-]+/g, '')];
   if (kind) {
-    const def = getResourceDef(kind);
-    return { kind, name: def?.name || clean };
+    return { kind, name: getResourceName(kind) };
   }
 
   return undefined;

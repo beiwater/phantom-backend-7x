@@ -62,8 +62,8 @@ async function runVerification(): Promise<void> {
       7,
       'the active order output should be persisted exactly once'
     );
-    await assert.rejects(
-      collectProductionUseCase(createGameContext(companyId, 90001), { buildingOrQueueId: buildingId }),
+    assert.throws(
+      () => collectProductionUseCase(createGameContext(companyId, 90001), { buildingOrQueueId: buildingId }),
       /already been collected/,
       'queue-first internal callers must continue to reject an already-resolved queue ID'
     );

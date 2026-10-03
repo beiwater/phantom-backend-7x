@@ -36,6 +36,7 @@ export interface ResearchRow {
   discipline: number;
   points: number;
   patents: number;
+  patent_progress: number;
 }
 
 /**
@@ -178,18 +179,22 @@ export async function applyResearch(companyId: number, discipline: number, point
     const currentPoints = Number(existing?.points || 0);
     const newPoints = currentPoints + pointsToApply;
     const ctoScience = getCompanyCtoScienceSkill(companyId);
-    const newPatents = calculatePatentsFromPoints(newPoints, ctoScience);
+    const progress = Number(existing?.patent_progress || 0)
+      + pointsToApply * (1 + ctoScience / 100) / 50;
+    const earnedPatents = Math.floor(progress + 1e-12);
+    const newPatents = Number(existing?.patents || 0) + earnedPatents;
+    const remainingProgress = Math.max(0, progress - earnedPatents);
     if (existing) {
       db.prepare(`
         UPDATE research
-        SET points = ?, patents = ?
+        SET points = ?, patents = ?, patent_progress = ?
         WHERE id = ?
-      `).run(newPoints, newPatents, existing.id);
+      `).run(newPoints, newPatents, remainingProgress, existing.id);
     } else {
       db.prepare(`
-        INSERT INTO research (company_id, discipline, points, patents)
-        VALUES (?, ?, ?, ?)
-      `).run(companyId, discipline, newPoints, newPatents);
+        INSERT INTO research (company_id, discipline, points, patents, patent_progress)
+        VALUES (?, ?, ?, ?, ?)
+      `).run(companyId, discipline, newPoints, newPatents, remainingProgress);
     }
   
     return getCompanyResearch(companyId);

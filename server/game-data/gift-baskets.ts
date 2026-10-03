@@ -20,6 +20,7 @@ export interface BasketRow {
   id: number; sender_company_id: number; recipient_company_id: number; kind: string;
   simboosts: number; quality: number | null; collectible_id: number | null;
   message: string | null; year: number; sent: number; simboosts_claimed: number; created_at: string;
+  sent_at: string | null;
 }
 
 function toDto(row: BasketRow, viewerCompanyId: number) {

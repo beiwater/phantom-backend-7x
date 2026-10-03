@@ -76,6 +76,8 @@ export class GovernmentOrdersRepository {
     const openBids = this.database.prepare(`
       SELECT id, secret, price_breakdown_json FROM government_bids
       WHERE template_id = ? AND status = 'OPEN'
+        AND (SELECT COUNT(*) FROM government_bid_contractors c
+             WHERE c.bid_secret = government_bids.secret AND c.deposit_paid > 0) = max_contractors
     `).all(templateId) as Array<{ id: number; secret: string; price_breakdown_json: string | null }>;
     return openBids.map(b => ({
       id: Number(b.id),

@@ -30,10 +30,10 @@ export interface CollectProductionResult {
   experienceGained: number;
 }
 
-export async function collectProductionUseCase(
+export function collectProductionUseCase(
   ctx: GameContext,
   input: CollectProductionInput
-): Promise<CollectProductionResult> {
+): CollectProductionResult {
   return runInTransaction(txCtx => {
     let targetItem: ProductionQueueEntity | null = null;
     if (input.preferBuildingId) {
@@ -84,6 +84,10 @@ export async function collectProductionUseCase(
       throw new NotFoundError(`No completed production order found for ID ${input.buildingOrQueueId}`);
     }
   
+    const targetBuilding = buildingRepository.findById(targetItem.buildingId);
+    if (targetBuilding?.kind === 'v' && targetItem.kind === 150) {
+      throw new ValidationError('Accumulator production must use the dedicated collect endpoint');
+    }
     if (targetItem.resolved) {
       throw new ConflictError('Production order has already been collected');
     }
@@ -114,7 +118,8 @@ export async function collectProductionUseCase(
         ctx.companyId,
         targetItem.buildingId,
         rocketKind,
-        Number(targetItem.quality) || 0
+        Number(targetItem.quality) || 0,
+        ctx.realmId
       );
     }
   
@@ -123,7 +128,8 @@ export async function collectProductionUseCase(
       ctx.companyId,
       targetItem.kind,
       targetItem.quality,
-      targetItem.amount
+      targetItem.amount,
+      { market: Number(targetItem.cost) || 0 }
     );
   
     // 4. Update building busy state

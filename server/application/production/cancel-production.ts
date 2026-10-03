@@ -59,7 +59,7 @@ export async function cancelProductionUseCase(
           const rocketKind = rocketKindForLaunchAmount(Number(queueItem.amount));
           return rocketKind === null ? [] : [
             { kind: rocketKind, quality: Number(queueItem.quality) || 0, amount: 1 },
-            { kind: 100, quality: 0, amount: queueItem.amount }
+            ...(queueItem.launchConsumesResearch ? [{ kind: 100, quality: 0, amount: queueItem.amount }] : [])
           ];
         })()
       : null;

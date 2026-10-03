@@ -1,6 +1,7 @@
 import type { DatabaseSync } from 'node:sqlite';
 import { db } from '../db/connection.ts';
 import { NotFoundError } from '../errors/domain-error.ts';
+import { normalizePosition } from '../domain/buildings/building-rules.ts';
 
 export interface BuildingEntity {
   id: number;
@@ -12,6 +13,7 @@ export interface BuildingEntity {
   cost: number;
   category: string;
   busyUntil: string | null;
+  createdAt: string;
   upkeepActive: boolean;
   /** Issue #96: count of industrial robots installed on this building (0 = not robotized). */
   robotsInstalled: number;
@@ -81,14 +83,9 @@ export class BuildingRepository {
   }
 
   findByCompanyAndPosition(companyId: number, position: string): BuildingEntity | null {
-    // P0-07: "B<n>" star-unlocked lots are stored verbatim; they must NOT be
-    // matched against base position "<n>" (previously B0 collided with slot 0).
-    const rawPos = String(position ?? '').trim();
-    const row = this.database.prepare(
-      'SELECT * FROM buildings WHERE company_id = ? AND position = ? LIMIT 1'
-    ).get(companyId, rawPos) as BuildingDbRow | undefined;
-
-    return row ? mapBuildingRow(row) : null;
+    const canonical = normalizePosition(position);
+    return this.findByCompany(companyId)
+      .find(building => normalizePosition(building.position) === canonical) ?? null;
   }
 
   countByCompany(companyId: number): number {

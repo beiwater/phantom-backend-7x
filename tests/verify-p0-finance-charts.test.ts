@@ -228,7 +228,7 @@ async function runFinanceChartsTest(): Promise<void> {
   // Balance math must tie to DB money.
   assert.ok(typeof bal.cash === 'number' && bal.cash > 0, 'balance sheet cash must be positive');
   const equity = (bal.cash as number) + (bal.materials as number) + (bal.buildings as number)
-    + (bal.investmentInBonds as number) - (bal.bondsPayable as number);
+    + (bal.investmentInBonds as number) - (bal.liabilities as number);
   const expectedRetained = Math.round((equity - (bal.contributedCapital as number)) * 100) / 100;
   assert.ok(
     Math.abs((bal.retainedEarnings as number) - Math.max(0, expectedRetained)) < 1,

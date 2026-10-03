@@ -140,8 +140,8 @@ export function getConstructionMaterials(sizeUnits: number): Array<{ kind: numbe
 export interface ProductionCalculationOptions {
   /** Economic salary state: 0 = recession, 1 = normal, 2 = boom. */
   economyState?: number;
-  /** Product quality; the official calculator applies this only to mining. */
-  quality?: number;
+  /** Deposit abundance/rate percentage, independent of output research quality. */
+  abundance?: number;
   /** Active event speed modifier, expressed as a percentage. */
   eventSpeedModifier?: number;
   /** Recreation and accumulator bonuses, expressed as percentage points. */
@@ -194,7 +194,7 @@ export function calculateProductionRate(
   let rate = res.producedPerHourRaw * Math.pow(AVERAGE_SALARY / salaryMid, salaryModifier);
 
   if (MINING_RESOURCE_KINDS[resourceKind]) {
-    rate *= Math.max(0, Number(options.quality ?? 100)) / 100;
+    rate *= Math.max(0, Number(options.abundance ?? 100)) / 100;
   }
   rate *= 1 + (Number(options.eventSpeedModifier ?? 0) / 100);
 
@@ -219,7 +219,9 @@ export function calculateProductionTime(
     productionModifier,
     options
   );
-  if (!(ratePerHour > 0)) return 60;
+  if (!Number.isFinite(ratePerHour) || ratePerHour <= 0) {
+    throw new Error('Production requires a finite positive production rate');
+  }
 
   const hoursNeeded = amount / ratePerHour;
   const baseSeconds = Math.max(5, Math.ceil(hoursNeeded * 3600));

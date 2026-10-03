@@ -1,7 +1,7 @@
 import { db } from '../db/database.ts';
 import { virtualClock } from '../core/virtual-clock.ts';
 import { runInTransaction } from '../db/transaction.ts';
-import { getBuildingById, type BuildingDbRow } from './buildings.ts';
+import { getBuildingById, type BuildingRow } from './buildings.ts';
 import { buildingRepository } from '../repositories/building-repository.ts';
 import { restaurantRepository } from '../repositories/restaurant-repository.ts';
 import { warehouseRepository } from '../repositories/warehouse-repository.ts';
@@ -707,7 +707,7 @@ function canStartRestaurantCycle(buildingId: number, companyId: number): boolean
 }
 
 interface StartCycleResult {
-  building: BuildingDbRow | null;
+  building: BuildingRow | null;
   run: RestaurantRun;
   resourceTransactions: Array<{ kind: number; quality: number; amount: number }>;
   moneyUpdate: number;
@@ -750,7 +750,7 @@ function startRestaurantCycleInTransaction(buildingId: number, companyId: number
     administrationOverhead: getAdministrationOverhead(companyId)
   });
   const cost = round2(foodCost + wages);
-  updateCompanyMoney(companyId, -cost);
+  updateCompanyMoney(companyId, -wages);
 
   const cycleStart = startAt.toISOString();
   const cycleDurationMs = getRestaurantCycleSeconds() * 1000;
@@ -775,7 +775,7 @@ function startRestaurantCycleInTransaction(buildingId: number, companyId: number
   ]);
   restaurantRepository.touchLastCycle(buildingId, cycleStart);
   const run = mapRunRow(restaurantRepository.findRunRow(runId) as RestaurantRunDbRow);
-  return { building: getBuildingById(buildingId), run, resourceTransactions, moneyUpdate: -cost };
+  return { building: getBuildingById(buildingId), run, resourceTransactions, moneyUpdate: -wages };
 }
 
 function settleRestaurantRunInTransaction(runId: number, now: Date): { run: RestaurantRun; nextCycle: RestaurantRun | null; moneyUpdate: number } {
@@ -835,7 +835,7 @@ function settleRestaurantRunInTransaction(runId: number, now: Date): { run: Rest
   let nextCycle: RestaurantRun | null = null;
   if (properties.keepOpen && canStartRestaurantCycle(row.building_id, row.company_id)) {
     try {
-      nextCycle = startRestaurantCycleInTransaction(row.building_id, row.company_id, new Date(end));
+      nextCycle = runInTransaction(() => startRestaurantCycleInTransaction(row.building_id, row.company_id, new Date(end))).run;
     } catch {
       // A cycle can settle successfully even if the warehouse cannot fund the
       // following cycle. The restaurant remains open for a later retry.
@@ -848,7 +848,7 @@ export async function resolveRestaurantRun(runId: number, now: Date = virtualClo
   return runInTransaction(() => settleRestaurantRunInTransaction(runId, now), { immediate: true });
 }
 
-export function resolveDueRestaurantRunsSync(buildingId?: number, companyId?: number | null, now: Date = virtualClock.now()): void {
+export function resolveDueRestaurantRuns(buildingId?: number, companyId?: number | null, now: Date = virtualClock.now()): void {
   runInTransaction(() => {
     for (const runId of restaurantRepository.listDueRunIds(now.toISOString(), buildingId, companyId)) {
       settleRestaurantRunInTransaction(runId, now);
@@ -856,9 +856,6 @@ export function resolveDueRestaurantRunsSync(buildingId?: number, companyId?: nu
   }, { immediate: true });
 }
 
-export async function resolveDueRestaurantRuns(buildingId?: number, companyId?: number | null, now: Date = virtualClock.now()): Promise<void> {
-  resolveDueRestaurantRunsSync(buildingId, companyId, now);
-}
 export async function getRestaurantRuns(buildingId: number, companyId?: number | null): Promise<RestaurantRun[]> {
   await resolveDueRestaurantRuns(buildingId, companyId);
   const rows = restaurantRepository.listRecentRunRows(buildingId, companyId) as RestaurantRunDbRow[];
@@ -882,7 +879,7 @@ export async function updateRestaurantProperties(
     menuPrice: number;
   }>
 ): Promise<{
-  building: BuildingDbRow | null;
+  building: BuildingRow | null;
   restaurantProperties: RestaurantProperties;
   moneyUpdate: number;
   cycle: RestaurantRun | null;
@@ -973,7 +970,7 @@ export function getRestaurantMenuGuide(): Array<{ kind: number; name: string; ca
     const category = categoryForDish(kind) === 'saladBar' ? 'Salad bar' : categoryForDish(kind) === 'mains' ? 'Mains' : 'Drinks';
     return {
       kind,
-      name: RESTAURANT_DISH_NAMES[kind] || def?.name || `Dish #${kind}`,
+      name: RESTAURANT_DISH_NAMES[kind] || `Dish #${kind}`,
       category,
       suggestedPrice: RESTAURANT_MENU_PRICE_MIN,
       image: def?.image || 'images/resources/hamburger.png'

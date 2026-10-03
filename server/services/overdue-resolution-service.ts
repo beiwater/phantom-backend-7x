@@ -1,6 +1,6 @@
 import { db } from '../db/database.ts';
 import { settleDueAuctions } from '../game/building-auctions.ts';
-import { resolveDueRestaurantRunsSync } from '../game/restaurant.ts';
+import { resolveDueRestaurantRuns } from '../game/restaurant.ts';
 import { NpcMarketService } from './npc-market-service.ts';
 import { virtualClock, type VirtualClock, type OverdueResolutionResult } from '../core/virtual-clock.ts';
 
@@ -60,7 +60,7 @@ export async function resolveAllOverdue(clock: VirtualClock = virtualClock): Pro
     ).all(nowString) as Array<{ building_id: number; company_id: number }>;
 
     for (const r of dueRestaurants) {
-      resolveDueRestaurantRunsSync(r.building_id, r.company_id);
+      resolveDueRestaurantRuns(r.building_id, r.company_id);
       resolvedRestaurants++;
     }
   } catch {

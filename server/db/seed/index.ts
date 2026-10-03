@@ -8,6 +8,7 @@ import { CONSTANTS_RESOURCES } from '../../game/constants.ts';
 import { hashPassword, verifyPassword } from '../migrations/index.ts';
 import { executiveRepository } from '../../repositories/executive-repository.ts';
 import { getPriceTickSize } from '../../domain/market/market-rules.ts';
+import { runInTransaction } from '../transaction.ts';
 
 export function seedDefaultDisplayCase(companyId: number, database: DatabaseSync = db): void {
   const existing = database.prepare('SELECT 1 FROM display_case WHERE company_id = ? LIMIT 1').get(companyId);
@@ -51,14 +52,13 @@ export function seedMarketOrders(database: DatabaseSync = db): void {
   const volatility = Number(CONFIG.MARKET_PRICE_VOLATILITY) || 0.05;
   const maxQuality = CONFIG.NPC_MARKET_Q0_ONLY ? 0 : 12;
 
-  database.exec('BEGIN');
-  try {
+  runInTransaction(() => {
     for (const [kindStr, def] of Object.entries(CONSTANTS_RESOURCES)) {
       const kind = Number(kindStr);
       if (def.isExchangeTradable === false) continue;
 
       const model = economyModels[String(kind)]?.state_1 || economyModels[String(kind)]?.state_0;
-      const baseCost = Number(model?.modeledProductionCostPerUnit) || Number(def.cost) || 2.0;
+      const baseCost = Number(model?.modeledProductionCostPerUnit) || 2.0;
       const levelsNeeded = Number(model?.buildingLevelsNeededPerUnitPerHour) || 0;
       const unitProfitTarget = levelsNeeded > 0 ? targetProfit * levelsNeeded : baseCost * 0.15;
       const targetQ0BasePrice = baseCost + unitProfitTarget;
@@ -80,11 +80,7 @@ export function seedMarketOrders(database: DatabaseSync = db): void {
         insertStmt.run(kind, q, price, now);
       }
     }
-    database.exec('COMMIT');
-  } catch (err) {
-    database.exec('ROLLBACK');
-    throw err;
-  }
+  }, { database });
 }
 
 export function registerPlayer(
@@ -133,8 +129,8 @@ export function registerPlayer(
   for (let attempt = 1; ; attempt++) {
     const playerId = Math.floor(2000000 + Math.random() * 8000000);
     const companyId = Math.floor(4000000 + Math.random() * 6000000);
-    database.exec('BEGIN');
     try {
+      return runInTransaction(() => {
       insertPlayer.run(playerId, email, hashPassword(password), now);
       insertCompany.run(companyId, playerId, cName, init.money, init.simboosts, init.level, init.experience, init.extraBuildingSlots, now);
       seedDefaultDisplayCase(companyId, database);
@@ -149,10 +145,9 @@ export function registerPlayer(
         INSERT INTO direct_messages (sender_company_id, recipient_company_id, message, created_at)
         VALUES (0, ?, ?, ?)
       `).run(companyId, welcomeHtml, now);
-      database.exec('COMMIT');
       return { playerId, companyId, created: true };
+      }, { database });
     } catch (err) {
-      database.exec('ROLLBACK');
       const msg = err instanceof Error ? err.message : String(err);
       const idCollision = msg.includes('UNIQUE constraint failed') && !msg.includes('players.email');
       if (!idCollision || attempt >= 5) throw err;
@@ -187,7 +182,7 @@ export function authenticatePlayer(
   const company = database.prepare('SELECT * FROM companies WHERE player_id = ? ORDER BY id ASC LIMIT 1').get(player.player_id) as { company_id?: number } | undefined;
   if (!company?.company_id) throw new Error('Company not found');
   const banned = database
-    .prepare("SELECT value FROM company_settings WHERE company_id = ? AND key = 'banned'")
+    .prepare("SELECT 1 FROM company_settings WHERE company_id = ? AND key IN ('banned', 'is_banned') AND value = '1'")
     .get(company.company_id);
   if (banned) throw new Error('This company has been suspended');
   return {

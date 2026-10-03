@@ -8,7 +8,6 @@ import {
   getAuthData,
   getPlayerCompanies,
   getCompanyById,
-  createCompanyForPlayer,
   resetCompany,
   updateCompanySettings,
   getCompanyHqImage
@@ -17,6 +16,7 @@ import { getCompanyBuildings } from '../../game/buildings.ts';
 import { getTierForLevel } from '../../domain/leveling/level-rules.ts';
 import {
   createRealmZeroCompanyUseCase,
+  createOwnedRealmCompanyUseCase,
   migrateOwnedCompanyToRealmZeroUseCase
 } from '../../application/account/company-account-use-cases.ts';
 import {
@@ -117,15 +117,18 @@ export async function handleCompanyLifecycleSubroutes(
         realmId: targetRealm
       });
     } else {
-      const defaultName = targetRealm === 1 ? `Sub-Co-R${targetRealm}` : `Co-Realm${targetRealm}`;
-      const newComp = createCompanyForPlayer(currentPlayerId, defaultName, targetRealm);
-      if (newComp && sessionToken) switchSessionCompany(sessionToken, newComp.company_id);
-      sendJson(res, {
-        status: 'redirect',
-        redirectUrl: '/zh-cn/create/',
-        companyId: newComp?.company_id,
-        realmId: targetRealm
-      });
+      try {
+        const newComp = createOwnedRealmCompanyUseCase(currentPlayerId, targetRealm);
+        if (sessionToken) switchSessionCompany(sessionToken, newComp.companyId);
+        sendJson(res, {
+          status: 'redirect',
+          redirectUrl: '/zh-cn/create/',
+          companyId: newComp.companyId,
+          realmId: targetRealm
+        });
+      } catch (err) {
+        sendDomainError(res, err);
+      }
     }
     return true;
   }

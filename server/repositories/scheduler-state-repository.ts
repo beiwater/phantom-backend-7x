@@ -6,6 +6,7 @@
  */
 import type { DatabaseSync } from 'node:sqlite';
 import { db } from '../db/connection.ts';
+import { runInTransaction } from '../db/transaction.ts';
 
 export interface EconomyPhaseRow {
   state: number;
@@ -136,6 +137,7 @@ export class SchedulerStateRepository {
     if (![0, 1, 2].includes(state)) {
       throw new Error(`Invalid economy phase: ${state}`);
     }
+    runInTransaction(() => {
     const current = this.database.prepare(`
       SELECT id, phase, start_at
       FROM economy_phase_history
@@ -153,8 +155,6 @@ export class SchedulerStateRepository {
       effectiveStartAt = new Date(new Date(current.start_at).getTime() + 1).toISOString();
     }
 
-    this.database.exec('BEGIN IMMEDIATE');
-    try {
       if (current && startsNewInterval) {
         this.database.prepare(
           'UPDATE economy_phase_history SET end_at = ? WHERE id = ? AND end_at IS NULL'
@@ -190,15 +190,7 @@ export class SchedulerStateRepository {
           phase_ends_at = NULL,
           source = excluded.source
       `).run(realmId, state, updatedAtIso, updatedAtIso, source, startsNewInterval ? 1 : 0);
-      this.database.exec('COMMIT');
-    } catch (err) {
-      try {
-        this.database.exec('ROLLBACK');
-      } catch {
-        // Preserve the original transition error.
-      }
-      throw err;
-    }
+    }, { immediate: true, database: this.database });
   }
 
   getRetailSaturation(dateKey: string, kind: number): number | undefined {

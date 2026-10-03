@@ -168,8 +168,9 @@ const resBadKey = await executeCommand('/op wrong-password', {
 });
 assert.strictEqual(resBadKey.success, false);
 
-// Authenticate via correct secret key
-const resAuth = await executeCommand('/op phantom-admin', {
+// Authenticate only with an explicitly configured secret, never a public fallback.
+process.env.ADMIN_OP_KEY = 'console-test-private-secret';
+const resAuth = await executeCommand('/op console-test-private-secret', {
   executorCompanyId: testCompanyId,
   isOp: false,
   source: 'pa'

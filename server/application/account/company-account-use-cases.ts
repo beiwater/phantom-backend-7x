@@ -1,4 +1,5 @@
 import { runInTransaction } from '../../db/transaction.ts';
+import { authRepository } from '../../repositories/auth-repository.ts';
 import { companyRepository } from '../../repositories/company-repository.ts';
 import type { CompanyEntity } from '../../repositories/company-repository.ts';
 import {
@@ -49,6 +50,23 @@ export function createRealmZeroCompanyUseCase(playerId: number, rawName: unknown
 }
 
 /**
+ * Official realm creation grants starter assets only once per owned realm.
+ * Per-realm uniqueness bounds it; the realm-0 selector limit governs only the
+ * selector's own create route.
+ */
+export function createOwnedRealmCompanyUseCase(playerId: number, realmId: number): CompanyEntity {
+  if (!Number.isSafeInteger(realmId) || ![REALM_ZERO, LEGACY_REALM].includes(realmId)) {
+    throw new ValidationError('Invalid realm');
+  }
+  return runInTransaction(() => {
+    if (authRepository.listCompaniesByRealm(realmId).some(company => company.player_id === playerId)) {
+      throw new ConflictError('Player already owns a company in this realm');
+    }
+    return companyRepository.createCompany(playerId, `Co-Realm${realmId}`, realmId);
+  }, { immediate: true });
+}
+
+/**
  * Move one explicitly selected, authenticated player's legacy realm-1 company
  * to realm 0. Only company-owned realm columns are rewritten; global realm
  * rows (economy phases, realm catalogs and shared market/chat state) remain
@@ -95,8 +113,7 @@ export async function migrateOwnedCompanyToRealmZeroUseCase(
     const blockers = companyRealmRepository.listRealmMigrationBlockers(companyId);
     if (blockers.length > 0) {
       throw new ConflictError(
-        'Move blocked while this company has active realm-sensitive obligations',
-        { blockers }
+        'Move blocked while this company has active realm-sensitive obligations: ' + blockers.map(blocker => blocker.key).join(', ')
       );
     }
 

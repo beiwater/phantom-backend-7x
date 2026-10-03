@@ -5,6 +5,7 @@ import { companyRepository } from '../../repositories/company-repository.ts';
 import { eventBus } from '../../events/event-bus.ts';
 import { normalizePosition, extraSlotIndex } from '../../domain/buildings/building-rules.ts';
 import { NotFoundError, ValidationError, ConflictError } from '../../errors/domain-error.ts';
+import { getTierForLevel } from '../../domain/leveling/level-rules.ts';
 
 /**
  * P1-10: place a LIFTED building ("position" starts with 'l' after the
@@ -36,7 +37,7 @@ export async function placeBuildingUseCase(
   
     const comp = companyRepository.findById(ctx.companyId);
     if (!comp) throw new NotFoundError(`Company ${ctx.companyId} not found`);
-    const baseSlots = Math.min(14, 4 + Math.floor((Number(comp.level) || 0) / 3));
+    const baseSlots = getTierForLevel(Number(comp.level) || 0).maxBuildings;
     const maxSlots = baseSlots + (Number(comp.extraBuildingSlots) || 0);
   
     // P0-07: "B<n>" lots are the star-unlocked slots, unlocked when n < extraBuildingSlots.
@@ -62,6 +63,11 @@ export async function placeBuildingUseCase(
     const existingAtPos = buildingRepository.findByCompanyAndPosition(ctx.companyId, normPosition);
     if (existingAtPos && existingAtPos.id !== building.id) {
       throw new ConflictError(`Building position ${input.position} is already occupied`);
+    }
+    const placedBuildings = buildingRepository.findByCompany(ctx.companyId)
+      .filter(item => item.id !== building.id && !item.position.startsWith('l'));
+    if (placedBuildings.length >= maxSlots) {
+      throw new ValidationError(`Building slot limit reached (${placedBuildings.length}/${maxSlots}). Unlock more building slots with SimBoosts.`);
     }
   
     // Note: lifted buildings (position 'l') keep their busy state; the client

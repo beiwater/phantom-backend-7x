@@ -215,9 +215,24 @@ export async function handleActivitySubroutes(
       sendJson(res, course);
       return true;
     }
+    if (method === "PATCH" || method === "DELETE") {
+      if (!currentCompanyId) {
+        sendJson(res, { error: "Unauthorized" }, 401);
+        return true;
+      }
+      const course = getCourse(courseId);
+      if (!course) {
+        sendJson(res, { error: "Course not found" }, 404);
+        return true;
+      }
+      if (course.teacher?.id !== currentCompanyId) {
+        sendJson(res, { error: "Forbidden" }, 403);
+        return true;
+      }
+    }
     if (method === "PATCH") {
       const body = await readJsonBody(req);
-      const updated = updateCourse(courseId, {
+      const updated = updateCourse(courseId, currentCompanyId!, {
         start: body.start === true ? true : undefined,
         maxStudents: typeof body.maxStudents === "number" ? body.maxStudents : undefined,
         studentsPaying: typeof body.studentsPaying === "boolean" ? body.studentsPaying : undefined,
@@ -232,7 +247,7 @@ export async function handleActivitySubroutes(
       return true;
     }
     if (method === "DELETE") {
-      sendJson(res, { success: deleteCourse(courseId) });
+      sendJson(res, { success: deleteCourse(courseId, currentCompanyId!) });
       return true;
     }
   }

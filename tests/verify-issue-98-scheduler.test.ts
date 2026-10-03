@@ -353,7 +353,7 @@ async function runTests(dataDir: string): Promise<void> {
 
   // Bond fixtures: A issues a bond that B holds (paid interest path);
   // C issues a bond that B holds, then C is drained to $0 (default path).
-  const issueRes = await api(companyA.cookie, 'POST', '/api/v2/bonds/sell/', { amount: 100000, interest: 0.1 });
+  const issueRes = await api(companyA.cookie, 'POST', '/api/v2/bonds/sell/', { amount: 20, interest: 0.1 });
   assert.equal(issueRes.status, 200, `Bond issue failed: ${errorText(issueRes.json)}`);
   const issueJson = issueRes.json as { bond?: { id?: number }; id?: number };
   const bondAId = Number(issueJson.bond?.id ?? issueJson.id);
@@ -362,7 +362,7 @@ async function runTests(dataDir: string): Promise<void> {
   const buyARes = await api(companyB.cookie, 'POST', `/api/v2/bonds/${bondAId}/buy/`, {});
   assert.equal(buyARes.status, 200, `Bond buy (A) failed: ${errorText(buyARes.json)}`);
 
-  const issueCRes = await api(companyC.cookie, 'POST', '/api/v2/bonds/sell/', { amount: 50000, interest: 0.1 });
+  const issueCRes = await api(companyC.cookie, 'POST', '/api/v2/bonds/sell/', { amount: 10, interest: 0.1 });
   assert.equal(issueCRes.status, 200, `Bond issue (C) failed: ${errorText(issueCRes.json)}`);
   const issueCJson = issueCRes.json as { bond?: { id?: number }; id?: number };
   const bondCId = Number(issueCJson.bond?.id ?? issueCJson.id);

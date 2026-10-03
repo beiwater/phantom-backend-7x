@@ -22,7 +22,7 @@ import { rocketKindForLaunchRequest } from '../../game/aerospace.ts';
 import {
   getLegacyRestaurantProperties,
   getRestaurantBusy,
-  resolveDueRestaurantRunsSync,
+  resolveDueRestaurantRuns,
   type LegacyRestaurantProperties
 } from '../../application/restaurant/restaurant-use-cases.ts';
 
@@ -145,7 +145,7 @@ export function toSimCompaniesBuildingDTO(
         : {})
     };
   } else if (building.kind === 'r') {
-    resolveDueRestaurantRunsSync(building.id, building.companyId);
+    resolveDueRestaurantRuns(building.id, building.companyId);
     const restaurantBusy = getRestaurantBusy(building.id);
     if (restaurantBusy) busyObj = restaurantBusy;
   } else if (isRetailBuilding) {
@@ -168,7 +168,7 @@ export function toSimCompaniesBuildingDTO(
         sales_order: {
           id: latestOrder.id,
           image: resDef?.image || '',
-          name: resDef?.name || `Resource #${latestOrder.resourceKind}`,
+          name: getResourceName(latestOrder.resourceKind),
           amount: latestOrder.units,
           price: latestOrder.unitPrice,
           quality: latestOrder.quality || 0,

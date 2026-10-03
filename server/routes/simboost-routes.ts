@@ -168,11 +168,11 @@ export async function handleSimboostRoutes(
     }
     try {
       const body = await readJsonBody<{ production?: number }>(req);
-      const requested = Math.max(-3, Math.min(3, Number(body.production || 0)));
-      const current = getCompanyBonusModifiers(currentCompanyId);
-      // Client posts the target production modifier: move = target - current.
-      const move = requested - current.productionModifier;
-      const result = await realignProductionSalesBonus(currentCompanyId, move);
+      const requested = body.production;
+      if (typeof requested !== 'number' || !Number.isInteger(requested) || requested < -3 || requested > 3) {
+        throw new Error('Production bonus must be an integer between -3 and 3');
+      }
+      const result = await realignProductionSalesBonus(currentCompanyId, requested);
       sendJson(res, {
         productionModifier: result.productionModifier,
         salesModifier: result.salesModifier,

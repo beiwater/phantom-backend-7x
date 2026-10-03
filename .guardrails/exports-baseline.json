@@ -1,5 +1,6 @@
 {
   "server/application/account/company-account-use-cases.ts": [
+    "createOwnedRealmCompanyUseCase",
     "createRealmZeroCompanyUseCase",
     "migrateOwnedCompanyToRealmZeroUseCase"
   ],
@@ -75,8 +76,11 @@
     "UpdateExecutiveInput"
   ],
   "server/application/executives/executive-use-cases.ts": [
+    "CounterHostileOfferInput",
+    "CreatePoachingOfferInput",
     "EXECUTIVE_TRAINING_CODES",
     "ExecutiveTrainingCode",
+    "UpdateExecutiveInput",
     "assertExecutiveOwned",
     "assignExecutiveCommand",
     "cancelExecutiveTrainingCommand",
@@ -229,6 +233,7 @@
     "startRetailUseCase"
   ],
   "server/application/restaurant/restaurant-use-cases.ts": [
+    "LegacyRestaurantProperties",
     "RESTAURANT_DISHES",
     "RestaurantMenuItem",
     "RestaurantProperties",
@@ -243,7 +248,7 @@
     "getRestaurantProperties",
     "getRestaurantRatings",
     "getRestaurantRunsQuery",
-    "resolveDueRestaurantRunsSync",
+    "resolveDueRestaurantRuns",
     "startRestaurantCycleUseCase",
     "updateRestaurantPropertiesUseCase",
     "validateRestaurantMenuPrice"
@@ -337,6 +342,10 @@
     "selectPa",
     "unlockHq",
     "unlockPa"
+  ],
+  "server/auth/password-reset.ts": [
+    "completePasswordReset",
+    "requestPasswordReset"
   ],
   "server/auth/session.ts": [
     "SESSION_CLEANUP_INTERVAL_MS",
@@ -486,6 +495,9 @@
     "normalizePosition",
     "validateConstructionPosition"
   ],
+  "server/domain/company/constants.ts": [
+    "PA_COMPANY_ID"
+  ],
   "server/domain/executives.ts": [
     "AGENCY_FEE_MULTIPLIERS",
     "AgencyTier",
@@ -558,6 +570,11 @@
     "interpretKeepOpenPatch",
     "resolveRestaurantState"
   ],
+  "server/domain/social/chat-presets.ts": [
+    "CHATROOM_PRESETS",
+    "ChatroomSubscriptionEntry",
+    "DEFAULT_CHATROOMS"
+  ],
   "server/errors/domain-error.ts": [
     "BondCollateralViolationError",
     "ConflictError",
@@ -580,6 +597,13 @@
   ],
   "server/events/subscribers.ts": [
     "setupDomainEventSubscribers"
+  ],
+  "server/game/achievement-definitions.ts": [
+    "ALL_ACHIEVEMENTS",
+    "AchievementStatKey",
+    "CANONICAL_ACHIEVEMENTS",
+    "CanonicalAchievementDef",
+    "IndividualAchievement"
   ],
   "server/game/achievements.ts": [
     "ACHIEVEMENT_CRITERIA",
@@ -708,7 +732,8 @@
     "getCompanyCertificates",
     "getLatestCertificates",
     "getRarestCertificates",
-    "grantCycleCertificates"
+    "grantCycleCertificates",
+    "issueCertificate"
   ],
   "server/game/collectibles.ts": [
     "CollectibleListingView",
@@ -727,7 +752,61 @@
     "getNftCollectors",
     "listCollectibleForSale",
     "listMarketCollectibles",
+    "patchCollectibleListing",
     "updateCollectibleListing"
+  ],
+  "server/game/commands/command-engine.ts": [
+    "executeCommand",
+    "getCommandRegistry"
+  ],
+  "server/game/commands/command-registry.ts": [
+    "CommandRegistry"
+  ],
+  "server/game/commands/handlers/admin-commands.ts": [
+    "banCommand",
+    "deopCommand",
+    "kickCommand",
+    "opCommand",
+    "sayCommand"
+  ],
+  "server/game/commands/handlers/asset-commands.ts": [
+    "giveCommand",
+    "moneyCommand",
+    "simboostCommand"
+  ],
+  "server/game/commands/handlers/cert-commands.ts": [
+    "certCommand"
+  ],
+  "server/game/commands/handlers/economy-commands.ts": [
+    "cycleCommand",
+    "economyCommand",
+    "timeCommand"
+  ],
+  "server/game/commands/handlers/exec-commands.ts": [
+    "execCommand"
+  ],
+  "server/game/commands/handlers/market-commands.ts": [
+    "marketCommand"
+  ],
+  "server/game/commands/handlers/pa-commands.ts": [
+    "paCommand"
+  ],
+  "server/game/commands/handlers/speed-commands.ts": [
+    "speedCommand"
+  ],
+  "server/game/commands/handlers/story-commands.ts": [
+    "storyCommand"
+  ],
+  "server/game/commands/target-resolver.ts": [
+    "resolveTargets"
+  ],
+  "server/game/commands/types.ts": [
+    "CommandContext",
+    "CommandDefinition",
+    "CommandHandler",
+    "CommandResult",
+    "CommandSource",
+    "TargetCompany"
   ],
   "server/game/company.ts": [
     "CompanyRow",
@@ -764,6 +843,33 @@
     "calculateProductionTime",
     "getBuildingMeta",
     "getResourceDef"
+  ],
+  "server/game/display-case.ts": [
+    "DISPLAY_CASE_MAX_SLOT",
+    "DISPLAY_CASE_MIN_SLOT",
+    "DisplayCasePlacement",
+    "DisplayCaseRow",
+    "DisplayItemKind",
+    "getDisplayCase",
+    "isAchievementCollected",
+    "removeDisplayCaseSlot",
+    "updateDisplayCase"
+  ],
+  "server/game/economy-phase.ts": [
+    "ECONOMY_MODIFIER_RANGES",
+    "ECONOMY_PHASE_NAMES",
+    "ECONOMY_STATE_NAMES",
+    "EconomyPhaseHistoryEntry",
+    "EconomyPhaseStatus",
+    "EconomyProductionModifier",
+    "computeEconomyProductionModifier",
+    "economyModifierSeed",
+    "getEconomyPhase",
+    "getEconomyPhaseHistory",
+    "getEconomyPhaseStatistics",
+    "nextEconomyBoundary",
+    "phaseName",
+    "setEconomyPhase"
   ],
   "server/game/encyclopedia.ts": [
     "ExistingResourceQualityEntry",
@@ -843,6 +949,7 @@
     "getSponsorsForNewspaper",
     "getTopArticlesByReaction",
     "nextPublishDate",
+    "publishDueNewspaperIssues",
     "removeArticleReaction",
     "resolveNewspaperIssueId",
     "updateArticle",
@@ -915,7 +1022,6 @@
     "getRestaurantRuns",
     "getRestaurantSeats",
     "resolveDueRestaurantRuns",
-    "resolveDueRestaurantRunsSync",
     "resolveRestaurantRun",
     "updateRestaurantProperties",
     "validateRestaurantMenu",
@@ -978,6 +1084,24 @@
     "unlockDisplayCaseSlot",
     "unlockExecutiveSlot",
     "unlockTagSlot"
+  ],
+  "server/game/story/story-engine.ts": [
+    "StoryEngine",
+    "storyEngine"
+  ],
+  "server/game/story/story-loader.ts": [
+    "storyLoader"
+  ],
+  "server/game/story/types.ts": [
+    "PlayerStoryStateRow",
+    "StoryCharacter",
+    "StoryChoice",
+    "StoryEnding",
+    "StoryGroupMessage",
+    "StoryJson",
+    "StoryPrivateMessage",
+    "StoryReward",
+    "StoryStage"
   ],
   "server/game/tags.ts": [
     "CompanyTagDbRow",
@@ -1128,6 +1252,7 @@
     "authRepository"
   ],
   "server/repositories/bond-repository.ts": [
+    "BOND_FACE_VALUE",
     "BondRepository",
     "BondRow",
     "bondRepository"
@@ -1148,7 +1273,9 @@
     "CompanyDbRow",
     "CompanyEntity",
     "CompanyRepository",
+    "PA_COMPANY_ID",
     "companyRepository",
+    "getPaCompanyEntity",
     "mapCompanyRow"
   ],
   "server/repositories/contract-repository.ts": [
@@ -1209,6 +1336,7 @@
     "marketTradeRepository"
   ],
   "server/repositories/production-repository.ts": [
+    "ProductionInputIngredient",
     "ProductionQueueDbRow",
     "ProductionQueueEntity",
     "ProductionRepository",
@@ -1278,6 +1406,25 @@
   ],
   "server/routes/audit-routes.ts": [
     "handleAuditRoutes"
+  ],
+  "server/routes/auth/auth-helpers.ts": [
+    "COMPANY_NAME_ADJECTIVES",
+    "COMPANY_NAME_COLORS",
+    "COMPANY_NAME_SIZES",
+    "COMPANY_NAME_TRADES",
+    "buildCompanyNameSuggestions",
+    "isCrossOriginRequest",
+    "parseCompanyId",
+    "rejectCrossOriginRequest"
+  ],
+  "server/routes/auth/company-lifecycle-subroutes.ts": [
+    "handleCompanyLifecycleSubroutes"
+  ],
+  "server/routes/auth/player-subroutes.ts": [
+    "handlePlayerSubroutes"
+  ],
+  "server/routes/auth/session-subroutes.ts": [
+    "handleSessionSubroutes"
   ],
   "server/routes/auth-routes.ts": [
     "handleAuthRoutes",
@@ -1361,8 +1508,24 @@
     "handleSimboostRoutes",
     "registerSimboostRoutes"
   ],
+  "server/routes/social/activity-subroutes.ts": [
+    "handleActivitySubroutes"
+  ],
+  "server/routes/social/chat-subroutes.ts": [
+    "CHATROOM_PRESETS",
+    "ChatroomSubscriptionEntry",
+    "DEFAULT_CHATROOMS",
+    "getConfiguredChatrooms",
+    "handleChatSubroutes",
+    "loadChatroomSubscriptions",
+    "setConfiguredChatrooms"
+  ],
+  "server/routes/social/profile-subroutes.ts": [
+    "handleProfileSubroutes"
+  ],
   "server/routes/social-routes.ts": [
     "CHATROOM_PRESETS",
+    "ChatroomSubscriptionEntry",
     "DEFAULT_CHATROOMS",
     "getConfiguredChatrooms",
     "handleSocialRoutes",
@@ -1390,10 +1553,13 @@
     "SchedulerTaskDefinition",
     "SchedulerTaskState",
     "TASK_BOND_INTEREST_AND_OVERHEAD",
+    "TASK_DATABASE_BACKUP",
     "TASK_ECONOMY_PHASE_ROLL",
     "TASK_EXECUTIVE_SALARIES",
+    "TASK_FINANCE_SETTLEMENT",
     "TASK_GOVERNMENT_ORDERS_AWARD",
     "TASK_GOVERNMENT_ORDERS_PUBLISH",
+    "TASK_NEWSPAPER_PUBLICATION",
     "TASK_RETAIL_SATURATION_REFRESH",
     "buildSchedulerStatePayload",
     "getSchedulerState",
@@ -1405,9 +1571,21 @@
     "startScheduler",
     "stopScheduler"
   ],
+  "server/security/client-ip.ts": [
+    "getClientCountry",
+    "getClientIp",
+    "isGeoAllowed"
+  ],
   "server/security/rate-limiter.ts": [
     "checkRateLimit",
     "resetRateLimits"
+  ],
+  "server/services/chatroom-config-service.ts": [
+    "CHATROOM_PRESETS",
+    "ChatroomSubscriptionEntry",
+    "DEFAULT_CHATROOMS",
+    "getConfiguredChatrooms",
+    "setConfiguredChatrooms"
   ],
   "server/services/fixture-service.ts": [
     "FixtureResult",
@@ -1431,6 +1609,15 @@
   "server/services/overdue-resolution-service.ts": [
     "resolveAllOverdue"
   ],
+  "server/services/pa-invite-service.ts": [
+    "PaInviteResult",
+    "autoDetectAndInviteMissingPa",
+    "buildPaInviteHtml",
+    "hasPersonalAssistant",
+    "sendPersonalAssistantInvite",
+    "startAutoPaDetection",
+    "stopAutoPaDetection"
+  ],
   "server/services/realm-phase-service.ts": [
     "PRESET_ALIASES",
     "REALM_PHASE_PRESETS",
@@ -1439,6 +1626,7 @@
   ],
   "server/ws/websocket.ts": [
     "broadcastAll",
+    "broadcastToCompanies",
     "broadcastToCompany",
     "setupWebSocket"
   ]

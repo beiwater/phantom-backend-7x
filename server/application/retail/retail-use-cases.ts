@@ -16,7 +16,7 @@ import {
   getAuthoritativeRetailPrice,
   calculateRetailDuration
 } from '../../game-data/retail.ts';
-import { getResourceDef } from '../../game-data/resources.ts';
+import { getResourceName } from '../../game-data/resources.ts';
 import { retailRepository, type RetailOrderEntity } from '../../repositories/retail-repository.ts';
 import { buildingRepository } from '../../repositories/building-repository.ts';
 import { warehouseRepository } from '../../repositories/warehouse-repository.ts';
@@ -66,7 +66,6 @@ export interface SalesOfficeOrderDTO extends RetailOrderDTO {
 }
 
 export function formatSalesOfficeOrder(order: RetailOrderEntity, searchCost: number): SalesOfficeOrderDTO {
-  const resDef = typeof getResourceDef === 'function' ? getResourceDef(order.resourceKind) : null;
   // The original client calculates:
   //   l = Date.parse(order.datetime)
   //   endTime = new Date(l + 47 * 3600 * 1000)
@@ -86,7 +85,7 @@ export function formatSalesOfficeOrder(order: RetailOrderEntity, searchCost: num
       price: order.unitPrice
     }],
     resourceId: order.resourceKind,
-    resourceName: resDef?.name || `Resource #${order.resourceKind}`,
+    resourceName: getResourceName(order.resourceKind),
     amount: order.units,
     price: order.unitPrice,
     quality: order.quality,
@@ -223,6 +222,8 @@ export async function collectRetailOrderUseCase(
   orderId: number,
   options: CollectRetailOrderOptions = {}
 ): Promise<CollectRetailResult> {
+
+  return runInTransaction((tx: TransactionContext): CollectRetailResult => {
   const order = retailRepository.findById(orderId);
   if (!order) {
     throw new NotFoundError('Order not found');
@@ -230,6 +231,7 @@ export async function collectRetailOrderUseCase(
   if (order.companyId !== ctx.companyId) {
     throw new NotFoundError('Order not found');
   }
+  if (order.revenueCredited) throw new ValidationError('Retail order revenue has already been credited');
 
   if (order.finishedAt && new Date(order.finishedAt).getTime() > virtualClock.nowMs()) {
     throw new ValidationError('Retail order is still in progress and cannot be fulfilled prematurely');
@@ -238,8 +240,6 @@ export async function collectRetailOrderUseCase(
   const building = buildingRepository.findById(order.buildingId);
   const isSalesOffice = building?.kind === SALES_OFFICE_KIND;
   const preferHighestQuality = options.highestQualityFirst ?? (options.lowestQualityFirst === false);
-
-  return runInTransaction((tx: TransactionContext): CollectRetailResult => {
     // If sales office, consume from warehouse with flexible quality (>= order.quality)
     // matching player's lowestQualityFirst / highestQualityFirst preference.
     let consumed: Array<{ kind: number; quality: number; amount: number; cost: number }>;
@@ -278,8 +278,7 @@ export async function collectRetailOrderUseCase(
     const transactionCost = consumedCost || order.cost;
 
     const moneyBalance = companyRepository.creditMoney(ctx.companyId, revenue);
-    const resDef = typeof getResourceDef === 'function' ? getResourceDef(order.resourceKind) : null;
-    const resName = resDef?.name || `Resource #${order.resourceKind}`;
+    const resName = getResourceName(order.resourceKind);
     recordCashLedger({
       companyId: ctx.companyId,
       amount: revenue,

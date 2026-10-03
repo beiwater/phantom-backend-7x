@@ -2,7 +2,7 @@ import { db } from '../db/database.ts';
 import { socialRepository } from '../repositories/social-repository.ts';
 import { companyRepository, PA_COMPANY_ID } from '../repositories/company-repository.ts';
 import { virtualClock } from '../core/virtual-clock.ts';
-import { broadcastAll, broadcastToCompany } from '../ws/websocket.ts';
+import { broadcastToCompany, broadcastToCompanies } from '../ws/websocket.ts';
 import { logger } from '../core/logger.ts';
 
 export interface PaInviteResult {
@@ -101,7 +101,7 @@ export function sendPersonalAssistantInvite(companyId: number, options?: { force
 
     // 4. Real-time push via WebSocket
     broadcastToCompany(companyId, formatted);
-    broadcastAll('NEW_MESSAGE', formatted);
+    broadcastToCompanies([companyId], 'NEW_MESSAGE', formatted);
 
     logger.info(`[PA Service] Automatically sent PA invitation to company ${companyId} (${companyName})`);
     return true;

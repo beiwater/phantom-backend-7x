@@ -132,17 +132,17 @@ export async function purchasePaymentPackage(companyId: number, sku: string, now
   }
 
   const ledgerKey = `${companyId}:${pkg.sku}`;
-  const recent = recentPurchases.get(ledgerKey);
-  if (recent && now - recent.at < PURCHASE_IDEMPOTENCY_WINDOW_MS) {
-    return recent.result;
-  }
 
   // C-5: the private server grants boosts without a real payment gateway, so
   // cap purchases per company per UTC day to close the unlimited money faucet
   // (paired with the C-9 exchange cap on the cash->boosts direction). The cap
   // check + grant + counter bump commit as one transaction; a rejected
   // request mutates nothing.
-  const result = await runInTransaction(() => {
+  return runInTransaction((tx) => {
+    const recent = recentPurchases.get(ledgerKey);
+    if (recent && now - recent.at < PURCHASE_IDEMPOTENCY_WINDOW_MS) {
+      return recent.result;
+    }
     const purchasesToday = getPurchasesToday(companyId, new Date(now));
     if (purchasesToday >= DAILY_PURCHASE_LIMIT) {
       throw new Error(`Daily purchase limit of ${DAILY_PURCHASE_LIMIT} packages reached`);
@@ -152,7 +152,7 @@ export async function purchasePaymentPackage(companyId: number, sku: string, now
     if (pkg.hq !== undefined) {
       socialRepository.insertUnlockedHq(companyId, pkg.hq);
     }
-    return {
+    const result = {
       payment: {
         id: Math.floor(now),
         sku: pkg.sku,
@@ -170,10 +170,12 @@ export async function purchasePaymentPackage(companyId: number, sku: string, now
       purchasesToday: purchasesToday + 1,
       dailyPurchaseLimit: DAILY_PURCHASE_LIMIT
     } satisfies CompletedPurchase & { purchasesToday: number; dailyPurchaseLimit: number };
+    tx.addAfterCommitHook(() => {
+      recentPurchases.set(ledgerKey, { at: now, result });
+    });
+    return result;
   }, { immediate: true });
 
-  recentPurchases.set(ledgerKey, { at: now, result });
-  return result;
 }
 
 /** Test seam: clear the purchase idempotency ledger. */
@@ -260,8 +262,8 @@ export function getCompanyExchangedToday(companyId: number): number {
  * screen. Debits SimBoosts and persists both modifiers atomically so a refresh
  * reads back the saved values instead of the defaults.
  */
-export async function realignProductionSalesBonus(companyId: number, move: number) {
-  return realignCompanyBonus(companyId, move, (id, cost) => updateCompanySimBoosts(id, -cost));
+export async function realignProductionSalesBonus(companyId: number, target: number) {
+  return realignCompanyBonus(companyId, target, (id, cost) => updateCompanySimBoosts(id, -cost));
 }
 
 /** Persisted modifier pair for GET endpoints (read-only, no side effects). */

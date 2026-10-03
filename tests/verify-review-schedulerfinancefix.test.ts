@@ -1,0 +1,85 @@
+import assert from 'node:assert/strict';
+import { db } from '../server/db/database.ts';
+import { registerPlayer } from '../server/db/seed/index.ts';
+import { createGameContext } from '../server/context/game-context.ts';
+import { companyRepository } from '../server/repositories/company-repository.ts';
+import { bondRepository } from '../server/repositories/bond-repository.ts';
+import { financeRepository } from '../server/repositories/finance-repository.ts';
+import { buyBondsUseCase, callBondsUseCase } from '../server/application/finance/bond-use-cases.ts';
+import { chargeDailyBondInterest } from '../server/application/scheduler/daily-jobs.ts';
+import { takeLoan } from '../server/game/loans.ts';
+import { backupEngine } from '../server/db/backup.ts';
+import { SCHEDULED_TASKS, runDueSchedulerTasks, getSchedulerTaskState, TASK_EXECUTIVE_SALARIES, TASK_RETAIL_SATURATION_REFRESH, TASK_FINANCE_SETTLEMENT } from '../server/scheduler/timetable.ts';
+
+async function main() {
+  const seller = registerPlayer('review-scheduler-seller@test.local', 'password123', 'Scheduler seller').companyId;
+  const buyer = registerPlayer('review-scheduler-buyer@test.local', 'password123', 'Scheduler buyer').companyId;
+  const sellerCtx = createGameContext(seller, seller, 0);
+  const buyerCtx = createGameContext(buyer, buyer, 0);
+  const money = (id: number) => Number(companyRepository.findById(id)!.money);
+  const setMoney = (id: number, value: number) => db.prepare('UPDATE companies SET money = ? WHERE company_id = ?').run(value, id);
+  const now = new Date('2026-10-05T14:00:00Z');
+  const reports = await Promise.all([runDueSchedulerTasks(now), runDueSchedulerTasks(now)]);
+  assert.ok(reports[0].results.every(result => result.outcome === 'ran'), JSON.stringify(reports[0]));
+  assert.ok(reports[1].results.every(result => result.outcome === 'skipped-already-run'));
+  assert.ok(backupEngine.listBackups().length > 0);
+  assert.equal(getSchedulerTaskState(TASK_EXECUTIVE_SALARIES)!.runs, 1);
+  console.log('PASS fresh catch-up, overhead, nested economy, backup and concurrent dedup');
+
+  setMoney(seller, 100000);
+  const payrollDay = new Date('2026-10-06T05:00:00Z');
+  const payrollRow = db.prepare("SELECT COALESCE(SUM(salary), 0) AS total FROM executives WHERE company_id = ? AND status = 'employed'").get(seller);
+  assert.ok(payrollRow && typeof payrollRow.total === 'number');
+  const salary = payrollRow.total;
+  await Promise.all([runDueSchedulerTasks(payrollDay, [TASK_EXECUTIVE_SALARIES]), runDueSchedulerTasks(payrollDay, [TASK_EXECUTIVE_SALARIES])]);
+  assert.equal(money(seller), 100000 - salary);
+
+  const task = SCHEDULED_TASKS.find(task => task.name === TASK_RETAIL_SATURATION_REFRESH)!;
+  const original = task.run;
+  task.run = () => { companyRepository.updateMoney(seller, -100); throw new Error('forced scheduler failure'); };
+  const failure = await runDueSchedulerTasks(new Date('2026-10-06T23:40:00Z'), [task.name]);
+  assert.equal(failure.results[0].outcome, 'error');
+  assert.equal(money(seller), 100000 - salary);
+  assert.equal(getSchedulerTaskState(task.name)!.lastError, 'forced scheduler failure');
+  assert.notEqual(getSchedulerTaskState(task.name)!.lastScheduledForUtc, failure.results[0].occurrence);
+  task.run = original;
+  const retry = await runDueSchedulerTasks(new Date('2026-10-06T23:41:00Z'), [task.name]);
+  assert.equal(retry.results[0].outcome, 'ran');
+  console.log('PASS salary debit once, failed task rollback and later-tick retry');
+
+  setMoney(seller, 100000); setMoney(buyer, 100000);
+  const bond = bondRepository.insertBond(seller, 0.005, 10, '2026-10-01T00:00:00Z', '2099-01-01T00:00:00Z');
+  assert.equal(buyBondsUseCase(buyerCtx, bond.id).moneyDelta, -50000);
+  const issuerSnapshot = db.prepare('SELECT liabilities FROM finance_daily_snapshots WHERE company_id = ? ORDER BY snapshot_date DESC LIMIT 1').get(seller);
+  assert.equal(issuerSnapshot?.liabilities, 50000);
+  assert.equal(money(seller), 150000);
+  assert.equal(financeRepository.bondsHeldValue(buyer), 50000);
+  assert.equal(bondRepository.outstandingSoldLiability(seller), 50000);
+  chargeDailyBondInterest();
+  assert.equal(money(seller), 149750); assert.equal(money(buyer), 50250);
+  assert.equal(callBondsUseCase(sellerCtx, bond.id).moneyDelta, -50000);
+  assert.equal(money(buyer), 100250);
+  const calledSnapshot = db.prepare('SELECT liabilities FROM finance_daily_snapshots WHERE company_id = ? ORDER BY snapshot_date DESC LIMIT 1').get(seller);
+  assert.equal(calledSnapshot?.liabilities, 0);
+  const defaultBond = bondRepository.insertBond(seller, 0.005, 1, '2026-10-01T00:00:00Z', '2099-01-01T00:00:00Z');
+  buyBondsUseCase(buyerCtx, defaultBond.id); setMoney(seller, 0);
+  chargeDailyBondInterest();
+  assert.equal(bondRepository.findById(defaultBond.id)!.status, 'defaulted');
+  console.log('PASS bond units, coupons, call and insolvent issuer default');
+
+  setMoney(seller, 100000); setMoney(buyer, 100000);
+  const matured = bondRepository.insertBond(seller, 0.005, 2, '2026-10-01T00:00:00.000Z', '2026-10-08T00:00:00.000Z');
+  buyBondsUseCase(buyerCtx, matured.id);
+  const loan = takeLoan(seller, 1000);
+  db.prepare('UPDATE loans SET due_at = ? WHERE id = ?').run('2026-10-08T00:00:00.000Z', loan.loanId);
+  const settlement = await runDueSchedulerTasks(new Date('2026-10-08T01:00:00Z'), [TASK_FINANCE_SETTLEMENT]);
+  assert.equal(settlement.results[0].outcome, 'ran', JSON.stringify(settlement));
+  assert.equal(bondRepository.findById(matured.id)!.status, 'matured');
+  assert.equal(money(buyer), 100000);
+  const remainingLoan = db.prepare('SELECT remaining FROM loans WHERE id = ?').get(loan.loanId);
+  assert.ok(remainingLoan);
+  assert.equal(remainingLoan.remaining, 100);
+  console.log('PASS scheduled loan accrual and matured principal repayment');
+  console.log('PASS scheduler finance review regressions');
+}
+main().then(() => process.exit(0)).catch(error => { console.error(error); process.exit(1); });

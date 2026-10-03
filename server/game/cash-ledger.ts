@@ -101,7 +101,12 @@ function readCompanySnapshotValues(companyId: number): {
   const invRow = db.prepare('SELECT COALESCE(SUM(amount * cost_market), 0) AS total FROM warehouse WHERE company_id = ?').get(companyId) as { total: number | null };
   const bldRow = db.prepare('SELECT COALESCE(SUM(cost * size), 0) AS total FROM buildings WHERE company_id = ?').get(companyId) as { total: number | null };
   const bondRow = db.prepare(`SELECT COALESCE(SUM(amount) * 5000, 0) AS total FROM bonds WHERE buyer_company_id = ? AND status = 'active'`).get(companyId) as { total: number | null };
-  const liabRow = db.prepare(`SELECT COALESCE(SUM(remaining), 0) AS total FROM loans WHERE company_id = ? AND status = 'active'`).get(companyId) as { total: number | null };
+  const liabRow = db.prepare(`
+    SELECT
+      (SELECT COALESCE(SUM(remaining), 0) FROM loans WHERE company_id = ? AND status = 'active')
+      + (SELECT COALESCE(SUM(amount) * 5000, 0) FROM bonds
+         WHERE seller_company_id = ? AND buyer_company_id IS NOT NULL AND status = 'active') AS total
+  `).get(companyId, companyId) as { total: number | null };
   return {
     cash: Math.round((Number(cashRow?.money) || 0) * 100) / 100,
     inventory: Math.round((Number(invRow?.total) || 0) * 100) / 100,

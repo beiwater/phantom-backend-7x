@@ -6,7 +6,7 @@ import { getCompanyById } from "../../game/company.ts";
 import { checkRateLimit } from "../../security/rate-limiter.ts";
 import { getClientIp } from "../../security/client-ip.ts";
 import { virtualClock } from "../../core/virtual-clock.ts";
-import { broadcastAll, broadcastToCompany } from "../../ws/websocket.ts";
+import { broadcastAll, broadcastToCompanies } from "../../ws/websocket.ts";
 import { executeCommand } from "../../game/commands/command-engine.ts";
 import { autoDetectAndInviteMissingPa } from "../../services/pa-invite-service.ts";
 
@@ -195,6 +195,19 @@ function formatChatMessage(
   };
 }
 
+function authorizeStoryRoom(room: string, companyId: number | null, res: ServerResponse): boolean {
+  if (!room.startsWith("story_")) return true;
+  if (companyId === null) {
+    sendJson(res, { error: "Unauthorized" }, 401);
+    return false;
+  }
+  if (room !== `story_${companyId}`) {
+    sendJson(res, { error: "Forbidden" }, 403);
+    return false;
+  }
+  return true;
+}
+
 export async function handleChatSubroutes(
   req: IncomingMessage,
   res: ServerResponse,
@@ -354,6 +367,7 @@ export async function handleChatSubroutes(
   const chatFromIdMatch = pathname.match(/^\/api\/v2\/chatroom\/([^/]+)\/from-id\/(\d+)\/$/);
   if (chatFromIdMatch) {
     const room = decodeURIComponent(chatFromIdMatch[1]);
+    if (!authorizeStoryRoom(room, currentCompanyId, res)) return true;
     const fromId = Number(chatFromIdMatch[2]) || 0;
     const messages = socialRepository.listChatMessagesFromId(room, fromId, 30);
     const senderIds = Array.from(new Set(messages.map(m => m.sender_id)));
@@ -367,6 +381,7 @@ export async function handleChatSubroutes(
   const chatroomMatch = pathname.match(/^\/api\/v2\/chatroom\/([^/]+)\/$/);
   if (chatroomMatch) {
     const room = decodeURIComponent(chatroomMatch[1]);
+    if (!authorizeStoryRoom(room, currentCompanyId, res)) return true;
     const messages = socialRepository.listChatMessages(room, 30);
     const senderIds = Array.from(new Set(messages.map(m => m.sender_id)));
     const companyMap = companyRepository.findBatchBasic(senderIds);
@@ -405,8 +420,12 @@ export async function handleChatSubroutes(
       body?: string;
       recipient?: number;
       companyId?: number | string;
+      company?: string;
       token?: number | string;
     }>(req);
+    // Check before command/DM dispatch too: an explicit private room must
+    // never authorize an action on behalf of another company's story.
+    if (typeof body.chatroom === "string" && !authorizeStoryRoom(body.chatroom.trim(), currentCompanyId, res)) return true;
 
     const rawText = typeof body.text === "string" ? body.text : typeof body.body === "string" ? body.body : "";
     const text = rawText.trim();
@@ -477,7 +496,7 @@ export async function handleChatSubroutes(
         commandResult: cmdResult
       };
 
-      broadcastToCompany(comp.company_id, replyFormatted);
+      broadcastToCompanies([comp.company_id], "NEW_MESSAGE", replyFormatted);
       sendJson(res, replyFormatted);
       return true;
     }
@@ -514,7 +533,7 @@ export async function handleChatSubroutes(
         pinned: false
       };
       const wsPayload = body.token !== undefined ? { ...formatted, token: body.token } : formatted;
-      broadcastAll("NEW_MESSAGE", wsPayload);
+      broadcastToCompanies([comp.company_id, recipientComp.companyId], "NEW_MESSAGE", wsPayload);
       sendJson(res, formatted);
       return true;
     }
@@ -541,7 +560,11 @@ export async function handleChatSubroutes(
     }, compMap, meta);
     // Bundle Thunk P4t & WebSocket listener Tgr require token on NEW_MESSAGE to clear optimistic sending state
     const wsPayload = body.token !== undefined ? { ...formatted, token: body.token } : formatted;
-    broadcastAll("NEW_MESSAGE", wsPayload);
+    if (room.startsWith("story_")) {
+      broadcastToCompanies([comp.company_id], "NEW_MESSAGE", wsPayload);
+    } else {
+      broadcastAll("NEW_MESSAGE", wsPayload);
+    }
     sendJson(res, formatted);
     return true;
   }

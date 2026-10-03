@@ -33,6 +33,9 @@ import {
   getEconomyPhase
 } from '../application/scheduler/daily-jobs.ts';
 import { backupEngine } from '../db/backup.ts';
+import { settleDueLoans } from '../game/loans.ts';
+import { settleMaturedBondsUseCase } from '../application/finance/bond-use-cases.ts';
+import { publishDueNewspaperIssues } from '../game/newspaper.ts';
 
 // --- Persisted world-state tables (module-level, same pattern as government.ts) ---
 
@@ -71,6 +74,8 @@ export interface SchedulerTaskDefinition {
   minuteUtc: number;
   /** 0=Sunday … 6=Saturday. Omit for tasks that run every day. */
   daysOfWeek?: readonly number[];
+  /** SQLite maintenance such as VACUUM must run without a transaction. */
+  transactional?: boolean;
   run(occurrence: Date): void;
 }
 
@@ -190,12 +195,13 @@ function markTaskRan(
     VALUES (?, ?, ?, ?, ?, 1, ?)
     ON CONFLICT(task_name) DO UPDATE SET
       last_run_utc = excluded.last_run_utc,
-      last_scheduled_for_utc = excluded.last_scheduled_for_utc,
+      last_scheduled_for_utc = CASE WHEN excluded.last_status = 'ok'
+        THEN excluded.last_scheduled_for_utc ELSE scheduler_state.last_scheduled_for_utc END,
       last_status = excluded.last_status,
       last_error = excluded.last_error,
       runs = runs + 1,
       updated_at = excluded.updated_at
-  `).run(taskName, ranAt.toISOString(), occurrenceIso, status, error, ranAt.toISOString());
+  `).run(taskName, ranAt.toISOString(), status === 'ok' ? occurrenceIso : null, status, error, ranAt.toISOString());
 }
 
 // --- Timetable definition ---
@@ -207,8 +213,28 @@ export const TASK_GOVERNMENT_ORDERS_PUBLISH = 'government_orders_publish';
 export const TASK_GOVERNMENT_ORDERS_AWARD = 'government_orders_award';
 export const TASK_ECONOMY_PHASE_ROLL = 'economy_phase_roll';
 export const TASK_RETAIL_SATURATION_REFRESH = 'retail_saturation_refresh';
+export const TASK_FINANCE_SETTLEMENT = 'loan_and_matured_bond_settlement';
+export const TASK_NEWSPAPER_PUBLICATION = 'newspaper_publication';
 
 export const SCHEDULED_TASKS: readonly SchedulerTaskDefinition[] = [
+  {
+    name: TASK_FINANCE_SETTLEMENT,
+    description: 'Settle due bank loans and repay matured corporate bonds',
+    hourUtc: 0,
+    minuteUtc: 0,
+    run: occurrence => {
+      settleDueLoans(undefined, occurrence);
+      settleMaturedBondsUseCase(occurrence);
+    }
+  },
+  {
+    name: TASK_NEWSPAPER_PUBLICATION,
+    description: 'Publish booked newspaper and open the next issue',
+    hourUtc: 16,
+    minuteUtc: 0,
+    daysOfWeek: [4],
+    run: publishDueNewspaperIssues
+  },
   {
     name: TASK_BOND_INTEREST_AND_OVERHEAD,
     description: 'Bond interest deduction + accounting overhead charge per company',
@@ -224,6 +250,7 @@ export const SCHEDULED_TASKS: readonly SchedulerTaskDefinition[] = [
     description: 'Daily automated SQLite hot backup and checksum verification (Issue #148)',
     hourUtc: 3,
     minuteUtc: 0,
+    transactional: false,
     run: () => {
       backupEngine.createBackup({ retentionCount: 14 });
     }
@@ -286,13 +313,15 @@ export function isSchedulerRunning(): boolean {
  * Serialized through a promise queue so the heartbeat interval and an admin
  * tick can never interleave two runs.
  */
-const schedulerRunQueue: Promise<unknown> = Promise.resolve();
+let schedulerRunQueue: Promise<unknown> = Promise.resolve();
 
 export function runDueSchedulerTasks(
   now: Date = new Date(),
   taskNames?: readonly string[]
 ): Promise<SchedulerRunReport> {
-  return schedulerRunQueue.then(() => runDueSchedulerTasksInner(now, taskNames));
+  const run = schedulerRunQueue.then(() => runDueSchedulerTasksInner(now, taskNames));
+  schedulerRunQueue = run.catch(() => undefined);
+  return run;
 }
 
 
@@ -321,22 +350,24 @@ async function runDueSchedulerTasksInner(
       continue;
     }
     const occurrenceIso = occurrence.toISOString();
-    const state = getSchedulerTaskState(task.name);
-    if (state?.lastScheduledForUtc && state.lastScheduledForUtc >= occurrenceIso) {
-      report.results.push({ task: task.name, occurrence: occurrenceIso, outcome: 'skipped-already-run' });
-      continue;
-    }
     try {
-      await runInTransaction(() => {
+      const execute = (): boolean => {
+        const state = getSchedulerTaskState(task.name);
+        if (state?.lastScheduledForUtc && state.lastScheduledForUtc >= occurrenceIso) return false;
         task.run(occurrence);
         markTaskRan(task.name, now, occurrenceIso, 'ok', null);
-      });
-      report.results.push({ task: task.name, occurrence: occurrenceIso, outcome: 'ran' });
+        return true;
+      };
+      // Queue serialization also covers maintenance that cannot use SQL transactions.
+      const ran = task.transactional === false
+        ? execute()
+        : runInTransaction(execute);
+      report.results.push({ task: task.name, occurrence: occurrenceIso, outcome: ran ? 'ran' : 'skipped-already-run' });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       // Record the failure outside the rolled-back domain transaction so the
       // error is observable; the task will retry on the next tick.
-      await runInTransaction(() => markTaskRan(task.name, now, occurrenceIso, 'error', message));
+      runInTransaction(() => markTaskRan(task.name, now, occurrenceIso, 'error', message));
       report.results.push({ task: task.name, occurrence: occurrenceIso, outcome: 'error', error: message });
     }
   }

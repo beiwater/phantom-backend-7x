@@ -138,7 +138,6 @@ const backendRate = calculateProductionRate(
   screenshot.productionModifier,
   {
     economyState: Number(matchingStates[0].economyState),
-    quality: screenshot.quality,
     eventSpeedModifier: screenshot.eventSpeedModifier,
     recreationBonus: screenshot.recreationBonus,
     accumulatorBonus: screenshot.accumulatorBonus

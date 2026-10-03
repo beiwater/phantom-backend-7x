@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import { virtualClock } from '../core/virtual-clock.ts';
 import { db } from '../db/database.ts';
+import { runInTransaction } from '../db/transaction.ts';
 import { getCompanyById, updateCompanyMoney } from './company.ts';
 import { consumeResourceExactWithTransactions, getWarehouseItemExact } from './warehouse.ts';
 import { governmentOrdersRepository } from '../repositories/government-orders-repository.ts';
@@ -280,6 +281,7 @@ function mapGovernmentOrderRow(row: GovernmentOrderDbRow): GovernmentOrderTempla
   const resources: GovernmentRequiredResource[] = rawResources.map((r, idx) => ({
     id: Number(r.id) || idx + 1,
     kind: Number(r.kind) || 1,
+    name: getResourceName(Number(r.kind) || 1),
     quality: Number(r.quality) || 0,
     amountBase: Number(r.amountBase) || 100,
     targetAmount: Number(r.targetAmount) || Number(r.amountBase) || 100,
@@ -453,7 +455,7 @@ function buildBidApplication(bidRow: GovernmentBidDbRow): GovernmentBidApplicati
         }
       }));
 
-  const allFulfilled = bidderSet.length >= bidRow.maxContractorCount && bidderSet.every(b => b.fulfilled);
+  const allFulfilled = bidderSet.length >= bidRow.max_contractors && bidderSet.every(b => b.fulfilled);
   const status = allFulfilled ? 'FULFILLED' : (bidRow.status || 'OPEN');
 
   return {
@@ -502,6 +504,7 @@ export function createGovernmentBid(
     note?: string;
   }
 ): GovernmentBidApplication {
+  return runInTransaction(() => {
   ensureSeededProjects(realmId);
   const template = getGovernmentOrderById(data.templateId);
   if (!template || template.realm !== realmId) {
@@ -547,9 +550,6 @@ export function createGovernmentBid(
     ? data.resourcePriceBreakdown
     : JSON.stringify(data.resourcePriceBreakdown || {});
 
-  // Atomic database transaction
-  db.exec('BEGIN TRANSACTION');
-  try {
     // 1. Deduct security deposit
     updateCompanyMoney(companyId, -deposit);
 
@@ -591,17 +591,8 @@ export function createGovernmentBid(
     for (const cId of contractorIds) {
       if (cId === companyId) continue;
       const subTier = getGovernmentTier(cId);
-      const subDeposit = Math.floor(template.estimatedBaseValue * subTier.resourceMultiplicator * 0.1);
-      const subComp = getCompanyById(cId);
-      let paid = 0;
-      if (subComp && subComp.money >= subDeposit) {
-        try {
-          updateCompanyMoney(cId, -subDeposit);
-          paid = subDeposit;
-        } catch {
-          paid = 0;
-        }
-      }
+      // A zero deposit is an invitation, not an accepted contractor share.
+      const paid = 0;
 
       db.prepare(`
         INSERT INTO government_bid_contractors (
@@ -618,13 +609,9 @@ export function createGovernmentBid(
       );
     }
 
-    db.exec('COMMIT');
-  } catch (err) {
-    db.exec('ROLLBACK');
-    throw err;
-  }
 
   return getGovernmentBidByIdOrSecret(secret)!;
+  }, { immediate: true });
 }
 
 export function updateGovernmentBid(
@@ -638,6 +625,7 @@ export function updateGovernmentBid(
     note?: string;
   }
 ): GovernmentBidApplication {
+  return runInTransaction(() => {
   const bid = getGovernmentBidByIdOrSecret(secret);
   if (!bid) {
     throw new Error('Bid not found');
@@ -647,6 +635,7 @@ export function updateGovernmentBid(
   if (!isMain) {
     throw new Error('Only the main contractor can edit bid parameters');
   }
+  if (bid.status !== 'OPEN') throw new Error('Only open bids can be edited');
 
   const updates: string[] = [];
   const params: (string | number | null)[] = [];
@@ -685,9 +674,11 @@ export function updateGovernmentBid(
   }
 
   return getGovernmentBidByIdOrSecret(secret)!;
+  }, { immediate: true });
 }
 
 export function deleteGovernmentBid(secret: string, companyId: number): boolean {
+  return runInTransaction(() => {
   const bid = getGovernmentBidByIdOrSecret(secret);
   if (!bid) return false;
 
@@ -696,8 +687,6 @@ export function deleteGovernmentBid(secret: string, companyId: number): boolean 
     throw new Error('Only the main contractor can delete the bid');
   }
 
-  db.exec('BEGIN TRANSACTION');
-  try {
     // Refund deposits to contractors who paid
     for (const b of bid.governmentorderbidderSet) {
       if (b.depositPaid > 0) {
@@ -707,15 +696,12 @@ export function deleteGovernmentBid(secret: string, companyId: number): boolean 
     db.prepare('DELETE FROM government_bid_contractors WHERE bid_secret = ?').run(secret);
     db.prepare('DELETE FROM government_bid_blocked_companies WHERE bid_secret = ?').run(secret);
     db.prepare('DELETE FROM government_bids WHERE secret = ?').run(secret);
-    db.exec('COMMIT');
-    return true;
-  } catch (err) {
-    db.exec('ROLLBACK');
-    throw err;
-  }
+  return true;
+  }, { immediate: true });
 }
 
 export function joinGovernmentBid(secret: string, companyId: number): GovernmentBidApplication {
+  return runInTransaction(() => {
   const bid = getGovernmentBidByIdOrSecret(secret);
   if (!bid) {
     throw new Error('Bid not found');
@@ -727,11 +713,14 @@ export function joinGovernmentBid(secret: string, companyId: number): Government
     throw new Error('Company is blocked from joining this bid');
   }
 
-  if (bid.governmentorderbidderSet.some(b => b.companyId === companyId)) {
+  const existing = bid.governmentorderbidderSet.find(b => b.companyId === companyId);
+  if (existing?.fulfilled) throw new Error('Contractor share already fulfilled');
+  if (existing && existing.depositPaid > 0) {
     return bid;
   }
 
-  if (bid.governmentorderbidderSet.length >= bid.maxContractorCount) {
+  if (bid.status !== 'OPEN') throw new Error('Only open bids can be joined');
+  if (!existing && bid.governmentorderbidderSet.length >= bid.maxContractorCount) {
     throw new Error(`Bid has reached maximum contractor capacity of ${bid.maxContractorCount}`);
   }
 
@@ -747,12 +736,14 @@ export function joinGovernmentBid(secret: string, companyId: number): Government
     throw new Error(`Insufficient funds for security deposit (Required: $${deposit})`);
   }
 
-  db.exec('BEGIN TRANSACTION');
-  try {
     if (deposit > 0) {
       updateCompanyMoney(companyId, -deposit);
     }
     const now = virtualClock.nowIso();
+    if (existing) {
+      db.prepare('UPDATE government_bid_contractors SET deposit_paid = ?, tier_index = ?, tier_multiplier = ?, joined_at = ? WHERE bid_secret = ? AND company_id = ?')
+        .run(deposit, tier.tierIndex, tier.resourceMultiplicator, now, secret, companyId);
+    } else {
     db.prepare(`
       INSERT INTO government_bid_contractors (
         bid_secret, company_id, is_main, tier_index, tier_multiplier,
@@ -766,16 +757,14 @@ export function joinGovernmentBid(secret: string, companyId: number): Government
       deposit,
       now
     );
-    db.exec('COMMIT');
-  } catch (err) {
-    db.exec('ROLLBACK');
-    throw err;
-  }
+    }
 
   return getGovernmentBidByIdOrSecret(secret)!;
+  }, { immediate: true });
 }
 
 export function leaveOrRemoveContractor(secret: string, companyId: number, targetCompanyId?: number): GovernmentBidApplication {
+  return runInTransaction(() => {
   const bid = getGovernmentBidByIdOrSecret(secret);
   if (!bid) {
     throw new Error('Bid not found');
@@ -786,14 +775,13 @@ export function leaveOrRemoveContractor(secret: string, companyId: number, targe
   if (!bidder) {
     return bid;
   }
+  if (bidder.fulfilled) throw new Error('A fulfilled contractor share cannot be removed');
 
   const isMain = bid.governmentorderbidderSet.some(b => b.companyId === companyId && b.isMainContractor);
   if (contractorToKick !== companyId && !isMain) {
     throw new Error('Only the main contractor can remove other contractors');
   }
 
-  db.exec('BEGIN TRANSACTION');
-  try {
     // Refund deposit
     if (bidder.depositPaid > 0) {
       updateCompanyMoney(contractorToKick, bidder.depositPaid);
@@ -804,13 +792,9 @@ export function leaveOrRemoveContractor(secret: string, companyId: number, targe
     if (contractorToKick !== companyId && isMain) {
       blockCompany(secret, contractorToKick);
     }
-    db.exec('COMMIT');
-  } catch (err) {
-    db.exec('ROLLBACK');
-    throw err;
-  }
 
   return getGovernmentBidByIdOrSecret(secret)!;
+  }, { immediate: true });
 }
 
 export function getBlockedCompanies(secret: string): { blockedCompanies: number[] } {
@@ -861,10 +845,12 @@ export function fulfillGovernmentOrderContractor(
   lastTransactionId: number;
   application: GovernmentBidApplication;
 } {
+  return runInTransaction(() => {
   const bid = getGovernmentBidByIdOrSecret(secret);
   if (!bid) {
     throw new Error('Bid not found');
   }
+  if (bid.status !== 'AWARDED') throw new Error('Bid has not been awarded');
 
   const contractor = bid.governmentorderbidderSet.find(b => b.companyId === targetCompanyId);
   if (!contractor) {
@@ -874,6 +860,7 @@ export function fulfillGovernmentOrderContractor(
   if (contractor.fulfilled) {
     throw new Error('Contractor share already fulfilled');
   }
+  if (contractor.depositPaid <= 0) throw new Error('Contractor has not accepted the invitation');
 
   const isMain = bid.governmentorderbidderSet.some(b => b.companyId === operatorCompanyId && b.isMainContractor);
   if (operatorCompanyId !== targetCompanyId && !isMain) {
@@ -884,7 +871,7 @@ export function fulfillGovernmentOrderContractor(
   if (!template) {
     throw new Error('Order template not found');
   }
-  if (template.deadline && virtualClock.nowMs() > Date.parse(template.deadline)) {
+  if (template.deadline && virtualClock.nowMs() > Date.parse(template.deadline) + template.daysToFulfill * 86400000) {
     throw new Error('Project fulfillment deadline has passed');
   }
 
@@ -900,13 +887,12 @@ export function fulfillGovernmentOrderContractor(
   const resourceTransactions: Array<{ kind: number; quality: number; amount: number }> = [];
   let rewardPayout = 0;
 
-  db.exec('BEGIN TRANSACTION');
-  try {
     for (const [kindStr, item] of Object.entries(needed)) {
       const kind = Number(kindStr);
       const neededAmount = item.amount;
       const neededQuality = item.quality;
       const unitPrice = prices[kindStr] !== undefined ? Number(prices[kindStr]) : (template.unitCompensationPrice || 50.0);
+      if (!Number.isFinite(unitPrice) || unitPrice < 0) throw new Error('Invalid agreed resource price');
 
       // Check warehouse stock
       const warehouseItem = getWarehouseItemExact(targetCompanyId, kind, neededQuality);
@@ -925,9 +911,7 @@ export function fulfillGovernmentOrderContractor(
     const newMoney = updateCompanyMoney(targetCompanyId, totalPayout);
 
     // Mark contractor as fulfilled
-    db.prepare('UPDATE government_bid_contractors SET fulfilled = 1 WHERE bid_secret = ? AND company_id = ?').run(secret, targetCompanyId);
-
-    db.exec('COMMIT');
+    db.prepare('UPDATE government_bid_contractors SET fulfilled = 1, deposit_paid = 0 WHERE bid_secret = ? AND company_id = ?').run(secret, targetCompanyId);
 
     const updatedBid = getGovernmentBidByIdOrSecret(secret)!;
     return {
@@ -937,8 +921,5 @@ export function fulfillGovernmentOrderContractor(
       lastTransactionId: virtualClock.nowMs(),
       application: updatedBid
     };
-  } catch (err) {
-    db.exec('ROLLBACK');
-    throw err;
-  }
+  }, { immediate: true });
 }

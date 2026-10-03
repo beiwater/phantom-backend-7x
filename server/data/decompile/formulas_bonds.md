@@ -12,6 +12,11 @@
 
 A bond unit always has a face value of $5,000. All amounts are expressed in integer units.
 
+Private-server settlement uses these integer units for purchase, early call,
+maturity principal, holdings and liabilities. Persisted `interest_rate` is a
+fraction (0.005 = 0.5%); the original `/api/bonds/` request and bond DTO use
+percentage values. Daily coupons are paid separately from maturity principal.
+
 ---
 
 ## 2. Bond Ratings

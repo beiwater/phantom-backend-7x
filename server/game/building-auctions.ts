@@ -513,7 +513,7 @@ export async function placeBid(companyId: number, auctionId: number, amount: num
 }
 
 export function withdrawBid(companyId: number, bidId: number): void {
-  runInTransaction(() => {
+  return runInTransaction(() => {
     const bid = db.prepare(
       "SELECT * FROM building_auction_bids WHERE id = ? AND company_id = ? AND status = 'active'"
     ).get(bidId, companyId) as unknown as BidRow | undefined;

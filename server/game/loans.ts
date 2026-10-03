@@ -1,6 +1,8 @@
 import { db } from '../db/database.ts';
 import { virtualClock } from '../core/virtual-clock.ts';
 import { updateCompanyMoney, getCompanyById } from './company.ts';
+import { runInTransaction } from '../db/transaction.ts';
+import { refreshDailyFinanceSnapshot } from './cash-ledger.ts';
 
 // Assumption: a company may hold active loan principal up to 2x its level * 50000
 // (level 5 starter => 500000 cap). No in-game reference exists yet; adjust here when
@@ -70,6 +72,7 @@ export function takeLoan(companyId: number, amount: number) {
   ensureTable();
   const amt = Number(amount);
   if (!Number.isFinite(amt) || amt <= 0) throw new Error('Loan amount must be positive');
+  return runInTransaction(() => {
   const comp = getCompanyById(companyId);
   if (!comp) throw new Error('Company not found');
 
@@ -81,20 +84,14 @@ export function takeLoan(companyId: number, amount: number) {
 
   const now = virtualClock.now();
   const due = new Date(now.getTime() + LOAN_TERM_DAYS * 24 * 60 * 60 * 1000);
-  db.prepare('BEGIN IMMEDIATE').run();
-  try {
     const res = db.prepare(`
       INSERT INTO loans (company_id, principal, interest_rate, remaining, status, created_at, due_at)
       VALUES (?, ?, ?, ?, 'active', ?, ?)
     `).run(companyId, amt, DEFAULT_INTEREST_RATE, amt, now.toISOString(), due.toISOString());
     const loanId = Number(res.lastInsertRowid);
     const newMoney = updateCompanyMoney(companyId, amt);
-    db.prepare('COMMIT').run();
     return { loanId, money: newMoney, moneyDelta: amt, cap, activePrincipal: current + amt };
-  } catch (err) {
-    db.prepare('ROLLBACK').run();
-    throw err;
-  }
+  }, { immediate: true });
 }
 
 export function repayLoan(companyId: number, loanId: number, amount: number) {
@@ -106,8 +103,7 @@ export function repayLoan(companyId: number, loanId: number, amount: number) {
   const amt = Number(amount);
   if (!Number.isFinite(amt) || amt <= 0) throw new Error('Repayment amount must be positive');
 
-  db.prepare('BEGIN IMMEDIATE').run();
-  try {
+  return runInTransaction(() => {
     // Re-read inside the transaction to avoid paying down a loan another call just closed.
     const current = db.prepare('SELECT * FROM loans WHERE id = ?').get(loanId) as unknown as LoanRow | undefined;
     if (!current || current.status !== 'active') throw new Error('Loan is not active');
@@ -116,19 +112,17 @@ export function repayLoan(companyId: number, loanId: number, amount: number) {
     const newRemaining = (Number(current.remaining) || 0) - pay;
     const status = newRemaining <= 0 ? 'repaid' : 'active';
     db.prepare('UPDATE loans SET remaining = ?, status = ? WHERE id = ?').run(newRemaining, status, loanId);
-    db.prepare('COMMIT').run();
+    refreshDailyFinanceSnapshot(companyId);
     return { loanId, paid: pay, remaining: newRemaining, status, money: newMoney, moneyDelta: -pay };
-  } catch (err) {
-    db.prepare('ROLLBACK').run();
-    throw err;
-  }
+  }, { immediate: true });
 }
 
 // Overdue loans are settled by an explicit scheduler or mutation path, never by
 // a read helper. This keeps GET requests side-effect free.
-export function settleDueLoans(companyId?: number) {
+export function settleDueLoans(companyId?: number, occurrence: Date = virtualClock.now()) {
   ensureTable();
-  const now = virtualClock.nowIso();
+  const now = occurrence.toISOString();
+  runInTransaction(() => {
   const rows = (companyId !== undefined
     ? db.prepare(
         `SELECT * FROM loans WHERE status = 'active' AND due_at IS NOT NULL AND due_at <= ? AND company_id = ?`
@@ -150,14 +144,12 @@ export function settleDueLoans(companyId?: number) {
     const nextDue = new Date(
       new Date(loan.due_at).getTime() + LOAN_TERM_DAYS * 24 * 60 * 60 * 1000
     ).toISOString();
-    db.prepare('BEGIN IMMEDIATE').run();
-    try {
+    runInTransaction(() => {
       if (affordable > 0) updateCompanyMoney(loan.company_id, -affordable);
       const newRemaining = owed - affordable + owed * rate;
       db.prepare('UPDATE loans SET remaining = ?, due_at = ? WHERE id = ?').run(newRemaining, nextDue, loan.id);
-      db.prepare('COMMIT').run();
-    } catch {
-      db.prepare('ROLLBACK').run();
-    }
+      refreshDailyFinanceSnapshot(loan.company_id);
+    });
   }
+  });
 }

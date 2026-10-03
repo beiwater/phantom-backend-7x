@@ -51,7 +51,7 @@ const productionQueue = db.prepare(`
   productionNow.toISOString(),
   new Date(productionNow.getTime() + 3600000).toISOString()
 );
-await assert.rejects(
+assert.throws(
   () => collectProductionUseCase(context, { buildingOrQueueId: Number(productionQueue.lastInsertRowid) }),
   /not finished/i
 );

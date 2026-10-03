@@ -332,7 +332,7 @@ export const CANONICAL_ACHIEVEMENTS: CanonicalAchievementDef[] = [
 export const ALL_ACHIEVEMENTS: IndividualAchievement[] = CANONICAL_ACHIEVEMENTS
   .filter(def => def.id !== 'daily-production')
   .map((def) => {
-    const primaryReward = def.reward ?? (def.rewards && def.rewards.length > 0 ? def.rewards[0] : 5000);
+    const primaryReward = def.rewards?.[0] ?? def.reward ?? 0;
     return {
       id: def.id,
       name: def.label,
@@ -349,11 +349,11 @@ export const ALL_ACHIEVEMENTS: IndividualAchievement[] = CANONICAL_ACHIEVEMENTS
       target: def.target,
       nextAchievement: def.starsMax > 1 && def.rewards && def.rewards.length > 1 ? {
         name: `${def.label} II`,
-        done: 1,
+        done: 0,
         available: 0,
         message: `继续提升以达到${def.label}更高星级。`,
         reward: def.rewards[1] ?? primaryReward * 2,
-        sim_boosts: def.simBoosts * 2 || 10
+        sim_boosts: def.simBoosts
       } : null
     };
   });

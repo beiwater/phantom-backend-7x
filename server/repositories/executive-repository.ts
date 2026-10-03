@@ -7,6 +7,7 @@
  * validations) belongs to application/executives/executive-use-cases.ts.
  */
 import { db } from '../db/connection.ts';
+import type { DatabaseSync } from 'node:sqlite';
 import { virtualClock } from '../core/virtual-clock.ts';
 
 export interface ExecutiveRow {

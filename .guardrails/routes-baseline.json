@@ -1,5 +1,5 @@
 {
-  "declarativeCount": 449,
+  "declarativeCount": 455,
   "legacyCount": 14,
   "declarative": [
     {
@@ -236,6 +236,11 @@
       "method": "GET",
       "pattern": "/api/csrf/",
       "owner": "encyclopedia"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/debug/certificate/",
+      "owner": "debug"
     },
     {
       "method": "GET",
@@ -701,6 +706,11 @@
       "method": "GET",
       "pattern": "/api/v2/contracts-outgoing/",
       "owner": "contracts"
+    },
+    {
+      "method": "GET",
+      "pattern": "/api/v2/debug/certificate/",
+      "owner": "debug"
     },
     {
       "method": "GET",
@@ -1599,7 +1609,17 @@
     },
     {
       "method": "POST",
+      "pattern": "/api/debug/certificate/",
+      "owner": "debug"
+    },
+    {
+      "method": "POST",
       "pattern": "/api/debug/chatrooms/",
+      "owner": "debug"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/debug/command/",
       "owner": "debug"
     },
     {
@@ -1919,7 +1939,17 @@
     },
     {
       "method": "POST",
+      "pattern": "/api/v2/debug/certificate/",
+      "owner": "debug"
+    },
+    {
+      "method": "POST",
       "pattern": "/api/v2/debug/chatrooms/",
+      "owner": "debug"
+    },
+    {
+      "method": "POST",
+      "pattern": "/api/v2/debug/command/",
       "owner": "debug"
     },
     {

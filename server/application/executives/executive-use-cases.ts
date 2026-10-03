@@ -10,6 +10,8 @@
  * primitives. Behavior is preserved verbatim.
  */
 import type { GameContext } from '../../context/game-context.ts';
+import type { UpdateExecutiveInput, CreatePoachingOfferInput, CounterHostileOfferInput } from './executive-inputs.ts';
+export type { UpdateExecutiveInput, CreatePoachingOfferInput, CounterHostileOfferInput } from './executive-inputs.ts';
 import { CONFIG } from '../../config.ts';
 import { companyRepository } from '../../repositories/company-repository.ts';
 import {
@@ -1106,7 +1108,7 @@ async function updatePoachingOffer(
           searchDeadlineIso(now),
           now
         );
-        return formatOffer(refreshed, null);
+        return { offer: formatOffer(refreshed, null), simboostsDelta: 0 };
       }
       const updated = executiveRepository.setOfferStatus(offerId, requestedStatus, now);
       return {

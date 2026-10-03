@@ -72,15 +72,13 @@ export function listUnlockedHqs(companyId: number): UnlockedHqItem[] {
 export async function unlockHq(companyId: number, idx: number): Promise<UnlockedHqItem[]> {
   const skin = HQ_SKINS.find(entry => entry.idx === idx);
   if (!skin) throw new NotPurchasableError('Unknown HQ skin idx ' + idx);
-  if (idx === 0 || socialRepository.isHqUnlocked(companyId, idx)) {
-    selectHq(companyId, skin.image);
-    return listUnlockedHqs(companyId);
-  }
-  if (skin.simboosts === null) throw new NotPurchasableError('HQ skin ' + idx + ' is not purchasable');
-  await runInTransaction(() => {
-    companyRepository.debitSimboosts(companyId, skin.simboosts!);
-    socialRepository.insertUnlockedHq(companyId, idx);
-    socialRepository.recordSimboostSpend(companyId, 'HQ_UNLOCK', skin.simboosts!);
+  runInTransaction(() => {
+    if (idx !== 0 && !socialRepository.isHqUnlocked(companyId, idx)) {
+      if (skin.simboosts === null) throw new NotPurchasableError('HQ skin ' + idx + ' is not purchasable');
+      socialRepository.insertUnlockedHq(companyId, idx);
+      companyRepository.debitSimboosts(companyId, skin.simboosts);
+      socialRepository.recordSimboostSpend(companyId, 'HQ_UNLOCK', skin.simboosts);
+    }
     selectHq(companyId, skin.image);
   });
   return listUnlockedHqs(companyId);

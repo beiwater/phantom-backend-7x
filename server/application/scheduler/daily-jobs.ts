@@ -9,11 +9,11 @@
  */
 import { db } from '../../db/database.ts';
 import { runInTransaction } from '../../db/transaction.ts';
-import { bondRepository } from '../../repositories/bond-repository.ts';
+import { bondRepository, BOND_FACE_VALUE } from '../../repositories/bond-repository.ts';
 import { companyRepository } from '../../repositories/company-repository.ts';
 import { governmentOrdersRepository } from '../../repositories/government-orders-repository.ts';
 import { schedulerStateRepository } from '../../repositories/scheduler-state-repository.ts';
-import { recordCashLedger } from '../../game/cash-ledger.ts';
+import { recordCashLedger, refreshDailyFinanceSnapshot } from '../../game/cash-ledger.ts';
 import { getAllResourceDefs } from '../../game-data/resources.ts';
 import { virtualClock } from '../../core/virtual-clock.ts';
 
@@ -35,7 +35,7 @@ function round2(value: number): number {
  */
 export function chargeDailyBondInterest(): void {
   for (const bond of bondRepository.findActiveHeld()) {
-    const interest = round2(bond.amount * bond.interestRate);
+    const interest = round2(bond.amount * BOND_FACE_VALUE * bond.interestRate);
     if (!(interest > 0)) continue;
 
     const holderId = bond.buyerCompanyId as number;
@@ -70,6 +70,8 @@ export function chargeDailyBondInterest(): void {
       }
       if (paid < interest) {
         bondRepository.markDefaulted(bond.id);
+        refreshDailyFinanceSnapshot(issuerId as number);
+        refreshDailyFinanceSnapshot(holderId);
       }
     } else {
       recordCashLedger({
@@ -195,18 +197,18 @@ export function publishGovernmentOrders(occurrence: Date): void {
 // --- 13:00 UTC Monday: Government Orders award fulfillment ---
 
 export function bidTotalValue(
-  bid: { price_breakdown_json: string | null },
-  template: { required_resources_json: string; unit_compensation_price: number }
+  bid: { priceBreakdownJson: string | null },
+  template: { requiredResourcesJson: string; unitCompensationPrice: number }
 ): number {
   let prices: Record<string, number> = {};
   try {
-    prices = JSON.parse(bid.price_breakdown_json || '{}') || {};
+    prices = JSON.parse(bid.priceBreakdownJson || '{}') || {};
   } catch {
     prices = {};
   }
   let required: Array<Record<string, unknown>> = [];
   try {
-    required = JSON.parse(template.required_resources_json || '[]') || [];
+    required = JSON.parse(template.requiredResourcesJson || '[]') || [];
   } catch {
     required = [];
   }
@@ -216,7 +218,7 @@ export function bidTotalValue(
     const kind = String(entry.kind);
     const price = prices[kind] !== undefined
       ? Number(prices[kind])
-      : Number(template.unit_compensation_price) || 0;
+      : Number(template.unitCompensationPrice) || 0;
     total += amount * price;
   }
   return total;
@@ -252,7 +254,15 @@ export function awardGovernmentBids(occurrence: Date): void {
       governmentOrdersRepository.markBidRejected(bid.id);
       for (const contractor of governmentOrdersRepository.listDepositHolders(bid.secret)) {
         if (companyRepository.findById(contractor.companyId)) {
-          updateCompanyMoney(contractor.companyId, contractor.depositPaid);
+          recordCashLedger({
+            companyId: contractor.companyId,
+            amount: contractor.depositPaid,
+            category: 'b',
+            description: 'Rejected government bid deposit refund',
+            descriptionKey: '1-governmentdeposit',
+            details: { bidSecret: bid.secret }
+          });
+          companyRepository.updateMoney(contractor.companyId, contractor.depositPaid, { skipLedger: true });
         }
         governmentOrdersRepository.forfeitDeposits(bid.secret, contractor.companyId);
       }

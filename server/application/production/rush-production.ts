@@ -3,11 +3,12 @@ import { virtualClock } from '../../core/virtual-clock.ts';
 import { runInTransaction } from '../../db/transaction.ts';
 import { buildingRepository, type BuildingEntity } from '../../repositories/building-repository.ts';
 import { productionRepository, type ProductionQueueEntity } from '../../repositories/production-repository.ts';
-import { warehouseRepository } from '../../repositories/warehouse-repository.ts';
 import { companyRepository } from '../../repositories/company-repository.ts';
 import { eventBus } from '../../events/event-bus.ts';
 import { NotFoundError, ForbiddenError, ValidationError } from '../../errors/domain-error.ts';
 import { recordSimboostSpend } from '../social/simboost-history.ts';
+import { collectAccumulatorUseCase } from './collect-accumulator.ts';
+import { collectProductionUseCase } from './collect-production.ts';
 
 export interface RushProductionInput {
   buildingId: number;
@@ -58,13 +59,10 @@ export async function rushProductionUseCase(
     // inventory credit must be inside the same atomic transaction).
     const nowIso = virtualClock.nowIso();
     const finishedItem = productionRepository.finishImmediately(queueItem.id, ctx.companyId, nowIso);
-    if (!productionRepository.markResolved(queueItem.id, ctx.companyId)) {
-      throw new ValidationError('Production queue is no longer active');
-    }
-    warehouseRepository.addResource(ctx.companyId, queueItem.kind, queueItem.quality, queueItem.amount);
-  
-    // 5. Free the building (legacy: busy_until = NULL)
-    const updatedBuilding = buildingRepository.updateBusyUntil(building.id, ctx.companyId, null);
+    const completed = building.kind === 'v' && queueItem.kind === 150
+      ? collectAccumulatorUseCase(ctx, building.id)
+      : collectProductionUseCase(ctx, { buildingOrQueueId: queueItem.id });
+    const updatedBuilding = completed.building;
   
     // 6. Publish domain event on transaction commit
     eventBus.publishCommitted(txCtx, 'ProductionRushed', {

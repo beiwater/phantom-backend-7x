@@ -5,20 +5,15 @@ import { setupWebSocket } from '../server/ws/websocket.ts';
 import { handleRequest } from '../server/router.ts';
 import { db } from '../server/db/database.ts';
 import { createSession } from '../server/auth/session.ts';
+import { registerPlayer } from '../server/db/seed/index.ts';
 
 // Test that POST /api/v2/message/ with token broadcasts NEW_MESSAGE with the same token over WebSocket
 async function main() {
   console.log('=== Verifying Chat Optimistic Token Reconciliation ===');
 
-  // Prepare test company & session in database
-  let testCompany = db.prepare('SELECT company_id, name, realm_id FROM companies LIMIT 1').get() as { company_id: number; name: string; realm_id: number } | undefined;
-  if (!testCompany) {
-    db.prepare("INSERT INTO companies (company_id, player_id, name, cash) VALUES (99999, 99999, 'TokenTest Corp', 10000)").run();
-    testCompany = { company_id: 99999, name: 'TokenTest Corp', realm_id: 0 };
-  }
-
-  // Create a valid session token via createSession
-  const testSessionToken = createSession(1, testCompany.company_id);
+  // Real owned session: websocket authentication now validates company ownership.
+  const fixture = registerPlayer(`token-${Date.now()}@test.local`, 'password123', `Token Test ${Date.now()}`);
+  const testSessionToken = createSession(fixture.playerId, fixture.companyId);
 
   // Spin up test HTTP server with WebSocket enabled
   const server = http.createServer(async (req, res) => {
@@ -45,7 +40,7 @@ async function main() {
   console.log(`Test server running at ${httpUrl}, WS: ${wsUrl}`);
 
   // Connect WebSocket client
-  const ws = new WebSocket(wsUrl);
+  const ws = new WebSocket(wsUrl, { headers: { Cookie: `sessionid=${testSessionToken}` } });
   await new Promise<void>((resolve, reject) => {
     ws.on('open', () => resolve());
     ws.on('error', reject);
@@ -93,7 +88,7 @@ async function main() {
   assert.equal(wsMsg.data.token, testToken, `Expected WebSocket data.token to match ${testToken}, got ${wsMsg.data.token}`);
   assert.equal(wsMsg.data.chatroom, 'G');
   assert.equal(wsMsg.data.body, 'Testing optimistic token reconciliation');
-  assert.equal(wsMsg.data.sender.id, testCompany.company_id);
+  assert.equal(wsMsg.data.sender.id, fixture.companyId);
 
   console.log('  -> Chatroom message token successfully broadcast via WebSocket NEW_MESSAGE.');
 

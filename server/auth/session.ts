@@ -42,6 +42,14 @@ export function getSession(token: string): { playerId: number; companyId: number
     db.prepare('DELETE FROM sessions WHERE session_token = ?').run(token);
     return null;
   }
+  const activeCompany = db.prepare(`SELECT EXISTS (
+    SELECT 1 FROM company_settings WHERE company_id = c.company_id AND key IN ('banned', 'is_banned') AND value = '1'
+  ) AS banned FROM companies c WHERE company_id = ? AND player_id = ?`)
+    .get(row.active_company_id, row.player_id) as { banned: number } | undefined;
+  if (!activeCompany || activeCompany.banned) {
+    destroySession(token);
+    return null;
+  }
   return {
     playerId: row.player_id,
     companyId: row.active_company_id
@@ -80,8 +88,12 @@ export function switchSessionCompany(token: string, newCompanyId: number): void 
   if (!token || !Number.isSafeInteger(newCompanyId) || newCompanyId <= 0) return;
   const session = db.prepare('SELECT player_id FROM sessions WHERE session_token = ?').get(token) as { player_id?: number } | undefined;
   if (!session?.player_id) return;
-  const ownedCompany = db.prepare('SELECT 1 FROM companies WHERE company_id = ? AND player_id = ?').get(newCompanyId, session.player_id);
+  const ownedCompany = db.prepare(`SELECT EXISTS (
+    SELECT 1 FROM company_settings WHERE company_id = c.company_id AND key IN ('banned', 'is_banned') AND value = '1'
+  ) AS banned FROM companies c WHERE company_id = ? AND player_id = ?`)
+    .get(newCompanyId, session.player_id) as { banned: number } | undefined;
   if (!ownedCompany) throw new Error('Company does not belong to session player');
+  if (ownedCompany.banned) throw new Error('Company is suspended');
   db.prepare('UPDATE sessions SET active_company_id = ? WHERE session_token = ? AND player_id = ?')
     .run(newCompanyId, token, session.player_id);
 }

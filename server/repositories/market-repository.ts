@@ -85,7 +85,7 @@ export class MarketRepository {
 
   findById(orderId: number): MarketOrderEntity | null {
     const row = this.database.prepare(
-      'SELECT * FROM market_orders WHERE id = ?'
+      'SELECT * FROM market_orders WHERE id = ? AND is_buy = 0'
     ).get(orderId) as MarketOrderDbRow | undefined;
     return row ? mapOrderRow(row) : null;
   }
@@ -94,7 +94,7 @@ export class MarketRepository {
     const rows = this.database.prepare(`
       SELECT m.* FROM market_orders m
       LEFT JOIN companies c ON m.seller_id = c.company_id
-      WHERE m.kind = ? AND m.active = 1 AND m.quantity > 0
+      WHERE m.kind = ? AND m.active = 1 AND m.is_buy = 0 AND m.quantity > 0
         AND (m.seller_id = 999900 OR c.realm_id = ? OR c.realm_id IS NULL)
       ORDER BY m.price ASC, m.quality DESC, m.id ASC
       LIMIT ?
@@ -106,7 +106,7 @@ export class MarketRepository {
     const row = this.database.prepare(`
       SELECT MIN(m.price) as minPrice FROM market_orders m
       LEFT JOIN companies c ON m.seller_id = c.company_id
-      WHERE m.kind = ? AND m.active = 1 AND m.quantity > 0
+      WHERE m.kind = ? AND m.active = 1 AND m.is_buy = 0 AND m.quantity > 0
         AND (m.seller_id = 999900 OR c.realm_id = ? OR c.realm_id IS NULL)
     `).get(kind, realmId) as { minPrice: number | null } | undefined;
     return row && row.minPrice !== null ? row.minPrice : null;
@@ -115,7 +115,7 @@ export class MarketRepository {
   findActiveBySeller(companyId: number): MarketOrderEntity[] {
     const rows = this.database.prepare(`
       SELECT * FROM market_orders
-      WHERE seller_id = ? AND active = 1
+      WHERE seller_id = ? AND active = 1 AND is_buy = 0
       ORDER BY id DESC
     `).all(companyId) as MarketOrderDbRow[];
     return rows.map(mapOrderRow);
@@ -126,7 +126,7 @@ export class MarketRepository {
     const cap = Number.isFinite(priceCap) ? priceCap : Number.MAX_SAFE_INTEGER;
     const rows = this.database.prepare(`
       SELECT * FROM market_orders
-      WHERE kind = ? AND active = 1 AND price <= ? AND quality >= ? AND quantity > 0
+      WHERE kind = ? AND active = 1 AND is_buy = 0 AND price <= ? AND quality >= ? AND quantity > 0
       ORDER BY price ASC, quality DESC, id ASC
     `).all(resourceKind, cap, minQuality) as MarketOrderDbRow[];
     return rows.map(mapOrderRow);
@@ -167,24 +167,24 @@ export class MarketRepository {
     const isNpc = this.findById(orderId)?.sellerId === 999900;
     const updated = remaining <= 0
       ? (isNpc && CONFIG.NPC_MARKET_INFINITE
-        ? this.database.prepare('UPDATE market_orders SET quantity = 100000 WHERE id = ? AND active = 1 AND quantity >= ?')
+        ? this.database.prepare('UPDATE market_orders SET quantity = 100000 WHERE id = ? AND active = 1 AND is_buy = 0 AND quantity >= ?')
           .run(orderId, takeAmount)
-        : this.database.prepare('UPDATE market_orders SET quantity = 0, active = 0 WHERE id = ? AND active = 1 AND quantity >= ?')
+        : this.database.prepare('UPDATE market_orders SET quantity = 0, active = 0 WHERE id = ? AND active = 1 AND is_buy = 0 AND quantity >= ?')
           .run(orderId, takeAmount))
-      : this.database.prepare('UPDATE market_orders SET quantity = ? WHERE id = ? AND active = 1 AND quantity >= ?')
+      : this.database.prepare('UPDATE market_orders SET quantity = ? WHERE id = ? AND active = 1 AND is_buy = 0 AND quantity >= ?')
         .run(remaining, orderId, takeAmount);
     return updated.changes === 1;
   }
 
   addFees(orderId: number, fee: number): void {
-    this.database.prepare('UPDATE market_orders SET fees = fees + ? WHERE id = ?').run(fee, orderId);
+    this.database.prepare('UPDATE market_orders SET fees = fees + ? WHERE id = ? AND is_buy = 0').run(fee, orderId);
   }
 
   /** Cancel: mark inactive; returns false when already inactive/foreign. */
   deactivateOwnedActiveOrder(orderId: number, sellerId: number): boolean {
     const updated = this.database.prepare(`
       UPDATE market_orders SET active = 0
-      WHERE id = ? AND seller_id = ? AND active = 1 AND quantity > 0
+      WHERE id = ? AND seller_id = ? AND active = 1 AND is_buy = 0 AND quantity > 0
     `).run(orderId, sellerId);
     return updated.changes === 1;
   }
@@ -192,7 +192,7 @@ export class MarketRepository {
   findOwnedActiveOrder(orderId: number, sellerId: number): MarketOrderEntity | null {
     const row = this.database.prepare(`
       SELECT * FROM market_orders
-      WHERE id = ? AND seller_id = ? AND active = 1 AND quantity > 0
+      WHERE id = ? AND seller_id = ? AND active = 1 AND is_buy = 0 AND quantity > 0
     `).get(orderId, sellerId) as MarketOrderDbRow | undefined;
     return row ? mapOrderRow(row) : null;
   }
@@ -216,15 +216,15 @@ export class MarketTradeRepository {
 
   // --- Buy orders (bid side) ---------------------------------------------
 
-  insertBuyOrder(companyId: number, kind: number, quality: number, quantity: number, price: number, postedAt: string): number {
+  insertBuyOrder(companyId: number, kind: number, quality: number, quantity: number, price: number, postedAt: string, escrow: number): number {
     const res = this.database.prepare(`
-      INSERT INTO market_orders (seller_id, kind, quality, quantity, price, fees, posted_at, active, is_npc, is_buy)
-      VALUES (?, ?, ?, ?, ?, 0, ?, 1, 0, 1)
-    `).run(companyId, kind, quality, quantity, price, postedAt);
+      INSERT INTO market_orders (seller_id, kind, quality, quantity, price, fees, posted_at, active, is_npc, is_buy, escrow_remaining)
+      VALUES (?, ?, ?, ?, ?, 0, ?, 1, 0, 1, ?)
+    `).run(companyId, kind, quality, quantity, price, postedAt, escrow);
     return Number(res.lastInsertRowid);
   }
 
-  findActiveBuyOrder(orderId: number): { id: number; buyerId: number; kind: number; quality: number; quantity: number; price: number } | undefined {
+  findActiveBuyOrder(orderId: number): { id: number; buyerId: number; kind: number; quality: number; quantity: number; price: number; escrow: number } | undefined {
     const row = this.database
       .prepare('SELECT * FROM market_orders WHERE id = ? AND active = 1 AND is_buy = 1')
       .get(orderId) as {
@@ -234,6 +234,7 @@ export class MarketTradeRepository {
         quality: number;
         quantity: number;
         price: number;
+        escrow_remaining: number;
       } | undefined;
     return row
       ? {
@@ -242,21 +243,21 @@ export class MarketTradeRepository {
           kind: Number(row.kind),
           quality: Number(row.quality),
           quantity: Number(row.quantity),
-          price: Number(row.price)
+          price: Number(row.price),
+          escrow: Number(row.escrow_remaining)
         }
       : undefined;
   }
 
-  closeOrReduceBuyOrder(orderId: number, newQuantity: number): void {
-    if (newQuantity > 0) {
-      this.database.prepare('UPDATE market_orders SET quantity = ? WHERE id = ?').run(newQuantity, orderId);
-    } else {
-      this.database.prepare('UPDATE market_orders SET active = 0, quantity = 0 WHERE id = ?').run(orderId);
-    }
+  closeOrReduceBuyOrder(orderId: number, newQuantity: number, escrow: number): void {
+    this.database.prepare(`
+      UPDATE market_orders SET quantity = ?, escrow_remaining = ?, active = ?
+      WHERE id = ? AND active = 1 AND is_buy = 1
+    `).run(Math.max(0, newQuantity), escrow, newQuantity > 0 ? 1 : 0, orderId);
   }
 
   cancelBuyOrderRow(orderId: number): void {
-    this.database.prepare('UPDATE market_orders SET active = 0 WHERE id = ?').run(orderId);
+    this.database.prepare('UPDATE market_orders SET active = 0, escrow_remaining = 0 WHERE id = ? AND is_buy = 1').run(orderId);
   }
 
   /** Standing bids for resource/quality, highest price first, excluding one company. */
@@ -265,9 +266,10 @@ export class MarketTradeRepository {
     buyerId: number;
     quantity: number;
     price: number;
+    escrow: number;
   }> {
     const rows = this.database.prepare(`
-      SELECT id, seller_id AS buyer_id, quantity, price
+      SELECT id, seller_id AS buyer_id, quantity, price, escrow_remaining
       FROM market_orders
       WHERE active = 1 AND is_buy = 1 AND kind = ? AND quality = ? AND price >= ?
         AND seller_id != ?
@@ -277,12 +279,14 @@ export class MarketTradeRepository {
       buyer_id: number;
       quantity: number;
       price: number;
+      escrow_remaining: number;
     }>;
     return rows.map(r => ({
       id: Number(r.id),
       buyerId: Number(r.buyer_id),
       quantity: Number(r.quantity),
-      price: Number(r.price)
+      price: Number(r.price),
+      escrow: Number(r.escrow_remaining)
     }));
   }
 

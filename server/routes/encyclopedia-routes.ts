@@ -186,7 +186,7 @@ export async function handleEncyclopediaRoutes(
   // 10. Certificates and Tags (API endpoints only)
   if (pathname.startsWith('/api/') && pathname.includes('/certificates-explorer/')) {
     const all = getCertificates(0);
-    const latest = [...all].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 20);
+    const latest = [...all].sort((a, b) => b.datetime.localeCompare(a.datetime)).slice(0, 20);
     const rarest = [...all].sort((a, b) => a.rank - b.rank).slice(0, 20);
     if (pathname.includes('/latest/')) {
       sendJson(res, { latestCertificates: latest });
@@ -254,7 +254,7 @@ function encyclopediaQualityMap(companyId: number | null): Record<string, number
 function encyclopediaCertificates(): { latestCertificates: unknown[]; rarestCertificates: unknown[] } {
   const all = getCertificates(0);
   return {
-    latestCertificates: [...all].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 20),
+    latestCertificates: [...all].sort((a, b) => b.datetime.localeCompare(a.datetime)).slice(0, 20),
     rarestCertificates: [...all].sort((a, b) => a.rank - b.rank).slice(0, 20)
   };
 }

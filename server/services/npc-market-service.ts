@@ -249,10 +249,9 @@ export class NpcMarketService {
       return roundToTick(1.0 + quality * 0.01);
     }
 
-    const def = CONSTANTS_RESOURCES[String(kind)] as ResourceDef | undefined;
     const models = this.getEconomyModels();
     const model = models[String(kind)]?.state_1 || models[String(kind)]?.state_0;
-    const baseCost = Number(model?.modeledProductionCostPerUnit) || Number(def?.cost) || 2.0;
+    const baseCost = Number(model?.modeledProductionCostPerUnit) || 2.0;
     const levelsNeeded = Number(model?.buildingLevelsNeededPerUnitPerHour) || 0;
     const targetProfit = Number(CONFIG.TARGET_BUILDING_PROFIT) || 300;
     const volatility = Number(CONFIG.MARKET_PRICE_VOLATILITY) || 0.05;
@@ -310,20 +309,20 @@ export class NpcMarketService {
       const deactRes = database.prepare(`
         UPDATE market_orders
         SET active = 0, quantity = 0
-        WHERE seller_id = ? AND quality > ? AND active = 1
+        WHERE seller_id = ? AND quality > ? AND active = 1 AND is_buy = 0
       `).run(NPC_SELLER_ID, effectiveMaxQuality);
       let ordersDeactivated = Number(deactRes.changes) || 0;
     
       const nowIso = virtualClock.nowIso();
       const findExistingStmt = database.prepare(`
         SELECT id, quantity, active, price FROM market_orders
-        WHERE seller_id = ? AND kind = ? AND quality = ?
+        WHERE seller_id = ? AND kind = ? AND quality = ? AND is_buy = 0
       `);
     
       const updateOrderStmt = database.prepare(`
         UPDATE market_orders
         SET quantity = ?, price = ?, active = 1, posted_at = ?
-        WHERE id = ?
+        WHERE id = ? AND is_buy = 0
       `);
     
       const insertOrderStmt = database.prepare(`
@@ -340,7 +339,7 @@ export class NpcMarketService {
         if (!RealmPhaseService.isResourceUnlocked(kind, database)) {
           const deactLocked = database.prepare(`
             UPDATE market_orders SET active = 0, quantity = 0
-            WHERE seller_id = ? AND kind = ? AND active = 1
+            WHERE seller_id = ? AND kind = ? AND active = 1 AND is_buy = 0
           `).run(NPC_SELLER_ID, kind);
           ordersDeactivated += Number(deactLocked.changes) || 0;
           continue;
@@ -430,7 +429,7 @@ export class NpcMarketService {
     if ((CONFIG.MARKET_PRICING_MODE || 'realistic') === 'realistic') {
       const dummyCount = (database.prepare(`
         SELECT COUNT(*) as count FROM market_orders
-        WHERE seller_id = ? AND price = 1.0 AND kind > 2 AND active = 1
+        WHERE seller_id = ? AND price = 1.0 AND kind > 2 AND active = 1 AND is_buy = 0
       `).get(NPC_SELLER_ID) as { count: number })?.count || 0;
       if (dummyCount > 0) {
         logger.info(`[NpcMarket] Detected ${dummyCount} orders with dummy price $1.00. Forcing price reconciliation...`);
@@ -485,7 +484,7 @@ export class NpcMarketService {
       const def = CONSTANTS_RESOURCES[String(k)] as ResourceDef | undefined;
       const { baseBatch, adjustedBatch, maxCap, purchasedVolume } = this.calculateDynamicBatch(k, 0, database);
       const stockRow = database.prepare(`
-        SELECT quantity FROM market_orders WHERE seller_id = ? AND kind = ? AND quality = 0 AND active = 1
+        SELECT quantity FROM market_orders WHERE seller_id = ? AND kind = ? AND quality = 0 AND active = 1 AND is_buy = 0
       `).get(NPC_SELLER_ID, k) as { quantity: number } | undefined;
 
       return {

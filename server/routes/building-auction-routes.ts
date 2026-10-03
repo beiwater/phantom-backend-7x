@@ -143,7 +143,7 @@ export async function handleBuildingAuctionRoutes(
           forbidden(res, 'Bids are withdrawn by the bidding company');
           return true;
         }
-        await withdrawBid(currentCompanyId, bidId);
+        withdrawBid(currentCompanyId, bidId);
         sendJson(res, { success: true });
         return true;
       }
@@ -342,7 +342,7 @@ export function registerBuildingAuctionRoutes(registry: RouteRegistry = globalRo
           return;
         }
         try {
-          await withdrawBid(companyId, Number(params.bidId));
+          withdrawBid(companyId, Number(params.bidId));
           sendJson(res, { success: true });
         } catch (err: unknown) {
           sendAuctionError(res, err);

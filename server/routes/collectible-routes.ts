@@ -5,9 +5,8 @@
  *   GET   /api/v2/market-collectibles/            — listed collectibles (pcr, chunk_kkt.js)
  *   POST  /api/v2/market-collectibles/            — list your collectible for SimBoosts
  *                                                   ({ collectibleId, simboosts }, chunk_uei.js)
- *   PATCH /api/v2/market-collectibles/{id}/       — owner-only delist / re-list / price update
- *   POST  /api/v2/market-collectibles/{id}/buy/   — purchase with SimBoosts (private-server
- *                                                   explicit form of the decompiled PATCH buy)
+ *   PATCH /api/v2/market-collectibles/{id}/       — buy another owner's listing or delist your own
+ *   POST  /api/v2/market-collectibles/{id}/buy/   — explicit purchase
  *   GET   /api/v2/market-collectibles-sbs/        — SimBoost packs available to non-supporters (Pkt)
  *   GET   /api/v2/nfts/assets/{assetId}/          — NFT metadata (?ipfs=true adds ipfs object)
  *   GET   /api/v2/nfts/assets/{assetId}/trades/   — provenance chain { trades: [...] }
@@ -28,7 +27,7 @@ import {
   getNftCollectors,
   listCollectibleForSale,
   listMarketCollectibles,
-  updateCollectibleListing
+  patchCollectibleListing
 } from '../game/collectibles.ts';
 import { DomainError, UnauthorizedError } from '../errors/domain-error.ts';
 
@@ -102,7 +101,7 @@ export async function handleCollectibleRoutes(
     return true;
   }
 
-  // Owner listing management: PATCH /api/v2/market-collectibles/:id/
+  // Buy another owner's collectible or manage one's own listing via PATCH.
   const listingMatch = pathname.match(/^\/api\/v2\/market-collectibles\/(\d+)\/?$/);
   if (listingMatch) {
     if (method !== 'PATCH') {
@@ -112,7 +111,7 @@ export async function handleCollectibleRoutes(
     try {
       const companyId = requireCompany(currentCompanyId);
       const body = await readJsonBody<{ listed?: boolean; priceSimboosts?: number }>(req).catch(() => ({}) as { listed?: boolean; priceSimboosts?: number });
-      const listing = updateCollectibleListing(companyId, Number(listingMatch[1]), {
+      const listing = patchCollectibleListing(companyId, Number(listingMatch[1]), {
         listed: body.listed,
         priceSimboosts: body.priceSimboosts === undefined ? undefined : Number(body.priceSimboosts)
       });
@@ -224,7 +223,7 @@ export function registerCollectibleRoutes(registry: RouteRegistry = globalRouteR
         try {
           const rawListed = bodyField(body, 'listed');
           const rawPrice = bodyField(body, 'priceSimboosts');
-          sendJson(res, updateCollectibleListing(requireCompany(ctx?.companyId ?? null), Number(params.listingId), {
+          sendJson(res, patchCollectibleListing(requireCompany(ctx?.companyId ?? null), Number(params.listingId), {
             listed: typeof rawListed === 'boolean' ? rawListed : undefined,
             priceSimboosts: rawPrice === undefined ? undefined : Number(rawPrice)
           }));

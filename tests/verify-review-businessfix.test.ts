@@ -1,0 +1,114 @@
+import assert from 'node:assert/strict';
+import { PassThrough } from 'node:stream';
+import type { IncomingMessage, ServerResponse } from 'node:http';
+import { db } from '../server/db/database.ts';
+import { registerPlayer } from '../server/db/seed/index.ts';
+import { createGovernmentBid, getGovernmentOrders, joinGovernmentBid, fulfillGovernmentOrderContractor, getGovernmentBidByIdOrSecret, updateGovernmentBid, leaveOrRemoveContractor, deleteGovernmentBid } from '../server/game/government.ts';
+import { governmentOrdersRepository } from '../server/repositories/government-orders-repository.ts';
+import { addResource } from '../server/game/warehouse.ts';
+import { updateRestaurantProperties, getRestaurantRuns, resolveDueRestaurantRuns } from '../server/game/restaurant.ts';
+import { retailRepository } from '../server/repositories/retail-repository.ts';
+import { collectRetailOrderUseCase } from '../server/application/retail/retail-use-cases.ts';
+import { createGameContext } from '../server/context/game-context.ts';
+import { handleExecutiveRoutes } from '../server/routes/executive-routes.ts';
+import { getCompanyExecutives, getExecutiveCandidates, createPoachingOffer } from '../server/application/executives/executive-use-cases.ts';
+import { listCollectibleForSale, getNftAsset } from '../server/game/collectibles.ts';
+import { handleCollectibleRoutes } from '../server/routes/collectible-routes.ts';
+
+const players = ['a', 'b', 'c'].map(name => registerPlayer(`${name}@business.test`, 'password123', `Business ${name}`));
+const [a,b,c] = players.map(p => p.companyId);
+for (const id of [a,b,c]) db.prepare('UPDATE companies SET money = 100000000, level = 30 WHERE company_id = ?').run(id);
+const money = (id: number) => Number(db.prepare('SELECT money FROM companies WHERE company_id = ?').get(id)!.money);
+const stock = (id: number) => Number(db.prepare('SELECT COALESCE(SUM(amount),0) AS n FROM warehouse WHERE company_id = ?').get(id)!.n);
+const template = getGovernmentOrders(0)[0];
+const beforeB = money(b);
+let bid = createGovernmentBid(a, 0, { templateId: template.id, maxContractorCount: 3, contractors: [a,b,c], resourcePriceBreakdown: { '1': 1e12 } });
+assert.equal(money(b), beforeB, 'invitation must not debit another company');
+assert.equal(governmentOrdersRepository.listOpenBids(template.id).length, 0, 'invitations cannot be awarded');
+assert.throws(() => fulfillGovernmentOrderContractor(bid.secret, a, a), /awarded/);
+joinGovernmentBid(bid.secret,b); joinGovernmentBid(bid.secret,c);
+assert.ok(money(b) < beforeB, 'authenticated join pays deposit');
+const joinedMoney = money(b); joinGovernmentBid(bid.secret,b); assert.equal(money(b),joinedMoney);
+updateGovernmentBid(bid.secret,a,{resourcePriceBreakdown:{}});
+governmentOrdersRepository.markBidAwarded(bid.id!);
+assert.throws(() => updateGovernmentBid(bid.secret,a,{resourcePriceBreakdown:{'1':1e12}}), /open bids/);
+bid = getGovernmentBidByIdOrSecret(bid.secret)!;
+const share = bid.governmentorderbidderSet.find(row => row.companyId === b)!;
+for (const item of Object.values(share.computedResourcesNeeded!)) addResource(b,item.kind,item.quality,item.amount);
+const payout = fulfillGovernmentOrderContractor(bid.secret,b,b);
+assert.ok(payout.moneyDelta > share.depositPaid);
+assert.equal(payout.application.governmentorderbidderSet.find(row => row.companyId === b)!.depositPaid,0);
+assert.throws(() => fulfillGovernmentOrderContractor(bid.secret,b,b));
+assert.throws(() => leaveOrRemoveContractor(bid.secret,b), /fulfilled/);
+assert.throws(() => joinGovernmentBid(bid.secret,b), /fulfilled/);
+const paidMoney = money(b); deleteGovernmentBid(bid.secret,a); assert.equal(money(b),paidMoney,'delete cannot refund returned deposit');
+console.log('PASS government award, invitations, deposit replay');
+
+const buildingId = Number(db.prepare("INSERT INTO buildings (company_id, kind, size, position) VALUES (?, 'r', 1, '99')").run(a).lastInsertRowid);
+for (const kind of [117,129,132]) addResource(a,kind,2,10000,{market:100});
+await updateRestaurantProperties(buildingId,a,{keepOpen:false, menu:[117,129,132].map(resource => ({resource,quality:2,qualityMode:'exact' as const})),menuPrice:85,goodService:true});
+const startCash = money(a);
+await updateRestaurantProperties(buildingId,a,{keepOpen:true});
+const first = (await getRestaurantRuns(buildingId,a))[0];
+const run = db.prepare('SELECT * FROM restaurant_runs WHERE id = ?').get(first.id)!;
+assert.equal(startCash-money(a), Number(run.wages), 'cash debit must only be wages');
+const remainingStock = stock(a);
+db.prepare('UPDATE companies SET money = 0 WHERE company_id = ?').run(a);
+db.prepare('UPDATE restaurant_runs SET prepared = 0 WHERE id = ?').run(first.id);
+resolveDueRestaurantRuns(buildingId,a,new Date(Date.parse(String(run.cycle_end))+1));
+assert.equal(stock(a),remainingStock,'failed automatic start must roll back ingredients');
+assert.equal(Number(db.prepare('SELECT resolved FROM restaurant_runs WHERE id = ?').get(first.id)!.resolved),1,'settlement must finish synchronously');
+assert.equal(Number(db.prepare('SELECT COUNT(*) AS n FROM restaurant_runs WHERE building_id = ?').get(buildingId)!.n),1);
+db.prepare('UPDATE restaurant_runs SET resolved = 0 WHERE id = ?').run(first.id);
+db.exec("CREATE TEMP TRIGGER reject_restaurant_settlement BEFORE UPDATE OF resolved ON restaurant_runs WHEN NEW.resolved = 1 BEGIN SELECT RAISE(ABORT, 'settlement failed'); END");
+assert.throws(() => resolveDueRestaurantRuns(buildingId,a,new Date(Date.parse(String(run.cycle_end))+1)), /settlement failed/);
+assert.equal(Number(db.prepare('SELECT resolved FROM restaurant_runs WHERE id = ?').get(first.id)!.resolved),0);
+db.exec('DROP TRIGGER reject_restaurant_settlement');
+resolveDueRestaurantRuns(buildingId,a,new Date(Date.parse(String(run.cycle_end))+1));
+console.log('PASS restaurant wages and failed restart savepoint');
+
+const retailId = retailRepository.insert({companyId:b,buildingId,resourceKind:3,quality:0,units:1,unitPrice:2,revenueCredited:true,finishedAt:'2000-01-01T00:00:00Z',createdAt:new Date().toISOString()}).id;
+const retailStock=stock(b), retailCash=money(b);
+await assert.rejects(collectRetailOrderUseCase(createGameContext(b,players[1].playerId,0),retailId),/already been credited/);
+assert.equal(stock(b),retailStock); assert.equal(money(b),retailCash);
+console.log('PASS retail already credited guard');
+addResource(b,3,0,10);
+const unpaidId = retailRepository.insert({companyId:b,buildingId,resourceKind:3,quality:0,units:1,unitPrice:2,revenueCredited:false,finishedAt:'2000-01-01T00:00:00Z',createdAt:new Date().toISOString()}).id;
+const unpaidStock = stock(b), unpaidCash = money(b);
+await collectRetailOrderUseCase(createGameContext(b,players[1].playerId,0),unpaidId);
+assert.equal(stock(b),unpaidStock-1); assert.ok(money(b)>unpaidCash);
+await assert.rejects(collectRetailOrderUseCase(createGameContext(b,players[1].playerId,0),unpaidId));
+
+function request() {
+  const req = new PassThrough();
+  Object.assign(req, { headers: {} });
+  // The handler only consumes the readable HTTP body and headers.
+  return req as unknown as IncomingMessage & PassThrough;
+}
+function response() {
+  const res = { status: 0, body: null as unknown, setHeader() {}, getHeader() { return undefined; }, writeHead(status: number) { this.status = status; }, end(body: string) { this.body = JSON.parse(body); } };
+  // Capture only the HTTP response methods used by sendJson.
+  return res as unknown as ServerResponse & { status: number; body: unknown };
+}
+const victim = getCompanyExecutives(b)[0];
+const reqA=request(), resA=response();
+const pending=handleExecutiveRoutes(reqA,resA,`/api/v4/executives/${victim.id}/`,'PATCH',a);
+const reqB=request(),resB=response();
+await handleExecutiveRoutes(reqB,resB,'/api/v4/executives/','GET',b);
+reqA.end(JSON.stringify({salary:9999})); await pending;
+assert.equal(resA.status,400); assert.equal(getCompanyExecutives(b)[0].salary,victim.salary);
+const ownReq=request(), ownRes=response(); const ownPending=handleExecutiveRoutes(ownReq,ownRes,`/api/v4/executives/${victim.id}/`,'PATCH',b); ownReq.end(JSON.stringify({salary:9999})); await ownPending; assert.equal(ownRes.status,200);
+const candidate=getExecutiveCandidates(c)[0]; const hireReq=request(),hireRes=response(); const hiring=handleExecutiveRoutes(hireReq,hireRes,'/api/v4/executives/hire/','POST',c); hireReq.end(JSON.stringify({candidateId:candidate.id})); await hiring; assert.equal(hireRes.status,200,JSON.stringify(hireRes.body));
+const offer=await createPoachingOffer(c,{targetCompanyId:b,targetExecutiveId:victim.id,agency:1,slotPosition:'coo',skillPosition:'o'});
+const hostileReq=request(), hostileRes=response(); await handleExecutiveRoutes(hostileReq,hostileRes,`/api/v3/companies/executives/hostile-offers/${offer.id}/`,'GET',b); assert.equal(hostileRes.status,200,JSON.stringify(hostileRes.body));
+console.log('PASS executive request isolation, hiring and hostile offer lookup');
+const nftId = Number(db.prepare("INSERT INTO nft_assets (definition_id, name, image, current_owner_id, minted_at) VALUES ('business-test', 'Business collectible', 'test.png', ?, ?)").run(b,new Date().toISOString()).lastInsertRowid);
+const listing = listCollectibleForSale(b,nftId,10);
+const buyReq=request(), buyRes=response(); const buying=handleCollectibleRoutes(buyReq,buyRes,`/api/v2/market-collectibles/${listing.id}/`,'PATCH',c); buyReq.end(); await buying;
+assert.equal(buyRes.status,200,JSON.stringify(buyRes.body)); assert.equal(getNftAsset(nftId)!.currentOwnerId,c);
+const relisted=listCollectibleForSale(c,nftId,10);
+const delistReq=request(),delistRes=response(); const delisting=handleCollectibleRoutes(delistReq,delistRes,`/api/v2/market-collectibles/${relisted.id}/`,'PATCH',c); delistReq.end(); await delisting;
+assert.equal(delistRes.status,200); assert.equal(getNftAsset(nftId)!.currentOwnerId,c);
+console.log('PASS collectible bodyless PATCH purchase and owner delist');
+console.log('PASS verify-review-businessfix');
+process.exit(0);

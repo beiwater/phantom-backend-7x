@@ -6,7 +6,7 @@ import {
   buildSessionCookie
 } from '../../auth/session.ts';
 import { authenticatePlayer, registerOrAuthenticatePlayer } from '../../db/seed/index.ts';
-import { hashPassword } from '../../db/migrations/index.ts';
+import { requestPasswordReset, completePasswordReset } from '../../auth/password-reset.ts';
 import { authRepository } from '../../repositories/auth-repository.ts';
 import { companyRepository } from '../../repositories/company-repository.ts';
 import { referralsRepository, REFERRAL_JOIN_BONUS } from '../../repositories/referrals-repository.ts';
@@ -217,20 +217,24 @@ export async function handleSessionSubroutes(
       sendJson(res, { error: 'Too many reset attempts. Please try again later.', code: 'RATE_LIMITED' }, 429);
       return true;
     }
-    const body = await readJsonBody<{ email?: string; newPassword?: string }>(req);
-    const email = (body.email || '').trim();
-    const newPassword = body.newPassword || '';
-    if (!email || newPassword.length < 8) {
-      sendJson(res, { error: 'Email and a new password (min 8 chars) are required' }, 400);
+    const body = await readJsonBody<{ email?: string; newPassword?: string; token?: string }>(req);
+    const email = typeof body.email === 'string' ? body.email.trim() : '';
+    if (!email) {
+      sendJson(res, { error: 'Email is required' }, 400);
       return true;
     }
-    const player = authRepository.findPlayerIdByEmail(email);
-    if (!player) {
+    if (body.newPassword !== undefined || body.token !== undefined) {
+      try {
+        completePasswordReset(email, body.token || '', body.newPassword || '');
+        sendJson(res, { status: 'ok', message: 'Password has been reset' });
+      } catch (err) {
+        sendJson(res, { error: err instanceof Error ? err.message : String(err) }, 400);
+      }
+    } else {
+      const token = requestPasswordReset(email);
+      if (token) console.log(`[auth] Local password reset for ${email}: ${token} (expires in 30 minutes)`);
       sendJson(res, { status: 'ok', message: 'Password reset link sent' });
-      return true;
     }
-    authRepository.updatePlayerPasswordHash(player.player_id, hashPassword(newPassword));
-    sendJson(res, { status: 'ok', message: 'Password has been reset' });
     return true;
   }
 

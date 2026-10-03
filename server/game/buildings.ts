@@ -7,12 +7,14 @@ import {
   getResourceDef
 } from './constants.ts';
 import { getWarehouseItemExact, consumeResourceExactWithTransactions } from './warehouse.ts';
+import { getResourceName } from '../game-data/resources.ts';
 import { updateCompanyMoney, getCompanyById } from './company.ts';
 import {
   extraSlotIndex,
   calculateConstructionDurationSeconds
 } from '../domain/buildings/building-rules.ts';
 import { FixtureService } from '../services/fixture-service.ts';
+import { runInTransaction } from '../db/transaction.ts';
 export interface BuildingRow {
   id: number;
   company_id: number;
@@ -117,7 +119,7 @@ function getRetailBusy(buildingId: number) {
     sales_order: {
       id: Number(row.id),
       image: resource?.image || '',
-      name: resource?.name || `Resource #${row.resource_kind}`,
+      name: getResourceName(row.resource_kind),
       amount: Number(row.units),
       price: Number(row.unit_price),
       quality: Number(row.quality) || 0,
@@ -352,6 +354,7 @@ export function applyAbundanceCycleDecay(buildingId: number): number | null {
 
 
 export function constructBuilding(companyId: number, kind: string, position: string, replaceExisting = false) {
+  return runInTransaction(() => {
   const meta = getBuildingMeta(kind);
   if (!BUILDING_NAMES[kind] && !CONSTANTS_BUILDINGS[kind]) {
     throw new Error(`Unknown building kind: ${kind}`);
@@ -413,8 +416,6 @@ export function constructBuilding(companyId: number, kind: string, position: str
   const speedMultiplier = FixtureService.getConstructionSpeedMultiplier();
   const durationSeconds = calculateConstructionDurationSeconds(kind, 1, mode, speedMultiplier);
   const busyUntil = new Date(virtualClock.nowMs() + durationSeconds * 1000).toISOString();
-  db.exec('BEGIN');
-  try {
     for (const req of materials) {
       const transactions = consumeResourceExactWithTransactions(companyId, req.kind, 0, req.amount);
       if (!transactions) {
@@ -439,7 +440,6 @@ export function constructBuilding(companyId: number, kind: string, position: str
       VALUES (?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?)
     `).run(companyId, String(position), String(kind), String(meta.name), Number(meta.cost), String(meta.category), busyUntil, now, abundance.abundance, abundance.originalAbundance);
 
-    db.exec('COMMIT');
     const newId = Number(result.lastInsertRowid);
     const building = getBuildingById(newId);
 
@@ -449,13 +449,11 @@ export function constructBuilding(companyId: number, kind: string, position: str
       moneyUpdate: newMoney,
       resourcesConsumed: consumedMaterials
     };
-  } catch (err) {
-    db.exec('ROLLBACK');
-    throw err;
-  }
+  }, { immediate: true });
 }
 
 export function upgradeBuilding(companyId: number, buildingId: number, sizeDelta: number) {
+  return runInTransaction(() => {
   if (!Number.isSafeInteger(sizeDelta) || sizeDelta <= 0) {
     throw new Error('Building size change must be a positive integer');
   }
@@ -489,8 +487,6 @@ export function upgradeBuilding(companyId: number, buildingId: number, sizeDelta
   const busyUntil = new Date(virtualClock.nowMs() + durationSeconds * 1000).toISOString();
   let newMoney = comp.money;
 
-  db.exec('BEGIN');
-  try {
     for (const req of materials) {
       const transactions = consumeResourceExactWithTransactions(companyId, req.kind, 0, req.amount);
       if (!transactions) {
@@ -505,7 +501,6 @@ export function upgradeBuilding(companyId: number, buildingId: number, sizeDelta
       WHERE id = ? AND company_id = ?
     `).run(newSize, busyUntil, buildingId, companyId);
     if (updated.changes !== 1) throw new Error('Building not found');
-    db.exec('COMMIT');
 
     const latest = getBuildingById(buildingId);
     return {
@@ -514,22 +509,18 @@ export function upgradeBuilding(companyId: number, buildingId: number, sizeDelta
       moneyUpdate: newMoney,
       resourcesConsumed: consumedMaterials
     };
-  } catch (err) {
-    db.exec('ROLLBACK');
-    throw err;
-  }
+  }, { immediate: true });
 }
 
 
 export function demolishBuilding(companyId: number, buildingId: number) {
+  return runInTransaction(() => {
   const building = getBuildingById(buildingId);
   if (!building || building.company_id !== companyId) {
     throw new Error('Building not found');
   }
 
   const refund = Math.round(building.cost * DEMOLITION_REFUND_RATE);
-  db.exec('BEGIN IMMEDIATE');
-  try {
     const deleted = db.prepare('DELETE FROM buildings WHERE id = ? AND company_id = ?')
       .run(buildingId, companyId);
     if (deleted.changes !== 1) {
@@ -540,7 +531,6 @@ export function demolishBuilding(companyId: number, buildingId: number) {
     db.prepare('DELETE FROM retail_orders WHERE building_id = ? AND company_id = ?')
       .run(buildingId, companyId);
     const moneyUpdate = updateCompanyMoney(companyId, refund);
-    db.exec('COMMIT');
 
     return {
       success: true,
@@ -551,8 +541,5 @@ export function demolishBuilding(companyId: number, buildingId: number) {
         size: 0
       }
     };
-  } catch (err) {
-    db.exec('ROLLBACK');
-    throw err;
-  }
+  }, { immediate: true });
 }

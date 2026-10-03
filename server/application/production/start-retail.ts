@@ -5,7 +5,7 @@ import { buildingRepository, type BuildingEntity } from '../../repositories/buil
 import { companyRepository } from '../../repositories/company-repository.ts';
 import { NotFoundError, ForbiddenError, ValidationError } from '../../errors/domain-error.ts';
 import { recordCashLedger, refreshDailyFinanceSnapshot } from '../../game/cash-ledger.ts';
-import { getResourceDef } from '../../game-data/resources.ts';
+import { getResourceName } from '../../game-data/resources.ts';
 import { assertQueueDuration } from '../../domain/leveling/level-rules.ts';
 import { getWarehouseItemExact, consumeResourceExactWithTransactions } from '../../game/warehouse.ts';
 import { retailRepository } from '../../repositories/retail-repository.ts';
@@ -115,8 +115,7 @@ export async function startRetailUseCase(
     // 2. Credit the revenue and write the cash_ledger row in the same transaction (skip generic fallback)
     const revenue = Math.round(input.amount * unitPrice * 100) / 100;
     const newMoney = companyRepository.creditMoney(ctx.companyId, revenue);
-    const resDef = getResourceDef(input.kind);
-    const resName = resDef?.name || `Resource #${input.kind}`;
+    const resName = getResourceName(input.kind);
     recordCashLedger({
       companyId: ctx.companyId,
       amount: revenue,

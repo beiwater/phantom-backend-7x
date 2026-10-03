@@ -1,4 +1,7 @@
 import { db } from '../db/database.ts';
+import type { SQLInputValue } from 'node:sqlite';
+import { runInTransaction } from '../db/transaction.ts';
+import { getQualityFromPatents } from '../domain/research/research-rules.ts';
 import { virtualClock } from '../core/virtual-clock.ts';
 import { updateCompanyMoney, updateCompanySimBoosts, getCompanyById } from './company.ts';
 import { DomainError } from '../errors/domain-error.ts';
@@ -13,7 +16,6 @@ import {
   getDisplayCase,
   updateDisplayCase,
   removeDisplayCaseSlot,
-  isAchievementCollected,
   type DisplayCaseRow,
   type DisplayItemKind,
   type DisplayCasePlacement,
@@ -56,83 +58,85 @@ export const ACHIEVEMENT_CRITERIA: Record<string, AchievementCriteria> = Object.
   CANONICAL_ACHIEVEMENTS.map((a) => [a.id, { stat: a.statKey, target: a.target }])
 );
 
-/**
- * Issue #88 / User Request: pending (uncollected, criteria met) achievements only.
- * `available` is computed from live gameplay progress vs criteria.
- */
+/** Completed stars are persisted independently of live gameplay progress. */
+function completedTiers(companyId: number, def: CanonicalAchievementDef): number {
+  const rows = db.prepare('SELECT achievement_id, completed_tiers FROM company_achievements WHERE company_id = ?')
+    .all(companyId) as Array<{ achievement_id: string; completed_tiers: number }>;
+  const ids = [def.id, ...def.aliases].map(id => id.toLowerCase());
+  return Math.min(def.starsMax, rows.reduce((max, row) =>
+    ids.includes(row.achievement_id.toLowerCase()) ? Math.max(max, row.completed_tiers) : max, 0));
+}
+
+function tierTarget(def: CanonicalAchievementDef, completed: number): number {
+  return def.target * (completed + 1);
+}
+
+function tierReward(def: CanonicalAchievementDef, completed: number): number {
+  return def.rewards?.[completed] ?? def.reward ?? 0;
+}
+
 export function getIndividualAchievements(companyId: number): IndividualAchievement[] {
   const stats = getAchievementStats(companyId);
-
   return ALL_ACHIEVEMENTS.map(ach => {
-    const criteria = criteriaFor(ach.id);
-    const progress = stats[criteria.stat] ?? 0;
-    const collected = isAchievementCollected(companyId, ach.id);
+    const def = CANONICAL_ACHIEVEMENTS.find(def => def.id === ach.id)!;
+    const completed = completedTiers(companyId, def);
+    const progress = stats[def.statKey];
+    const target = tierTarget(def, completed);
+    const nextTier = completed + 1;
     return {
       ...ach,
-      done: collected ? 1 : 0,
-      available: !collected && progress >= criteria.target ? 1 : 0,
+      level: nextTier,
+      done: completed,
+      available: completed < def.starsMax && progress >= target ? 1 : 0,
+      reward: tierReward(def, completed),
       progress,
-      target: criteria.target
+      target,
+      nextAchievement: nextTier < def.starsMax ? {
+        name: `${def.label} ${nextTier + 1}`,
+        done: 0,
+        available: progress >= tierTarget(def, nextTier) ? 1 : 0,
+        message: def.message,
+        reward: tierReward(def, nextTier),
+        sim_boosts: def.simBoosts
+      } : null
     };
   }).filter(ach => ach.available > 0);
 }
 
 export function claimAchievement(companyId: number, achievementId: string) {
-  const normalizedId = String(achievementId || '').trim();
-  const ach = ALL_ACHIEVEMENTS.find(
-    a => a.id === normalizedId || a.id.toLowerCase() === normalizedId.toLowerCase()
-  ) ?? CANONICAL_ACHIEVEMENTS.find(
-    c => c.id === normalizedId || c.aliases.includes(normalizedId)
-  );
+  const normalized = String(achievementId || '').trim().toLowerCase();
+  const def = CANONICAL_ACHIEVEMENTS.find(def =>
+    [def.id, ...def.aliases].some(id => id.toLowerCase() === normalized) && def.id !== 'daily-production');
+  if (!def) throw new DomainError('Achievement not found', 400, 'ACHIEVEMENT_NOT_FOUND');
 
-  if (!ach) {
-    throw new DomainError('Achievement not found', 400, 'ACHIEVEMENT_NOT_FOUND');
-  }
-
-  const comp = getCompanyById(companyId);
-  if (!comp) {
-    throw new DomainError('Company not found', 400, 'COMPANY_NOT_FOUND');
-  }
-
-  // Issue #88: authoritative criteria validation on claim — re-evaluates real
-  // gameplay statistics; never trust the pending list the client saw.
-  const criteria = criteriaFor(ach.id);
-  const progress = getAchievementStats(companyId)[criteria.stat] ?? 0;
-  if (progress < criteria.target) {
-    throw new DomainError('Achievement criteria not met', 400, 'CRITERIA_NOT_MET');
-  }
-
-  const now = virtualClock.nowIso();
-  const boostReward = ('sim_boosts' in ach ? ach.sim_boosts : ach.simBoosts) || 5;
-  const cashReward = ('reward' in ach && typeof ach.reward === 'number' ? ach.reward : (ach.rewards?.[0] ?? 5000));
-
-  db.exec('BEGIN');
-  try {
-    const inserted = db.prepare(`
-      INSERT OR IGNORE INTO company_achievements (company_id, achievement_id, collected_at)
-      VALUES (?, ?, ?)
-    `).run(companyId, ach.id, now);
-    if (inserted.changes !== 1) {
+  return runInTransaction(() => {
+    if (!getCompanyById(companyId)) throw new DomainError('Company not found', 400, 'COMPANY_NOT_FOUND');
+    const completed = completedTiers(companyId, def);
+    if (completed >= def.starsMax) {
       throw new DomainError('Achievement already claimed', 400, 'ACHIEVEMENT_ALREADY_CLAIMED');
     }
-
-    const newSimBoosts = updateCompanySimBoosts(companyId, boostReward);
+    if (getAchievementStats(companyId)[def.statKey] < tierTarget(def, completed)) {
+      throw new DomainError('Achievement criteria not met', 400, 'CRITERIA_NOT_MET');
+    }
+    const cashReward = tierReward(def, completed);
+    db.prepare(`
+      INSERT INTO company_achievements (company_id, achievement_id, collected_at, completed_tiers)
+      VALUES (?, ?, ?, ?)
+      ON CONFLICT(company_id, achievement_id) DO UPDATE SET
+        collected_at = excluded.collected_at, completed_tiers = excluded.completed_tiers
+    `).run(companyId, def.id, virtualClock.nowIso(), completed + 1);
+    const newSimBoosts = updateCompanySimBoosts(companyId, def.simBoosts);
     const newMoney = updateCompanyMoney(companyId, cashReward);
-    db.exec('COMMIT');
-
     return {
       success: true,
-      sim_boosts: boostReward,
+      sim_boosts: def.simBoosts,
       simboosts: newSimBoosts,
       simBoosts: newSimBoosts,
       reward: cashReward,
       money: newMoney,
       moneyDelta: cashReward
     };
-  } catch (err) {
-    db.exec('ROLLBACK');
-    throw err;
-  }
+  });
 }
 
 /**
@@ -140,25 +144,20 @@ export function claimAchievement(companyId: number, achievementId: string) {
  * GET /api/v2/companies/me/achievements/
  */
 export function getAchievementsOverview(companyId: number) {
-  const collected = (id: string): boolean => isAchievementCollected(companyId, id);
   const stats = getAchievementStats(companyId);
 
   return CANONICAL_ACHIEVEMENTS.map(def => {
-    const isDone = collected(def.id) || def.aliases.some(alias => collected(alias));
-    const criteria = criteriaFor(def.id);
-    const currentVal = stats[criteria.stat] ?? 0;
-
+    const currentStars = completedTiers(companyId, def);
+    const isDone = currentStars >= def.starsMax;
+    const target = tierTarget(def, currentStars);
+    const currentVal = stats[def.statKey];
     const progress = isDone
       ? { percent: 100, label: '已达成' }
       : {
-          percent: Math.max(0, Math.min(100, Math.round((currentVal / criteria.target) * 100))),
-          label: `${currentVal} / ${criteria.target}`
+          percent: Math.max(0, Math.min(100, Math.round((currentVal / target) * 100))),
+          label: `${currentVal} / ${target}`
         };
-
-    const currentStars = isDone ? def.starsMax : 0;
-    const currentReward = def.rewards && def.rewards.length > 0
-      ? def.rewards[Math.min(currentStars, def.rewards.length - 1)]
-      : def.reward;
+    const currentReward = tierReward(def, currentStars);
 
     return {
       label: def.label,
@@ -213,7 +212,7 @@ export function getCertificateCatalog() {
  * Live gameplay statistics for a company, derived directly from authoritative game tables.
  */
 export function getAchievementStats(companyId: number): Record<AchievementStatKey, number> {
-  const count = (sql: string, ...params: unknown[]): number => {
+  const count = (sql: string, ...params: SQLInputValue[]): number => {
     try {
       const row = db.prepare(sql).get(...params) as { n: number } | undefined;
       return Math.max(0, Number(row?.n) || 0);
@@ -224,6 +223,7 @@ export function getAchievementStats(companyId: number): Record<AchievementStatKe
 
   const comp = db.prepare('SELECT level FROM companies WHERE id = ?').get(companyId) as { level?: number } | undefined;
   const companyLevel = Math.max(1, Number(comp?.level) || 1);
+  const research = db.prepare('SELECT patents FROM research WHERE company_id = ?').all(companyId) as Array<{ patents: number }>;
 
   return {
     marketTrades:
@@ -236,9 +236,9 @@ export function getAchievementStats(companyId: number): Record<AchievementStatKe
     totalBuildingSize: count('SELECT COALESCE(SUM(size), 0) AS n FROM buildings WHERE company_id = ?', companyId),
     executiveTrainings: count(`SELECT COUNT(*) AS n FROM cash_ledger WHERE company_id = ? AND category = 'h'`, companyId),
     executivesCount: count('SELECT COUNT(*) AS n FROM executives WHERE company_id = ?', companyId),
-    maxResearchQuality: count('SELECT COALESCE(MAX(quality), 0) AS n FROM research WHERE company_id = ?', companyId),
-    researchedQ1Count: count('SELECT COUNT(DISTINCT resource_kind) AS n FROM research WHERE company_id = ? AND quality >= 1', companyId),
-    governmentOrdersCompleted: count('SELECT COUNT(*) AS n FROM government_orders WHERE company_id = ? AND resourceMultiplierAwarded IS NOT NULL', companyId),
+    maxResearchQuality: research.reduce((quality, row) => Math.max(quality, getQualityFromPatents(row.patents)), 0),
+    researchedQ1Count: research.filter(row => getQualityFromPatents(row.patents) >= 1).length,
+    governmentOrdersCompleted: count('SELECT COUNT(DISTINCT bid_secret) AS n FROM government_bid_contractors WHERE company_id = ? AND fulfilled = 1', companyId),
     companyLevel,
     prospectorCount: count("SELECT COUNT(*) AS n FROM audit_logs WHERE company_id = ? AND action = 'demolish_building'", companyId),
     todayActivity: count("SELECT COUNT(*) AS n FROM production_queues WHERE company_id = ? AND datetime(created_at) >= datetime('now', '-1 day')", companyId) +
@@ -247,14 +247,3 @@ export function getAchievementStats(companyId: number): Record<AchievementStatKe
   };
 }
 
-function criteriaFor(achievementId: string): AchievementCriteria {
-  const normalized = String(achievementId || '').trim();
-  if (ACHIEVEMENT_CRITERIA[normalized]) {
-    return ACHIEVEMENT_CRITERIA[normalized];
-  }
-  const matched = CANONICAL_ACHIEVEMENTS.find(c => c.id === normalized || c.aliases.includes(normalized));
-  if (matched) {
-    return { stat: matched.statKey, target: matched.target };
-  }
-  return { stat: 'marketTrades', target: 1 };
-}

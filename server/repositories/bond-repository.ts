@@ -3,6 +3,7 @@ import { db } from '../db/connection.ts';
 import { virtualClock } from '../core/virtual-clock.ts';
 import { companyRepository } from './company-repository.ts';
 
+export const BOND_FACE_VALUE = 5000;
 export interface BondRow {
   id: number;
   seller_company_id: number;
@@ -112,6 +113,16 @@ export class BondRepository {
     this.database.prepare('UPDATE bonds SET settled = 1, status = ? WHERE id = ?').run(status, bondId);
   }
 
+  markDefaulted(bondId: number): void {
+    this.markSettled(bondId, 'defaulted');
+  }
+
+  listCompanyCash(): Array<{ companyId: number; money: number }> {
+    return this.database.prepare(`
+      SELECT company_id AS companyId, money FROM companies
+    `).all() as Array<{ companyId: number; money: number }>;
+  }
+
   countUnsold(): number {
     const row = this.database.prepare(`
       SELECT COUNT(*) AS count FROM bonds
@@ -140,7 +151,7 @@ export class BondRepository {
       FROM bonds
       WHERE seller_company_id = ? AND buyer_company_id IS NOT NULL AND status = 'active'
     `).get(companyId) as { units?: number | null } | undefined;
-    return Number(row?.units ?? 0) * 5000;
+    return Number(row?.units ?? 0) * BOND_FACE_VALUE;
   }
 
   seedBondMarketListings() {
@@ -148,9 +159,9 @@ export class BondRepository {
 
     const now = virtualClock.nowIso();
     const seedBonds = [
-      { seller: 999901, amount: 50000, rate: 0.005 },
-      { seller: 999902, amount: 100000, rate: 0.0055 },
-      { seller: 999903, amount: 25000, rate: 0.0045 }
+      { seller: 999901, amount: 10, rate: 0.005 },
+      { seller: 999902, amount: 20, rate: 0.0055 },
+      { seller: 999903, amount: 5, rate: 0.0045 }
     ];
     for (const bond of seedBonds) {
       this.insertNpcListing(bond.seller, bond.rate, bond.amount, now);
@@ -174,11 +185,11 @@ export class BondRepository {
         company: buyer.name,
         logo: buyer.logo || ''
       } : null,
-      interest: b.interest_rate,
+      interest: b.interest_rate * 100,
       amount: b.amount,
       status: b.status,
       created: b.created_at,
-      dailyInterest: Math.round(b.amount * b.interest_rate * 100) / 100
+      dailyInterest: Math.round(b.amount * BOND_FACE_VALUE * b.interest_rate * 100) / 100
     };
   }
 }

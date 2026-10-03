@@ -50,7 +50,7 @@ async function runIssue42BondsTest() {
   const issueRes = await fetch(`${baseUrl}/api/v2/bonds/sell/`, {
     method: 'POST',
     headers: sellerHeaders,
-    body: JSON.stringify({ amount: 25000, interest: 0.005 })
+    body: JSON.stringify({ amount: 5, interest: 0.005 })
   });
   assert.equal(issueRes.status, 200);
   const issueData = (await issueRes.json()) as { bond: { id: number; amount: number }; money: number; moneyDelta: number };
@@ -76,7 +76,7 @@ async function runIssue42BondsTest() {
   const issue2Res = await fetch(`${baseUrl}/api/v2/bonds/sell/`, {
     method: 'POST',
     headers: sellerHeaders,
-    body: JSON.stringify({ amount: 30000, interest: 0.005 })
+    body: JSON.stringify({ amount: 6, interest: 0.005 })
   });
   assert.equal(issue2Res.status, 200);
   const soldBondId = ((await issue2Res.json()) as { bond: { id: number } }).bond.id;

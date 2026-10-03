@@ -63,6 +63,16 @@ export function resolveRocketLaunch(
   `).run(companyId, realmId, buildingId, rocketKind, quality, success ? 1 : 0, virtualClock.nowIso());
 
   const patents = success ? (rocketKind === 94 ? 28 : 4) : 0;
+  if (patents > 0) {
+    const existing = db.prepare('SELECT id FROM research WHERE company_id = ? AND discipline = 9')
+      .get(companyId) as { id: number } | undefined;
+    if (existing) {
+      db.prepare('UPDATE research SET patents = patents + ? WHERE id = ?').run(patents, existing.id);
+    } else {
+      db.prepare('INSERT INTO research (company_id, discipline, points, patents) VALUES (?, 9, 0, ?)')
+        .run(companyId, patents);
+    }
+  }
   return {
     success,
     message: success

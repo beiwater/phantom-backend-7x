@@ -18,6 +18,7 @@ export interface CompanyRealmRow {
   company_id: number;
   player_id: number;
   name: string;
+  money: number;
   logo: string;
   level: number;
   rating: string;
@@ -98,7 +99,7 @@ export class AuthRepository {
 
   listCompaniesByRealm(realmId: number): CompanyRealmRow[] {
     return this.database.prepare(`
-      SELECT company_id, player_id, name, logo, level, rating, created_at, note,
+      SELECT company_id, player_id, name, money, logo, level, rating, created_at, note,
              extra_building_slots, realm_id
       FROM companies
       WHERE realm_id = ?

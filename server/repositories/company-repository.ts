@@ -1,6 +1,7 @@
 import type { DatabaseSync } from 'node:sqlite';
 import { virtualClock } from '../core/virtual-clock.ts';
 import { db } from '../db/connection.ts';
+import { runInTransaction } from '../db/transaction.ts';
 import { ConflictError, InsufficientFundsError, NotFoundError } from '../errors/domain-error.ts';
 import { getXpRequiredForLevel } from '../domain/leveling/level-rules.ts';
 import { recordCashLedger, refreshDailyFinanceSnapshot } from '../game/cash-ledger.ts';
@@ -599,8 +600,7 @@ export class CompanyRepository {
     const companyId = Math.floor(4000000 + Math.random() * 6000000);
     const now = virtualClock.nowIso();
     const init = getInitialCompanySettings();
-    this.database.exec('BEGIN IMMEDIATE');
-    try {
+    return runInTransaction(() => {
       if (maxOwnedCompanies !== undefined) {
         const row = this.database.prepare(
           'SELECT COUNT(*) AS count FROM companies WHERE player_id = ?'
@@ -634,7 +634,6 @@ export class CompanyRepository {
           VALUES (?, ?, ?, ?, 0, 0, 0, 0, 1.0, ?)
         `).run(companyId, s.kind, s.quality || 0, s.amount, now);
       }
-      this.database.exec('COMMIT');
       const created = this.findById(companyId);
       if (!created) {
         throw new NotFoundError(`Created company #${companyId} could not be loaded`);
@@ -649,10 +648,7 @@ export class CompanyRepository {
       }
 
       return created;
-    } catch (err) {
-      this.database.exec('ROLLBACK');
-      throw err;
-    }
+    }, { immediate: true, database: this.database });
   }
 }
 

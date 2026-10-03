@@ -2115,6 +2115,55 @@ export const MIGRATIONS: MigrationDefinition[] = [
       db.exec('ALTER TABLE production_queues ADD COLUMN input_ingredients_json TEXT DEFAULT NULL');
     }
   },
+  {
+    version: 38,
+    name: '038_market_buy_order_escrow_remaining',
+    up: (db: DatabaseSync) => {
+      // Cash actually held for a buy order; fills and cancellation draw from
+      // it so per-fill rounding can never pay out more than was escrowed.
+      db.exec(`
+        ALTER TABLE market_orders ADD COLUMN escrow_remaining REAL NOT NULL DEFAULT 0;
+        UPDATE market_orders
+          SET escrow_remaining = ROUND(quantity * price, 2)
+          WHERE is_buy = 1 AND active = 1;
+      `);
+    }
+  },
+  {
+    version: 39,
+    name: '039_research_patent_progress',
+    up: (db: DatabaseSync) => {
+      // Fractional patent progress carried between contributions so the CTO
+      // bonus applies only to newly committed research points.
+      db.exec(`
+        ALTER TABLE research ADD COLUMN patent_progress REAL NOT NULL DEFAULT 0;
+        UPDATE research SET patent_progress = (points % 50) / 50.0;
+      `);
+    }
+  },
+  {
+    version: 40,
+    name: '040_company_achievement_completed_tiers',
+    up: (db: DatabaseSync) => {
+      // Tiered achievements are claimed star by star; an existing claim row
+      // represents exactly one completed tier.
+      db.exec('ALTER TABLE company_achievements ADD COLUMN completed_tiers INTEGER NOT NULL DEFAULT 1');
+    }
+  },
+  {
+    version: 41,
+    name: '041_password_reset_tokens',
+    up: (db: DatabaseSync) => {
+      // One outstanding single-use reset token per player, stored hashed.
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS password_reset_tokens (
+          player_id INTEGER PRIMARY KEY REFERENCES players(player_id) ON DELETE CASCADE,
+          token_hash TEXT NOT NULL,
+          expires_at TEXT NOT NULL
+        );
+      `);
+    }
+  },
 ];
 
 export class MigrationRunner {

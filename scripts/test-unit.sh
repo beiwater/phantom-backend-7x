@@ -32,6 +32,9 @@ fi
 
 # Suites that must run standalone (they spawn isolated servers).
 STANDALONE_RE='verify-issue-70-rest|verify-issue-7[8-9]|verify-issue-8[0-9]|verify-issue-84-90|verify-issue-9[0-9]|verify-issue-199|bfs-crawler|white-screen|dom-verify'
+# Suites that drive the scheduler clock themselves and therefore need a fresh
+# database the shared server's heartbeat has never touched.
+ISOLATED_DB_RE='verify-review-schedulerfinancefix'
 
 # Suites admitted to the default CI gate. New test files are discovered below
 # and reported as quarantined until their runtime assumptions and baseline
@@ -90,6 +93,13 @@ ADMITTED_TESTS=(
   tests/verify-warehouse-statistics.test.ts
   tests/verify-unlocked-hqs.test.ts
   tests/verify-followers-sync-and-v1-rush.test.ts
+  tests/verify-review-businessfix.test.ts
+  tests/verify-review-marketsimboostfix.test.ts
+  tests/verify-review-productionfix.test.ts
+  tests/verify-review-schedulerfinancefix.test.ts
+  tests/verify-review-socialauth-content.test.ts
+  tests/verify-review-socialauth-private.test.ts
+  tests/verify-review-socialauthfix.test.ts
 )
 
 # Browser/diagnostic suites are intentionally not part of this backend gate.
@@ -216,7 +226,9 @@ for t in "${BACKEND_TESTS[@]}"; do
   fi
   TOTAL=$((TOTAL + 1))
   LOG="$(mktemp)"
-  if [[ "$t" =~ $STANDALONE_RE ]]; then
+  if [[ "$t" =~ $ISOLATED_DB_RE ]]; then
+    DATA_DIR="$(mktemp -d)" env -u PORT -u BASE_URL $NODE_BIN "$t" >"$LOG" 2>&1
+  elif [[ "$t" =~ $STANDALONE_RE ]]; then
     DATA_DIR="$TEST_DATA_DIR" env -u PORT -u BASE_URL $NODE_BIN "$t" >"$LOG" 2>&1
   else
     DATA_DIR="$TEST_DATA_DIR" PORT="$PORT" BASE_URL="$BASE" $NODE_BIN "$t" >"$LOG" 2>&1

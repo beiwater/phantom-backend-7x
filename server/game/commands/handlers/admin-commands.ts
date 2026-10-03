@@ -20,10 +20,10 @@ export const opCommand: CommandDefinition = {
     }
 
     const arg = args[0];
-    const configuredKey = process.env.ADMIN_OP_KEY || 'phantom-admin';
+    const configuredKey = process.env.ADMIN_OP_KEY;
 
     // 1. Secret Key authentication branch
-    if (arg === configuredKey) {
+    if (configuredKey && arg === configuredKey) {
       if (!ctx.executorCompanyId) {
         return {
           success: true,

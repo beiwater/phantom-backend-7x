@@ -1,4 +1,5 @@
 import { db } from '../db/database.ts';
+import { runInTransaction } from '../db/transaction.ts';
 import { virtualClock } from '../core/virtual-clock.ts';
 import { getCompanyById, updateCompanySimBoosts, type CompanyRow } from './company.ts';
 import { DomainError, NotFoundError, UnauthorizedError } from '../errors/domain-error.ts';
@@ -139,7 +140,7 @@ db.exec(`
 // deterministic one-issue-per-day history with a rotating article pool.
 const ARCHIVE_ISSUE_COUNT = 12;
 
-(function seedNewspaperData() {
+runInTransaction(function seedNewspaperData() {
   const countRow = db.prepare('SELECT COUNT(*) as count FROM newspaper_issues').get() as { count: number };
   if (countRow.count > 0) return;
 
@@ -249,13 +250,13 @@ const ARCHIVE_ISSUE_COUNT = 12;
   // issue carries four rotating articles (deterministic pick by issue id).
   for (let issueId = ARCHIVE_ISSUE_COUNT; issueId >= 1; issueId -= 1) {
     const publishedAt = new Date(now.getTime() - issueId * 86400000).toISOString();
-    insertIssue.run(issueId, 0, publishedAt, publishedAt);
+    const newspaperId = Number(insertIssue.run(issueId, 0, publishedAt, publishedAt).lastInsertRowid);
 
     for (let slot = 0; slot < 4; slot += 1) {
       const article = ARTICLE_POOL[(issueId * 3 + slot * 5) % ARTICLE_POOL.length];
       const reactions = { THUMBS_UP: Math.max(5, article.reactions - slot * 3), REWARD: Math.max(1, Math.round(article.reactions / 5) - slot) };
       insertArticle.run(
-        issueId, 0, article.title, article.type,
+        newspaperId, 0, article.title, article.type,
         article.copy1, article.copy2, article.copy3,
         article.authorId, article.author, null, null,
         slot, JSON.stringify(reactions),
@@ -264,28 +265,42 @@ const ARCHIVE_ISSUE_COUNT = 12;
       );
     }
   }
-})();
+});
 
 // Issue #83 (§3): ads appear only in unpublished (upcoming) issues. The
 // bookable issue is the newest issue of the realm; when the newest one is
 // already published, a fresh unpublished issue is rolled forward.
 export function getCurrentBookableIssue(realmId: number = 0): NewspaperIssueDbRow {
-  const latest = db.prepare('SELECT * FROM newspaper_issues WHERE realm_id = ? ORDER BY issue_id DESC LIMIT 1').get(realmId) as NewspaperIssueDbRow | undefined;
-  if (latest && latest.published === null) return latest;
-
-  db.exec('BEGIN IMMEDIATE');
-  try {
-    const maxRow = db.prepare('SELECT MAX(issue_id) AS maxIssue FROM newspaper_issues WHERE realm_id = ?').get(realmId) as { maxIssue: number | null };
-    const nextIssueId = (maxRow.maxIssue ?? 0) + 1;
+  return runInTransaction(() => {
+    const latest = db.prepare('SELECT * FROM newspaper_issues WHERE realm_id = ? ORDER BY issue_id DESC LIMIT 1').get(realmId) as NewspaperIssueDbRow | undefined;
+    if (latest && latest.published === null) return latest;
     const inserted = db.prepare('INSERT INTO newspaper_issues (issue_id, realm_id, published, created_at) VALUES (?, ?, NULL, ?)').run(
-      nextIssueId, realmId, virtualClock.nowIso()
+      (latest?.issue_id ?? 0) + 1, realmId, virtualClock.nowIso()
     );
-    db.exec('COMMIT');
     return db.prepare('SELECT * FROM newspaper_issues WHERE id = ?').get(Number(inserted.lastInsertRowid)) as NewspaperIssueDbRow;
-  } catch (err) {
-    db.exec('ROLLBACK');
-    throw err;
-  }
+  });
+}
+
+/** Publish drafts whose Thursday 16:00 UTC deadline has elapsed, then roll forward. */
+export function publishDueNewspaperIssues(occurrence: Date): void {
+  runInTransaction(() => {
+    const drafts = db.prepare('SELECT * FROM newspaper_issues WHERE published IS NULL').all() as NewspaperIssueDbRow[];
+    const realms = new Set<number>();
+    for (const issue of drafts) {
+      const due = nextPublishDate(new Date(issue.created_at));
+      if (due.getTime() > occurrence.getTime()) continue;
+      db.prepare('UPDATE newspaper_issues SET published = ? WHERE id = ? AND published IS NULL')
+        .run(due.toISOString(), issue.id);
+      realms.add(issue.realm_id);
+    }
+    for (const realmId of realms) {
+      const draft = db.prepare('SELECT id FROM newspaper_issues WHERE realm_id = ? AND published IS NULL LIMIT 1').get(realmId);
+      if (draft) continue;
+      const max = db.prepare('SELECT MAX(issue_id) AS issue_id FROM newspaper_issues WHERE realm_id = ?').get(realmId) as { issue_id: number };
+      db.prepare('INSERT INTO newspaper_issues (issue_id, realm_id, published, created_at) VALUES (?, ?, NULL, ?)')
+        .run(max.issue_id + 1, realmId, occurrence.toISOString());
+    }
+  });
 }
 
 // 3. Issue & Article Functions
@@ -307,7 +322,7 @@ export function getNewspaperIssues(realmId: number = 0, belowId?: number, limit:
     issueId: iss.issue_id,
     realmId: iss.realm_id,
     published: iss.published,
-    articles: db.prepare('SELECT id, title, position, type FROM newspaper_articles WHERE newspaper_id = ? ORDER BY position ASC').all(iss.id) as Array<{ id: number; title: string; position: number; type: string }>
+    articles: iss.published ? db.prepare('SELECT id, title, position, type FROM newspaper_articles WHERE newspaper_id = ? ORDER BY position ASC').all(iss.id) as Array<{ id: number; title: string; position: number; type: string }> : []
   }));
 }
 
@@ -321,7 +336,7 @@ export function getNewspaperIssue(issueId: number, realmId: number = 0, allowUnp
       return null;
     }
   }
-  return formatNewspaperIssue(issue);
+  return formatNewspaperIssue(issue, allowUnpublished || Boolean(issue.published));
 }
 export function getNewspaperIssueById(newspaperId: number, allowUnpublished: boolean = false) {
   const issue = db.prepare('SELECT * FROM newspaper_issues WHERE id = ?').get(newspaperId) as NewspaperIssueDbRow | undefined;
@@ -330,8 +345,8 @@ export function getNewspaperIssueById(newspaperId: number, allowUnpublished: boo
   return formatNewspaperIssue(issue);
 }
 
-function formatNewspaperIssue(issue: NewspaperIssueDbRow) {
-  const articleRows = db.prepare('SELECT * FROM newspaper_articles WHERE newspaper_id = ? ORDER BY position ASC').all(issue.id) as NewspaperArticleDbRow[];
+function formatNewspaperIssue(issue: NewspaperIssueDbRow, includeArticles: boolean = true) {
+  const articleRows = includeArticles ? db.prepare('SELECT * FROM newspaper_articles WHERE newspaper_id = ? ORDER BY position ASC').all(issue.id) as NewspaperArticleDbRow[] : [];
   const articles = articleRows.map((r) => formatArticleRow(r, issue));
   const sponsorRows = db.prepare('SELECT * FROM newspaper_sponsors WHERE newspaper_id = ?').all(issue.id) as NewspaperSponsorDbRow[];
   const result: Record<string, unknown> = {
@@ -377,12 +392,7 @@ export function getArticleById(articleId: number, allowUnpublished: boolean = fa
   if (!r) return null;
   const issue = db.prepare('SELECT * FROM newspaper_issues WHERE id = ?').get(r.newspaper_id) as NewspaperIssueDbRow | undefined;
   if (!issue) return null;
-  if (!allowUnpublished && !issue.published) {
-    const bookable = getCurrentBookableIssue(issue.realm_id);
-    if (bookable.id !== issue.id) {
-      return null;
-    }
-  }
+  if (!allowUnpublished && !issue.published) return null;
   return formatArticleRow(r, issue);
 }
 
@@ -403,7 +413,7 @@ export function createArticle(newspaperId: number, type: string = '1', authorCom
     '文章正文第一段...', '文章正文第二段...', '文章正文第三段...', comp?.company_id || authorCompanyId || 999901, authorName,
     position, '{}', 0, '[]', 0, virtualClock.nowIso()
   );
-  return getArticleById(Number(res.lastInsertRowid));
+  return getArticleById(Number(res.lastInsertRowid), true);
 }
 
 export function updateArticle(articleId: number, data: { title?: string; copy1?: string; copy2?: string; copy3?: string; position?: number | string; author?: string; translatedBy?: string; charts?: unknown[] }) {
@@ -435,7 +445,7 @@ export function updateArticle(articleId: number, data: { title?: string; copy1?:
     newPos, authorId, authorName, data.translatedBy ?? current.translated_by_name,
     data.charts ? JSON.stringify(data.charts) : current.charts_json, articleId
   );
-  return getArticleById(articleId);
+  return getArticleById(articleId, true);
 }
 
 export function deleteArticle(articleId: number) {
@@ -538,14 +548,12 @@ export function addArticleReaction(articleId: number, companyId: number, reactio
       throw new DomainError(`Not enough SimBoosts to reward article (need ${REWARD_COST} SimBoosts)`, 400, 'INSUFFICIENT_SIMBOOSTS');
     }
 
-    db.exec('BEGIN IMMEDIATE');
-    try {
+    return runInTransaction(() => {
       // Re-check inside the write transaction so a concurrent reward cannot
       // double-charge (Issue #68: SimBoost mutations are atomic).
       const raced = db.prepare('SELECT id FROM newspaper_reactions WHERE article_id = ? AND company_id = ? AND reaction = ?')
         .get(articleId, actualCompanyId, reaction) as { id: number } | undefined;
       if (raced) {
-        db.exec('COMMIT');
         const reactions = parseReactionMap(article.reactions_json);
         return { success: true, reaction, count: reactions[reaction] ?? 0, reactions, idempotent: true };
       }
@@ -555,12 +563,8 @@ export function addArticleReaction(articleId: number, companyId: number, reactio
         article.newspaper_id, articleId, actualCompanyId, reaction, virtualClock.nowIso()
       );
       const { reactions, count } = bumpReactionCounters(articleId, article.reactions_json, reaction, +1);
-      db.exec('COMMIT');
       return { success: true, reaction, count: reactions[reaction] ?? 0, reactionCount: count, reactions };
-    } catch (err) {
-      db.exec('ROLLBACK');
-      throw err;
-    }
+    });
   }
 
   // Free reactions (THUMBS_UP): toggle-on is idempotent and costs nothing.
@@ -569,18 +573,13 @@ export function addArticleReaction(articleId: number, companyId: number, reactio
     return { success: true, reaction, count: reactions[reaction] ?? 0, reactions, idempotent: true };
   }
 
-  db.exec('BEGIN IMMEDIATE');
-  try {
+  return runInTransaction(() => {
     db.prepare('INSERT INTO newspaper_reactions (newspaper_id, article_id, company_id, reaction, created_at) VALUES (?, ?, ?, ?, ?)').run(
       article.newspaper_id, articleId, actualCompanyId, reaction, virtualClock.nowIso()
     );
     const { reactions, count } = bumpReactionCounters(articleId, article.reactions_json, reaction, +1);
-    db.exec('COMMIT');
     return { success: true, reaction, count: reactions[reaction] ?? 0, reactionCount: count, reactions };
-  } catch (err) {
-    db.exec('ROLLBACK');
-    throw err;
-  }
+  });
 }
 
 export function removeArticleReaction(articleId: number, companyId: number, reaction: string) {
@@ -688,14 +687,13 @@ export function buyNewspaperSponsor(newspaperId: number, position: number, compa
   const comp = findCompany(companyId);
   if (!comp) throw new UnauthorizedError('Company session required to book a sponsor slot');
 
-  db.exec('BEGIN IMMEDIATE');
-  try {
+  return runInTransaction(() => {
+    if (issue.published !== null) throw new DomainError('Newspaper issue already published', 400, 'ISSUE_PUBLISHED');
     const existing = db.prepare('SELECT * FROM newspaper_sponsors WHERE newspaper_id = ? AND position = ?').get(newspaperId, position) as NewspaperSponsorDbRow | undefined;
     if (existing) {
       if (existing.company_id === comp.company_id) {
         // Idempotent re-book: refresh the ad, never double-charge.
         db.prepare('UPDATE newspaper_sponsors SET text = ?, logo = ? WHERE id = ?').run(adText, comp.logo || '', existing.id);
-        db.exec('COMMIT');
         return { position, tier, companyName: comp.name, companyId: comp.company_id, text: adText, logo: comp.logo || '', price: 0, simBoostsRemaining: Number(comp.simboosts), idempotent: true };
       }
       throw new DomainError('This advertising spot is already taken', 409, 'SPONSOR_SLOT_TAKEN', { position, newspaperId });
@@ -707,12 +705,8 @@ export function buyNewspaperSponsor(newspaperId: number, position: number, compa
     db.prepare('INSERT INTO newspaper_sponsors (newspaper_id, position, company_id, company_name, text, logo, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)').run(
       newspaperId, position, comp.company_id, comp.name, adText, comp.logo || '', virtualClock.nowIso()
     );
-    db.exec('COMMIT');
     return { position, tier, companyName: comp.name, companyId: comp.company_id, text: adText, logo: comp.logo || '', price, simBoostsRemaining: remaining };
-  } catch (err) {
-    db.exec('ROLLBACK');
-    throw err;
-  }
+  });
 }
 
 export function updateNewspaperSponsorText(newspaperId: number, position: number, companyId: number, text: string) {

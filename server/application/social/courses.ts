@@ -73,12 +73,13 @@ export function createCourse(teacher: string, name: string, start: string, teach
   return listCourses();
 }
 
-export function updateCourse(courseId: number, patch: {
+export function updateCourse(courseId: number, teacherCompanyId: number, patch: {
   start?: boolean; maxStudents?: number; studentsPaying?: boolean;
   publicChatroomsDisabled?: boolean; requestEmailChange?: boolean; html?: string;
 }): CourseView | null {
-  if (!socialRepository.getCourseById(courseId)) return null;
-  runInTransaction(() => {
+  return runInTransaction(() => {
+    const course = socialRepository.getCourseById(courseId);
+    if (!course || course.teacher_company_id !== teacherCompanyId) return null;
     if (patch.start !== undefined) socialRepository.setCourseStarted(courseId, patch.start);
     socialRepository.updateCourseFields(
       courseId,
@@ -87,12 +88,16 @@ export function updateCourse(courseId: number, patch: {
       patch.publicChatroomsDisabled,
       patch.html
     );
+    return getCourse(courseId);
   });
-  return getCourse(courseId);
 }
 
-export function deleteCourse(courseId: number): boolean {
-  return socialRepository.deleteCourseById(courseId);
+export function deleteCourse(courseId: number, teacherCompanyId: number): boolean {
+  return runInTransaction(() => {
+    const course = socialRepository.getCourseById(courseId);
+    if (!course || course.teacher_company_id !== teacherCompanyId) return false;
+    return socialRepository.deleteCourseById(courseId);
+  });
 }
 
 export function joinCourse(courseId: number, companyId: number, companyName: string, logo: string | null, realmId: number): void {

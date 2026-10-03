@@ -146,6 +146,9 @@ export function recordPurchase(companyId: number, now: Date = virtualClock.now()
  * official client: moving into negative territory costs 100/point, else 75/point.
  */
 export function realignCost(productionModifier: number, salesModifier: number, move: number): number {
+  if (!Number.isSafeInteger(move) || Math.abs(move) > 6) {
+    throw new Error('Invalid bonus move');
+  }
   let cost = 0;
   let prod = productionModifier;
   let sales = salesModifier;
@@ -170,11 +173,15 @@ export function realignCost(productionModifier: number, salesModifier: number, m
  */
 export function realignCompanyBonus(
   companyId: number,
-  move: number,
+  target: number,
   debitSimBoosts: (companyId: number, cost: number) => number
 ): { productionModifier: number; salesModifier: number; cost: number } {
+  if (!Number.isInteger(target) || target < -3 || target > 3) {
+    throw new Error('Production bonus must be an integer between -3 and 3');
+  }
   return runInTransaction(() => {
     const current = getCompanyBoostSettings(companyId);
+    const move = target - current.productionModifier;
     const cost = realignCost(current.productionModifier, current.salesModifier, move);
     if (cost > 0) {
       debitSimBoosts(companyId, cost);

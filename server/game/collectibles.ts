@@ -280,15 +280,13 @@ export function listCollectibleForSale(
 }
 
 /**
- * PATCH /api/v2/market-collectibles/{listingId}/ — owner-only listing
- * management. Body semantics (decompiled fcr(listingId): "Purchase a
- * collectible or delist your own; delisting is free"):
+ * Owner-only listing management, dispatched by patchCollectibleListing.
+ * The original client delists its own listing with an empty body:
  *   - { listed: false }                    → delist
  *   - { listed: true }                     → re-list a delisted listing
  *   - { priceSimboosts: n }                → update the asking price
  *   - {} (empty body)                      → delist (the real client's delist call)
- * Buying is NOT handled here — the private server exposes it explicitly as
- * POST /api/v2/market-collectibles/:id/buy/.
+ * Non-owner PATCH requests are dispatched to buyCollectible instead.
  */
 export function updateCollectibleListing(
   companyId: number,
@@ -342,6 +340,21 @@ export function updateCollectibleListing(
     RETURNING id, nft_id, seller_id, price_simboosts, status, created_at, updated_at
   `).get(status, price, now, listingId) as NftListingRow;
   return toListingView(updated);
+}
+
+/** Original client's bodyless PATCH buys another owner's listing or delists one's own. */
+export function patchCollectibleListing(
+  companyId: number,
+  listingId: number,
+  patch: { listed?: boolean; priceSimboosts?: number }
+): CollectibleListingView | CollectiblePurchase {
+  return runInTransaction(() => {
+    const row = db.prepare('SELECT seller_id FROM nft_listings WHERE id = ?').get(listingId);
+    if (!row) throw new NotFoundError('Listing not found');
+    return row.seller_id === companyId
+      ? updateCollectibleListing(companyId, listingId, patch)
+      : buyCollectible(companyId, listingId);
+  });
 }
 
 export interface CollectiblePurchase {

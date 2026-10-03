@@ -64,14 +64,14 @@ export async function placeBuyOrder(ctx: GameContext, input: PlaceBuyOrderInput)
     recordCashLedger({
       companyId: ctx.companyId,
       amount: -escrow,
-      category: 'm',
+      category: 'w',
       description: `Buy order escrow: ${quantity} units of resource #${kind}`,
       descriptionKey: `buyorder-${kind}-${quantity}-${quality}`,
       details: { resource: kind, amount: quantity, price, quality }
     });
 
     const now = virtualClock.nowIso();
-    const orderId = marketTradeRepository.insertBuyOrder(ctx.companyId, kind, quality, quantity, price, now);
+    const orderId = marketTradeRepository.insertBuyOrder(ctx.companyId, kind, quality, quantity, price, now, escrow);
 
     tx.addAfterCommitHook(() => {
       eventBus.emit('MarketOrderPlaced', {
@@ -103,12 +103,13 @@ export async function cancelBuyOrder(ctx: GameContext, orderId: number): Promise
     if (!order || order.buyerId !== ctx.companyId) {
       throw new NotFoundError('Buy order not found');
     }
-    const refund = Math.round(order.price * order.quantity * 100) / 100;
+    const refund = order.escrow;
     marketTradeRepository.cancelBuyOrderRow(orderId);
     companyRepository.creditMoney(ctx.companyId, refund);
     recordCashLedger({
       companyId: ctx.companyId,
       amount: refund,
+      category: 'w',
       description: `Buy order cancelled: refund of resource #${order.kind} bid`,
       descriptionKey: `cancelbuyorder-${order.kind}-${order.quantity}-${order.quality}`,
       details: { resource: order.kind, amount: order.quantity, price: order.price, quality: order.quality }
@@ -178,10 +179,15 @@ export async function sellToBids(ctx: GameContext, input: SellToBidInput): Promi
       }
 
       const takeAmount = Math.min(bid.quantity, remaining);
-      const proceeds = takeAmount * bid.price;
-      const fee = Math.round(proceeds * EXCHANGE_FEE_RATE * 100) / 100;
+      // Allocate the rounded escrow, not independently rounded fill values.
+      // Leaving the rounded remainder in escrow conserves cents across fills.
+      const remainingEscrow = takeAmount >= bid.quantity
+        ? 0
+        : Math.min(bid.escrow, Math.round((bid.quantity - takeAmount) * bid.price * 100) / 100);
+      const proceeds = Math.round((bid.escrow - remainingEscrow) * 100) / 100;
+      const fee = Math.min(proceeds, Math.round(proceeds * EXCHANGE_FEE_RATE * 100) / 100);
 
-      marketTradeRepository.closeOrReduceBuyOrder(bid.id, bid.quantity - takeAmount);
+      marketTradeRepository.closeOrReduceBuyOrder(bid.id, bid.quantity - takeAmount, remainingEscrow);
 
       // Deliver goods to the bidder (default warehouse bucket).
       warehouseRepository.addResource(bid.buyerId, kind, quality, takeAmount, { market: bid.price });
@@ -193,7 +199,7 @@ export async function sellToBids(ctx: GameContext, input: SellToBidInput): Promi
       companyRepository.creditMoney(ctx.companyId, net);
       recordCashLedger({
         companyId: ctx.companyId,
-        amount: net,
+        amount: proceeds,
         category: 'm',
         description: `Sold ${takeAmount} units of resource #${kind} to bid #${bid.id}`,
         descriptionKey: `marketfilled-${kind}`,
@@ -227,7 +233,7 @@ export async function sellToBids(ctx: GameContext, input: SellToBidInput): Promi
           kind,
           amount: takeAmount,
           price: bid.price,
-          fee
+          quality
         });
       });
 

@@ -1,3 +1,4 @@
+import type { DatabaseSync } from 'node:sqlite';
 import { db } from '../db/database.ts';
 import { virtualClock } from '../core/virtual-clock.ts';
 import { PA_COMPANY_ID } from '../domain/company/constants.ts';

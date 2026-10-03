@@ -7,12 +7,14 @@ import { getCompanyBoostSettings, getExchangedToday } from './simboost-settings.
 import { recordCashLedger, refreshDailyFinanceSnapshot } from './cash-ledger.ts';
 import { companyRepository } from '../repositories/company-repository.ts';
 import { runInTransaction } from '../db/transaction.ts';
+import { companyRealmRepository } from '../repositories/company-realm-repository.ts';
 import { getEconomyPhase } from './economy-phase.ts';
 
 export interface CompanyRow {
   id: number;
   company_id: number;
   player_id?: number;
+  created_at: string;
   name: string;
   money: number;
   simboosts: number;
@@ -131,17 +133,22 @@ function payoutReferralLevelRewards(companyId: number, oldLevel: number, newLeve
 }
 
 export function resetCompany(companyId: number) {
-  const comp = getCompanyById(companyId);
-  if (!comp) throw new Error('Company not found');
-
-  db.exec('BEGIN IMMEDIATE');
-  try {
-    db.prepare('DELETE FROM buildings WHERE company_id = ?').run(companyId);
+  runInTransaction(() => {
+    const comp = getCompanyById(companyId);
+    if (!comp) throw new Error('Company not found');
+    const blockers = companyRealmRepository.listRealmMigrationBlockers(companyId)
+      .filter(blocker => !['active_production', 'active_retail', 'active_launch'].includes(blocker.key));
+    if (blockers.length > 0) throw new Error('Reset blocked by outstanding obligations: ' + blockers.map(blocker => blocker.key).join(', '));
+    // Reset forfeits both goods and cash escrow; no surviving order may refund it later.
+    db.prepare('DELETE FROM market_orders WHERE seller_id = ?').run(companyId);
+    db.prepare(`DELETE FROM building_followers WHERE building_id IN (SELECT id FROM buildings WHERE company_id = ?)
+      OR follower_building_id IN (SELECT id FROM buildings WHERE company_id = ?)`).run(companyId, companyId);
+    db.prepare('DELETE FROM launchpad_flights WHERE company_id = ?').run(companyId);
     db.prepare('DELETE FROM production_queues WHERE company_id = ?').run(companyId);
     db.prepare('DELETE FROM retail_orders WHERE company_id = ?').run(companyId);
+    db.prepare('DELETE FROM buildings WHERE company_id = ?').run(companyId);
     db.prepare('DELETE FROM warehouse WHERE company_id = ?').run(companyId);
     db.prepare('DELETE FROM display_case WHERE company_id = ?').run(companyId);
-
     const now = virtualClock.nowIso();
     const updated = db.prepare(`
       UPDATE companies
@@ -156,11 +163,7 @@ export function resetCompany(companyId: number) {
     `).run(companyId, now);
     seedDefaultDisplayCase(companyId);
     executiveRepository.seedDefaults(companyId);
-    db.exec('COMMIT');
-  } catch (err) {
-    db.exec('ROLLBACK');
-    throw err;
-  }
+  }, { immediate: true });
 }
 
 export function updatePlayerPreferences(playerId: number, prefs: { theme?: string; language?: string }) {

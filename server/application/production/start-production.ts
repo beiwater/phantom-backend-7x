@@ -151,7 +151,7 @@ export async function startProductionUseCase(
       combinedProductionModifier,
       {
         economyState: economy.state,
-        quality: input.quality ?? 100,
+        abundance: getBuildingAbundance(building.id)?.abundance ?? 100,
         accumulatorBonus
       }
     );
@@ -195,7 +195,7 @@ export async function startProductionUseCase(
       allTransactions.push(...txs);
     }
     const averageInputQuality = totalInputAmount > 0 ? weightedQualitySum / totalInputAmount : 0;
-    const inputCostPerOutputUnit = input.amount > 0 ? totalInputCost / input.amount : 0;
+    const inputCostPerOutputUnit = outputAmount > 0 ? totalInputCost / outputAmount : 0;
   
     // 4. Queue chaining (durationSeconds was computed and validated against
     // the tier limit before ingredients were consumed)
@@ -226,7 +226,7 @@ export async function startProductionUseCase(
     );
     const persistedQuality = requested !== null
       ? achievableQuality
-      : Math.max(0, Math.floor(averageInputQuality));
+      : Math.min(achievableQuality, Math.max(0, Math.floor(averageInputQuality)));
   
     const queueItem = productionRepository.create({
       buildingId: building.id,

@@ -15,7 +15,12 @@ export interface ConstructionCostEstimate {
 }
 
 export function normalizePosition(position: string | number): string {
-  return String(position ?? '').trim();
+  const raw = String(position ?? '').trim();
+  if (raw === '') throw new ValidationError('Building position must not be empty');
+  const extra = /^B(\d+)$/i.exec(raw);
+  if (extra) return `B${Number(extra[1])}`;
+  const numeric = Number(raw);
+  return raw !== '' && Number.isSafeInteger(numeric) && numeric >= 0 ? String(numeric) : raw;
 }
 
 /**
@@ -85,21 +90,21 @@ export function estimateConstructionCost(kind: string, sizeUnits: number = 1): C
 }
 
 /**
- * Issue #94: upgrade materials scale with the building's CURRENT size, per
- * the decompiled formula resourcesForUpgrade = qp[resourceId] * costUnits *
- * currentSize — NOT with the size delta. Money cost still scales with the
- * delta (referenceUpgradeCost = costUnits * 3450 * (newSize - currentSize)).
+ * Each added level pays the current-size recipe of a sequential upgrade.
+ * Bulk upgrades sum those recipes instead of charging only the first level.
+ * Money cost scales with the number of levels added.
  */
 export function estimateUpgradeCost(kind: string, sizeDelta: number, currentSize: number = 1): ConstructionCostEstimate {
-  if (sizeDelta <= 0) {
-    throw new ValidationError(`Upgrade size delta must be positive: ${sizeDelta}`);
+  if (!Number.isSafeInteger(sizeDelta) || sizeDelta <= 0) {
+    throw new ValidationError(`Upgrade size delta must be a positive integer: ${sizeDelta}`);
   }
   if (!Number.isSafeInteger(currentSize) || currentSize < 1) {
     throw new ValidationError(`Upgrade current size must be a positive integer: ${currentSize}`);
   }
   const meta = getBuildingMeta(kind);
   const cost = meta.cost * sizeDelta;
-  const materials = getConstructionMaterials(getBuildingCostUnits(kind) * currentSize);
+  const materialSize = sizeDelta * currentSize + sizeDelta * (sizeDelta - 1) / 2;
+  const materials = getConstructionMaterials(getBuildingCostUnits(kind) * materialSize);
 
   return { cost, materials };
 }
