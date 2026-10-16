@@ -11,6 +11,7 @@ import { Contracts } from './contracts.js';
 import { Victory } from './victory.js';
 import { MISSIONS } from '../data/missions.js';
 import { Upkeep } from './upkeep.js';
+import { GreatPeople } from './greatpeople.js';
 
 export const MARKET_RESERVE = 20;
 const RAW = new Set(['farm', 'lumber', 'quarry', 'pump', 'ironMine', 'coalMine', 'oilWell']);
@@ -38,6 +39,8 @@ export class Economy {
     game.contracts = this.contracts;
     this.victory = new Victory(game);
     this.upkeep = new Upkeep(game);
+    this.great = new GreatPeople(game);
+    game.great = this.great;
     game.market = this.market;
     game.society = this.society;
     game.econStats = this.stats;
@@ -66,6 +69,7 @@ export class Economy {
     g.ruins.step(gdt);
     g.weather.step(gdt);
     this.upkeep.step(gdt);
+    this.great.step(gdt);
   }
 
   /** 主线目标在模拟内结算(按 tick 计时),保证回放/锁步时奖励发放时机一致。 */
@@ -216,6 +220,7 @@ export class Economy {
         b.progress = 0;
         g.events.emit('building:change', b);
         g.events.emit('building:done', b);
+        g.counters.built = (g.counters.built ?? 0) + 1;
         this.statT = 0;
       }
       return;
@@ -311,6 +316,7 @@ export class Economy {
       const got = {};
       for (const [k, v] of Object.entries(r.out)) {
         got[k] = g.addRes(k, k === 'research' ? Math.round(v * (1 + g.effect('research'))) : v);
+        if (k === 'research') g.counters.researchMade = (g.counters.researchMade ?? 0) + got[k];
         this.stats.made(k, got[k]);
       }
       if (Object.keys(got).length) g.events.emit('produce', { b, out: got });
@@ -351,6 +357,7 @@ export class Economy {
     if (earned > 0) {
       g.addRes('money', earned);
       this.stats.made('money', earned);
+      g.counters.marketMoney = (g.counters.marketMoney ?? 0) + earned;
       g.events.emit('produce', { b, out: { money: earned }, noTruck: true });
       g.events.emit('res');
     } else {

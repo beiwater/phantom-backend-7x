@@ -85,6 +85,7 @@ export function saveGame({ game, rts, economy }) {
     policyReadyAt: game.policyReadyAt,
     contracts: economy.contracts.serialize(),
     upkeep: economy.upkeep.serialize(),
+    great: economy.great.serialize(),
     econ: { market: economy.market.serialize(), stats: economy.stats.serialize(), society: economy.society.serialize() },
   };
   try {
@@ -141,6 +142,7 @@ function restore({ game, rts, economy, onFog }) {
   game.policyReadyAt = data.policyReadyAt ?? 0;
   economy.contracts.load(data.contracts);
   economy.upkeep.load(data.upkeep);
+  economy.great.load(data.great);
   onFog?.(data.fog);
   economy.market.load(data.econ?.market);
   economy.stats.load(data.econ?.stats);

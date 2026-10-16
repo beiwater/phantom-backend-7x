@@ -86,6 +86,9 @@ const HANDLERS = {
     game.events.emit('building:change', b);
     return { ok: true };
   },
+  useGreat(game, cmd) {
+    return game.great?.use(cmd.i) ?? { ok: false, reason: '伟人系统未就绪' };
+  },
   tribute(game) {
     return game.unitSystem?.ai?.tribute() ?? { ok: false, reason: '外交不可用' };
   },

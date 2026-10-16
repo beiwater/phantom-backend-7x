@@ -450,3 +450,18 @@ test('军队补给:按单位扣食物/燃油;不足时标记补给不足并清�
   run(e, 30);
   assert.equal(g.supply.fuel, true);
 });
+
+test('伟人:点数达阈值诞生,使用一次即消耗(重复使用被拒),科学家完成当前研究', () => {
+  const { g, e } = fresh();
+  g.counters.researchMade = 100;
+  run(e, 1.1);
+  assert.deepEqual(g.great.ready, ['scientist']);
+  g.res.research = 15;
+  g.dispatch({ type: 'research', tech: 'mining' });
+  assert.ok(g.dispatch({ type: 'useGreat', i: 0 }).ok);
+  assert.ok(g.techs.has('mining'));
+  assert.equal(g.dispatch({ type: 'useGreat', i: 0 }).ok, false);
+  run(e, 2);
+  assert.equal(g.great.ready.length, 0, '同一点数不会再次诞生');
+  assert.ok(g.great.threshold('scientist') > 100);
+});

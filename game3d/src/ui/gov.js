@@ -4,6 +4,7 @@ import { ERAS } from '../data/tech.js';
 import { RESOURCES, resIcon } from '../data/resources.js';
 import { fmtTime } from '../engine/util.js';
 import { VICTORIES } from '../sim/victory.js';
+import { GREAT } from '../sim/greatpeople.js';
 
 export class GovPanel {
   constructor(game, ui) {
@@ -15,7 +16,7 @@ export class GovPanel {
   sig() {
     const g = this.game;
     const c = g.contracts;
-    return [g.unitSystem?.ai?.wave, g.unitSystem?.ai?.tributedWave, Math.floor(((g.unitSystem?.ai?.nextWave ?? 0) - g.time) / 5), g.era, g.techs.size, Math.floor(g.res.money / 1000), g.policies.join(), this.pickSlot, c.offers.map((o) => `${o.id}:${g.res[o.res] >= o.qty}`).join(), c.reputation, Math.floor(g.res.money / 150)].join('|');
+    return [g.great?.ready.join(), ...Object.keys(GREAT).map((k) => Math.floor((g.great?.points(k) ?? 0) / 10)), g.unitSystem?.ai?.wave, g.unitSystem?.ai?.tributedWave, Math.floor(((g.unitSystem?.ai?.nextWave ?? 0) - g.time) / 5), g.era, g.techs.size, Math.floor(g.res.money / 1000), g.policies.join(), this.pickSlot, c.offers.map((o) => `${o.id}:${g.res[o.res] >= o.qty}`).join(), c.reputation, Math.floor(g.res.money / 150)].join('|');
   }
 
   html() {
@@ -59,12 +60,26 @@ export class GovPanel {
     return `<div class="dialog" data-modal="gov" style="max-width:760px">
       <h2><span>🏛️ 政务</span><button class="btn" data-close>关闭 Esc</button></h2>
       <h3 class="sub">胜利进度</h3><div class="victories">${vic}</div>
+      ${this.greatHtml()}
       ${this.diplomacy()}
       <h3 class="sub">政策(每个时代多一个槽)</h3>
       <div class="slots">${slotHtml.join('')}</div>${picker}
       <h3 class="sub">贸易合同 <small>声望 ${c.reputation >= 0 ? '+' : ''}${c.reputation}(声望越高报价越好;合同过期会损失声望)</small></h3>
       ${offers}
     </div>`;
+  }
+
+  greatHtml() {
+    const gp = this.game.great;
+    if (!gp) return '';
+    const ready = gp.ready.map((k, i) => `<button class="btn primary" data-great="${i}" title="${GREAT[k].desc}">${GREAT[k].icon} 使用${GREAT[k].name}</button>`).join('');
+    const bars = Object.entries(GREAT).map(([k, v]) => {
+      const need = gp.threshold(k);
+      const prev = gp.earned[k] ? gp.threshold(k) - Math.round(100 * 1.8 ** gp.earned[k]) : 0;
+      const p = Math.max(0, Math.min(1, (gp.points(k) - prev) / (need - prev)));
+      return `<div class="victory"><b>${v.icon} ${v.name}</b><span class="desc">${v.source} → ${v.desc}</span><div class="pbar"><i style="width:${p * 100}%"></i></div><small>${Math.floor(gp.points(k))}/${need}</small></div>`;
+    }).join('');
+    return `<h3 class="sub">伟人</h3>${ready ? `<div class="btns" style="margin-bottom:8px">${ready}</div>` : ''}<div class="victories four">${bars}</div>`;
   }
 
   diplomacy() {
@@ -95,6 +110,13 @@ export class GovPanel {
       const r = g.dispatch({ type: 'policy', slot: this.pickSlot, id });
       if (!r.ok) this.ui.toast(r.reason, 'bad');
       else { this.ui.toast(id ? `📜 采纳政策「${POLICIES[id].name}」` : '已撤销政策', 'good'); this.pickSlot = null; }
+      return true;
+    }
+    const gb = e.target.closest('[data-great]');
+    if (gb) {
+      const r = g.dispatch({ type: 'useGreat', i: Number(gb.dataset.great) });
+      if (!r.ok) this.ui.toast(r.reason, 'bad');
+      else this.ui.toast(`${GREAT[r.kind].icon} ${GREAT[r.kind].name}发挥了作用!`, 'good');
       return true;
     }
     if (e.target.closest('[data-tribute]')) {

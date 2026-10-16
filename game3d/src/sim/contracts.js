@@ -63,6 +63,7 @@ export class Contracts {
     g.econStats?.made('money', o.reward.money);
     this.reputation = Math.min(20, this.reputation + 1);
     g.counters.contracts = (g.counters.contracts ?? 0) + 1;
+    g.counters.marketMoney = (g.counters.marketMoney ?? 0) + o.reward.money;
     g.events.emit('contract:done', o);
     return { ok: true };
   }

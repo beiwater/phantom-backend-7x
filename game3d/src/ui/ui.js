@@ -21,6 +21,7 @@ import { QUALITY } from '../engine/quality.js';
 import { VICTORIES } from '../sim/victory.js';
 import { UNITS } from '../data/units.js';
 import { RANK_NAMES } from '../rts/combat.js';
+import { GREAT } from '../sim/greatpeople.js';
 
 const AUTOSAVE_SEC = 30;
 
@@ -114,6 +115,7 @@ export class UI {
       this.toast(`${w.icon} 天气转为「${w.name}」${w.desc ? `:${w.desc}` : ''}`);
     });
     ev.on('supply', ({ res, ok }) => this.toast(ok ? `✅ 部队${res === 'food' ? '口粮' : '燃油'}补给恢复` : `⚠️ 部队${res === 'food' ? '口粮' : '燃油'}补给不足,伤害 -30%!`, ok ? 'good' : 'bad'));
+    ev.on('great:born', (k) => { this.toast(`🌟 ${GREAT[k].icon} ${GREAT[k].name}诞生了!在政务(J)中使用`, 'big'); this.audio?.play('tech'); });
     ev.on('tribute', ({ wave, cost }) => this.toast(`🕊️ 向铁锈军团进贡 💰${cost},第 ${wave} 波推迟 2 分钟`, 'good'));
     ev.on('unit:promoted', ({ unit, rank }) => {
       if (unit.team === this.game.localPlayer) this.toast(`🎖️ ${UNITS[unit.type].name}晋升为「${RANK_NAMES[rank]}」${'★'.repeat(rank)}`, 'good');
