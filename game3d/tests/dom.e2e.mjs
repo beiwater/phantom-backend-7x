@@ -58,7 +58,16 @@ try {
   await page.keyboard.press('Escape');
   assert.equal(await page.locator('#modal').isHidden(), true);
 
-  // 4) 刷新后存档恢复(保存走菜单 DOM)
+  // 4) 政务:切到「政策与外交」页,选第 1 槽并采纳「自由市场」(首次免费)
+  await page.locator('#btn-gov').click();
+  await page.locator('[data-govtab="policy"]').click();
+  await page.locator('[data-slot="0"]').click();
+  await page.locator('[data-policy="freeMarket"]').click();
+  await page.locator('.slot', { hasText: '自由市场' }).waitFor();
+  assert.deepEqual(await page.evaluate(() => window.__voxel.game.policies), ['freeMarket']);
+  await page.keyboard.press('Escape');
+
+  // 5) 刷新后存档恢复(保存走菜单 DOM)
   await page.locator('#btn-menu').click();
   await page.getByRole('button', { name: '💾 立即保存' }).click();
   const farms = await page.evaluate(() => [...window.__voxel.game.buildings.values()].filter((b) => b.type === 'farm').length);
@@ -66,6 +75,10 @@ try {
   await page.waitForFunction(() => window.__voxel?.game);
   const farmsAfter = await page.evaluate(() => [...window.__voxel.game.buildings.values()].filter((b) => b.type === 'farm').length);
   assert.equal(farmsAfter, farms, '刷新后农场应保留');
+  assert.deepEqual(await page.evaluate(() => window.__voxel.game.policies), ['freeMarket'], '刷新后政策应保留');
+  // 读档后出现标题界面,点「继续游戏」恢复
+  await page.getByRole('button', { name: /继续游戏/ }).click();
+  assert.equal(await page.evaluate(() => window.__voxel.game.paused), false);
 
   assert.deepEqual(errors, [], `控制台错误:\n${errors.join('\n')}`);
   console.log('✅ DOM 回归通过');
