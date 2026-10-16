@@ -20,6 +20,12 @@ function chips(cost, game, mult = 1) {
     }).join(' ');
 }
 
+/** 与 rts.upgradeUnits 扣费公式一致:每名 ceil(价格 × 0.5 × 政策倍率),再乘人数。 */
+function upgradeTotal(g, n) {
+  const mult = 0.5 * g.unitCostMult();
+  return Object.fromEntries(Object.entries(UNITS.rifleman.cost).map(([k, v]) => [k, Math.ceil(v * mult) * n]));
+}
+
 function counterText(u) {
   const c = Object.entries(COUNTERS[u] ?? {});
   const strong = c.filter(([, v]) => v > 1).map(([k]) => CLASS_NAMES[k]).join('、');
@@ -55,6 +61,7 @@ export class Panel {
     if (act === 'upgrade') r = g.dispatch({ type: 'upgrade', uid: b.uid });
     if (act === 'repair') r = g.dispatch({ type: 'repair', uid: b.uid });
     if (act === 'pause') r = g.dispatch({ type: 'togglePause', uid: b.uid });
+    if (act === 'upgradeUnits') r = g.dispatch({ type: 'upgradeUnits', ids: (this.sel?.units ?? []).map((u) => u.id) });
     if (act === 'module') r = g.dispatch({ type: 'setModule', uid: b.uid, module: t.dataset.module });
     if (act === 'demolish') {
       r = g.dispatch({ type: 'demolish', uid: b.uid });
@@ -227,6 +234,7 @@ export class Panel {
     const max = units.reduce((s, u) => s + u.maxHp, 0);
     return `<button class="close" data-act="close">✕</button>
       <h2>⚔️ 部队 <small>${units.length} 个单位</small></h2>
+      ${by.get('militia') && this.game.techs.has('gunpowder') ? `<div class="btns"><button class="btn primary" data-act="upgradeUnits">⬆ 民兵升级为步枪兵(兵营附近)${chips(upgradeTotal(this.game, by.get('militia')), this.game)}</button></div>` : ''}
       <div class="hpbar"><i style="width:${(hp / max) * 100}%"></i></div>
       <div class="sellgrid">${[...by].map(([t, n]) => `<span class="chip">${UNIT_ICONS[t]} ${UNITS[t].name} ×${n}</span>`).join('')}</div>
       ${vets ? `<div class="desc">🎖️ 老兵 ${vets} 名(每颗星伤害 +15%):${units.filter((u) => u.rank).slice(0, 8).map((u) => `${UNITS[u.type].name}${'★'.repeat(u.rank)}`).join(' ')}</div>` : ''}

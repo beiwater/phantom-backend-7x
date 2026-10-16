@@ -136,6 +136,34 @@ class RTS {
     return { ok: true };
   }
 
+  /** 兵种升级(文明式淘汰):兵营 5 格内的民兵 → 步枪兵,每名花费步枪兵价格的一半;总价全量预检。 */
+  upgradeUnits(ids, p) {
+    const g = this.game;
+    if (!g.techs.has('gunpowder')) return { ok: false, reason: '需要科技「火药」' };
+    const posts = [...g.buildings.values()].filter((b) => b.team === p && b.type === 'barracks' && b.state === 'active');
+    const list = ids.map((id) => this.byId.get(id)).filter((u) => u && !u.dead && u.team === p && u.type === 'militia'
+      && posts.some((b) => Math.abs(u.x - (b.x + 1)) < 6 && Math.abs(u.z - (b.z + 1)) < 6));
+    if (!list.length) return { ok: false, reason: '需要选中兵营附近的民兵' };
+    const mult = 0.5 * g.unitCostMult();
+    const total = {};
+    for (const [k, v] of Object.entries(UNITS.rifleman.cost)) total[k] = Math.ceil(v * mult) * list.length;
+    if (!g.spend(total)) return { ok: false, reason: '资源不足' };
+    const def = UNITS.rifleman;
+    for (const u of list) {
+      const ratio = u.hp / u.maxHp;
+      u.type = 'rifleman';
+      u.def = def;
+      u.baseHp = def.hp;
+      u.maxHp = Math.round(def.hp * this.hpMult);
+      u.hp = u.maxHp * ratio;
+      u.r = def.size * 0.5;
+      this.views.remove(u);
+      this.views.add(u);
+    }
+    g.events.emit('unit:upgraded', { n: list.length });
+    return { ok: true, n: list.length };
+  }
+
   armySize(p) {
     let n = 0;
     for (const u of this.units) if (u.team === p) n++;
@@ -344,6 +372,8 @@ class RTS {
         return this.queueUnit(g.buildings.get(cmd.uid), cmd.unit, p);
       case 'cancelTrain':
         return this.cancelUnit(g.buildings.get(cmd.uid), cmd.i, p);
+      case 'upgradeUnits':
+        return this.upgradeUnits(Array.isArray(cmd.ids) ? cmd.ids : [], p);
       default:
         return { ok: false, reason: `未知命令 ${cmd.type}` };
     }

@@ -7,7 +7,7 @@ import { MODULES, MODULE_MIN_LEVEL } from '../data/modules.js';
 import { planRoad } from '../sim/autoroad.js';
 import { Game } from '../sim/state.js';
 
-const RTS_TYPES = new Set(['move', 'attack', 'stop', 'rally', 'train', 'cancelTrain']);
+const RTS_TYPES = new Set(['move', 'attack', 'stop', 'rally', 'train', 'cancelTrain', 'upgradeUnits']);
 
 function owned(game, cmd) {
   const b = game.buildings.get(cmd.uid);
