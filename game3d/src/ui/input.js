@@ -6,6 +6,7 @@ import { CHUNK, OWNER } from '../world/map.js';
 import { buildingGeo } from '../models/cache.js';
 import { Game } from '../sim/state.js';
 import { synergyAt, SYNERGY } from '../sim/synergy.js';
+import { ring } from '../sim/economy.js';
 
 const CLICK_PX = 6;
 
@@ -234,6 +235,7 @@ export class Input {
         const syn = synergyAt(this.game, type, a.x, a.z, w, d);
         extra = syn.bonus ? ` · 🔗 协同 +${Math.round(syn.bonus * 100)}%` : ' · 🔗 紧贴上下游可获协同加成';
       }
+      if (chk.ok && (def.recipe || def.market || def.trains) && !this.touchesNetwork(a.x, a.z, w, d)) extra += ' · ⚠️ 未邻接连通道路,建成后无法运转';
       if (chk.ok && type === 'house') {
         const pol = this.game.society?.pollutionAt(a.x, a.z) ?? 0;
         if (pol) extra += ` · 🏭 ${pol} 处污染`;
@@ -275,6 +277,18 @@ export class Input {
     } else {
       this.tip.style.display = 'none';
     }
+  }
+
+  /** 预览位置是否紧贴已连通指挥中心的道路(或直接贴着指挥中心)。 */
+  touchesNetwork(x, z, w, d) {
+    const m = this.game.map;
+    const dist = this.ui.economy.roadDist;
+    const hq = this.game.playerHQ();
+    return ring({ x, z, w, d }).some(([rx, rz]) => {
+      if (!m.inside(rx, rz)) return false;
+      const i = m.idx(rx, rz);
+      return (m.road[i] && dist[i] >= 0) || (hq && m.building[i] === hq.uid);
+    });
   }
 
   highlightCells(cells, ok) {
