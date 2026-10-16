@@ -309,3 +309,28 @@ test('贸易合同:库存不足拒绝且不扣货;交付后发奖并移除(重�
   assert.equal(g.res.money, money + o.reward.money);
   assert.equal(g.dispatch({ type: 'deliver', id: o.id }).ok, false);
 });
+
+test('暂停生产:不占工人、不消耗原料;科技胜利在研究全部科技 + 3 级研究所后触发', async () => {
+  const { TECH_IDS } = await import('../src/data/tech.js');
+  const { g, e } = fresh();
+  g.res.money = 9999;
+  g.res.grain = 10;
+  g.res.water = 10;
+  const s = spotNear(g, 'foodFactory');
+  const r = g.placeBuilding('foodFactory', s.x, s.z, 'player', { instant: true });
+  assert.ok(g.dispatch({ type: 'togglePause', uid: r.building.uid }).ok);
+  run(e, 15);
+  assert.equal(g.res.grain, 10);
+  assert.equal(g.stats.workersNeeded, 0);
+  for (const id of TECH_IDS) g.techs.add(id);
+  g.era = 3;
+  run(e, 2);
+  assert.equal(g.over, null, '缺研究所时不应胜利');
+  g.res.electronics = 99; g.res.steel = 99; g.res.concrete = 99;
+  let lab = null;
+  for (let z = 40; z < 56 && !lab; z++) for (let x = 8; x < 24 && !lab; x++) { const p = g.placeBuilding('lab', x, z, 'player', { instant: true, level: 3 }); if (p.ok) lab = p.building; }
+  assert.ok(lab);
+  run(e, 2);
+  assert.equal(g.over, 'win');
+  assert.equal(g.victoryKind, 'science');
+});

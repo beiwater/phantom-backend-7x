@@ -3,6 +3,7 @@ import { POLICIES, POLICY_IDS, POLICY_SWITCH_COST, policySlots } from '../data/p
 import { ERAS } from '../data/tech.js';
 import { RESOURCES, resIcon } from '../data/resources.js';
 import { fmtTime } from '../engine/util.js';
+import { VICTORIES } from '../sim/victory.js';
 
 export class GovPanel {
   constructor(game, ui) {
@@ -14,7 +15,7 @@ export class GovPanel {
   sig() {
     const g = this.game;
     const c = g.contracts;
-    return [g.era, g.policies.join(), this.pickSlot, c.offers.map((o) => `${o.id}:${g.res[o.res] >= o.qty}`).join(), c.reputation, Math.floor(g.res.money / 150)].join('|');
+    return [g.era, g.techs.size, Math.floor(g.res.money / 1000), g.policies.join(), this.pickSlot, c.offers.map((o) => `${o.id}:${g.res[o.res] >= o.qty}`).join(), c.reputation, Math.floor(g.res.money / 150)].join('|');
   }
 
   html() {
@@ -51,8 +52,13 @@ export class GovPanel {
         <div class="desc">库存 ${have}/${o.qty} · 报酬 ${rw}(约集市 ${((o.reward.money / (o.qty * RESOURCES[o.res].price))).toFixed(1)} 倍)· 剩余 ${fmtTime(o.expires - g.time)}</div></div>
         <button class="btn ${ok ? 'primary' : ''}" data-deliver="${o.id}" ${ok ? '' : 'disabled'}>交付</button></div>`;
     }).join('') || '<div class="desc">暂无订单。城邦会不定期发布新合同。</div>';
+    const vic = Object.values(VICTORIES).map((v) => {
+      const p = v.progress(g);
+      return `<div class="victory"><b>${v.icon} ${v.name}</b> <span class="desc">${v.desc}</span><div class="pbar"><i style="width:${p * 100}%"></i></div><small>${Math.floor(p * 100)}%</small></div>`;
+    }).join('');
     return `<div class="dialog" data-modal="gov" style="max-width:760px">
       <h2><span>🏛️ 政务</span><button class="btn" data-close>关闭 Esc</button></h2>
+      <h3 class="sub">胜利进度</h3><div class="victories">${vic}</div>
       <h3 class="sub">政策(每个时代多一个槽)</h3>
       <div class="slots">${slotHtml.join('')}</div>${picker}
       <h3 class="sub">贸易合同 <small>声望 ${c.reputation >= 0 ? '+' : ''}${c.reputation}(声望越高报价越好;合同过期会损失声望)</small></h3>

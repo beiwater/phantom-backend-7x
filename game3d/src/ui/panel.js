@@ -43,6 +43,7 @@ export class Panel {
     if (act === 'close') { this.ui.select(null); return; }
     if (act === 'upgrade') r = g.dispatch({ type: 'upgrade', uid: b.uid });
     if (act === 'repair') r = g.dispatch({ type: 'repair', uid: b.uid });
+    if (act === 'pause') r = g.dispatch({ type: 'togglePause', uid: b.uid });
     if (act === 'demolish') {
       r = g.dispatch({ type: 'demolish', uid: b.uid });
       if (r.ok) { this.ui.select(null); return; }
@@ -79,7 +80,7 @@ export class Panel {
   buildingSig(b) {
     const g = this.game;
     const def = BUILDINGS[b.type];
-    const parts = [b.uid, b.level, b.state, b.trainQueue.join(','), g.era, [...g.techs].length];
+    const parts = [b.uid, b.level, b.state, b.trainQueue.join(','), g.era, [...g.techs].length, b.paused, Math.ceil(b.hp / 20)];
     if (b.level < def.maxLevel) parts.push(g.canAfford(upgradeCost(b.type, b.level + 1)));
     for (const u of def.trains ?? []) parts.push(g.canAfford(UNITS[u].cost));
     if (def.market) parts.push(RESOURCE_IDS.filter((k) => g.res[k] > 0 || b.sell.has(k)).join(), RESOURCE_IDS.map((k) => g.market.price(k).toFixed(1)).join());
@@ -162,7 +163,8 @@ export class Panel {
       h.push(`<button class="btn primary" data-act="upgrade" ${b.state === 'active' && !eraBlock && g.canAfford(cost) ? '' : 'disabled'}>⬆ 升级 ${chips(cost)}</button>`);
       if (eraBlock) h.push('<div class="desc">需先通过科技进入下一时代。</div>');
     }
-    h.push('<button class="btn" data-act="repair">🔧 维修</button>');
+    if (def.recipe || def.market || def.trains) h.push(`<button class="btn" data-act="pause">${b.paused ? '▶ 恢复生产' : '⏸ 暂停生产'}</button>`);
+    h.push(`<button class="btn" data-act="repair" ${b.hp < b.maxHp ? '' : 'disabled'}>🔧 维修 💰${Math.ceil((b.maxHp - b.hp) * 0.3)}</button>`);
     h.push('<button class="btn" data-act="focus">🎯 定位</button>');
     if (b.type !== 'hq') h.push('<button class="btn danger" data-act="demolish">🔨 拆除</button>');
     h.push('</div>');

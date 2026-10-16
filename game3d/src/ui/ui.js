@@ -17,6 +17,7 @@ import { saveGame, clearSave } from '../save.js';
 import { fmtTime } from '../engine/util.js';
 import { DIFFICULTIES } from '../data/difficulty.js';
 import { QUALITY } from '../engine/quality.js';
+import { VICTORIES } from '../sim/victory.js';
 
 const AUTOSAVE_SEC = 30;
 
@@ -73,7 +74,7 @@ export class UI {
     ev.on('building:remove', ({ b, destroyed }) => {
       if (destroyed && b.team === 'enemy' && b.type !== 'wall') this.toast(`💥 摧毁敌方${BUILDINGS[b.type].name}`, 'good');
     });
-    ev.on('gameover', (r) => this.openGameOver(r));
+    ev.on('gameover', ({ result, kind }) => this.openGameOver(result, kind));
     ev.on('event', ({ msg, kind }) => this.toast(msg, kind));
     ev.on('contract:new', (o) => this.toast(`📜 新合同:${o.client}求购 ${RESOURCES[o.res].name} ×${o.qty}(J 打开政务)`));
     ev.on('contract:done', (o) => this.toast(`🤝 合同完成:${o.client} 支付 💰${o.reward.money}`, 'good'));
@@ -199,13 +200,13 @@ export class UI {
       </div></div>`);
   }
 
-  openGameOver(result) {
+  openGameOver(result, kind = 'domination') {
     const win = result === 'win';
     clearSave();
     const c = this.game.counters;
     this.openModal('gameover', `<div class="dialog" style="text-align:center;max-width:480px">
-      <h2 style="justify-content:center">${win ? '🏆 胜利!' : '💀 指挥中心陷落'}</h2>
-      <p>${win ? '敌军指挥中心已被摧毁,你的文明统一了这片土地。' : '敌军摧毁了你的指挥中心。'}<br>
+      <h2 style="justify-content:center">${win ? `🏆 ${VICTORIES[kind].icon} ${VICTORIES[kind].name}!` : '💀 指挥中心陷落'}</h2>
+      <p>${win ? ({ domination: '敌军指挥中心已被摧毁,你的文明统一了这片土地。', science: '星际探测器升空,你的文明迈向群星。', economic: '你的商业帝国主宰了整个大陆的贸易。' })[kind] : '敌军摧毁了你的指挥中心。'}<br>
       用时 ${fmtTime(this.game.time)} · 训练单位 ${c.unitsTrained} · 歼敌 ${c.enemyKilled} · 击退 ${c.wavesSurvived} 波</p>
       <button class="btn primary" data-menu="setup">再来一局</button></div>`);
   }

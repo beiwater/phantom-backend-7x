@@ -54,6 +54,14 @@ const HANDLERS = {
   deliver(game, cmd) {
     return game.contracts?.deliver(cmd.id) ?? { ok: false, reason: '合同系统未就绪' };
   },
+  /** 暂停/恢复生产:暂停后不占工人与电力,也不消耗原料。 */
+  togglePause(game, cmd) {
+    const b = owned(game, cmd);
+    const def = b && BUILDINGS[b.type];
+    if (!b || !(def.recipe || def.market || def.trains)) return { ok: false, reason: '该建筑不能暂停' };
+    b.paused = !b.paused;
+    return { ok: true, paused: b.paused };
+  },
   setSell(game, cmd) {
     const b = owned(game, cmd);
     if (!b || !BUILDINGS[b.type].market) return { ok: false, reason: '不是你的集市' };

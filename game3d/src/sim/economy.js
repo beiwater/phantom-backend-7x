@@ -8,6 +8,7 @@ import { Market } from './market.js';
 import { Stats } from './stats.js';
 import { Society } from './society.js';
 import { Contracts } from './contracts.js';
+import { Victory } from './victory.js';
 
 const RAW = new Set(['farm', 'lumber', 'quarry', 'pump', 'ironMine', 'coalMine', 'oilWell']);
 
@@ -32,6 +33,7 @@ export class Economy {
     this.society = new Society(game);
     this.contracts = new Contracts(game);
     game.contracts = this.contracts;
+    this.victory = new Victory(game);
     game.market = this.market;
     game.society = this.society;
     game.econStats = this.stats;
@@ -54,6 +56,7 @@ export class Economy {
     this.stats.step(gdt);
     this.society.step(gdt);
     this.contracts.step(gdt);
+    this.victory.step(gdt);
   }
 
   recomputeStats() {
@@ -72,7 +75,7 @@ export class Economy {
       storage += storageOf(b.type, lvl);
       housing += housingOf(b.type, lvl) * (b.fed ? 1 : 0.5);
       b.synergy = synergyAt(g, b.type, b.x, b.z, b.w, b.d, b.team, b.uid);
-      if (b.state !== 'active') continue;
+      if (b.state !== 'active' || b.paused) continue;
       if (def.recipe || def.market || def.trains) need += workersOf(def, lvl);
       const p = powerOf(def, lvl);
       if (p > 0 && b.working) supply += p;
@@ -214,6 +217,11 @@ export class Economy {
       return;
     }
 
+    if (b.paused) {
+      b.working = false;
+      b.status = '已暂停';
+      return;
+    }
     if (def.upkeep) this.updateHouse(b, def, gdt);
     if (def.income) {
       b.cycle += gdt / def.income.time;

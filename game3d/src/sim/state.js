@@ -341,11 +341,12 @@ export class Game {
     return { ok: true };
   }
 
-  endGame(result) {
+  endGame(result, kind = 'domination') {
     if (this.over) return;
     this.over = result;
+    this.victoryKind = kind;
     this.paused = true;
-    this.events.emit('gameover', result);
+    this.events.emit('gameover', { result, kind });
   }
 
   /** 新局初始化:玩家指挥中心 + 一小段起始道路。 */

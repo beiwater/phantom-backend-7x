@@ -48,10 +48,22 @@ export const MISSIONS = [
     reward: { money: 300 },
   },
   {
+    title: '治国理政', goal: '在政务中采纳一项政策',
+    hint: '顶栏「政务」(J)。政策有利有弊,每个时代多一个政策槽。',
+    progress: (g) => (g.policies.some(Boolean) ? 1 : 0),
+    reward: { money: 200 },
+  },
+  {
     title: '钢铁洪流', goal: '累计生产 10 钢材',
     hint: '研究冶金 → 建造铁矿场、煤矿、炼钢厂。',
     progress: (g) => ratio(g.produced.steel, 10),
     reward: { money: 400 },
+  },
+  {
+    title: '通商四海', goal: '完成 1 份贸易合同',
+    hint: '城邦会发布高价订单,备好货物后在政务面板交付。声望越高报价越好。',
+    progress: (g) => ratio(g.counters.contracts ?? 0, 1),
+    reward: { money: 300, research: 20 },
   },
   {
     title: '保家卫国', goal: '研究军事训练,训练 5 名士兵',
@@ -96,8 +108,8 @@ export const MISSIONS = [
     reward: { money: 1200 },
   },
   {
-    title: '终局', goal: '摧毁敌军指挥中心',
-    hint: '集结大军,渡河直捣黄龙!',
+    title: '终局', goal: '取得任意一种胜利',
+    hint: '征服:摧毁敌军指挥中心;科技:研究全部科技并有 3 级研究所;经济:声望 15 + 金币 30000。进度见政务面板。',
     progress: (g) => (g.over === 'win' ? 1 : 0),
     reward: { money: 0 },
   },

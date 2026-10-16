@@ -96,7 +96,7 @@ class RTS {
 
   // ---------- 训练 ----------
   trainRate(b) {
-    if (b.state !== 'active' || !b.connected) return 0;
+    if (b.state !== 'active' || !b.connected || b.paused) return 0;
     const s = this.game.stats;
     let r = s.workerRatio;
     if (BUILDINGS[b.type].power < 0) r *= s.powerRatio;
