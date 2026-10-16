@@ -142,6 +142,7 @@ export class UI {
     ev.on('era', (era) => {
       const e = ERAS[era - 1];
       this.toast(`🌅 文明迈入「${e.name}」!指挥中心现可升级`, 'big');
+      this.banner(e.name, e.color, era === 2 ? '蒸汽与钢铁的轰鸣响彻大地' : '信息的洪流改变了一切');
     });
     ev.on('tech', (id) => { if (id) this.toast(`🔬 研究完成:${TECHS[id].name}`, 'good'); });
     ev.on('building:done', (b) => {
@@ -200,6 +201,14 @@ export class UI {
   }
 
   // ---------- 提示 ----------
+  banner(title, color, sub) {
+    const el = document.createElement('div');
+    el.className = 'era-banner';
+    el.innerHTML = `<div class="t" style="color:${color}">${title}</div><div class="s">${sub}</div>`;
+    document.getElementById('app').appendChild(el);
+    setTimeout(() => el.remove(), 4200);
+  }
+
   /** loc={x,z} 时提示可点击跳转镜头,并记为最近警报位置(Z 键跳转)。 */
   toast(text, kind = '', loc = null) {
     if (kind === 'bad') this.audio?.play('error');
