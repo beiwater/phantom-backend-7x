@@ -1,4 +1,5 @@
 // 敌军 AI:开局要塞布置 + 驻军 + 定时进攻波次。波次强度随波数与玩家时代增长,由存活的敌方兵营/战车工厂出兵。
+// 被摧毁的兵营/工厂/防御塔会在 REBUILD_DELAY 后、附近无我方部队时重建;敌军指挥中心随玩家时代升级。
 import { ENEMY_HQ } from '../world/map.js';
 import { nearestWalkable, ringCells } from './path.js';
 import { orderAMove } from './units.js';
@@ -10,6 +11,9 @@ const WARN_AHEAD = 45;
 const ENEMY_CAP = 60;
 const WAVE_MAX = 40;
 const GARRISON = ['militia', 'militia', 'militia', 'militia', 'rifleman', 'rifleman'];
+const REBUILD_DELAY = 180;
+const REBUILD_TYPES = new Set(['barracks', 'vehicleFactory', 'turret']);
+const REBUILD_CLEAR_R = 8;
 
 // 要塞布局(相对 ENEMY_HQ 偏移)。城墙环 x∈[-6,7]、z∈[-5,8],西侧/南侧/西南角留 3 个缺口朝向玩家
 const LAYOUT = {
@@ -30,6 +34,43 @@ export class EnemyAI {
     this.damageMult = 1;
     /** @type {Map<number, Set<number>>} 波次 → 存活单位 id */
     this.waves = new Map();
+    /** @type {{type:string,x:number,z:number,at:number}[]} */
+    this.rebuild = [];
+    rts.game.events.on('building:remove', ({ b, destroyed }) => {
+      if (destroyed && b.team === ENEMY && REBUILD_TYPES.has(b.type)) {
+        this.rebuild.push({ type: b.type, x: b.x, z: b.z, at: this.game.time + REBUILD_DELAY });
+      }
+    });
+  }
+
+  /** 重建与时代升级;只读模拟状态(时间/单位位置),保持确定性。 */
+  maintain() {
+    const g = this.game;
+    const hq = [...g.buildings.values()].find((b) => b.type === 'hq' && b.team === ENEMY);
+    if (!hq) return;
+    if (hq.level < Math.min(3, g.era)) {
+      const ratio = hq.hp / hq.maxHp;
+      hq.level = Math.min(3, g.era);
+      hq.maxHp = 3000 * (1 + 0.25 * (hq.level - 1));
+      hq.hp = hq.maxHp * ratio;
+      for (const b of g.buildings.values()) if (b.team === ENEMY && b.type === 'turret' && b.level < hq.level + 1) b.level = Math.min(4, hq.level + 1);
+      g.events.emit('building:change', hq);
+      for (const b of g.buildings.values()) if (b.team === ENEMY && b.type === 'turret') g.events.emit('building:change', b);
+    }
+    for (const job of [...this.rebuild]) {
+      if (g.time < job.at) continue;
+      const near = this.rts.units.some((u) => u.team !== ENEMY && Math.abs(u.x - job.x) + Math.abs(u.z - job.z) < REBUILD_CLEAR_R);
+      if (near) { job.at = g.time + 20; continue; }
+      const r = g.placeBuilding(job.type, job.x, job.z, ENEMY, { instant: true, level: job.type === 'turret' ? hq.level : 1 });
+      if (r.ok) {
+        r.building.hp = r.building.maxHp * 0.6;
+        this.rebuild = this.rebuild.filter((j) => j !== job);
+        if (job.type !== 'turret') this.rts.ui?.toast?.(`🔨 敌军重建了${job.type === 'barracks' ? '兵营' : '战车工厂'}`, 'bad');
+        if (this.stopped && job.type !== 'turret') { this.stopped = false; this.warned = false; this.nextWave = g.time + WAVE_GAP; }
+      } else {
+        job.at = g.time + 20;
+      }
+    }
   }
 
   get game() { return this.rts.game; }
@@ -106,6 +147,7 @@ export class EnemyAI {
 
   update() {
     const g = this.game;
+    this.maintain();
     if (this.stopped) return;
     const n = this.wave + 1;
     if (!this.warned && g.time >= this.nextWave - WARN_AHEAD) {
@@ -121,7 +163,8 @@ export class EnemyAI {
 
   stop() {
     this.stopped = true;
-    this.rts.ui?.toast?.('🏳️ 敌军生产建筑已全部摧毁,不会再有新的进攻波次!', 'good');
+    const rebuilding = this.rebuild.some((j) => j.type !== 'turret');
+    this.rts.ui?.toast?.(rebuilding ? '🏳️ 敌军生产建筑已全部摧毁,进攻暂停——但敌军会尝试重建,派兵驻守废墟!' : '🏳️ 敌军生产建筑已全部摧毁,不会再有新的进攻波次!', 'good');
     this.game.events.emit('wave:stopped', {});
   }
 
@@ -188,7 +231,7 @@ export class EnemyAI {
   }
 
   serialize() {
-    return { nextWave: this.nextWave, wave: this.wave, warned: this.warned, stopped: this.stopped, damageMult: this.damageMult };
+    return { nextWave: this.nextWave, wave: this.wave, warned: this.warned, stopped: this.stopped, damageMult: this.damageMult, rebuild: this.rebuild };
   }
 
   load(d, units) {
@@ -197,6 +240,7 @@ export class EnemyAI {
     this.warned = !!d?.warned;
     this.stopped = !!d?.stopped;
     this.damageMult = d?.damageMult ?? 1;
+    this.rebuild = d?.rebuild ?? [];
     this.waves.clear();
     for (const u of units) {
       if (!u.wave) continue;

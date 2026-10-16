@@ -102,4 +102,4 @@ function frame(now) {
 requestAnimationFrame(frame);
 
 // 供 Playwright 诊断读取(只读):断言状态、把世界坐标投影到屏幕;E2E 操作仍须走 DOM
-window.__voxel = { game, rts, economy, renderer: stage.renderer, scene: stage.scene, project: (x, z) => rig.toScreen(new Vector3(x, 0, z)) };
+window.__voxel = { game, rts, economy, sim, renderer: stage.renderer, scene: stage.scene, project: (x, z) => rig.toScreen(new Vector3(x, 0, z)) };
