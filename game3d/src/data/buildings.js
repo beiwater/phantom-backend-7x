@@ -18,7 +18,7 @@ export const BUILDINGS = {
     name: '指挥中心', category: 'core', size: [3, 3], era: 1, maxLevel: 3, hp: 3000,
     cost: { money: 0 }, buildTime: 0, workers: 0, unique: true,
     storage: 400, housing: 6, income: { money: 6, time: 5 },
-    desc: '文明的心脏。提供仓储与基础税收;被摧毁即失败。升级随时代改变外观。',
+    desc: '文明的心脏。提供仓储、基础税收与自卫火力(射程 6);被摧毁即失败。升级随时代改变外观。',
   },
   house: {
     name: '民居', category: 'civic', size: [1, 1], era: 1, maxLevel: 4, hp: 300,

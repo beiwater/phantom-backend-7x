@@ -3,7 +3,7 @@ import { BUILDINGS } from '../data/buildings.js';
 import { isUnit, navigate, stopNav, orderIdle, AIR_Y } from './units.js';
 
 const SCAN = 0.4; // 索敌间隔(秒),错峰降低开销
-const HQ_GUN = { range: 6, damage: 8, cooldown: 1.2 }; // 敌军指挥中心的自卫火力(较弱)
+const HQ_GUN = { range: 6, damage: 8, cooldown: 1.2 }; // 双方指挥中心的自卫火力(较弱,随等级提升),保证新手能扛住首波
 const TOP_TYPES = new Set(['tank', 'artillery']);
 
 export function alive(rts, t) {
@@ -323,7 +323,7 @@ export function updateTurrets(rts, dt) {
   const g = rts.game;
   for (const b of g.buildings.values()) {
     const isTurret = b.type === 'turret';
-    if (!isTurret && !(b.type === 'hq' && b.team === 'enemy')) continue;
+    if (!isTurret && b.type !== 'hq') continue;
     if (b.state !== 'active') continue;
     const cfg = isTurret ? BUILDINGS.turret.turret : HQ_GUN;
     b.cooldown = (b.cooldown ?? 0) - dt;
@@ -354,7 +354,7 @@ export function updateTurrets(rts, dt) {
     if (isTurret) b.aim = yaw;
     if (b.cooldown > 0) continue;
     b.cooldown = cfg.cooldown;
-    let dmg = cfg.damage;
+    let dmg = isTurret ? cfg.damage : cfg.damage * b.level;
     let boosted = false;
     if (isTurret) {
       dmg *= 1 + 0.25 * (b.level - 1);
