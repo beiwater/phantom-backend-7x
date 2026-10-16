@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import { MAP_W, MAP_H, OWNER } from './map.js';
 
 const BUILDING_SIGHT = 4;
-const UNIT_SIGHT = { militia: 5, rifleman: 6, tank: 6, artillery: 7, helicopter: 8 };
+const UNIT_SIGHT = { militia: 5, scout: 10, rifleman: 6, tank: 6, artillery: 7, helicopter: 8 };
 
 export class FogOfWar {
   constructor(game) {

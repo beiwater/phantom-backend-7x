@@ -23,7 +23,16 @@ function soldier(kind, t) {
   m.box(2, 7, 2, 3, 2, 3, SKIN);
   m.set(2, 8, 4, C.black);
   m.set(4, 8, 4, C.black);
-  if (kind === 'militia') {
+  if (kind === 'scout') {
+    // 软帽 + 望远镜 + 背囊,轻装无长兵器
+    m.box(1, 9, 1, 5, 1, 5, C.olive);
+    m.box(2, 10, 2, 3, 1, 3, C.olive);
+    m.box(2, 9, 6, 3, 1, 1, C.oliveDark);
+    m.box(2, 7, 5, 1, 1, 1, C.black);
+    m.box(4, 7, 5, 1, 1, 1, C.black);
+    m.box(2, 4, 1, 3, 3, 1, C.khaki);
+    m.set(5, 5, 4, SKIN);
+  } else if (kind === 'militia') {
     // 布头巾 + 长矛
     m.box(2, 9, 2, 3, 1, 3, C.khaki);
     m.box(2, 8, 2, 3, 1, 1, t.primary);
@@ -129,6 +138,7 @@ export function unit(unitId, team) {
   switch (unitId) {
     case 'militia': return finishUnit(soldier('militia', t), 7);
     case 'rifleman': return finishUnit(soldier('rifleman', t), 7);
+    case 'scout': return finishUnit(soldier('scout', t), 7);
     case 'tank': return tank(t);
     case 'artillery': return artillery(t);
     case 'helicopter': return helicopter(t);

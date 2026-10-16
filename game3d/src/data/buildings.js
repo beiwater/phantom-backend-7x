@@ -153,7 +153,7 @@ export const BUILDINGS = {
   barracks: {
     name: '兵营', category: 'military', size: [2, 2], era: 1, maxLevel: 3, hp: 900, tech: 'drill',
     cost: { money: 120, planks: 10, stone: 10 }, buildTime: 12, workers: 2,
-    trains: ['militia', 'rifleman'],
+    trains: ['militia', 'scout', 'rifleman'],
     desc: '训练步兵单位。',
   },
   vehicleFactory: {

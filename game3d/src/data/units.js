@@ -6,6 +6,11 @@ export const UNITS = {
     cost: { money: 20, food: 2, planks: 1 }, time: 8, antiAir: false, size: 0.35,
     desc: '廉价近战步兵。',
   },
+  scout: {
+    name: '侦察兵', tech: 'drill', hp: 45, damage: 4, range: 3, cooldown: 1.0, speed: 2.6,
+    cost: { money: 25, food: 1 }, time: 6, antiAir: false, size: 0.35,
+    desc: '移动迅速、视野极远(10 格),适合探索遗迹与侦察敌情。',
+  },
   rifleman: {
     name: '步枪兵', tech: 'gunpowder', hp: 90, damage: 10, range: 4.5, cooldown: 1.1, speed: 1.5,
     cost: { money: 35, food: 2, ammo: 2 }, time: 10, antiAir: true, size: 0.35,

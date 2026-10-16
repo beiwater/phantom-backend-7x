@@ -10,7 +10,7 @@ import { BUILDING_ICONS } from './toolbar.js';
 import { SYNERGY } from '../sim/synergy.js';
 import { MODULES, MODULE_MIN_LEVEL } from '../data/modules.js';
 
-const UNIT_ICONS = { militia: '🗡️', rifleman: '🔫', tank: '🛡️', artillery: '💣', helicopter: '🚁' };
+const UNIT_ICONS = { militia: '🗡️', scout: '🔭', rifleman: '🔫', tank: '🛡️', artillery: '💣', helicopter: '🚁' };
 
 function chips(cost, game) {
   return Object.entries(cost).filter(([, v]) => v > 0)
