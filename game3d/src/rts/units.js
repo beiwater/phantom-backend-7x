@@ -1,7 +1,7 @@
 // 单位对象、空间哈希、导航(寻路 + 跟随 + 卡住重寻)与分离转向。
 import { UNITS } from '../data/units.js';
 import { MAP_W, MAP_H } from '../world/map.js';
-import { findPath, smoothPath, canStand, lineClear, nearestWalkable } from './path.js';
+import { findPath, smoothPath, canStand, nearestWalkable } from './path.js';
 
 export const AIR_Y = 2.2;
 const STAND_R = 0.2;
@@ -297,5 +297,3 @@ export function unstick(map, u) {
   const n = nearestWalkable(map, u.x, u.z, 6);
   if (n) { u.x = n.x + 0.5; u.z = n.z + 0.5; }
 }
-
-export { lineClear };

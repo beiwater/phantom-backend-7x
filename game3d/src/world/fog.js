@@ -124,7 +124,9 @@ export class FogOfWar {
             gl_FragColor.rgb = mix(gl_FragColor.rgb, vec3(dot(gl_FragColor.rgb, vec3(0.3, 0.59, 0.11))), (1.0 - smoothstep(0.5, 1.0, fogL)) * 0.6);
           }`);
     };
-    material.customProgramCacheKey = () => 'fog';
+    // 串联已有键:同参数的材质若注入不同代码,必须有不同的程序缓存键
+    const prevKey = material.customProgramCacheKey?.bind(material);
+    material.customProgramCacheKey = () => `${prevKey ? prevKey() : ''}|fog`;
     material.needsUpdate = true;
   }
 

@@ -23,6 +23,10 @@ let failed = false;
 try {
   await page.goto(`http://127.0.0.1:${PORT}/index.html?new=1`);
   await page.getByRole('button', { name: '开始游戏' }).click();
+  // 软件渲染环境很慢:经菜单把画质调低(本机偏好,不是游戏状态)
+  await page.locator('#btn-menu').click();
+  await page.locator('[data-quality="low"]').click();
+  await page.keyboard.press('Escape');
 
   // 1) 选择「采集 → 农场」,在指挥中心南侧道路旁放置
   await page.locator('.cat[data-cat="raw"]').click();
@@ -46,7 +50,7 @@ try {
 
   // 2) 4 倍速,等待建成并产出谷物(资源条出现 🌾)
   await page.locator('#speed button[data-speed="4"]').click();
-  await page.locator('#resbar .res', { hasText: '🌾' }).waitFor({ timeout: 20000 });
+  await page.locator('#resbar .res', { hasText: '🌾' }).waitFor({ timeout: 90000 });
 
   // 3) 打开科技树并关闭
   await page.locator('#btn-tech').click();

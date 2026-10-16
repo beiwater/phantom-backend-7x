@@ -126,6 +126,7 @@ export class VoxelModel {
     const positions = [];
     const normals = [];
     const colors = [];
+    const glows = [];
     const indices = [];
     const occ = (x, y, z) => this.voxels.has(key(x, y, z));
     const offX = (footW * VOXELS_PER_CELL) / 2;
@@ -148,6 +149,7 @@ export class VoxelModel {
           col.setHex(v.color);
           const s = v.glow ? 1.25 : j * (0.55 + 0.45 * ao[i]);
           colors.push(Math.min(1, col.r * s), Math.min(1, col.g * s), Math.min(1, col.b * s));
+          glows.push(v.glow ? 1 : 0);
         }
         // AO 各向异性:按对角线 AO 和选择三角剖分,避免条纹伪影
         if (ao[0] + ao[2] > ao[1] + ao[3]) {
@@ -162,6 +164,8 @@ export class VoxelModel {
     geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
     geo.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
     geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+    // 发光体素(窗户/灯/屏幕)标记,夜间由着色器自发光(见 engine/daynight.js)
+    geo.setAttribute('aGlow', new THREE.Float32BufferAttribute(glows, 1));
     geo.setIndex(indices);
     geo.computeBoundingBox();
     geo.computeBoundingSphere();

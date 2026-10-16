@@ -21,8 +21,8 @@ import { QUALITY } from '../engine/quality.js';
 const AUTOSAVE_SEC = 30;
 
 export class UI {
-  constructor({ game, economy, rig, rts, view, terrain, quality }) {
-    Object.assign(this, { game, economy, rig, rts, view, terrain, quality });
+  constructor({ game, economy, rig, rts, view, terrain, quality, dayNight }) {
+    Object.assign(this, { game, economy, rig, rts, view, terrain, quality, dayNight });
     this.selection = null;
     this.toasts = document.getElementById('toasts');
     this.modal = document.getElementById('modal');
@@ -183,6 +183,7 @@ export class UI {
         <button class="btn" data-menu="codex">📖 百科(建筑与产业链)B</button>
         <button class="btn" data-menu="labels">🏷️ 开关建筑标签 (L)</button>
         <button class="btn" data-menu="fog">🌫️ 开关战争迷雾</button>
+        <button class="btn" data-menu="daynight">🌙 开关昼夜循环</button>
         <div class="btns">画质:${Object.entries(QUALITY).map(([id, q]) => `<button class="btn${this.quality?.level === id ? ' primary' : ''}" data-quality="${id}">${q.name}</button>`).join('')}</div>
         <button class="btn danger" data-menu="setup">🆕 新游戏…</button>
       </div></div>`);
@@ -217,6 +218,7 @@ export class UI {
     if (m === 'help') this.openHelp();
     if (m === 'codex') this.openCodex();
     if (m === 'labels') { this.labels.enabled = !this.labels.enabled; this.closeModal(); }
+    if (m === 'daynight' && this.dayNight) { this.dayNight.enabled = !this.dayNight.enabled; this.closeModal(); }
     if (m === 'fog' && this.game.fog) { this.game.fog.enabled = !this.game.fog.enabled; this.closeModal(); }
     const q = e.target.closest('[data-quality]')?.dataset.quality;
     if (q) { this.quality.set(q); this.openMenu(); }

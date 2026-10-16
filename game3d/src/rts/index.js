@@ -112,8 +112,13 @@ class RTS {
     if (ud.tech && !g.techs.has(ud.tech)) return { ok: false, reason: `需科技:${TECHS[ud.tech].name}` };
     if (b.trainQueue.length >= QUEUE_MAX) return { ok: false, reason: `训练队列已满(最多 ${QUEUE_MAX} 个)` };
     if (this.armySize(p) >= UNIT_CAP) return { ok: false, reason: `部队数量已达上限 ${UNIT_CAP}` };
-    if (!g.spend(ud.cost)) return { ok: false, reason: '资源不足' };
+    // 政策「全民皆兵」等折扣;实付倍率随队列项保存,退款按实付计算,防止改政策后退款套利
+    const mult = Math.max(0.3, 1 + g.effect('unitCost'));
+    if (!g.spend(ud.cost, mult)) return { ok: false, reason: '资源不足' };
     b.trainQueue.push(unitId);
+    b.trainPaid = b.trainPaid ?? [];
+    b.trainPaid.length = b.trainQueue.length - 1;
+    b.trainPaid.push(mult);
     g.events.emit('train:queue', b);
     return { ok: true };
   }
@@ -123,8 +128,9 @@ class RTS {
     if (!b || !g.buildings.has(b.uid) || b.team !== p) return { ok: false, reason: '不是你的建筑' };
     if (!Number.isInteger(index) || index < 0 || index >= b.trainQueue.length) return { ok: false, reason: '队列中没有该单位' };
     const [id] = b.trainQueue.splice(index, 1);
+    const [paid] = b.trainPaid?.splice(index, 1) ?? [];
     if (index === 0) b.trainProgress = 0;
-    g.refund(UNITS[id].cost, 1);
+    g.refund(UNITS[id].cost, paid ?? 1);
     g.events.emit('train:queue', b);
     return { ok: true };
   }
@@ -164,6 +170,7 @@ class RTS {
       const u = this.spawnFrom(b, type);
       if (!u) { b.status = '出口被堵塞'; continue; }
       b.trainQueue.shift();
+      b.trainPaid?.shift();
       b.trainProgress = 0;
       g.counters.unitsTrained++;
       g.events.emit('unit:trained', { unit: u });
