@@ -12,7 +12,8 @@ const ENEMY_CAP = 60;
 const WAVE_MAX = 40;
 const GARRISON = ['militia', 'militia', 'militia', 'militia', 'rifleman', 'rifleman'];
 const REBUILD_DELAY = 180;
-const REBUILD_TYPES = new Set(['barracks', 'vehicleFactory', 'turret']);
+const ENEMY_ECON = ['farm', 'farm', 'lumber', 'ironMine'];
+const REBUILD_TYPES = new Set(['barracks', 'vehicleFactory', 'turret', 'farm', 'lumber', 'ironMine']);
 const REBUILD_CLEAR_R = 8;
 const EXPAND_FIRST = 480;
 const EXPAND_GAP = 300;
@@ -188,6 +189,29 @@ export class EnemyAI {
     }
     this.spawnGarrison(GARRISON);
     this.guardRuins();
+    this.placeEconomy();
+  }
+
+  /** 敌军经济:要塞地块内的农场/伐木场/矿场。被摧毁会削弱波次规模(见 econFactor),可被重建。 */
+  placeEconomy() {
+    const g = this.game;
+    for (const type of ENEMY_ECON) {
+      let done = false;
+      for (const [cx, cz] of ENEMY_CHUNKS) {
+        for (let z = cz * CHUNK; z < (cz + 1) * CHUNK - 1 && !done; z++) {
+          for (let x = cx * CHUNK; x < (cx + 1) * CHUNK - 1 && !done; x++) {
+            if (g.canPlace(type, x, z, ENEMY).ok && g.placeBuilding(type, x, z, ENEMY, { instant: true }).ok) done = true;
+          }
+        }
+        if (done) break;
+      }
+    }
+  }
+
+  /** 存活经济建筑比例 → 波次规模倍率 0.6–1。 */
+  econFactor() {
+    const alive = [...this.game.buildings.values()].filter((b) => b.team === ENEMY && ENEMY_ECON.includes(b.type)).length;
+    return 0.6 + 0.4 * Math.min(1, alive / ENEMY_ECON.length);
   }
 
   /** 部分遗迹有敌军哨兵驻守(偶数序号遗迹 2 名民兵,站岗不出击),探索需要一定兵力。 */
@@ -226,7 +250,7 @@ export class EnemyAI {
   /** 第 n 波的兵力构成:[{ type, b }]。确定性(无随机),便于预告与回放一致。 */
   plan(n) {
     const era = this.game.era;
-    const wm = this.diff.waveMult;
+    const wm = this.diff.waveMult * this.econFactor();
     const sc = (k, min = 0) => Math.max(min, Math.round(k * wm));
     const list = [];
     for (const b of this.production()) {
