@@ -4,6 +4,8 @@
 import { BUILDINGS } from '../data/buildings.js';
 import { RESOURCES } from '../data/resources.js';
 import { MODULES, MODULE_MIN_LEVEL } from '../data/modules.js';
+import { planRoad } from '../sim/autoroad.js';
+import { Game } from '../sim/state.js';
 
 const RTS_TYPES = new Set(['move', 'attack', 'stop', 'rally', 'train', 'cancelTrain']);
 
@@ -13,9 +15,22 @@ function owned(game, cmd) {
 }
 
 const HANDLERS = {
+  /** autoRoad:同时铺设通往路网的最短道路;建筑 + 道路总成本全量预检,要么全成要么全不成。 */
   build(game, cmd) {
-    if (!BUILDINGS[cmd.building]) return { ok: false, reason: '未知建筑' };
-    return game.placeBuilding(cmd.building, cmd.x, cmd.z, cmd.p);
+    const def = BUILDINGS[cmd.building];
+    if (!def) return { ok: false, reason: '未知建筑' };
+    const roads = cmd.autoRoad && (def.recipe || def.market || def.trains || def.storage)
+      ? planRoad(game, { x: cmd.x, z: cmd.z, w: def.size[0], d: def.size[1] }) ?? []
+      : [];
+    if (roads.length) {
+      const total = { ...def.cost };
+      for (const [k, v] of Object.entries(Game.ROAD_COST)) total[k] = (total[k] ?? 0) + v * roads.length;
+      if (!game.canAfford(total)) return { ok: false, reason: `资源不足(含自动铺路 ${roads.length} 格)` };
+    }
+    const r = game.placeBuilding(cmd.building, cmd.x, cmd.z, cmd.p);
+    if (!r.ok) return r;
+    for (const [x, z] of roads) game.placeRoad(x, z);
+    return { ...r, roads: roads.length };
   },
   /** 批量格子(道路/城墙拖拽):逐格执行,返回成功数量。 */
   roads(game, cmd) {

@@ -26,10 +26,18 @@ export class Toolbar {
     this.tools = document.getElementById('tools');
     this.cats = document.getElementById('cats');
     this.cards = document.getElementById('cards');
-    this.tools.innerHTML = TOOLS.map((t) => `<button class="tool" data-tool="${t.id}">${t.name}<kbd>${t.key}</kbd></button>`).join('');
+    this.tools.innerHTML = `${TOOLS.map((t) => `<button class="tool" data-tool="${t.id}">${t.name}<kbd>${t.key}</kbd></button>`).join('')}
+      <button class="tool on" data-autoroad title="放置未连通的生产建筑时,自动铺设通往路网的最短道路">🛣️ 自动铺路:开</button>`;
     this.tools.addEventListener('click', (e) => {
       const b = e.target.closest('[data-tool]');
       if (b) this.ui.input.setMode({ kind: b.dataset.tool });
+      const ar = e.target.closest('[data-autoroad]');
+      if (ar) {
+        const input = this.ui.input;
+        input.autoRoad = !input.autoRoad;
+        ar.classList.toggle('on', input.autoRoad);
+        ar.textContent = `🛣️ 自动铺路:${input.autoRoad ? '开' : '关'}`;
+      }
     });
     const cats = CATEGORIES.filter((c) => c.id !== 'core');
     this.cats.innerHTML = cats.map((c, i) => `<button class="cat" data-cat="${c.id}">${c.icon} ${c.name}<kbd>F${i + 1}</kbd></button>`).join('');
@@ -69,7 +77,7 @@ export class Toolbar {
     const sig = [g.mission, this.cat, mode.kind, mode.type, ...ids.map((id) => `${g.isUnlocked(id)}${Object.entries(BUILDINGS[id].cost).map(([k, v]) => (g.res[k] ?? 0) >= v).join('')}`)].join('|');
     if (sig === this.sig) return;
     this.sig = sig;
-    for (const b of this.tools.querySelectorAll('.tool')) b.classList.toggle('on', b.dataset.tool === mode.kind);
+    for (const b of this.tools.querySelectorAll('[data-tool]')) b.classList.toggle('on', b.dataset.tool === mode.kind);
     for (const b of this.cats.querySelectorAll('.cat')) b.classList.toggle('on', b.dataset.cat === this.cat);
     this.cards.innerHTML = ids.map((id) => {
       const d = BUILDINGS[id];

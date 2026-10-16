@@ -7,6 +7,7 @@ import { buildingGeo } from '../models/cache.js';
 import { Game } from '../sim/state.js';
 import { synergyAt, SYNERGY } from '../sim/synergy.js';
 import { ring } from '../sim/economy.js';
+import { planRoad } from '../sim/autoroad.js';
 
 const CLICK_PX = 6;
 
@@ -14,6 +15,7 @@ export class Input {
   constructor({ game, rig, scene, rts, ui, view, dom }) {
     Object.assign(this, { game, rig, scene, rts, ui, view, dom });
     this.mode = { kind: 'select' };
+    this.autoRoad = true;
     this.hover = null; // {x, z}
     this.down = null;
     this.tip = document.getElementById('cursor-tip');
@@ -143,7 +145,7 @@ export class Input {
   tryBuild(c, keep) {
     const type = this.mode.type;
     const a = this.anchor(type, c);
-    const r = this.game.dispatch({ type: 'build', building: type, x: a.x, z: a.z });
+    const r = this.game.dispatch({ type: 'build', building: type, x: a.x, z: a.z, autoRoad: this.autoRoad });
     if (!r.ok) { this.ui.toast(r.reason, 'bad'); return; }
     this.ui.sound?.('place');
     // Shift 连续放置;资源不足时自动退出
@@ -220,6 +222,7 @@ export class Input {
       return;
     }
     if (k === 'build') {
+      this.preview.clear();
       const type = this.mode.type;
       const def = BUILDINGS[type];
       const a = this.anchor(type, c);
@@ -235,7 +238,17 @@ export class Input {
         const syn = synergyAt(this.game, type, a.x, a.z, w, d);
         extra = syn.bonus ? ` · 🔗 协同 +${Math.round(syn.bonus * 100)}%` : ' · 🔗 紧贴上下游可获协同加成';
       }
-      if (chk.ok && (def.recipe || def.market || def.trains) && !this.touchesNetwork(a.x, a.z, w, d)) extra += ' · ⚠️ 未邻接连通道路,建成后无法运转';
+      if (chk.ok && (def.recipe || def.market || def.trains || def.storage) && !this.touchesNetwork(a.x, a.z, w, d)) {
+        const plan = this.autoRoad ? planRoad(this.game, { x: a.x, z: a.z, w, d }) : null;
+        if (plan?.length) {
+          extra += ` · 🛣️ 自动铺路 ${plan.length} 格(💰${plan.length * Game.ROAD_COST.money} 🪨${plan.length * Game.ROAD_COST.stone})`;
+          for (const [x, z] of plan) {
+            const mm = new THREE.Mesh(this.padGeo, this.okMat);
+            mm.position.set(x + 0.5, 0.05, z + 0.5);
+            this.preview.add(mm);
+          }
+        } else extra += ' · ⚠️ 未邻接连通道路,建成后无法运转';
+      }
       if (chk.ok && type === 'house') {
         const pol = this.game.society?.pollutionAt(a.x, a.z) ?? 0;
         if (pol) extra += ` · 🏭 ${pol} 处污染`;

@@ -388,3 +388,22 @@ test('多种子地图:起始区资源齐全,地面可达敌军基地,矿/煤/油
     assert.ok(seen[m.idx(44, 18)], `seed ${seed} 敌军基地不可达`);
   }
 });
+
+test('自动铺路:远离路网的建筑一并铺出最短道路并连通;资源不足时整体不执行', () => {
+  const { g, e } = fresh();
+  g.res.money = 5000; g.res.stone = 200; g.res.wood = 200;
+  let spot = null;
+  for (let z = 52; z < 56 && !spot; z++) for (let x = 8; x < 14 && !spot; x++) if (g.canPlace('farm', x, z).ok) spot = { x, z };
+  const roads0 = g.map.road.reduce((s, v) => s + v, 0);
+  const poor = { ...g.res };
+  g.res.stone = 0;
+  assert.equal(g.dispatch({ type: 'build', building: 'farm', x: spot.x, z: spot.z, autoRoad: true }).ok, false);
+  assert.equal(g.map.road.reduce((s, v) => s + v, 0), roads0, '失败时不应铺任何路');
+  g.res.stone = poor.stone;
+  const r = g.dispatch({ type: 'build', building: 'farm', x: spot.x, z: spot.z, autoRoad: true });
+  assert.ok(r.ok, r.reason);
+  assert.ok(r.roads > 0);
+  assert.equal(g.map.road.reduce((s, v) => s + v, 0), roads0 + r.roads);
+  run(e, 1);
+  assert.ok(r.building.connected, '自动铺路后应连通');
+});
