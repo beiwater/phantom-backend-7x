@@ -17,7 +17,11 @@ export class Game {
   constructor(seed = 7, difficulty = 'normal') {
     this.events = new Emitter();
     this.map = new GameMap(seed);
+    // localPlayer = 本地阵营(模拟与视图里用它判断「我方」);localId = 本机玩家身份(命令发送者)。
+    // 合作模式下各端 localId 不同但 localPlayer 相同,所以模拟逻辑只能用阵营,保证各端一致。
     this.localPlayer = 'player';
+    this.localId = 'player';
+    this.players = ['player'];
     this.tick = 0;
     this.random = new Rng(seed * 2654435761);
     this.rng = () => this.random.next();
@@ -51,12 +55,17 @@ export class Game {
   /** 玩家意图的唯一入口(UI/输入/AI 都经此),见 net/commands.js。 */
   /** 玩家身份最后写入,调用方无法冒充其他玩家(联机时由传输层附上发送者身份)。 */
   dispatch(cmd) {
-    return this.transport.send({ ...cmd, p: this.localPlayer });
+    return this.transport.send({ ...cmd, p: this.localId });
   }
 
-  /** 可下达命令的玩家;AI('enemy')不经命令总线。接入多人后改为 players 列表。 */
+  /** 可下达命令的玩家;AI('enemy')不经命令总线。合作模式下多个玩家共同指挥同一文明。 */
   isPlayer(p) {
-    return p === this.localPlayer;
+    return this.players.includes(p);
+  }
+
+  /** 玩家 → 所属阵营。合作模式所有玩家都属于 'player' 阵营(共享经济与部队)。 */
+  teamOf(p) {
+    return this.isPlayer(p) ? 'player' : null;
   }
 
   /** 状态校验和:锁步联机时各端定期比对以检测不同步;回放测试也用它断言一致。 */

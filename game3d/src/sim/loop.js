@@ -13,13 +13,17 @@ export class SimLoop {
   }
 
   /** 推进一个 tick:先执行该 tick 的远端/回放命令,再模拟。 */
+  /** 锁步:当前 tick 的远端命令未到齐时返回 false(本帧停在原地等待)。 */
   stepTick() {
     const g = this.game;
+    g.transport.flush?.(g.tick);
+    if (g.transport.ready && !g.transport.ready(g.tick)) return false;
     for (const cmd of g.transport.commandsFor(g.tick)) applyCommand(g, cmd);
     this.economy.step(TICK);
     this.rts?.update(TICK);
     g.time += TICK;
     g.tick++;
+    return true;
   }
 
   advance(realDt) {
@@ -28,7 +32,7 @@ export class SimLoop {
     this.acc += realDt * g.speed;
     let n = 0;
     while (this.acc >= TICK && n < MAX_TICKS_PER_FRAME && !g.over) {
-      this.stepTick();
+      if (!this.stepTick()) { this.acc = Math.min(this.acc, TICK); break; }
       this.acc -= TICK;
       n++;
     }

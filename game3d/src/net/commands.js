@@ -114,12 +114,14 @@ export function applyCommand(game, cmd) {
   if (!cmd || typeof cmd.type !== 'string' || typeof cmd.p !== 'string') return { ok: false, reason: '无效命令' };
   // 经济目前只有本地玩家一份(game.res);训练/取消也动用经济,所以对所有命令统一校验玩家
   if (!game.isPlayer(cmd.p)) return { ok: false, reason: '该玩家无权下达命令' };
-  if (RTS_TYPES.has(cmd.type)) {
-    return game.unitSystem?.applyCommand?.(cmd) ?? { ok: false, reason: '单位系统未就绪' };
+  // 归属校验按阵营进行:合作模式下不同玩家 id 映射到同一阵营
+  const c = { ...cmd, p: game.teamOf(cmd.p), issuer: cmd.p };
+  if (RTS_TYPES.has(c.type)) {
+    return game.unitSystem?.applyCommand?.(c) ?? { ok: false, reason: '单位系统未就绪' };
   }
-  const h = Object.hasOwn(HANDLERS, cmd.type) ? HANDLERS[cmd.type] : null;
-  if (!h) return { ok: false, reason: `未知命令 ${cmd.type}` };
-  return h(game, cmd);
+  const h = Object.hasOwn(HANDLERS, c.type) ? HANDLERS[c.type] : null;
+  if (!h) return { ok: false, reason: `未知命令 ${c.type}` };
+  return h(game, c);
 }
 
 export const COMMAND_TYPES = [...Object.keys(HANDLERS), ...RTS_TYPES];
