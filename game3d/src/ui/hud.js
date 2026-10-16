@@ -2,6 +2,7 @@
 import { RESOURCES, RESOURCE_IDS } from '../data/resources.js';
 import { ERAS } from '../data/tech.js';
 import { fmtNum, fmtTime } from '../engine/util.js';
+import { civScore, rank } from '../sim/score.js';
 
 export class Hud {
   constructor(game) {
@@ -63,6 +64,8 @@ export class Hud {
     }
     const sup = g.supply;
     if (sup && (!sup.food || !sup.fuel)) items.push(['🍖', '补给不足', `部队补给不足,相应单位伤害 -30%(${!sup.food ? '食物' : ''}${!sup.food && !sup.fuel ? '、' : ''}${!sup.fuel ? '燃油' : ''})`, true]);
+    const sc = civScore(g);
+    items.push(['🏅', `${rank(sc.total)} ${fmtNum(sc.total)}`, `文明评分\n${Object.entries(sc.parts).map(([k, v]) => `${k} ${v}`).join('\n')}`, false]);
     const w = g.weather?.current;
     if (w) items.push([w.icon, w.name, `天气:${w.desc ?? '无影响'}`, false]);
     for (const b of g.buffs) items.push(['✨', `${b.name} ${Math.ceil(b.until - g.time)}s`, '临时事件', !!b.effects.prod && b.effects.prod < 0]);

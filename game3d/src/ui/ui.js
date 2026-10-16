@@ -23,6 +23,7 @@ import { UNITS } from '../data/units.js';
 import { RANK_NAMES } from '../rts/combat.js';
 import { GREAT } from '../sim/greatpeople.js';
 import { OVERLAY_NAMES } from '../world/overlay.js';
+import { civScore, rank, recordScore, leaderboard } from '../sim/score.js';
 
 const AUTOSAVE_SEC = 30;
 
@@ -62,6 +63,13 @@ export class UI {
   }
 
   /** 读档启动时的标题界面:暂停模拟直到玩家选择继续。 */
+  boardHtml() {
+    const list = leaderboard();
+    if (!list.length) return '';
+    const kinds = { domination: '征服', science: '科技', economic: '经济', lose: '失败' };
+    return `<div class="board"><b>🏆 本机排行榜</b>${list.map((e, i) => `<div class="row"><span>${i + 1}. ${e.score} (${rank(e.score)})</span><span>${kinds[e.kind] ?? ''} · ${DIFFICULTIES[e.diff]?.name ?? ''} · ${fmtTime(e.time)} · ${e.date}</span></div>`).join('')}</div>`;
+  }
+
   openTitle() {
     const g = this.game;
     this.titlePaused = !g.paused;
@@ -75,7 +83,7 @@ export class UI {
         <button class="btn" data-menu="setup">🆕 新游戏</button>
         <button class="btn" data-menu="help">❓ 操作说明</button>
         <button class="btn" data-menu="ach">🏆 成就</button>
-      </div></div>`);
+      </div>${this.boardHtml()}</div>`);
   }
 
   /** 合作模式:不写本地存档(各端状态以锁步同步为准),显示队友与等待状态。 */
@@ -321,10 +329,14 @@ export class UI {
     const win = result === 'win';
     clearSave();
     const c = this.game.counters;
+    const sc = civScore(this.game);
+    if (!this.game.replay) recordScore({ score: sc.total, win, kind: win ? kind : 'lose', diff: this.game.difficultyId, time: Math.round(this.game.time), date: new Date().toISOString().slice(0, 10) });
     this.openModal('gameover', `<div class="dialog" style="text-align:center;max-width:480px">
       <h2 style="justify-content:center">${win ? `🏆 ${VICTORIES[kind].icon} ${VICTORIES[kind].name}!` : '💀 指挥中心陷落'}</h2>
       <p>${win ? ({ domination: '敌军指挥中心已被摧毁,你的文明统一了这片土地。', science: '星际探测器升空,你的文明迈向群星。', economic: '你的商业帝国主宰了整个大陆的贸易。' })[kind] : '敌军摧毁了你的指挥中心。'}<br>
       用时 ${fmtTime(this.game.time)} · 训练单位 ${c.unitsTrained} · 歼敌 ${c.enemyKilled} · 击退 ${c.wavesSurvived} 波</p>
+      <p style="font-size:22px;color:var(--accent);font-weight:800">🏅 文明评分 ${sc.total} · 评级 ${rank(sc.total)}</p>
+      ${this.boardHtml()}
       <button class="btn primary" data-menu="setup">再来一局</button></div>`);
   }
 
