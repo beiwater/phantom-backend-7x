@@ -274,9 +274,30 @@ export class Input {
       const owner = m.inside(c.x, c.z) ? m.chunkOwnerAt(cx, cz) : -1;
       const msg = owner === OWNER.player ? '已是你的领地' : owner === OWNER.enemy ? '敌军领地' : ok ? `购买地块 💰${m.chunkPrice()}` : '只能购买与领地相邻的地块';
       this.showTip(msg, !ok);
+    } else if (k === 'select' && !this.down) {
+      this.hoverTip(c);
     } else {
       this.tip.style.display = 'none';
     }
+  }
+
+  /** 选择模式悬停提示:建筑名称/等级/状态/耐久,遗迹,地形。 */
+  hoverTip(c) {
+    const g = this.game;
+    this.preview.clear();
+    const b = g.buildingAt(c.x, c.z);
+    if (b && (b.team === g.localPlayer || !g.fog || g.fog.isExplored(c.x, c.z))) {
+      const def = BUILDINGS[b.type];
+      const mine = b.team === g.localPlayer;
+      const hp = b.hp < b.maxHp ? ` · ❤️${Math.ceil((b.hp / b.maxHp) * 100)}%` : '';
+      this.showTip(`${def.name} Lv${b.level}${mine ? ` · ${b.status || '待机'}` : ' · 敌方'}${hp}`, mine && /缺|未|满|不足/.test(b.status ?? ''));
+      return;
+    }
+    if (g.ruins.at(c.x, c.z) && (!g.fog || g.fog.isExplored(c.x, c.z))) {
+      this.showTip('🏛️ 古代遗迹 · 派任意单位靠近探索', false);
+      return;
+    }
+    this.tip.style.display = 'none';
   }
 
   /** 预览位置是否紧贴已连通指挥中心的道路(或直接贴着指挥中心)。 */
