@@ -23,6 +23,21 @@ export function hasSave() {
 }
 
 /** 读取存档的种子与难度,让 Game 以相同参数构造后再恢复。 */
+/** 导出当前存档为 JSON 字符串(先保存一次保证最新)。 */
+export function exportSave(ctx) {
+  saveGame(ctx);
+  try { return localStorage.getItem(KEY); } catch { return null; }
+}
+
+/** 导入存档:只做结构校验(版本/地图),通过后写入本地存档,由调用方刷新页面加载。 */
+export function importSave(text) {
+  let d;
+  try { d = JSON.parse(text); } catch { return { ok: false, reason: '文件不是有效的 JSON' }; }
+  if (!d || d.v !== 1 || !d.map || !Array.isArray(d.buildings)) return { ok: false, reason: '不是体素纪元的存档' };
+  try { localStorage.setItem(KEY, JSON.stringify(d)); } catch { return { ok: false, reason: '浏览器存储不可用' }; }
+  return { ok: true };
+}
+
 export function savedMeta() {
   try {
     const d = JSON.parse(localStorage.getItem(KEY) ?? 'null');

@@ -13,7 +13,7 @@ import { StatsPanel } from './stats.js';
 import { GovPanel } from './gov.js';
 import { Alerts } from './alerts.js';
 import { Codex } from './codex.js';
-import { saveGame, clearSave, storeReplay } from '../save.js';
+import { saveGame, clearSave, storeReplay, exportSave, importSave } from '../save.js';
 import { fmtTime } from '../engine/util.js';
 import { DIFFICULTIES } from '../data/difficulty.js';
 import { QUALITY } from '../engine/quality.js';
@@ -225,6 +225,7 @@ export class UI {
     this.openModal('menu', `<div class="dialog"><h2><span>☰ 菜单</span><button class="btn" data-close>关闭</button></h2>
       <div class="menu-list">
         <button class="btn" data-menu="save">💾 立即保存</button>
+        <div class="btns"><button class="btn" data-menu="export">⬇️ 导出存档</button><button class="btn" data-menu="import">⬆️ 导入存档</button></div>
         <button class="btn" data-menu="replay">🎬 观看本局回放(验证确定性)</button>
         <button class="btn" data-menu="help">❓ 操作说明</button>
         <button class="btn" data-menu="codex">📖 百科(建筑与产业链)B</button>
@@ -264,6 +265,29 @@ export class UI {
     const m = e.target.closest('[data-menu]')?.dataset.menu;
     if (m === 'save') { saveGame(this); this.toast('💾 已保存', 'good'); this.closeModal(); }
     if (m === 'help') this.openHelp();
+    if (m === 'export') {
+      const text = exportSave(this);
+      if (!text) { this.toast('导出失败', 'bad'); return; }
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+      a.download = `voxel-era-${Math.floor(this.game.time / 60)}min.json`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    }
+    if (m === 'import') {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.json,application/json';
+      input.onchange = async () => {
+        const file = input.files?.[0];
+        if (!file) return;
+        const r = importSave(await file.text());
+        if (!r.ok) { this.toast(r.reason, 'bad'); return; }
+        this.skipSave = true;
+        location.href = location.pathname;
+      };
+      input.click();
+    }
     if (m === 'replay') {
       if (this.game.replay) { this.toast('已在回放中', 'bad'); return; }
       saveGame(this);
