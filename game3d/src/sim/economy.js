@@ -57,6 +57,7 @@ export class Economy {
     this.society.step(gdt);
     this.contracts.step(gdt);
     this.victory.step(gdt);
+    g.ruins.step(gdt);
   }
 
   recomputeStats() {

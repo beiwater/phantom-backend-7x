@@ -72,6 +72,12 @@ export const MISSIONS = [
     reward: { money: 300, food: 20 },
   },
   {
+    title: '寻宝', goal: '派部队探索 1 处古代遗迹',
+    hint: '地图上闪烁金光的石柱废墟就是遗迹,让任意单位走到旁边即可获得随机奖励。',
+    progress: (g) => ratio(g.counters.ruins ?? 0, 1),
+    reward: { money: 150 },
+  },
+  {
     title: '击退来犯', goal: '击退 1 波敌军进攻',
     hint: '框选部队后右键移动或攻击。筑城术可解锁城墙与防御塔。',
     progress: (g) => ratio(g.counters.wavesSurvived, 1),

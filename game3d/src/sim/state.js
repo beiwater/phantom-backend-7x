@@ -6,6 +6,7 @@ import { POLICIES, POLICY_SWITCH_COST, POLICY_COOLDOWN, policySlots } from '../d
 import { RESOURCE_IDS } from '../data/resources.js';
 import { Emitter, Rng } from '../engine/util.js';
 import { LocalTransport } from '../net/transport.js';
+import { Ruins } from './ruins.js';
 import { GameMap, OWNER, T, PLAYER_HQ } from '../world/map.js';
 
 export const START_RES = { money: 800, research: 0, wood: 30, stone: 20, food: 24, planks: 12, grain: 0, water: 0 };
@@ -41,6 +42,7 @@ export class Game {
     this.policyReadyAt = 0;
     this.over = null; // 'win' | 'lose'
     this.unitSystem = null; // RTS 注入
+    this.ruins = new Ruins(this);
   }
 
   /** 玩家意图的唯一入口(UI/输入/AI 都经此),见 net/commands.js。 */
@@ -119,6 +121,7 @@ export class Game {
         if (m.terrain[i] === T.water) return { ok: false, reason: '不能建在水上' };
         if (m.building[i]) return { ok: false, reason: '已被占用' };
         if (m.road[i]) return { ok: false, reason: '有道路' };
+        if (this.ruins?.at(xx, zz)) return { ok: false, reason: '古代遗迹(派单位探索)' };
         if (this.unitSystem?.groundUnitAt?.(xx, zz)) return { ok: false, reason: '有单位阻挡' };
         if (def.terrain && m.terrain[i] === T[def.terrain]) terrainOk = true;
       }

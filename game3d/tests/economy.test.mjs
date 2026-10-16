@@ -334,3 +334,19 @@ test('暂停生产:不占工人、不消耗原料;科技胜利在研究全部科
   assert.equal(g.over, 'win');
   assert.equal(g.victoryKind, 'science');
 });
+
+test('古代遗迹:按种子确定性生成于无主地块;单位靠近只领取一次,遗迹格不可建造', () => {
+  const { g, e } = fresh();
+  const again = new Game(7);
+  assert.deepEqual(g.ruins.list.map((r) => [r.x, r.z]), again.ruins.list.map((r) => [r.x, r.z]));
+  assert.ok(g.ruins.list.length >= 6);
+  const r = g.ruins.list[0];
+  assert.equal(g.map.ownerAt(r.x, r.z), 0);
+  g.unitSystem = { units: [{ team: 'player', x: r.x + 0.5, z: r.z + 0.5 }], spawnUnit() {} };
+  run(e, 0.2);
+  assert.ok(r.claimed);
+  assert.equal(g.counters.ruins, 1);
+  run(e, 1);
+  assert.equal(g.counters.ruins, 1, '不可重复领取');
+  assert.equal(g.canPlace('house', g.ruins.list[1].x, g.ruins.list[1].z, 'enemy').reason, '古代遗迹(派单位探索)');
+});

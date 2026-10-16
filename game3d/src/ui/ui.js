@@ -76,6 +76,7 @@ export class UI {
     });
     ev.on('gameover', ({ result, kind }) => this.openGameOver(result, kind));
     ev.on('event', ({ msg, kind }) => this.toast(msg, kind));
+    ev.on('ruins:claim', ({ msg }) => this.toast(`🏛️ ${msg}`, 'good'));
     ev.on('contract:new', (o) => this.toast(`📜 新合同:${o.client}求购 ${RESOURCES[o.res].name} ×${o.qty}(J 打开政务)`));
     ev.on('contract:done', (o) => this.toast(`🤝 合同完成:${o.client} 支付 💰${o.reward.money}`, 'good'));
     ev.on('contract:expired', (o) => this.toast(`⌛ ${o.client}的合同已过期,声望 -1`, 'bad'));
