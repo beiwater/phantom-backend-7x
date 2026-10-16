@@ -1,7 +1,7 @@
 // 底部工具栏:工具(选择/道路/拆除/扩地)+ 建筑分类 + 建筑卡片(显示成本与解锁状态)。
 import { BUILDINGS, BUILDING_IDS, CATEGORIES } from '../data/buildings.js';
 import { TECHS } from '../data/tech.js';
-import { resIcon } from '../data/resources.js';
+import { resIcon, resName } from '../data/resources.js';
 import { MISSIONS } from '../data/missions.js';
 
 export const BUILDING_ICONS = {
@@ -85,7 +85,9 @@ export class Toolbar {
       const cost = Object.entries(d.cost).filter(([, v]) => v > 0)
         .map(([k, v]) => `<span class="${(g.res[k] ?? 0) < v ? 'lack' : ''}">${resIcon(k)}${v}</span>`).join('');
       const on = mode.kind === 'build' && mode.type === id;
-      return `<button class="card${unlocked ? '' : ' locked'}${on ? ' on' : ''}${focus.has(id) ? ' hint' : ''}" data-type="${id}" title="${d.desc}">
+      const recipe = d.recipe ? `\n配方:${Object.entries(d.recipe.in).map(([k, v]) => `${resName(k)}×${v}`).join(' + ') || '无需原料'} → ${Object.entries(d.recipe.out).map(([k, v]) => `${resName(k)}×${v}`).join(' + ') || '电力'}(${d.recipe.time}s)` : '';
+      const req = d.terrain || d.near ? `\n要求:${d.terrain ? `覆盖${({ rock: '岩石', ore: '铁矿脉', coal: '煤层', oil: '油田' })[d.terrain]}` : `靠近${d.near === 'forest' ? '森林' : '水域'}`}` : '';
+      return `<button class="card${unlocked ? '' : ' locked'}${on ? ' on' : ''}${focus.has(id) ? ' hint' : ''}" data-type="${id}" title="${d.desc}${recipe}${req}">
         <div class="nm"><span>${BUILDING_ICONS[id]} ${d.name}</span></div>
         <div class="sz">${d.size[0]}×${d.size[1]} · 最高 ${d.maxLevel} 级</div>
         <div class="cost">${cost}</div>
