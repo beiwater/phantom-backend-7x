@@ -132,6 +132,7 @@ export class Panel {
       h.push(`<div class="recipe">${ins} ➜ ${outs} <span class="chip">⏱ ${(r.time / levelSpeed(b.level)).toFixed(1)}s</span></div>`);
     }
     const info = [];
+    if (def.recipe || def.market) info.push([def.market ? '💰 累计收入' : '📈 累计产出', `<span data-k="made">${Math.floor(b.made ?? 0)}</span>`]);
     if (def.workers) info.push(['👷 工人', workersOf(def, b.level)]);
     if (def.power < 0) info.push(['⚡ 耗电', -powerOf(def, b.level)]);
     if (def.power > 0) info.push(['⚡ 发电', powerOf(def, b.level)]);
@@ -208,6 +209,8 @@ export class Panel {
 
   live(b) {
     const q = (k) => this.el.querySelector(`[data-k="${k}"]`);
+    const made = q('made');
+    if (made) made.textContent = Math.floor(b.made ?? 0);
     const rush = q('rush');
     if (rush && (b.state === 'construct' || b.state === 'upgrade')) rush.textContent = rushCost(b);
     const hp = q('hp');

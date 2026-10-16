@@ -316,6 +316,7 @@ export class Economy {
       const got = {};
       for (const [k, v] of Object.entries(r.out)) {
         got[k] = g.addRes(k, k === 'research' ? Math.round(v * (1 + g.effect('research'))) : v);
+        b.made = (b.made ?? 0) + got[k];
         if (k === 'research') g.counters.researchMade = (g.counters.researchMade ?? 0) + got[k];
         this.stats.made(k, got[k]);
       }
@@ -358,6 +359,7 @@ export class Economy {
       g.addRes('money', earned);
       this.stats.made('money', earned);
       g.counters.marketMoney = (g.counters.marketMoney ?? 0) + earned;
+      b.made = (b.made ?? 0) + earned;
       g.events.emit('produce', { b, out: { money: earned }, noTruck: true });
       g.events.emit('res');
     } else {
