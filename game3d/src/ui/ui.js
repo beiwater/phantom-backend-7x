@@ -14,12 +14,13 @@ import { GovPanel } from './gov.js';
 import { saveGame, clearSave } from '../save.js';
 import { fmtTime } from '../engine/util.js';
 import { DIFFICULTIES } from '../data/difficulty.js';
+import { QUALITY } from '../engine/quality.js';
 
 const AUTOSAVE_SEC = 30;
 
 export class UI {
-  constructor({ game, economy, rig, rts, view, terrain }) {
-    Object.assign(this, { game, economy, rig, rts, view, terrain });
+  constructor({ game, economy, rig, rts, view, terrain, quality }) {
+    Object.assign(this, { game, economy, rig, rts, view, terrain, quality });
     this.selection = null;
     this.toasts = document.getElementById('toasts');
     this.modal = document.getElementById('modal');
@@ -171,6 +172,8 @@ export class UI {
         <button class="btn" data-menu="save">💾 立即保存</button>
         <button class="btn" data-menu="help">❓ 操作说明</button>
         <button class="btn" data-menu="labels">🏷️ 开关建筑标签 (L)</button>
+        <button class="btn" data-menu="fog">🌫️ 开关战争迷雾</button>
+        <div class="btns">画质:${Object.entries(QUALITY).map(([id, q]) => `<button class="btn${this.quality?.level === id ? ' primary' : ''}" data-quality="${id}">${q.name}</button>`).join('')}</div>
         <button class="btn danger" data-menu="setup">🆕 新游戏…</button>
       </div></div>`);
   }
@@ -203,6 +206,9 @@ export class UI {
     if (m === 'save') { saveGame(this); this.toast('💾 已保存', 'good'); this.closeModal(); }
     if (m === 'help') this.openHelp();
     if (m === 'labels') { this.labels.enabled = !this.labels.enabled; this.closeModal(); }
+    if (m === 'fog' && this.game.fog) { this.game.fog.enabled = !this.game.fog.enabled; this.closeModal(); }
+    const q = e.target.closest('[data-quality]')?.dataset.quality;
+    if (q) { this.quality.set(q); this.openMenu(); }
     if (m === 'setup') this.openSetup();
     if (m === 'start') {
       const diff = this.modal.querySelector('input[name="diff"]:checked')?.value ?? 'normal';

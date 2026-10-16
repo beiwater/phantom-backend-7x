@@ -278,39 +278,45 @@ export function warehouse(L) {
   return finish(m, []);
 }
 
-// ---------- 学院:古典柱廊 + 山花;L2 左翼 / L3 穹顶 / L4 右翼 / L5 庭院 ----------
+// ---------- 学院:古典柱廊 + 山花;L2 右翼 / L3 穹顶 / L4 钟楼 / L5 庭院 ----------
 export function academy(L) {
   const m = newModel();
   pad(m, 16, 16, {
     color: C.stoneLight,
-    inner: (x, z) => (z >= 11 && (x < 6 || x > 9) ? C.grass : null),
+    inner: (x, z) => (z >= 12 && (x < 4 || x > 7) ? C.grass : null),
   });
-  m.box(3, 1, 1, 10, 1, 10, C.stoneLight);
-  block(m, 4, 2, 2, 8, 6, 7, { wall: C.cream, sx: 2, sy: 6, wy: 3, oy: 1 });
-  m.box(7, 2, 8, 2, 4, 1, C.woodDark);
-  for (const x of [4, 6, 9, 11]) m.box(x, 2, 10, 1, 6, 1, C.white);
-  m.box(3, 8, 2, 10, 1, 9, C.white);
-  m.gableRoof(3, 9, 2, 10, 9, (x, y, z) => (z === 10 ? C.offWhite : C.terracotta), false);
-  m.set(8, 11, 10, GOLD);
-  const wing = (x0) => {
-    block(m, x0, 1, 3, 3, 5, 6, { wall: C.creamDark, sx: 2, sy: 5, wy: 2, oy: 1, ox: 0 });
-    m.box(x0, 6, 3, 3, 1, 6, C.terracotta);
-  };
-  if (L >= 2) wing(1);
-  if (L >= 3) {
-    m.cylinder(8, 13, 5.5, 2, 3, (x, y, z) => ((x + z) % 2 ? C.white : C.cream));
-    m.sphere(8, 16, 5.5, 2.2, GOLD);
-    m.box(7, 18, 5, 1, 2, 1, GOLD);
+  m.box(1, 1, 1, 10, 1, 11, C.stoneLight);
+  block(m, 2, 2, 2, 8, 6, 7, { wall: C.cream, sx: 2, sy: 6, wy: 3, oy: 1 });
+  m.box(5, 2, 8, 2, 4, 1, C.woodDark);
+  for (const x of [2, 4, 7, 9]) m.box(x, 2, 10, 1, 6, 1, C.white);
+  m.box(1, 8, 2, 10, 1, 10, C.white);
+  m.gableRoof(1, 9, 2, 10, 10, (x, y, z) => (z === 11 ? C.offWhite : C.terracotta), false);
+  m.set(6, 11, 11, GOLD);
+  if (L >= 2) {
+    block(m, 11, 1, 3, 4, 5, 7, { wall: C.creamDark, sx: 2, sy: 5, wy: 2, oy: 1, ox: 1 });
+    m.box(11, 6, 3, 4, 1, 7, C.terracotta);
+    m.box(10, 1, 10, 5, 1, 1, C.stoneLight);
   }
-  if (L >= 4) wing(12);
+  if (L >= 3) {
+    m.cylinder(6, 14, 5.5, 2, 3, (x, y, z) => ((x + z) % 2 ? C.white : C.cream));
+    m.sphere(6, 17, 5.5, 2.2, (x, y) => (y < 17 ? null : GOLD));
+    m.box(5, 19, 5, 1, 2, 1, GOLD);
+  }
+  if (L >= 4) {
+    block(m, 11, 1, 0, 4, 15, 3, { wall: C.cream, sx: 2, sy: 4, wy: 2, oy: 7, ox: 1, base: C.stoneLight });
+    m.box(10, 16, 0, 6, 1, 4, C.white);
+    for (let a = 0; a < 2; a++) for (let b = 0; b < 2; b++) m.set(12 + a, 13 + b, 2, C.white, true);
+    m.set(12, 14, 2, C.black);
+    pyramid(m, 11, 17, 0, 4, 3, C.terracotta);
+  }
   if (L >= 5) {
-    for (const x of [2.5, 13.5]) {
-      m.box(Math.floor(x), 1, 12, 1, 3, 1, C.woodDark);
-      m.sphere(x, 5, 12.5, 2.2, (i, j, k) => (hash(i, j, k) > 0.7 ? C.leafDark : C.leaf));
+    for (const x of [2, 10]) {
+      m.box(x, 1, 13, 1, 3, 1, C.woodDark);
+      m.sphere(x + 0.5, 5, 13.5, 2.2, (i, j, k) => (hash(i, j, k) > 0.7 ? C.leafDark : C.leaf));
     }
-    for (const x of [6, 9]) m.box(x, 1, 12, 1, 1, 3, 0xf06a8a);
-    m.box(7, 1, 13, 2, 2, 1, C.stone);
-    m.box(7, 3, 13, 2, 3, 1, C.stoneLight);
+    for (const x of [4, 7]) m.box(x, 1, 12, 1, 1, 3, 0xf06a8a);
+    m.box(5, 1, 14, 2, 2, 1, C.stone);
+    m.box(5, 3, 14, 2, 3, 1, C.stoneLight);
   }
   return finish(m, []);
 }
@@ -321,7 +327,8 @@ export function lab(L) {
   pad(m, 16, 16, { color: C.offWhite, inner: (x, z) => (x === 10 || z === 9 ? C.teal : null) });
   block(m, 1, 1, 1, 9, 5, 8, { wall: C.white, win: C.winCool, sx: 4, wx: 3, sy: 5, wy: 1, oy: 2, top: C.teal });
   m.box(4, 1, 8, 2, 3, 1, C.glassDark);
-  safeDome(m, 5, 6, 4.5, 3.5);
+  m.cylinder(5, 6, 4.5, 3.6, 1, C.steel);
+  safeDome(m, 5, 7, 4.5, 3.5);
   if (L >= 2) {
     m.box(9, 1, 9, 6, 8, 6, (x, y, z) => (y % 2 === 0 || (x + z) % 3 === 0 ? C.steel : C.glass));
     for (let y = 1; y < 8; y += 2) for (let i = 10; i < 14; i += 2) { m.set(i, y, 14, C.winCool, true); m.set(14, y, i, C.winCool, true); }
@@ -339,7 +346,10 @@ export function lab(L) {
     m.box(4, 6, 13, 1, 2, 1, C.steelDark);
     m.set(4, 8, 13, 0xff4a3a, true);
   }
-  if (L >= 4) safeDome(m, 12, 10, 12, 3);
+  if (L >= 4) {
+    m.cylinder(12, 10, 12, 3, 1, C.steel);
+    safeDome(m, 12, 11, 12, 3);
+  }
   if (L >= 5) {
     lattice(m, 11, 1, 2, 3, 20, 3, C.steel, 3);
     m.box(12, 21, 3, 1, 3, 1, C.steel);

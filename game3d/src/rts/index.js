@@ -38,10 +38,21 @@ class RTS {
     this.ai = new EnemyAI(this);
     this.sel = new Selector(this);
     this.hitFx = new Map();
+    this.fx.visibleAt = (x, z) => this.visibleAt(x, z);
     this.bindEvents();
   }
 
   get local() { return this.game.localPlayer ?? 'player'; }
+
+  /** 战争迷雾只影响本地显示与拾取,绝不进入 update(模拟必须与迷雾无关)。 */
+  visibleAt(x, z) {
+    const fog = this.game.fog;
+    return !fog || fog.visible(x, z);
+  }
+
+  seen(u) {
+    return u.team === this.local || this.visibleAt(u.x, u.z);
+  }
 
   bindEvents() {
     const ev = this.game.events;

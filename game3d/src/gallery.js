@@ -167,7 +167,8 @@ for (const row of rows) {
     placed.push({ it, center });
     s += half;
   });
-  rowTitles.push({ title: row.title, pos: R_HAT.clone().multiplyScalar(-1.2).add(D_HAT.clone().multiplyScalar(t)) });
+  const firstHalf = (row.items[0].w + row.items[0].d) / (2 * SQ2);
+  rowTitles.push({ title: row.title, pos: R_HAT.clone().multiplyScalar(-firstHalf - 0.4).add(D_HAT.clone().multiplyScalar(t)) });
 }
 
 const mat = voxelMaterial();
@@ -199,7 +200,7 @@ for (const { it, center } of placed) {
 
 const size = bounds.getSize(new THREE.Vector3());
 const mid = bounds.getCenter(new THREE.Vector3());
-const ground = new THREE.Mesh(new THREE.PlaneGeometry(size.x + 40, size.z + 40), new THREE.MeshLambertMaterial({ color: 0xb9cfa0 }));
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(Math.max(size.x, size.z) * 3 + 40, Math.max(size.x, size.z) * 3 + 40), new THREE.MeshLambertMaterial({ color: 0xb9cfa0 }));
 ground.rotation.x = -Math.PI / 2;
 ground.position.set(mid.x, -0.01, mid.z);
 ground.receiveShadow = true;

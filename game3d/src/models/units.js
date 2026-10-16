@@ -25,7 +25,7 @@ function soldier(kind, t) {
   m.set(4, 8, 4, C.black);
   if (kind === 'militia') {
     // 布头巾 + 长矛
-    m.box(2, 9, 2, 3, 1, 3, t.secondary === 0x2a2a2e ? 0x4a3a30 : C.khaki);
+    m.box(2, 9, 2, 3, 1, 3, C.khaki);
     m.box(2, 8, 2, 3, 1, 1, t.primary);
     m.box(6, 1, 4, 1, 10, 1, C.wood);
     m.box(6, 11, 4, 1, 2, 1, C.stoneLight);

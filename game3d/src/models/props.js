@@ -102,25 +102,29 @@ export function scaffold(w, d) {
   const D = d * 8;
   const H = 6 + 4 * Math.min(w, d);
   m.box(0, 0, 0, W, 1, D, (x, y, z) => (x === 0 || z === 0 || x === W - 1 || z === D - 1 ? 0x8a6a44 : (hash(x, 0, z) > 0.8 ? 0x9a7a52 : 0xb08a5a)));
-  for (let x = 1; x < W - 1; x += 3) for (const z of [1, D - 2]) m.box(x, 1, z, 1, H, 1, C.woodLight);
-  for (let z = 1; z < D - 1; z += 3) for (const x of [1, W - 2]) m.box(x, 1, z, 1, H, 1, C.woodLight);
+  for (let x = 1; x < W - 1; x += 4) for (const z of [1, D - 2]) m.box(x, 1, z, 1, H, 1, C.woodLight);
+  for (let z = 1; z < D - 1; z += 4) for (const x of [1, W - 2]) m.box(x, 1, z, 1, H, 1, C.woodLight);
   for (const [x, z] of [[W - 2, 1], [W - 2, D - 2], [1, D - 2], [1, 1]]) m.box(x, 1, z, 1, H, 1, C.woodLight);
-  for (let y = 4; y <= H; y += 4) ring(m, 1, y, 1, W - 2, D - 2, C.wood);
+  // 每 4 层一圈 2 格宽的踏板
+  for (let y = 4; y <= H; y += 4) {
+    ring(m, 1, y, 1, W - 2, D - 2, C.wood);
+    ring(m, 2, y, 2, W - 4, D - 4, (y / 4) % 2 ? C.woodLight : C.wood);
+  }
   // 正面(+z)与右侧(+x)斜撑
   for (let i = 0; i < Math.min(H, W - 2); i++) m.set(1 + i, 1 + i, D - 1, C.woodDark);
   for (let i = 0; i < Math.min(H, D - 2); i++) m.set(W - 1, 1 + i, D - 2 - i, C.woodDark);
-  // 安全网色带
   for (let x = 2; x < W - 2; x++) if (x % 2) m.set(x, H - 1, D - 2, C.orange);
   if (w * d > 1) {
+    // 塔吊立在后角,吊臂沿 -x 伸过工地,配重臂留在占地内
     const cx = W - 4;
     const top = lattice(m, cx, 1, 2, 2, H + 8, 2, C.yellow, 2);
     m.box(cx - 1, top, 1, 4, 2, 4, C.yellow);
-    m.set(cx + 1, top + 1, 3, C.winCool, true);
-    const jib = W - 6;
-    m.box(cx - jib, top + 2, 2, jib + 6, 1, 1, C.yellow);
-    m.box(cx + 3, top, 2, 2, 2, 2, C.concreteDark);
-    m.box(cx - jib + 2, top - 4, 2, 1, 6, 1, C.iron);
-    crate(m, cx - jib + 1, top - 6, 1, 3, 2, 3, C.woodLight);
+    m.set(cx + 2, top + 1, 3, C.winCool, true);
+    m.box(1, top + 2, 2, W - 2, 1, 1, C.yellow);
+    m.box(cx + 1, top + 2, 1, 2, 2, 3, C.concreteDark);
+    const hx = Math.max(2, Math.floor(W / 3));
+    m.box(hx, top - 4, 2, 1, 6, 1, C.iron);
+    crate(m, hx - 1, top - 6, 1, 3, 2, 3, C.woodLight);
   } else {
     m.box(6, 1, 6, 1, H + 2, 1, C.yellow);
     m.box(3, H + 2, 6, 4, 1, 1, C.yellow);

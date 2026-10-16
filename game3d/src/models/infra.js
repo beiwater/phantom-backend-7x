@@ -94,11 +94,17 @@ export function wall(mask, level, team) {
   const postH = [0, 12, 13, 14][L];
   const pLo = L === 1 ? 2 : 1;
   const pHi = 8 - pLo;
+  // 直线段(南北/东西贯通)不立柱,墙体连续;拐角/丁字/端头/孤立才有立柱
+  const straight = mask === (N | S) || mask === (E | W);
   const arms = [];
-  if (mask & N) arms.push([lo, 0, hi - lo, pLo]);
-  if (mask & S) arms.push([lo, pHi, hi - lo, 8 - pHi]);
-  if (mask & W) arms.push([0, lo, pLo, hi - lo]);
-  if (mask & E) arms.push([pHi, lo, 8 - pHi, hi - lo]);
+  if (mask === (N | S)) arms.push([lo, 0, hi - lo, 8]);
+  else if (mask === (E | W)) arms.push([0, lo, 8, hi - lo]);
+  else {
+    if (mask & N) arms.push([lo, 0, hi - lo, pLo]);
+    if (mask & S) arms.push([lo, pHi, hi - lo, 8 - pHi]);
+    if (mask & W) arms.push([0, lo, pLo, hi - lo]);
+    if (mask & E) arms.push([pHi, lo, 8 - pHi, hi - lo]);
+  }
 
   if (L === 1) {
     const logC = (x, y, z) => (y % 3 === 0 ? shade(C.log, 0.85) : C.log);
@@ -112,6 +118,7 @@ export function wall(mask, level, team) {
       }
       m.box(x, 4, z, w, 1, d, C.woodDark);
     }
+    if (straight) return finish(m, []);
     m.box(pLo, 0, pLo, pHi - pLo, postH, pHi - pLo, logC);
     m.box(pLo - 1, postH, pLo - 1, pHi - pLo + 2, 1, pHi - pLo + 2, C.woodDark);
     for (const [x, z] of [[pLo - 1, pLo - 1], [pHi, pLo - 1], [pLo - 1, pHi], [pHi, pHi]]) m.set(x, postH + 1, z, C.woodDark);
@@ -135,6 +142,7 @@ export function wall(mask, level, team) {
       }
       if (P.enemy) for (let i = x; i < x + w; i += 2) for (let k = z; k < z + d; k += 2) m.set(i, armH + 2, k, P.spike);
     }
+    if (straight) return finish(m, []);
     m.box(pLo, 0, pLo, pHi - pLo, postH, pHi - pLo, (x, y, z) => (y >= postH - 4 && y < postH - 2 ? P.accent : body(x, y, z)));
     m.box(pLo - 1, postH, pLo - 1, pHi - pLo + 2, 1, pHi - pLo + 2, capC);
     for (let i = pLo - 1; i <= pHi; i++) {
@@ -145,8 +153,8 @@ export function wall(mask, level, team) {
     }
     if (L === 3) m.set(4, postH + 1, 4, P.enemy ? 0xff3a2a : C.lamp, true);
     else {
-      m.box(4, postH + 1, 4, 1, 4, 1, C.woodDark);
-      m.box(5, postH + 3, 4, 2, 2, 1, P.accent);
+      m.box(4, postH + 1, 4, 1, 3, 1, C.woodDark);
+      m.box(5, postH + 2, 4, 2, 2, 1, P.accent);
     }
   }
   return finish(m, []);

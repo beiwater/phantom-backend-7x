@@ -23,7 +23,7 @@ const GAPS = [[-6, 1], [-6, 2], [0, 8], [1, 8], [-6, 7], [-6, 8], [-5, 8]];
 export class EnemyAI {
   constructor(rts) {
     this.rts = rts;
-    this.nextWave = FIRST_WAVE;
+    this.nextWave = rts.game.difficulty?.firstWave ?? FIRST_WAVE;
     this.wave = 0;
     this.warned = false;
     this.stopped = false;
@@ -34,9 +34,16 @@ export class EnemyAI {
 
   get game() { return this.rts.game; }
 
+  /** 难度参数(game.difficulty),缺省时回落到普通难度。 */
+  get diff() {
+    const d = this.game.difficulty ?? {};
+    return { firstWave: d.firstWave ?? FIRST_WAVE, waveMult: d.waveMult ?? 1, enemyHp: d.enemyHp ?? 1 };
+  }
+
   setupBase() {
     const g = this.game;
     const H = ENEMY_HQ;
+    this.nextWave = this.diff.firstWave;
     g.placeBuilding('hq', H.x, H.z, ENEMY, { instant: true });
     for (const [type, spots] of Object.entries(LAYOUT)) {
       for (const [dx, dz] of spots) g.placeBuilding(type, H.x + dx, H.z + dz, ENEMY, { instant: true });
@@ -59,7 +66,7 @@ export class EnemyAI {
       const c = nearestWalkable(g.map, ENEMY_HQ.x - 0.5, ENEMY_HQ.z + 4.5, 5, (x, z) => !used.has(`${x},${z}`));
       if (!c) continue;
       used.add(`${c.x},${c.z}`);
-      const u = this.rts.spawnUnit(type, ENEMY, c.x + 0.5, c.z + 0.5);
+      const u = this.rts.spawnUnit(type, ENEMY, c.x + 0.5, c.z + 0.5, this.diff.enemyHp);
       u.guard = true;
       u.home = { x: c.x + 0.5, z: c.z + 0.5 };
     }
@@ -72,10 +79,12 @@ export class EnemyAI {
   /** 第 n 波的兵力构成:[{ type, b }]。确定性(无随机),便于预告与回放一致。 */
   plan(n) {
     const era = this.game.era;
+    const wm = this.diff.waveMult;
+    const sc = (k, min = 0) => Math.max(min, Math.round(k * wm));
     const list = [];
     for (const b of this.production()) {
       if (b.type === 'barracks') {
-        const k = 2 + Math.floor(n * 0.7) + (era - 1);
+        const k = sc(2 + Math.floor(n * 0.7) + (era - 1), 1);
         for (let i = 0; i < k; i++) {
           let type = 'militia';
           if (era === 1) type = n >= 3 && i % 3 === 2 ? 'rifleman' : 'militia';
@@ -84,10 +93,10 @@ export class EnemyAI {
           list.push({ type, b });
         }
       } else if (era >= 2) {
-        for (let i = 0; i < 1 + Math.floor(n / 3); i++) list.push({ type: 'tank', b });
+        for (let i = 0; i < sc(1 + Math.floor(n / 3), 1); i++) list.push({ type: 'tank', b });
         if (era >= 3) {
-          for (let i = 0; i < 1 + Math.floor(n / 4); i++) list.push({ type: 'artillery', b });
-          for (let i = 0; i < Math.floor((n + 1) / 3); i++) list.push({ type: 'helicopter', b });
+          for (let i = 0; i < sc(1 + Math.floor(n / 4), 1); i++) list.push({ type: 'artillery', b });
+          for (let i = 0; i < sc(Math.floor((n + 1) / 3)); i++) list.push({ type: 'helicopter', b });
         }
       }
     }
@@ -127,7 +136,7 @@ export class EnemyAI {
     const ids = new Set();
     const used = new Map();
     // 后期波次单位更结实
-    const hpMult = Math.min(1.8, 1 + 0.04 * (n - 1));
+    const hpMult = Math.min(1.8, 1 + 0.04 * (n - 1)) * this.diff.enemyHp;
     this.damageMult = Math.min(1.5, 1 + 0.025 * (n - 1));
     for (const { type, b } of plan) {
       const c = this.spawnCell(b, used);
@@ -183,7 +192,7 @@ export class EnemyAI {
   }
 
   load(d, units) {
-    this.nextWave = d?.nextWave ?? FIRST_WAVE;
+    this.nextWave = d?.nextWave ?? this.diff.firstWave;
     this.wave = d?.wave ?? 0;
     this.warned = !!d?.warned;
     this.stopped = !!d?.stopped;

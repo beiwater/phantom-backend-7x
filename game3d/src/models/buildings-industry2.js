@@ -1,7 +1,6 @@
 // 加工类建筑(下):炼油厂、化工厂、军火厂、机械厂、电子厂。
 import {
-  C, shade, hash, pad, ring, block, chimney, stack, crate, tank, quonset, lattice, pipeX, pipeZ, pipeY,
-  finish, newModel,
+  C, shade, pad, block, chimney, stack, crate, tank, quonset, pipeX, pipeZ, finish, newModel,
 } from './common.js';
 
 // ---------- 炼油厂(3×2):L1 分馏塔+加热炉+储罐 / L2 第二储罐 / L3 第二分馏塔 / L4 火炬塔 / L5 第三储罐+管廊 ----------
@@ -198,4 +197,3 @@ export function electronics(L) {
   return finish(m, []);
 }
 
-export { ring, hash, lattice, pipeY };

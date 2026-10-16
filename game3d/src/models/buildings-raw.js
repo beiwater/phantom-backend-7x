@@ -201,7 +201,7 @@ export function ironMine(L) {
   const ore = 0xa8502e;
   pad(m, 16, 16, { edge: 0x8a5a44, inner: (x, z) => vary(0xb87a5a, 0.1)(x, 0, z) });
   // 红土山丘 + 坑道口
-  ellipsoid(m, 5, 0, 3.5, 5.5, 8, 4.5, (x, y, z) => (hash(x, y, z) > 0.93 ? 0xffa040 : vary(ore, 0.15)(x, y, z)));
+  ellipsoid(m, 5.2, 0, 4.1, 5.2, 8, 3.9, (x, y, z) => (hash(x, y, z) > 0.93 ? 0xffa040 : vary(ore, 0.15)(x, y, z)));
   m.carve(4, 1, 5, 2, 3, 4);
   m.box(4, 1, 5, 2, 3, 1, C.black);
   m.box(3, 1, 7, 1, 4, 1, C.woodDark);

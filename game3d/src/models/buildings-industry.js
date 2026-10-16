@@ -1,6 +1,6 @@
 // 加工类建筑(上):食品厂、锯木厂、炼钢厂、水泥厂、火力电厂。
 import {
-  C, shade, vary, hash, pad, ring, block, chimney, stack, crate, cylX, tank, lattice, pipeX, pipeY, finish, newModel,
+  C, shade, vary, hash, pad, ring, block, chimney, crate, cylX, lattice, ellipsoid, pipeX, pipeY, finish, newModel,
 } from './common.js';
 
 /** 锯齿屋顶:沿 z 每 period 格一个齿,竖直面为天窗玻璃(发光)。 */
@@ -65,17 +65,21 @@ export function sawmill(L) {
   const m = newModel();
   const smoke = [];
   pad(m, 16, 16, { inner: (x, z) => (hash(x, 2, z) > 0.7 ? 0xe6cfa0 : vary(0xcdb68a, 0.05)(x, 0, z)) });
-  m.box(1, 1, 4, 9, 1, 8, C.woodDark);
-  for (const [x, z] of [[1, 4], [9, 4], [1, 11], [9, 11], [5, 4], [5, 11]]) m.box(x, 2, z, 1, 6, 1, C.woodDark);
-  m.gableRoof(0, 8, 3, 11, 10, (x, y) => (y % 2 ? 0x8a5a32 : 0x74492a));
-  // 锯台 + 巨型圆锯(yz 平面)
-  m.box(2, 2, 7, 7, 2, 2, C.steel);
-  cylX(m, 2, 7, 4.5, 8, 0.9, (x) => (x === 2 ? C.logEnd : C.log));
-  for (let j = 0; j < 7; j++) {
-    for (let k = 0; k < 7; k++) {
-      const d = Math.hypot(j - 3, k - 3);
-      if (d > 3.3) continue;
-      m.set(6, 3 + j, 5 + k, d < 1 ? C.iron : d > 2.6 ? ((j + k) % 2 ? C.steelDark : C.white) : C.offWhite);
+  // 后部开放木棚
+  m.box(1, 1, 4, 9, 1, 6, C.woodDark);
+  for (const [x, z] of [[1, 4], [9, 4], [1, 9], [9, 9], [5, 9]]) m.box(x, 2, z, 1, 6, 1, C.woodDark);
+  m.gableRoof(0, 8, 3, 11, 8, (x, y) => (y % 2 ? 0x8a5a32 : 0x74492a));
+  plankStack(m, 2, 2, 5, 3, 2, 3);
+  // 前院锯台 + 巨型圆锯(xy 平面,正对 +z 可见)
+  m.box(1, 1, 11, 9, 2, 3, C.steel);
+  m.box(1, 3, 11, 9, 1, 3, C.steelDark);
+  cylX(m, 1, 4, 5, 12.5, 1.4, logC);
+  for (let i = -4; i <= 4; i++) {
+    for (let j = -4; j <= 4; j++) {
+      const d = Math.hypot(i, j);
+      if (d > 4.2 || j < -1) continue;
+      const c = d < 1.2 ? C.iron : d > 3.3 ? ((i + j) % 2 ? C.steelDark : C.white) : C.offWhite;
+      m.set(7 + i, 4 + j, 12, c);
     }
   }
   if (L >= 2) {
@@ -83,8 +87,8 @@ export function sawmill(L) {
     plankStack(m, 11, 5, 12, 4, 2, 3);
   }
   if (L >= 3) {
-    for (let r = 0; r < 2; r++) for (let i = 0; i < 3 - r; i++) cylX(m, 2, 7, 2 + r * 1.8, 1.5 + i * 1.6 + r * 0.8, 0.9, (x) => (x === 8 ? C.logEnd : C.log));
-    m.box(9, 1, 1, 1, 2, 3, C.iron);
+    for (let r = 0; r < 2; r++) for (let i = 0; i < 2 - r; i++) cylX(m, 1, 9, 2.4 + r * 2.4, 1.5 + i * 2.6 + r * 1.3, 1.3, logC);
+    m.box(10, 1, 1, 1, 2, 3, C.iron);
   }
   if (L >= 4) {
     block(m, 11, 1, 1, 4, 6, 5, { wall: (i, j) => ((i + j) % 3 ? C.brick : C.brickDark), noWin: true });
@@ -94,15 +98,14 @@ export function sawmill(L) {
   }
   if (L >= 5) {
     for (const x of [11, 13]) m.box(x, 1, 7, 1, 6, 1, C.steelDark);
-    for (let y = 7; y < 12; y++) {
-      const r = Math.min(2.2, 0.8 + (y - 7) * 0.5);
-      m.cylinder(12.5, y, 8, r, 1, C.offWhite);
-    }
+    for (let y = 7; y < 12; y++) m.cylinder(12.5, y, 8, Math.min(2.2, 0.8 + (y - 7) * 0.5), 1, C.offWhite);
     pipeX(m, 8, 11, 11, 8, C.steel);
     pipeY(m, 8, 11, 8, 8, C.steel);
   }
   return finish(m, smoke);
 }
+
+const logC = (x) => (x === 1 ? C.logEnd : (x % 3 ? C.log : shade(C.log, 0.85)));
 
 // ---------- 炼钢厂(3×3):L1 厂房+高炉+烟囱 / L2 第二烟囱 / L3 钢水池+行车 / L4 第二高炉 / L5 红热钢坯输送线 ----------
 function blastFurnace(m, cx, cz, r, h) {
@@ -120,40 +123,35 @@ export function steelMill(L) {
   const m = newModel();
   const smoke = [];
   pad(m, 24, 24, { color: 0xb8b2a6, edge: 0x7e786e, inner: (x, z) => vary(0xb8b2a6, 0.06)(x, 0, z) });
-  // 主厂房:暗灰波纹墙 + 锈色腰带 + 顶部天窗
-  m.box(1, 1, 11, 11, 10, 10, (x, y, z) => (y === 6 || y === 7 ? C.rust : ((x + z) % 2 ? 0x5e646c : 0x525860)));
-  for (let x = 3; x < 11; x += 3) m.box(x, 2, 20, 2, 3, 1, C.molten, true);
-  m.box(3, 1, 20, 1, 4, 1, C.iron);
-  m.gableRoof(0, 11, 10, 13, 12, (x) => (x === 6 ? C.win : 0x454a52), false);
+  // 左侧主厂房:暗灰波纹墙 + 锈色腰带 + 屋脊天窗
+  m.box(1, 1, 2, 10, 10, 16, (x, y, z) => (y === 6 || y === 7 ? C.rust : ((x + z) % 2 ? 0x5e646c : 0x525860)));
+  for (let z = 4; z < 17; z += 3) m.box(10, 2, z, 1, 3, 2, C.molten, true);
+  m.gableRoof(0, 11, 1, 12, 18, (x) => (x === 5 || x === 6 ? C.win : 0x454a52), false);
   for (const v of m.voxels.values()) if (v.color === C.win && v.y > 10) v.glow = true;
-  blastFurnace(m, 17, 6, 3.5, 12);
-  // 高炉 → 厂房的钢水槽
-  m.box(14, 1, 9, 4, 1, 2, C.molten, true);
-  m.box(12, 1, 10, 3, 1, 1, C.molten, true);
-  chimney(m, 20, 1, 12, 3, 28, 0x5a5e66, C.white, smoke);
-  if (L >= 2) chimney(m, 20, 1, 17, 3, 24, 0x5a5e66, C.red, smoke);
+  // 右后:烟囱;右前:高炉(最显眼的位置)
+  chimney(m, 19, 1, 2, 3, 28, 0x5a5e66, C.white, smoke);
+  blastFurnace(m, 17.5, 16.5, 3.5, 12);
+  m.box(11, 1, 16, 4, 1, 2, C.molten, true);
+  pipeX(m, 11, 14, 12, 16, C.rustDark);
+  if (L >= 2) chimney(m, 14, 1, 2, 3, 24, 0x5a5e66, C.red, smoke);
   if (L >= 3) {
-    ring(m, 13, 1, 15, 6, 6, C.iron, 2);
-    m.box(14, 1, 16, 4, 2, 4, C.molten, true);
-    for (const [x, z] of [[13, 14], [18, 14], [13, 21], [18, 21]]) m.box(x, 1, z, 1, 12, 1, C.yellow);
-    m.box(13, 13, 14, 6, 1, 1, C.yellow);
-    m.box(13, 13, 21, 6, 1, 1, C.yellow);
-    m.box(15, 13, 14, 2, 1, 8, C.yellow);
-    m.box(15, 12, 17, 2, 1, 2, C.iron);
-    pipeY(m, 8, 11, 16, 18, C.iron);
-    m.cylinder(16, 5, 18.5, 1.6, 3, C.iron);
-    m.cylinder(16, 7, 18.5, 1, 1, C.molten);
+    // 前排钢水池 + 黄色行车
+    ring(m, 2, 1, 19, 9, 4, C.iron, 2);
+    m.box(3, 1, 20, 7, 2, 2, C.molten, true);
+    for (const x of [1, 11]) for (const z of [19, 22]) m.box(x, 1, z, 1, 9, 1, C.yellow);
+    for (const z of [19, 22]) m.box(1, 10, z, 11, 1, 1, C.yellow);
+    m.box(5, 10, 19, 2, 1, 4, C.yellow);
+    m.box(5, 7, 20, 2, 3, 2, C.iron);
+    m.box(5, 6, 20, 2, 1, 2, C.molten, true);
   }
   if (L >= 4) {
-    blastFurnace(m, 6, 5.5, 3, 9);
-    pipeX(m, 9, 13, 15, 5, C.rustDark);
-    pipeX(m, 9, 13, 14, 5, C.steelDark);
+    blastFurnace(m, 17.5, 8.5, 3, 9);
+    pipeX(m, 11, 14, 14, 8, C.rustDark);
   }
   if (L >= 5) {
-    m.box(1, 1, 21, 12, 1, 2, C.iron);
-    for (let x = 2; x < 12; x += 3) m.box(x, 2, 21, 2, 1, 2, C.molten, true);
-    for (let x = 1; x < 13; x += 2) m.set(x, 1, 23, C.steelDark);
-    chimney(m, 9, 11, 13, 2, 9, C.steelDark, C.orange, smoke);
+    m.box(13, 1, 21, 10, 1, 2, C.iron);
+    for (let x = 13; x < 23; x += 3) m.box(x, 2, 21, 2, 1, 2, C.molten, true);
+    chimney(m, 3, 11, 12, 2, 10, C.steelDark, C.orange, smoke);
   }
   return finish(m, smoke);
 }
@@ -194,29 +192,27 @@ export function cement(L) {
   return finish(m, smoke);
 }
 
-// ---------- 火力电厂:L1 锅炉房+冷却塔 / L2 烟囱 / L3 变压器场 / L4 第二烟囱 / L5 煤堆+输送带 ----------
 function coolingTower(m, cx, cz, h, rBot, rWaist, rTop) {
+  // 双曲面:下部收腰到 70% 高度,顶部略外扩;颜色保持纯净只留顶部红带
   for (let j = 0; j < h; j++) {
     const t = j / (h - 1);
-    const waist = 0.65;
-    const r = t < waist
-      ? rBot + (rWaist - rBot) * Math.sin((t / waist) * Math.PI / 2)
-      : rWaist + (rTop - rWaist) * ((t - waist) / (1 - waist)) ** 2;
-    m.cylinder(cx, 1 + j, cz, r, 1, (x, y) => (y >= h - 2 ? C.red : (y === 1 ? C.concreteDark : C.offWhite)), true);
+    const r = t < 0.7 ? rWaist + (rBot - rWaist) * (1 - t / 0.7) ** 2 : rWaist + (rTop - rWaist) * ((t - 0.7) / 0.3) ** 2;
+    m.cylinder(cx, 1 + j, cz, r, 1, j >= h - 3 && j < h - 1 ? C.red : (j === 0 ? C.concreteDark : 0xeceae4));
   }
-  m.cylinder(cx, h - 1, cz, rTop - 1.2, 1, 0x9aa4ae);
+  m.cylinder(cx, h, cz, rTop - 1, 1, 0x6a737c);
 }
 
+// ---------- 火力电厂:L1 锅炉房+冷却塔 / L2 烟囱 / L3 变压器场 / L4 第二烟囱 / L5 前场煤堆+输送带 ----------
 export function power(L) {
   const m = newModel();
   const smoke = [];
   pad(m, 16, 16, { inner: (x, z) => (x === 9 && z > 8 ? C.yellow : null) });
-  coolingTower(m, 11.5, 4.5, 15, 4, 2.7, 3.3);
-  smoke.push([11, 15, 4]);
-  block(m, 1, 1, 9, 8, 8, 6, { wall: (i, j) => ((i + j) % 3 ? C.brick : C.brickDark), sx: 2, sy: 3, oy: 2, base: C.stone });
-  m.box(1, 9, 9, 8, 1, 6, C.slate);
-  m.box(3, 10, 10, 4, 2, 3, C.steel);
-  pipeX(m, 7, 10, 6, 9, C.steelDark);
+  coolingTower(m, 11.5, 4.5, 16, 4.3, 3, 3.5);
+  smoke.push([11, 16, 4]);
+  block(m, 1, 1, 6, 8, 8, 5, { wall: (i, j) => ((i + j) % 3 ? C.brick : C.brickDark), sx: 2, sy: 3, oy: 2, base: C.stone });
+  m.box(1, 9, 6, 8, 1, 5, C.slate);
+  m.box(3, 10, 7, 4, 2, 3, C.steel);
+  pipeX(m, 8, 9, 6, 7, C.steelDark);
   if (L >= 2) chimney(m, 2, 1, 2, 2, 22, C.white, C.red, smoke);
   if (L >= 3) {
     for (const [x, z] of [[10, 10], [13, 10], [10, 13], [13, 13]]) {
@@ -230,11 +226,10 @@ export function power(L) {
   }
   if (L >= 4) chimney(m, 5, 1, 2, 2, 19, C.white, C.red, smoke);
   if (L >= 5) {
-    for (let y = 1; y <= 3; y++) m.box(1 + y - 1, y, 5, 6 - (y - 1) * 2, 1, 3, (x, j, z) => (hash(x, j, z) > 0.8 ? 0x5a6a80 : 0x2a2a30));
-    for (let i = 0; i < 5; i++) m.set(7, 2 + i, 7 + Math.floor(i / 2), C.iron);
-    m.box(7, 1, 7, 1, 2, 1, C.steelDark);
+    ellipsoid(m, 3.5, 0.5, 13, 3, 2.6, 1.8, (x, y, z) => (hash(x, y, z) > 0.85 ? 0x6a7a90 : 0x2a2a30));
+    for (let i = 0; i < 5; i++) m.box(7, 3 + i, 14 - i, 1, 1, 1, C.iron);
+    m.box(7, 1, 13, 1, 3, 1, C.steelDark);
   }
   return finish(m, smoke);
 }
 
-export { tank, stack };

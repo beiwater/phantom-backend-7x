@@ -9,6 +9,7 @@ import { TerrainView } from './world/terrain.js';
 import { WorldView } from './world/view.js';
 import { FogOfWar } from './world/fog.js';
 import { voxelMaterial } from './engine/voxel.js';
+import { Quality } from './engine/quality.js';
 import { MAP_W, MAP_H, PLAYER_HQ } from './world/map.js';
 import { createRTS } from './rts/index.js';
 import { UI } from './ui/ui.js';
@@ -41,8 +42,9 @@ const sim = new SimLoop(game, economy, rts);
 const fog = new FogOfWar(game);
 game.fog = fog;
 if (resumed) fog.load(resumedFog);
-for (const mat of [voxelMaterial(), terrain.tiles.material, terrain.water.material, terrain.base.material]) fog.apply(mat);
-const ui = new UI({ game, economy, rig, rts, view, terrain });
+for (const mat of [voxelMaterial(), terrain.tileMaterial, terrain.water.material, terrain.base.material]) fog.apply(mat);
+const quality = new Quality(stage, stage.scene);
+const ui = new UI({ game, economy, rig, rts, view, terrain, quality });
 const input = new Input({ game, rig, scene: stage.scene, rts, ui, view, dom: stage.renderer.domElement });
 ui.input = input;
 rts.ui = ui;
@@ -64,7 +66,10 @@ window.addEventListener('resize', () => {
 let last = performance.now();
 let t = 0;
 function frame(now) {
-  const dt = Math.min(0.05, (now - last) / 1000);
+  const rawDt = (now - last) / 1000;
+  const dt = Math.min(0.05, rawDt);
+  const lowered = quality.watch(Math.min(1, rawDt));
+  if (lowered) ui.toast(`帧率较低,画质已自动调为「${lowered}」(菜单可修改)`);
   last = now;
   t += dt;
   sim.advance(dt);
@@ -85,4 +90,4 @@ function frame(now) {
 requestAnimationFrame(frame);
 
 // 供 Playwright 诊断读取(只读):断言状态、把世界坐标投影到屏幕;E2E 操作仍须走 DOM
-window.__voxel = { game, rts, economy, project: (x, z) => rig.toScreen(new Vector3(x, 0, z)) };
+window.__voxel = { game, rts, economy, renderer: stage.renderer, scene: stage.scene, project: (x, z) => rig.toScreen(new Vector3(x, 0, z)) };

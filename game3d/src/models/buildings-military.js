@@ -23,8 +23,8 @@ export function barracks(L, team) {
   const m = newModel();
   pad(m, 16, 16, { color: P.ground, edge: shade(P.ground, 0.75), inner: (x, z) => vary(P.ground, 0.06)(x, 0, z) });
   hut(m, 2, 2, 9, 5, 5, P);
-  flag(m, 13, 1, 9, 12, P.accent, C.stoneLight, 4, 3);
-  ring(m, 12, 1, 8, 3, 3, C.stone);
+  flag(m, 11, 1, 10, 12, P.accent, C.stoneLight, 4, 3);
+  ring(m, 10, 1, 9, 3, 3, C.stone);
   for (let x = 2; x < 11; x += 2) m.box(x, 1, 8, 2, 1, 1, P.cloth);
   if (L >= 2) {
     lattice(m, 12, 1, 1, 3, 13, 3, C.woodDark, 4);
@@ -69,12 +69,14 @@ export function vehicleFactory(L, team) {
   m.box(4, 1, 16, 10, 6, 1, (x, y) => (y % 2 ? P.metal : shade(P.metal, 0.8)));
   for (let z = 4; z < 15; z += 3) m.box(16, 3, z, 1, 2, 2, P.win, true);
   // 筒形拱顶
-  for (let i = 0; i < 9; i++) {
-    const y = 10 + Math.round(Math.sin((i / 8) * Math.PI) * 3);
-    m.box(1 + i, 10, 2, 1, y - 9, 15, (x, j, z) => (z % 4 === 0 ? P.accentDark : P.roof));
-    m.box(16 - i, 10, 2, 1, y - 9, 15, (x, j, z) => (z % 4 === 0 ? P.accentDark : P.roof));
+  // 筒形拱顶:从两侧檐口向中线升高
+  for (let i = 0; i < 8; i++) {
+    const rise = 1 + Math.round(Math.sin((i / 7) * (Math.PI / 2)) * 4);
+    const roofFn = (x, j, z) => (j === 9 + rise && z % 4 === 0 ? P.accentDark : P.roof);
+    m.box(1 + i, 10, 2, 1, rise, 15, roofFn);
+    m.box(16 - i, 10, 2, 1, rise, 15, roofFn);
   }
-  spikes(m, 2, 14, 2, 14, 15, P);
+  spikes(m, 2, 15, 2, 14, 15, P);
   chimney(m, 2, 10, 3, 2, 8, P.metal, P.accent, smoke);
   if (L >= 2) {
     block(m, 17, 1, 2, 6, 7, 12, { wall, win: P.win, sx: 3, sy: 3, oy: 2 });
@@ -89,7 +91,7 @@ export function vehicleFactory(L, team) {
     cylZ(m, 16, 6, 20, 2.2, 1.6, P.enemy ? P.metal : C.olive);
     m.box(17, 1, 16, 1, 1, 6, C.steelDark);
     m.box(22, 1, 16, 1, 1, 6, C.steelDark);
-    flag(m, 21, 4, 21, 6, P.accent);
+    flag(m, 19, 1, 21, 9, P.accent);
   }
   return finish(m, smoke);
 }
@@ -111,11 +113,24 @@ function helipad(m, x0, z0, s, P) {
   for (const [x, z] of [[x0 + 1, z0 + 1], [x0 + s - 2, z0 + 1], [x0 + 1, z0 + s - 2], [x0 + s - 2, z0 + s - 2]]) m.set(x, 1, z, 0x6aff8a, true);
 }
 
+// 停机坪上的小直升机(建筑比例),让 L1 一眼可认
+function parkedHeli(m, cx, cz, P) {
+  m.box(cx - 1, 2, cz - 2, 3, 2, 5, P.accent);
+  m.box(cx - 1, 3, cz + 2, 3, 1, 1, C.winCool, true);
+  m.box(cx, 3, cz - 6, 1, 1, 4, P.accent);
+  m.box(cx, 4, cz - 6, 1, 2, 1, P.accentDark);
+  m.box(cx, 4, cz, 1, 1, 1, C.iron);
+  m.box(cx - 4, 5, cz, 9, 1, 1, C.iron);
+  m.box(cx, 5, cz - 4, 1, 1, 9, C.iron);
+  for (const x of [cx - 2, cx + 2]) m.box(x, 2, cz - 2, 1, 1, 5, C.iron);
+}
+
 export function airfield(L, team) {
   const P = milPalette(team);
   const m = newModel();
   pad(m, 24, 24, { color: C.asphalt, edge: 0x3a3c42, inner: (x, z) => (x === 12 && z % 3 === 0 ? C.yellow : null) });
   helipad(m, 1, 13, 10, P);
+  parkedHeli(m, 6, 18, P);
   // 塔台
   m.box(15, 1, 1, 4, 12, 4, (x, y) => (y % 4 === 0 ? P.accent : (P.enemy ? P.wall : C.offWhite)));
   m.box(14, 13, 0, 6, 1, 6, P.metal);
@@ -127,8 +142,9 @@ export function airfield(L, team) {
   m.box(22, 1, 10, 1, 6, 1, C.steel);
   m.box(22, 6, 11, 1, 1, 3, (x, y, z) => (z % 2 ? C.orange : C.white));
   if (L >= 2) {
-    quonset(m, 13, 1, 10, 10, 12, P.enemy ? P.wall : 0xb8bcc0, P.accent, P.metal);
+    quonset(m, 13, 1, 9, 10, 13, P.enemy ? P.wall : 0xb8bcc0, P.accent, P.metal);
     m.box(15, 1, 21, 6, 4, 1, (x, y) => (y % 2 ? 0x55595f : 0x45494f));
+    m.box(16, 6, 21, 4, 1, 1, P.accent);
   }
   if (L >= 3) {
     helipad(m, 1, 1, 10, P);

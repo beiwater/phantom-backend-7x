@@ -1,4 +1,4 @@
-// 地形渲染:每格 2×2 个子体素柱(InstancedMesh),未拥有地块压暗;水面为整图半透明平面(陆地顶面会遮住它)。
+// 地形渲染:每格 2×2 个子体素,按地块合并为网格(仅顶面 + 高差侧面),未拥有地块压暗;水面为整图半透明平面(陆地顶面会遮住它)。
 // 道具(树/岩石/矿脉)按地形实例化,地形变化(建筑清林)时重建。
 import * as THREE from 'three';
 import { MAP_W, MAP_H, CHUNK, T, OWNER } from './map.js';
@@ -26,13 +26,15 @@ export class TerrainView {
   constructor(scene, map) {
     this.map = map;
     this.scene = scene;
-    const count = MAP_W * MAP_H * 4;
-    const box = new THREE.BoxGeometry(0.5, 1, 0.5);
-    box.translate(0, -0.5, 0);
-    this.tiles = new THREE.InstancedMesh(box, new THREE.MeshLambertMaterial(), count);
-    this.tiles.receiveShadow = true;
-    this.tiles.instanceMatrix.setUsage(THREE.StaticDrawUsage);
-    scene.add(this.tiles);
+    // 每个地块一个合并网格:只生成顶面与高差处的侧面,并可按地块做视锥剔除
+    this.tileMaterial = new THREE.MeshLambertMaterial({ vertexColors: true });
+    this.tileMeshes = [];
+    for (let i = 0; i < (MAP_W / CHUNK) * (MAP_H / CHUNK); i++) {
+      const m = new THREE.Mesh(new THREE.BufferGeometry(), this.tileMaterial);
+      m.receiveShadow = true;
+      scene.add(m);
+      this.tileMeshes.push(m);
+    }
 
     const base = this.base = new THREE.Mesh(
       new THREE.BoxGeometry(MAP_W + 0.6, 3, MAP_H + 0.6),
@@ -67,40 +69,75 @@ export class TerrainView {
     this.rebuildBorders();
   }
 
-  rebuildTiles() {
+  /** 子体素格(半格)顶面高度与颜色。 */
+  subTile(sx, sz) {
     const m = this.map;
-    const mat = new THREE.Matrix4();
+    const x = sx >> 1;
+    const z = sz >> 1;
+    if (!m.inside(x, z)) return null;
+    const t = m.terrain[m.idx(x, z)];
+    const hv = hash(sx, sz);
+    let top = 0;
+    if (t === T.water) top = -0.28;
+    else if (t === T.rock) top = hv > 0.5 ? 1 / 16 : 0;
+    else if (t === T.grass && hv > 0.85) top = 1 / 32;
+    return { t, hv, top, owner: m.ownerAt(x, z) };
+  }
+
+  rebuildTiles() {
     const col = new THREE.Color();
     const grey = new THREE.Color(0x9a9a92);
-    let n = 0;
-    for (let z = 0; z < MAP_H; z++) {
-      for (let x = 0; x < MAP_W; x++) {
-        const t = m.terrain[m.idx(x, z)];
-        const owner = m.ownerAt(x, z);
-        for (let s = 0; s < 4; s++) {
-          const sx = x + 0.25 + (s & 1) * 0.5;
-          const sz = z + 0.25 + (s >> 1) * 0.5;
-          const hv = hash(x * 2 + (s & 1), z * 2 + (s >> 1));
-          const palette = TOP[t];
-          col.setHex(palette[Math.floor(hv * palette.length)]);
-          col.multiplyScalar(0.94 + hv * 0.1);
-          let top = 0;
-          let h = 0.6;
-          if (t === T.water) { top = -0.28; h = 0.32; }
-          else if (t === T.rock) top = hv > 0.5 ? 1 / 16 : 0;
-          else if (t === T.grass && hv > 0.85) top = 1 / 32;
-          if (owner === OWNER.none) col.lerp(grey, 0.42).multiplyScalar(0.82);
-          else if (owner === OWNER.enemy) col.lerp(new THREE.Color(0x8a5a50), 0.25);
-          mat.makeScale(1, h, 1);
-          mat.setPosition(sx, top, sz);
-          this.tiles.setMatrixAt(n, mat);
-          this.tiles.setColorAt(n, col);
-          n++;
+    const enemyTint = new THREE.Color(0x8a5a50);
+    const BOTTOM = -0.6;
+    const per = CHUNK * 2;
+    const cxN = MAP_W / CHUNK;
+    for (let ci = 0; ci < this.tileMeshes.length; ci++) {
+      const cx = ci % cxN;
+      const cz = Math.floor(ci / cxN);
+      const pos = [];
+      const nor = [];
+      const cols = [];
+      const quad = (a, b, c, d, n, color, shade) => {
+        for (const v of [a, b, c, a, c, d]) pos.push(...v);
+        for (let i = 0; i < 6; i++) { nor.push(...n); cols.push(color.r * shade, color.g * shade, color.b * shade); }
+      };
+      for (let lz = 0; lz < per; lz++) {
+        for (let lx = 0; lx < per; lx++) {
+          const sx = cx * per + lx;
+          const sz = cz * per + lz;
+          const st = this.subTile(sx, sz);
+          const palette = TOP[st.t];
+          col.setHex(palette[Math.floor(st.hv * palette.length)]);
+          col.multiplyScalar(0.94 + st.hv * 0.1);
+          if (st.owner === OWNER.none) col.lerp(grey, 0.42).multiplyScalar(0.82);
+          else if (st.owner === OWNER.enemy) col.lerp(enemyTint, 0.25);
+          const x0 = sx * 0.5;
+          const z0 = sz * 0.5;
+          const x1 = x0 + 0.5;
+          const z1 = z0 + 0.5;
+          const y = st.top;
+          quad([x0, y, z0], [x0, y, z1], [x1, y, z1], [x1, y, z0], [0, 1, 0], col, 1);
+          // 侧面:相邻子格更低(或地图边缘)时才需要
+          const side = (nx, nz, a, b, n) => {
+            const nb = this.subTile(nx, nz);
+            const low = nb ? nb.top : BOTTOM;
+            if (low >= y - 1e-6) return;
+            quad([a[0], y, a[1]], [a[0], low, a[1]], [b[0], low, b[1]], [b[0], y, b[1]], n, col, 0.82);
+          };
+          side(sx, sz - 1, [x1, z0], [x0, z0], [0, 0, -1]);
+          side(sx, sz + 1, [x0, z1], [x1, z1], [0, 0, 1]);
+          side(sx - 1, sz, [x0, z0], [x0, z1], [-1, 0, 0]);
+          side(sx + 1, sz, [x1, z1], [x1, z0], [1, 0, 0]);
         }
       }
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+      geo.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+      geo.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
+      geo.computeBoundingSphere();
+      this.tileMeshes[ci].geometry.dispose();
+      this.tileMeshes[ci].geometry = geo;
     }
-    this.tiles.instanceMatrix.needsUpdate = true;
-    this.tiles.instanceColor.needsUpdate = true;
   }
 
   rebuildProps() {
@@ -110,7 +147,9 @@ export class TerrainView {
     }
     const m = this.map;
     const buckets = new Map();
-    const add = (key, geoFn, x, z, rot, scale = 1) => {
+    // 按 (地块, 模型) 分桶:每个 InstancedMesh 包围球紧凑,主视图与阴影都能剔除视野外的树
+    const add = (kind, geoFn, x, z, rot, scale = 1) => {
+      const key = `${kind}@${Math.floor(x / CHUNK)},${Math.floor(z / CHUNK)}`;
       if (!buckets.has(key)) buckets.set(key, { geoFn, list: [] });
       buckets.get(key).list.push([x, z, rot, scale]);
     };
@@ -147,6 +186,7 @@ export class TerrainView {
         mat.compose(new THREE.Vector3(x, 0, z), q, new THREE.Vector3(s, s, s));
         inst.setMatrixAt(k, mat);
       });
+      inst.computeBoundingSphere();
       this.props.add(inst);
     }
   }

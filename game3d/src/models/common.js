@@ -3,7 +3,7 @@
 import { VoxelModel, shade } from '../engine/voxel.js';
 import { TEAM_COLORS } from '../data/units.js';
 
-export { VoxelModel, shade };
+export { shade };
 
 export const C = {
   pad: 0xddd7c9, padEdge: 0xb8b1a1, padDark: 0xa59e8e,
@@ -165,7 +165,10 @@ export function cylX(m, x0, len, cy, cz, r, color) {
       const dy = j + 0.5 - cy;
       const dz = k + 0.5 - cz;
       if (dy * dy + dz * dz > r2) continue;
-      for (let i = x0; i < x0 + len; i++) m.set(i, j, k, typeof color === 'function' ? color(i, j, k) : color);
+      for (let i = x0; i < x0 + len; i++) {
+        const c = typeof color === 'function' ? color(i, j, k) : color;
+        if (c !== null && c !== undefined) m.set(i, j, k, c);
+      }
     }
   }
   return m;
@@ -179,7 +182,10 @@ export function cylZ(m, z0, len, cx, cy, r, color) {
       const dx = i + 0.5 - cx;
       const dy = j + 0.5 - cy;
       if (dx * dx + dy * dy > r2) continue;
-      for (let k = z0; k < z0 + len; k++) m.set(i, j, k, typeof color === 'function' ? color(i, j, k) : color);
+      for (let k = z0; k < z0 + len; k++) {
+        const c = typeof color === 'function' ? color(i, j, k) : color;
+        if (c !== null && c !== undefined) m.set(i, j, k, c);
+      }
     }
   }
   return m;

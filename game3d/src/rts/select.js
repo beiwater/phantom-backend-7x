@@ -48,7 +48,7 @@ export class Selector {
     let best = null;
     let bestD = Infinity;
     for (const u of this.rts.units) {
-      if (u.dead || (filter && !filter(u))) continue;
+      if (u.dead || !this.rts.seen(u) || (filter && !filter(u))) continue;
       const s = this.screenOf(u);
       const rad = Math.max(12, (u.r + 0.2) * pxPerUnit * 1.3);
       const d = Math.hypot(s.x - cx, s.y - cy);

@@ -147,6 +147,8 @@ export class UnitViews {
       v.yaw = lerpAngle(v.yaw, u.heading, kYaw);
       g.position.set(x - Math.sin(v.yaw) * kick, y, z - Math.cos(v.yaw) * kick);
       v.body.rotation.y = v.yaw;
+      g.visible = rts.seen(u);
+      if (!g.visible) continue;
       if (v.top && TOP_AIM.has(u.type)) {
         const want = u.aimYaw !== null && u.target ? u.aimYaw - v.yaw : 0;
         v.topYaw = lerpAngle(v.topYaw, want, Math.min(1, dt * 6));
@@ -169,6 +171,7 @@ export class UnitViews {
     // 受损建筑血条
     for (const b of rts.game.buildings.values()) {
       if (b.hp >= b.maxHp || nb >= BAR_MAX) continue;
+      if (b.team !== rts.local && !rts.visibleAt(b.x + b.w / 2, b.z + b.d / 2)) continue;
       const info = rts.view?.bviews?.get(b.uid)?.info;
       const h = b.type === 'wall' ? 1.1 : (info?.labelY ?? 1.4) + 0.1;
       nb = this.bar(nb, b.x + b.w / 2, h, b.z + b.d / 2, Math.min(2.4, 0.6 + b.w * 0.45), b.hp / b.maxHp, camera);

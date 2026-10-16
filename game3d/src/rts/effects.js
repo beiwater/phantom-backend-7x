@@ -53,28 +53,32 @@ export class Effects {
       return { mesh, life: 0 };
     });
     this.markerNext = 0;
+    /** 战争迷雾过滤(本地视图):返回 false 的位置不生成特效,避免泄露迷雾中的敌军。 */
+    this.visibleAt = () => true;
     this.root.add(this.glowMesh, this.debrisMesh, this.tracerMesh);
   }
 
   // ---------- 发射接口 ----------
   flash(x, y, z, size, color) {
-    if (this.glows.length >= GLOW_MAX) return;
+    if (this.glows.length >= GLOW_MAX || !this.visibleAt(x, z)) return;
     this.glows.push({ kind: 0, x, y, z, size, color, life: 0, max: 0.07 + size * 0.06 });
   }
 
   /** 弹丸:dur 秒从 a 飞到 b;arc>0 时走抛物线(火炮)。 */
   projectile(a, b, dur, arc, color, size = 0.1) {
-    if (this.glows.length >= GLOW_MAX) return;
+    if (this.glows.length >= GLOW_MAX || !(this.visibleAt(a.x, a.z) || this.visibleAt(b.x, b.z))) return;
     this.glows.push({ kind: 1, ax: a.x, ay: a.y, az: a.z, bx: b.x, by: b.y, bz: b.z, arc, size, color, life: 0, max: dur });
   }
 
   tracer(a, b, color) {
+    if (!(this.visibleAt(a.x, a.z) || this.visibleAt(b.x, b.z))) return;
     if (this.tracers.length >= TRACER_MAX) this.tracers.shift();
     this.tracers.push({ a: { ...a }, b: { ...b }, color, life: 0, max: 0.08 });
   }
 
   /** 体素碎片爆炸:n 块,colors 随机取色,power 控制初速。 */
   explode(x, y, z, n, colors, power = 3, spread = 0.3) {
+    if (!this.visibleAt(x, z)) return;
     for (let i = 0; i < n; i++) {
       if (this.debris.length >= DEBRIS_MAX) this.debris.shift();
       const a = Math.random() * Math.PI * 2;
