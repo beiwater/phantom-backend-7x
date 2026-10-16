@@ -18,6 +18,10 @@
 
 命令类型:`build` `roads` `walls` `demolish` `removeRoad` `upgrade` `repair` `buyChunk` `research` `policy` `deliver` `togglePause` `setSell`(经济)与 `move` `attack` `stop` `rally` `train` `cancelTrain`(军事,由 `rts.applyCommand` 处理)。
 
+## 立即可试:本机双开合作
+
+同一浏览器打开两个标签页:`index.html?new=1&coop=p1` 与 `index.html?new=1&coop=p2`(可加 `&peers=p1,p2,p3` 支持更多人)。两端通过 `BroadcastChannel` 交换命令包,任一方暂停或掉帧时其余各方会显示「等待队友」并停步;执行失败的延迟命令会以 `command:rejected` 事件提示发送者本人。
+
 ## 接入联机还需要做的事
 
 1. **网络通道适配**:`LockstepTransport` 只依赖 `{ post, onMessage }`,接 WebSocket 中继或 WebRTC DataChannel 即可;大厅分配 `players` 顺序与各端 `localId`。

@@ -8,7 +8,8 @@ node --test game3d/tests/*.test.mjs   # 经济/地图/命令/回放无头测试
 node game3d/tests/dom.e2e.mjs         # DOM 回归(需 playwright-core)
 ```
 
-- `?new=1` 强制新局(忽略本地存档),`?seed=N` 换地图种子。
+- `?new=1` 强制新局(忽略本地存档),`?seed=N` 换地图种子,`?diff=easy|normal|hard` 难度。
+- **本机合作**:同一浏览器开两个标签页 `?new=1&coop=p1` 与 `?new=1&coop=p2`,两人锁步共同指挥同一文明(共享经济与部队)。
 - `gallery.html` 展示全部体素模型(28 种建筑 × 各等级、道路/城墙拼接、单位、道具)。
 
 ## 玩法
@@ -44,7 +45,7 @@ node game3d/tests/dom.e2e.mjs         # DOM 回归(需 playwright-core)
 
 ## 多人预留
 
-命令总线 + 20 Hz 固定步长 + 种子随机数 + 状态校验和,支持录像回放验证确定性。详见 [docs/multiplayer.md](docs/multiplayer.md)。
+命令总线 + 20 Hz 固定步长 + 种子随机数 + 状态校验和;已实现锁步传输(合作模式,本机多标签页可玩)与录像回放。接入网络只需提供 `{ post, onMessage }` 通道。详见 [docs/multiplayer.md](docs/multiplayer.md)。
 
 ## 28 种建筑
 
