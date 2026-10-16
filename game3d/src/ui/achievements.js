@@ -15,13 +15,17 @@ export class Achievements {
     this.t -= dt;
     if (this.t > 0 || this.game.replay) return;
     this.t = 2;
+    let changed = false;
     for (const a of ACHIEVEMENTS) {
       if (this.unlocked.has(a.id) || !a.test(this.game)) continue;
       this.unlocked.add(a.id);
+      changed = true;
       this.ui.toast(`🏆 成就解锁:${a.name} —— ${a.desc}`, 'good');
       this.ui.audio?.play('tech');
     }
-    try { localStorage.setItem(KEY, JSON.stringify([...this.unlocked])); } catch { /* 存储不可用 */ }
+    if (changed) {
+      try { localStorage.setItem(KEY, JSON.stringify([...this.unlocked])); } catch { /* 存储不可用 */ }
+    }
   }
 
   html() {
