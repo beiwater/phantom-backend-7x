@@ -1,6 +1,6 @@
 // 敌军 AI:开局要塞布置 + 驻军 + 定时进攻波次。波次强度随波数与玩家时代增长,由存活的敌方兵营/战车工厂出兵。
 // 被摧毁的兵营/工厂/防御塔会在 REBUILD_DELAY 后、附近无我方部队时重建;敌军指挥中心随玩家时代升级。
-import { ENEMY_HQ } from '../world/map.js';
+import { ENEMY_HQ, PLAYER_HQ } from '../world/map.js';
 import { nearestWalkable, ringCells } from './path.js';
 import { orderAMove } from './units.js';
 
@@ -98,6 +98,23 @@ export class EnemyAI {
       }
     }
     this.spawnGarrison(GARRISON);
+    this.guardRuins();
+  }
+
+  /** 部分遗迹有敌军哨兵驻守(偶数序号遗迹 2 名民兵,站岗不出击),探索需要一定兵力。 */
+  guardRuins() {
+    const g = this.game;
+    for (const r of g.ruins?.list ?? []) {
+      // 离玩家指挥中心太近的遗迹不设哨(否则会常驻「敌军压境」民心惩罚)
+      if (r.id % 2 !== 0 || Math.abs(r.x - PLAYER_HQ.x) + Math.abs(r.z - PLAYER_HQ.z) < 22) continue;
+      for (const [dx, dz] of [[-1, 0], [1, 1]]) {
+        const c = nearestWalkable(g.map, r.x + dx + 0.5, r.z + dz + 0.5, 2, () => true);
+        if (!c) continue;
+        const u = this.rts.spawnUnit('militia', ENEMY, c.x + 0.5, c.z + 0.5, this.diff.enemyHp);
+        u.guard = true;
+        u.home = { x: c.x + 0.5, z: c.z + 0.5 };
+      }
+    }
   }
 
   spawnGarrison(types) {

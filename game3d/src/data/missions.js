@@ -73,7 +73,7 @@ export const MISSIONS = [
   },
   {
     title: '寻宝', goal: '派部队探索 1 处古代遗迹',
-    hint: '地图上闪烁金光的石柱废墟就是遗迹,让任意单位走到旁边即可获得随机奖励。',
+    hint: '地图上闪烁金光的石柱废墟就是遗迹,让任意单位走到旁边即可获得随机奖励。较远的遗迹有敌军哨兵把守,带够兵力。',
     progress: (g) => ratio(g.counters.ruins ?? 0, 1),
     reward: { money: 150 },
   },
