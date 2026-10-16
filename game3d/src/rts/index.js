@@ -257,7 +257,7 @@ class RTS {
     for (const u of this.units) {
       if (u.dead || u.hp >= u.maxHp || g.time - (u.hitT ?? -99) < 5) continue;
       const near = posts.some((b) => b.team === u.team && Math.abs(u.x - (b.x + b.w / 2)) < 5 + b.w / 2 && Math.abs(u.z - (b.z + b.d / 2)) < 5 + b.d / 2);
-      if (near) u.hp = Math.min(u.maxHp, u.hp + u.maxHp * 0.03);
+      if (near) u.hp = Math.min(u.maxHp, u.hp + u.maxHp * (g.techs.has('medicine') ? 0.06 : 0.03));
     }
   }
 

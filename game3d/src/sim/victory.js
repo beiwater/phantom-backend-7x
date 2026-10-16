@@ -10,7 +10,7 @@ export const VICTORIES = {
     },
   },
   science: {
-    name: '科技胜利', icon: '🚀', desc: '研究全部 16 项科技,并拥有一座 3 级以上研究所。',
+    name: '科技胜利', icon: '🚀', desc: `研究全部 ${TECH_IDS.length} 项科技,并拥有一座 3 级以上研究所。`,
     progress(g) {
       const techs = g.techs.size / TECH_IDS.length;
       const lab = [...g.buildings.values()].some((b) => b.team === g.localPlayer && b.type === 'lab' && b.level >= 3 && b.state === 'active');

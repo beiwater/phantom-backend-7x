@@ -273,7 +273,7 @@ export class Game {
     if (m.ownerAt(x, z) !== OWNER.player) return { ok: false, reason: '需先购买该地块' };
     if (m.road[i]) return { ok: false, reason: '已有道路' };
     if (m.building[i]) return { ok: false, reason: '已被占用' };
-    if (m.terrain[i] === T.water && !this.techs.has('industry')) return { ok: false, reason: '架桥需要科技「工业革命」' };
+    if (m.terrain[i] === T.water && !this.techs.has('engineering')) return { ok: false, reason: '架桥需要科技「工程学」' };
     if (!this.canAfford(this.roadCost(x, z))) return { ok: false, reason: '资源不足' };
     return { ok: true };
   }

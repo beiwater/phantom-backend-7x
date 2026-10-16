@@ -468,7 +468,7 @@ test('伟人:点数达阈值诞生,使用一次即消耗(重复使用被拒),科
   assert.ok(g.great.threshold('scientist') > 100);
 });
 
-test('桥梁:工业革命前不可架桥;架桥收钢材且使水面可通行,拆除按桥梁价退一半', () => {
+test('桥梁:工程学前不可架桥;架桥收钢材且使水面可通行,拆除按桥梁价退一半', () => {
   const { g } = fresh();
   let w = null;
   for (let i = 0; i < g.map.terrain.length && !w; i++) {
@@ -477,9 +477,9 @@ test('桥梁:工业革命前不可架桥;架桥收钢材且使水面可通行,�
     if (g.map.terrain[i] === T.water && g.map.ownerAt(x, z) === 1) w = { x, z };
   }
   g.res.steel = 10;
-  assert.match(g.canRoad(w.x, w.z).reason, /工业革命/);
+  assert.match(g.canRoad(w.x, w.z).reason, /工程学/);
   assert.equal(g.map.walkable(w.x, w.z), false);
-  g.techs.add('industry');
+  g.techs.add('engineering');
   const m0 = g.res.money;
   assert.ok(g.dispatch({ type: 'roads', cells: [[w.x, w.z]] }).ok);
   assert.equal(g.res.money, m0 - 30);
