@@ -91,9 +91,9 @@ export class Economy {
       storage += storageOf(b.type, lvl);
       housing += housingOf(b.type, lvl) * (b.fed ? 1 : 0.5);
       b.synergy = synergyAt(g, b.type, b.x, b.z, b.w, b.d, b.team, b.uid);
+      if (b.module === 'storage') storage += 150;
       if (b.state !== 'active' || b.paused) continue;
       if (def.recipe || def.market || def.trains) need += Math.ceil(workersOf(def, lvl) * (b.module === 'eco' ? 0.7 : 1));
-      if (b.module === 'storage') storage += 150;
       const p = powerOf(def, lvl);
       if (p > 0 && b.working) supply += p;
       if (p < 0) demand -= p;

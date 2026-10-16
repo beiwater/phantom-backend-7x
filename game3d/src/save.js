@@ -25,7 +25,7 @@ export function hasSave() {
 /** 读取存档的种子与难度,让 Game 以相同参数构造后再恢复。 */
 /** 导出当前存档为 JSON 字符串(先保存一次保证最新)。 */
 export function exportSave(ctx) {
-  saveGame(ctx);
+  if (!saveGame(ctx)) return null;
   try { return localStorage.getItem(KEY); } catch { return null; }
 }
 
@@ -33,7 +33,11 @@ export function exportSave(ctx) {
 export function importSave(text) {
   let d;
   try { d = JSON.parse(text); } catch { return { ok: false, reason: '文件不是有效的 JSON' }; }
-  if (!d || d.v !== 1 || !d.map || !Array.isArray(d.buildings)) return { ok: false, reason: '不是体素纪元的存档' };
+  const N = 64 * 64;
+  const arr = (a, n) => Array.isArray(a) && a.length === n && a.every((v) => Number.isInteger(v) && v >= 0 && v < 256);
+  const valid = d && d.v === 1 && d.map && Number.isFinite(d.map.seed) && arr(d.map.terrain, N) && arr(d.map.road, N) && arr(d.map.chunkOwner, 64)
+    && Array.isArray(d.buildings) && d.res && typeof d.res === 'object' && Number.isFinite(d.time) && !d.over;
+  if (!valid) return { ok: false, reason: '不是有效的体素纪元存档' };
   try { localStorage.setItem(KEY, JSON.stringify(d)); } catch { return { ok: false, reason: '浏览器存储不可用' }; }
   return { ok: true };
 }
@@ -51,7 +55,9 @@ export function clearSave() {
   try { localStorage.removeItem(KEY); } catch { /* 存储不可用 */ }
 }
 
+/** 已结束的对局与回放中的状态都不写入存档(否则会覆盖真实进度或产生无法结束的对局)。 */
 export function saveGame({ game, rts, economy }) {
+  if (game.over || game.replay) return false;
   const data = {
     v: 1,
     difficulty: game.difficultyId,
@@ -89,10 +95,21 @@ export function saveGame({ game, rts, economy }) {
 }
 
 /** 恢复状态;不触发 building:add 事件,调用方负责 view.rebuildAll()。失败返回 false 并开新局。 */
-export function loadGame({ game, rts, economy, onFog }) {
+export function loadGame(ctx) {
+  try {
+    return restore(ctx);
+  } catch (e) {
+    // 损坏的存档不能让游戏永久无法启动:清除并开新局
+    console.warn('存档损坏,已忽略', e);
+    clearSave();
+    return false;
+  }
+}
+
+function restore({ game, rts, economy, onFog }) {
   let data;
   try { data = JSON.parse(localStorage.getItem(KEY) ?? 'null'); } catch { return false; }
-  if (!data || data.v !== 1 || data.map?.seed !== game.map.seed) return false;
+  if (!data || data.v !== 1 || data.map?.seed !== game.map.seed || data.over) return false;
   game.time = data.time;
   game.tick = data.tick ?? 0;
   if (data.rng !== undefined) game.random.s = data.rng;
@@ -126,7 +143,10 @@ export function loadGame({ game, rts, economy, onFog }) {
   economy.market.load(data.econ?.market);
   economy.stats.load(data.econ?.stats);
   economy.society.load(data.econ?.society);
+  // rts.load 创建单位时会消耗随机数;恢复后重置随机状态,使读档后的随机序列与原局一致
+  const rngState = game.random.s;
   rts.load(data.rts ?? {});
+  game.random.s = rngState;
   // 读档会对单位坐标等取整,之后的模拟与「不间断」的原局不再逐位一致,回放校验需知晓
   game.reloaded = true;
   return true;

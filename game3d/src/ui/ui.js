@@ -152,6 +152,8 @@ export class UI {
 
   // ---------- 弹窗 ----------
   openModal(kind, html) {
+    // 结算画面不可被其他弹窗替换(否则可绕过结算继续存档)
+    if (this.modalKind === 'gameover' && kind !== 'gameover' && kind !== 'setup') return;
     this.modalKind = kind;
     this.modal.innerHTML = html;
     this.modal.hidden = false;
@@ -271,7 +273,11 @@ export class UI {
     if (e.target === this.modal) { this.closeModal(); return; }
     if (e.target.closest('[data-close]')) { this.closeModal(); return; }
     const m = e.target.closest('[data-menu]')?.dataset.menu;
-    if (m === 'save') { saveGame(this); this.toast('💾 已保存', 'good'); this.closeModal(); }
+    if (m === 'save') {
+      const ok = saveGame(this);
+      this.toast(ok ? '💾 已保存' : '当前状态不可保存(回放中或对局已结束)', ok ? 'good' : 'bad');
+      this.closeModal();
+    }
     if (m === 'help') this.openHelp();
     if (m === 'export') {
       const text = exportSave(this);
@@ -298,6 +304,7 @@ export class UI {
     }
     if (m === 'replay') {
       if (this.game.replay) { this.toast('已在回放中', 'bad'); return; }
+      if (this.game.over) { this.toast('对局已结束', 'bad'); return; }
       saveGame(this);
       if (storeReplay(this.game)) location.href = `${location.pathname}?replay=1`;
       else this.toast('录像保存失败(浏览器存储不可用)', 'bad');

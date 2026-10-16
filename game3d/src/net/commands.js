@@ -17,7 +17,7 @@ function owned(game, cmd) {
 const HANDLERS = {
   /** autoRoad:同时铺设通往路网的最短道路;建筑 + 道路总成本全量预检,要么全成要么全不成。 */
   build(game, cmd) {
-    const def = BUILDINGS[cmd.building];
+    const def = Object.hasOwn(BUILDINGS, cmd.building) ? BUILDINGS[cmd.building] : null;
     if (!def) return { ok: false, reason: '未知建筑' };
     const roads = cmd.autoRoad && (def.recipe || def.market || def.trains || def.storage)
       ? planRoad(game, { x: cmd.x, z: cmd.z, w: def.size[0], d: def.size[1] }) ?? []
@@ -77,7 +77,7 @@ const HANDLERS = {
     if (!b || !(def.recipe || def.market)) return { ok: false, reason: '该建筑不能安装模块' };
     if (b.state !== 'active') return { ok: false, reason: '建筑忙碌中' };
     if (b.level < MODULE_MIN_LEVEL) return { ok: false, reason: `需 ${MODULE_MIN_LEVEL} 级` };
-    const m = MODULES[cmd.module];
+    const m = Object.hasOwn(MODULES, cmd.module) ? MODULES[cmd.module] : null;
     if (!m) return { ok: false, reason: '未知模块' };
     if (b.module === cmd.module) return { ok: false, reason: '已安装该模块' };
     if (!game.spend(m.cost)) return { ok: false, reason: '资源不足' };
@@ -100,7 +100,7 @@ const HANDLERS = {
   setSell(game, cmd) {
     const b = owned(game, cmd);
     if (!b || !BUILDINGS[b.type].market) return { ok: false, reason: '不是你的集市' };
-    if (!RESOURCES[cmd.res]) return { ok: false, reason: '未知货物' };
+    if (!Object.hasOwn(RESOURCES, cmd.res)) return { ok: false, reason: '未知货物' };
     if (cmd.on) b.sell.add(cmd.res);
     else b.sell.delete(cmd.res);
     return { ok: true };
@@ -109,13 +109,13 @@ const HANDLERS = {
 
 export function applyCommand(game, cmd) {
   if (!cmd || typeof cmd.type !== 'string' || typeof cmd.p !== 'string') return { ok: false, reason: '无效命令' };
+  // 经济目前只有本地玩家一份(game.res);训练/取消也动用经济,所以对所有命令统一校验玩家
+  if (!game.isPlayer(cmd.p)) return { ok: false, reason: '该玩家无权下达命令' };
   if (RTS_TYPES.has(cmd.type)) {
     return game.unitSystem?.applyCommand?.(cmd) ?? { ok: false, reason: '单位系统未就绪' };
   }
-  const h = HANDLERS[cmd.type];
+  const h = Object.hasOwn(HANDLERS, cmd.type) ? HANDLERS[cmd.type] : null;
   if (!h) return { ok: false, reason: `未知命令 ${cmd.type}` };
-  // 经济目前只有本地玩家一份(game.res);非本地玩家的经济命令在接入多人经济前一律拒绝
-  if (cmd.p !== game.localPlayer) return { ok: false, reason: '该玩家没有经济权限' };
   return h(game, cmd);
 }
 

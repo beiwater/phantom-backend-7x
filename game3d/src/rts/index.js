@@ -106,14 +106,14 @@ class RTS {
   queueUnit(b, unitId, p = this.local) {
     const g = this.game;
     if (!b || !g.buildings.has(b.uid) || b.team !== p) return { ok: false, reason: '不是你的建筑' };
-    const ud = UNITS[unitId];
+    const ud = Object.hasOwn(UNITS, unitId) ? UNITS[unitId] : null;
     if (!ud || !BUILDINGS[b.type].trains?.includes(unitId)) return { ok: false, reason: '该建筑不能训练此单位' };
     if (b.state !== 'active') return { ok: false, reason: b.state === 'construct' ? '建筑尚未建成' : '建筑升级中' };
     if (ud.tech && !g.techs.has(ud.tech)) return { ok: false, reason: `需科技:${TECHS[ud.tech].name}` };
     if (b.trainQueue.length >= QUEUE_MAX) return { ok: false, reason: `训练队列已满(最多 ${QUEUE_MAX} 个)` };
     if (this.armySize(p) >= UNIT_CAP) return { ok: false, reason: `部队数量已达上限 ${UNIT_CAP}` };
     // 政策「全民皆兵」等折扣;实付倍率随队列项保存,退款按实付计算,防止改政策后退款套利
-    const mult = Math.max(0.3, 1 + g.effect('unitCost'));
+    const mult = g.unitCostMult();
     if (!g.spend(ud.cost, mult)) return { ok: false, reason: '资源不足' };
     b.trainQueue.push(unitId);
     b.trainPaid = b.trainPaid ?? [];

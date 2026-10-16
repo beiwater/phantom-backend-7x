@@ -79,6 +79,9 @@ game.events.on('building:remove', () => { terrainDirty.props = true; });
 game.events.on('road', () => { terrainDirty.props = true; });
 game.events.on('chunk', () => { terrainDirty.tiles = true; terrainDirty.borders = true; });
 
+// 去掉一次性的 new/seed/diff 参数,避免刷新页面时又开新局覆盖存档
+if (params.has('new')) history.replaceState(null, '', location.pathname);
+
 window.addEventListener('resize', () => {
   stage.renderer.setSize(viewport.clientWidth, viewport.clientHeight);
 });

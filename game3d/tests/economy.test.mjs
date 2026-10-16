@@ -407,3 +407,27 @@ test('自动铺路:远离路网的建筑一并铺出最短道路并连通;资源
   run(e, 1);
   assert.ok(r.building.connected, '自动铺路后应连通');
 });
+
+test('评审修复:不能冒充他人下令;未知 id 不崩溃;免费道路拆除不退款;拆兵营退还训练预付', () => {
+  const { g, e } = fresh();
+  assert.equal(g.transport.send({ type: 'train', p: 'enemy', uid: 1, unit: 'militia' }).ok, false);
+  const forged = g.dispatch({ type: 'demolish', p: 'enemy', uid: g.playerHQ().uid });
+  assert.equal(forged.ok, false, '冒充字段被覆盖为本地玩家,HQ 仍不可拆');
+  for (const cmd of [{ type: 'research', tech: 'nope' }, { type: 'build', building: 'constructor', x: 1, z: 1 }, { type: 'policy', slot: 0, id: '__proto__' }, { type: 'constructor' }, { type: 'setModule', uid: 1, module: 'toString' }]) {
+    assert.equal(g.dispatch(cmd).ok, false, JSON.stringify(cmd));
+  }
+  run(e, 0.2);
+  const hq = g.playerHQ();
+  const m0 = g.res.money;
+  assert.ok(g.removeRoad(hq.x - 2, hq.z + 3).ok);
+  assert.equal(g.res.money, m0, '起始免费道路拆除不退款');
+  g.res.money = 9999; g.res.planks = 99; g.res.stone = 99; g.res.food = 99;
+  g.techs.add('drill');
+  let bar = null;
+  for (let z = 40; z < 56 && !bar; z++) for (let x = 8; x < 24 && !bar; x++) { const p = g.placeBuilding('barracks', x, z, 'player', { instant: true }); if (p.ok) bar = p.building; }
+  bar.trainQueue = ['militia', 'militia'];
+  bar.trainPaid = [1, 1];
+  const before = g.res.money;
+  assert.ok(g.demolish(bar.uid).ok);
+  assert.equal(g.res.money, before + 40 + 60, '退还 2 个民兵 + 50% 建筑金币');
+});

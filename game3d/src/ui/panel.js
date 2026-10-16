@@ -12,9 +12,12 @@ import { MODULES, MODULE_MIN_LEVEL } from '../data/modules.js';
 
 const UNIT_ICONS = { militia: '🗡️', scout: '🔭', rifleman: '🔫', tank: '🛡️', artillery: '💣', helicopter: '🚁' };
 
-function chips(cost, game) {
+function chips(cost, game, mult = 1) {
   return Object.entries(cost).filter(([, v]) => v > 0)
-    .map(([k, v]) => `<span class="chip${game && (game.res[k] ?? 0) < v ? ' lack' : ''}" title="${resName(k)}">${resIcon(k)} ${v}</span>`).join(' ');
+    .map(([k, raw]) => {
+      const v = Math.ceil(raw * mult);
+      return `<span class="chip${game && (game.res[k] ?? 0) < v ? ' lack' : ''}" title="${resName(k)}">${resIcon(k)} ${v}</span>`;
+    }).join(' ');
 }
 
 export class Panel {
@@ -84,7 +87,7 @@ export class Panel {
     const def = BUILDINGS[b.type];
     const parts = [b.uid, b.level, b.state, b.trainQueue.join(','), g.era, [...g.techs].length, b.paused, Math.ceil(b.hp / 20), b.module, ...Object.values(MODULES).map((m) => g.canAfford(m.cost))];
     if (b.level < def.maxLevel) parts.push(g.canAfford(upgradeCost(b.type, b.level + 1)));
-    for (const u of def.trains ?? []) parts.push(g.canAfford(UNITS[u].cost));
+    for (const u of def.trains ?? []) parts.push(g.canAfford(UNITS[u].cost, g.unitCostMult()));
     if (def.market) parts.push(RESOURCE_IDS.filter((k) => g.res[k] > 0 || b.sell.has(k)).join(), RESOURCE_IDS.map((k) => g.market.price(k).toFixed(1)).join());
     parts.push(b.synergy?.bonus, b.pollution);
     return parts.join('|');
@@ -158,9 +161,9 @@ export class Panel {
         const ud = UNITS[u];
         const unlocked = g.techs.has(ud.tech);
         h.push(`<div class="unitcard"><div class="top"><b>${UNIT_ICONS[u]} ${ud.name}</b>
-          <button class="btn primary" data-act="train" data-unit="${u}" ${unlocked && g.canAfford(ud.cost) ? '' : 'disabled'}>训练</button></div>
+          <button class="btn primary" data-act="train" data-unit="${u}" ${unlocked && g.canAfford(ud.cost, g.unitCostMult()) ? '' : 'disabled'}>训练</button></div>
           <div class="desc" style="margin:3px 0">${unlocked ? `${ud.desc} 生命 ${ud.hp} · 伤害 ${ud.damage} · 射程 ${ud.range}` : `🔒 需要科技「${TECHS[ud.tech].name}」`}</div>
-          <div>${chips(ud.cost, g)} <span class="chip">⏱ ${ud.time}s</span></div></div>`);
+          <div>${chips(ud.cost, g, g.unitCostMult())} <span class="chip">⏱ ${ud.time}s</span></div></div>`);
       }
       h.push('</div>');
       if (b.trainQueue.length) {

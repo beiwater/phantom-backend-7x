@@ -4,6 +4,7 @@ import { TECHS } from '../data/tech.js';
 import { DIFFICULTIES } from '../data/difficulty.js';
 import { POLICIES, POLICY_SWITCH_COST, POLICY_COOLDOWN, policySlots } from '../data/policies.js';
 import { RESOURCE_IDS } from '../data/resources.js';
+import { UNITS } from '../data/units.js';
 import { Emitter, Rng } from '../engine/util.js';
 import { LocalTransport } from '../net/transport.js';
 import { Ruins } from './ruins.js';
@@ -48,8 +49,14 @@ export class Game {
   }
 
   /** 玩家意图的唯一入口(UI/输入/AI 都经此),见 net/commands.js。 */
+  /** 玩家身份最后写入,调用方无法冒充其他玩家(联机时由传输层附上发送者身份)。 */
   dispatch(cmd) {
-    return this.transport.send({ p: this.localPlayer, ...cmd });
+    return this.transport.send({ ...cmd, p: this.localPlayer });
+  }
+
+  /** 可下达命令的玩家;AI('enemy')不经命令总线。接入多人后改为 players 列表。 */
+  isPlayer(p) {
+    return p === this.localPlayer;
   }
 
   /** 状态校验和:锁步联机时各端定期比对以检测不同步;回放测试也用它断言一致。 */
@@ -191,6 +198,9 @@ export class Game {
     const b = this.buildings.get(uid);
     if (!b || b.team !== 'player') return { ok: false, reason: '不是你的建筑' };
     if (b.type === 'hq') return { ok: false, reason: '不能拆除指挥中心' };
+    // 训练队列已预付,拆除时按实付倍率退还(与取消训练一致)
+    b.trainQueue.forEach((u, i) => this.refund(UNITS[u].cost, b.trainPaid?.[i] ?? 1));
+    b.trainQueue = [];
     this.removeBuilding(b, { refund: true });
     return { ok: true };
   }
@@ -259,7 +269,8 @@ export class Game {
     if (!free && !this.spend(Game.ROAD_COST)) return { ok: false, reason: '资源不足' };
     const i = this.map.idx(x, z);
     if (this.map.terrain[i] === T.forest) this.map.terrain[i] = T.grass;
-    this.map.road[i] = 1;
+    // 2 = 免费起始道路,拆除不退款(避免无中生有)
+    this.map.road[i] = free ? 2 : 1;
     this.map.version++;
     this.events.emit('road', { x, z });
     return { ok: true };
@@ -268,9 +279,10 @@ export class Game {
   removeRoad(x, z) {
     const m = this.map;
     if (!m.inside(x, z) || !m.road[m.idx(x, z)] || m.ownerAt(x, z) !== OWNER.player) return { ok: false };
+    const paid = m.road[m.idx(x, z)] === 1;
     m.road[m.idx(x, z)] = 0;
     m.version++;
-    this.refund(Game.ROAD_COST, 0.5);
+    if (paid) this.refund(Game.ROAD_COST, 0.5);
     this.events.emit('road', { x, z });
     return { ok: true };
   }
@@ -287,6 +299,7 @@ export class Game {
 
   // ---------- 科研 ----------
   canResearch(id) {
+    if (!Object.hasOwn(TECHS, id)) return { ok: false, reason: '未知科技' };
     const t = TECHS[id];
     if (this.techs.has(id)) return { ok: false, reason: '已研究' };
     if (!t.req.every((r) => this.techs.has(r))) return { ok: false, reason: '前置科技未完成' };
@@ -326,11 +339,16 @@ export class Game {
     return v;
   }
 
+  /** 训练成本倍率(政策「全民皆兵」等);显示与扣费共用这一处。 */
+  unitCostMult() {
+    return Math.max(0.3, 1 + this.effect('unitCost'));
+  }
+
   /** 设置政策槽:空槽首次采纳免费;替换/撤销需金币且有冷却。 */
   setPolicy(slot, id) {
     if (!Number.isInteger(slot) || slot < 0 || slot >= policySlots(this.era)) return { ok: false, reason: '政策槽未解锁' };
     if (id !== null) {
-      const p = POLICIES[id];
+      const p = Object.hasOwn(POLICIES, id) ? POLICIES[id] : null;
       if (!p) return { ok: false, reason: '未知政策' };
       if (p.era > this.era) return { ok: false, reason: '时代不足' };
       if (this.policies.includes(id)) return { ok: false, reason: '已采纳该政策' };
