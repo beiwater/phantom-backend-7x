@@ -22,12 +22,13 @@ import { VICTORIES } from '../sim/victory.js';
 import { UNITS } from '../data/units.js';
 import { RANK_NAMES } from '../rts/combat.js';
 import { GREAT } from '../sim/greatpeople.js';
+import { OVERLAY_NAMES } from '../world/overlay.js';
 
 const AUTOSAVE_SEC = 30;
 
 export class UI {
-  constructor({ game, economy, rig, rts, view, terrain, quality, dayNight, audio }) {
-    Object.assign(this, { game, economy, rig, rts, view, terrain, quality, dayNight, audio });
+  constructor({ game, economy, rig, rts, view, terrain, quality, dayNight, audio, overlay }) {
+    Object.assign(this, { game, economy, rig, rts, view, terrain, quality, dayNight, audio, overlay });
     this.selection = null;
     this.toasts = document.getElementById('toasts');
     this.modal = document.getElementById('modal');
@@ -226,7 +227,8 @@ export class UI {
         <kbd>左键</kbd><span>放置 / 选择 · 拖拽框选部队 · Shift 连续放置</span>
         <kbd>右键</kbd><span>取消建造 · 部队移动/攻击 · 兵营集结点</span>
         <kbd>A</kbd><span>攻击移动 · <kbd>H</kbd> 停止 · <kbd>F</kbd> 全选部队 · <kbd>Ctrl+数字</kbd> 编队</span>
-        <kbd>O</kbd><span>经济统计 · <kbd>J</kbd> 政务(外交/政策/合同) · <kbd>B</kbd> 百科 · <kbd>N</kbd> 消息 · <kbd>Home</kbd> 回到总部</span>
+        <kbd>O</kbd><span>经济统计 · <kbd>J</kbd> 政务(伟人/外交/政策/合同) · <kbd>B</kbd> 百科 · <kbd>N</kbd> 消息 · <kbd>Home</kbd> 回到总部</span>
+        <kbd>U</kbd><span>规划视图(污染/物流) · <kbd>C</kbd> 复制选中建筑类型</span>
         <kbd>T</kbd><span>科技树 · <kbd>P</kbd> 暂停 · <kbd>L</kbd> 标签 · <kbd>M</kbd> 静音 · <kbd>Esc</kbd> 取消/关闭</span>
       </div>
       <p>敌军第一波进攻约在 ${fmtTime(300)} 后到来。进度每 ${AUTOSAVE_SEC} 秒自动保存到本机浏览器。</p>
@@ -351,6 +353,14 @@ export class UI {
     if (k === 'KeyJ') this.openGov();
     if (k === 'KeyB') this.openCodex();
     if (k === 'KeyN') this.openLog();
+    if (k === 'KeyU' && this.overlay) {
+      const mode = this.overlay.cycle();
+      this.toast(mode ? `视图:${OVERLAY_NAMES[mode]}(U 切换)` : '视图:关闭');
+    }
+    if (k === 'KeyC' && this.selection?.building) {
+      const t = this.selection.building.type;
+      if (this.selection.building.team === this.game.localPlayer && t !== 'hq') input.setMode({ kind: 'build', type: t });
+    }
     if (k === 'Home') {
       const hq = this.game.playerHQ();
       if (hq) this.rig.lookAt(hq.x + 1.5, hq.z + 1.5);
