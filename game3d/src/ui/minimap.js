@@ -22,7 +22,22 @@ export class Minimap {
       const r = this.canvas.getBoundingClientRect();
       rig.lookAt(((e.clientX - r.left) / r.width) * MAP_W, ((e.clientY - r.top) / r.height) * MAP_H);
     };
-    this.canvas.addEventListener('pointerdown', (e) => { this.drag = true; jump(e); });
+    this.canvas.addEventListener('pointerdown', (e) => {
+      if (e.button === 2) return;
+      this.drag = true;
+      jump(e);
+    });
+    // 右键小地图:选中部队移动(攻击移动)到该处
+    this.canvas.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      const ids = (game.unitSystem?.selected ?? []).map((u) => u.id);
+      if (!ids.length) return;
+      const r = this.canvas.getBoundingClientRect();
+      const x = ((e.clientX - r.left) / r.width) * MAP_W;
+      const z = ((e.clientY - r.top) / r.height) * MAP_H;
+      game.dispatch({ type: 'move', ids, x, z, attackMove: true });
+      this.ping({ x, z }, '#6fd36f');
+    });
     window.addEventListener('pointermove', (e) => { if (this.drag) jump(e); });
     window.addEventListener('pointerup', () => { this.drag = false; });
   }
