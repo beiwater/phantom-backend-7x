@@ -13,6 +13,7 @@ import { StatsPanel } from './stats.js';
 import { GovPanel } from './gov.js';
 import { Alerts } from './alerts.js';
 import { Codex } from './codex.js';
+import { Achievements } from './achievements.js';
 import { saveGame, clearSave, storeReplay, exportSave, importSave } from '../save.js';
 import { fmtTime } from '../engine/util.js';
 import { DIFFICULTIES } from '../data/difficulty.js';
@@ -41,6 +42,7 @@ export class UI {
     this.gov = new GovPanel(game, this);
     this.alerts = new Alerts(game, this);
     this.codex = new Codex(game);
+    this.achievements = new Achievements(game, this);
     this.saveT = AUTOSAVE_SEC;
     this.modalT = 0;
     this.hitT = 0;
@@ -232,6 +234,7 @@ export class UI {
         <div class="btns"><button class="btn" data-menu="export">⬇️ 导出存档</button><button class="btn" data-menu="import">⬆️ 导入存档</button></div>
         <button class="btn" data-menu="replay">🎬 观看本局回放(验证确定性)</button>
         <button class="btn" data-menu="help">❓ 操作说明</button>
+        <button class="btn" data-menu="ach">🏆 成就</button>
         <button class="btn" data-menu="codex">📖 百科(建筑与产业链)B</button>
         <button class="btn" data-menu="labels">🏷️ 开关建筑标签 (L)</button>
         <button class="btn" data-menu="fog">🌫️ 开关战争迷雾</button>
@@ -299,6 +302,7 @@ export class UI {
       else this.toast('录像保存失败(浏览器存储不可用)', 'bad');
     }
     if (m === 'codex') this.openCodex();
+    if (m === 'ach') this.openModal('ach', this.achievements.html());
     if (m === 'labels') { this.labels.enabled = !this.labels.enabled; this.closeModal(); }
     if (m === 'mute') { this.toast(this.audio.toggleMute() ? '🔇 已静音' : '🔊 音效已开启'); this.closeModal(); }
     if (m === 'daynight' && this.dayNight) { this.dayNight.enabled = !this.dayNight.enabled; this.closeModal(); }
@@ -353,6 +357,7 @@ export class UI {
     this.minimap.update(dt);
     this.missions.update(dt);
     this.alerts.update(dt);
+    this.achievements.update(dt);
     this.updateReplay();
     this.hitT -= dt;
     this.modalT -= dt;

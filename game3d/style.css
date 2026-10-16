@@ -249,3 +249,8 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .logrow.bad { color: #ffb4aa; }
 .logrow.good { color: #b8f0b8; }
 .logrow.big { color: var(--accent); font-weight: 700; }
+.ach-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
+.ach { background: rgba(255,255,255,0.05); border-radius: 8px; padding: 6px 10px; display: flex; flex-direction: column; font-size: 12px; opacity: 0.55; }
+.ach.ok { opacity: 1; border: 1px solid rgba(255, 211, 77, 0.5); }
+.ach span { color: var(--muted); }
+@media (max-width: 760px) { .ach-grid { grid-template-columns: 1fr; } }
