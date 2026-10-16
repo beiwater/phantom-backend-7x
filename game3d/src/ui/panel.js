@@ -7,6 +7,7 @@ import { TECHS } from '../data/tech.js';
 import { workersOf, powerOf } from '../sim/economy.js';
 import { fmtTime } from '../engine/util.js';
 import { BUILDING_ICONS } from './toolbar.js';
+import { SYNERGY } from '../sim/synergy.js';
 
 const UNIT_ICONS = { militia: '🗡️', rifleman: '🔫', tank: '🛡️', artillery: '💣', helicopter: '🚁' };
 
@@ -40,14 +41,14 @@ export class Panel {
     const act = t.dataset.act;
     let r = { ok: true };
     if (act === 'close') { this.ui.select(null); return; }
-    if (act === 'upgrade') r = g.upgrade(b.uid);
-    if (act === 'repair') r = g.repair(b.uid);
+    if (act === 'upgrade') r = g.dispatch({ type: 'upgrade', uid: b.uid });
+    if (act === 'repair') r = g.dispatch({ type: 'repair', uid: b.uid });
     if (act === 'demolish') {
-      r = g.demolish(b.uid);
+      r = g.dispatch({ type: 'demolish', uid: b.uid });
       if (r.ok) { this.ui.select(null); return; }
     }
-    if (act === 'train') r = g.unitSystem.queueUnit(b, t.dataset.unit);
-    if (act === 'cancel') r = g.unitSystem.cancelUnit(b, Number(t.dataset.i));
+    if (act === 'train') r = g.dispatch({ type: 'train', uid: b.uid, unit: t.dataset.unit });
+    if (act === 'cancel') r = g.dispatch({ type: 'cancelTrain', uid: b.uid, i: Number(t.dataset.i) });
     if (act === 'focus' && b) this.ui.rig.lookAt(b.x + b.w / 2, b.z + b.d / 2);
     if (!r.ok) this.ui.toast(r.reason, 'bad');
     this.sig = '';
@@ -58,8 +59,7 @@ export class Panel {
     const t = e.target;
     const b = this.sel?.building;
     if (!b || !t.dataset.sell) return;
-    if (t.checked) b.sell.add(t.dataset.sell);
-    else b.sell.delete(t.dataset.sell);
+    this.game.dispatch({ type: 'setSell', uid: b.uid, res: t.dataset.sell, on: t.checked });
   }
 
   update(force = false) {
@@ -82,7 +82,8 @@ export class Panel {
     const parts = [b.uid, b.level, b.state, b.trainQueue.join(','), g.era, [...g.techs].length];
     if (b.level < def.maxLevel) parts.push(g.canAfford(upgradeCost(b.type, b.level + 1)));
     for (const u of def.trains ?? []) parts.push(g.canAfford(UNITS[u].cost));
-    if (def.market) parts.push(RESOURCE_IDS.filter((k) => g.res[k] > 0 || b.sell.has(k)).join());
+    if (def.market) parts.push(RESOURCE_IDS.filter((k) => g.res[k] > 0 || b.sell.has(k)).join(), RESOURCE_IDS.map((k) => g.market.price(k).toFixed(1)).join());
+    parts.push(b.synergy?.bonus, b.pollution);
     return parts.join('|');
   }
 
@@ -117,11 +118,24 @@ export class Panel {
     if (def.upkeep) info.push(['🍞 口粮', `${def.upkeep.food * b.level}/${def.upkeep.time}s`]);
     if (def.turret) info.push(['🎯 射程/伤害', `${def.turret.range} / ${Math.round(def.turret.damage * (1 + 0.25 * (b.level - 1)))}`]);
     for (const [k, v] of info) h.push(`<div class="row"><span>${k}</span><b>${v}</b></div>`);
+    if (SYNERGY[b.type]) {
+      const syn = b.synergy ?? { bonus: 0, partners: [] };
+      const names = (list) => list.map((t) => BUILDINGS[t].name).join('、');
+      h.push(`<div class="row"><span>🔗 相邻协同</span><b style="color:${syn.bonus ? 'var(--good)' : 'var(--muted)'}">+${Math.round(syn.bonus * 100)}%</b></div>`);
+      h.push(`<div class="desc" style="margin:0 0 4px">紧贴:${names(SYNERGY[b.type])}(每种 +10%,最多 +30%)${syn.partners.length ? `<br>已连接:${names(syn.partners)}` : ''}</div>`);
+    }
+    if (b.type === 'house' && b.pollution) h.push(`<div class="status bad">🏭 附近有 ${b.pollution} 处污染源,降低民心</div>`);
 
     if (def.market) {
       const seen = RESOURCE_IDS.filter((k) => g.res[k] > 0 || b.sell.has(k));
       h.push(`<div class="row" style="margin-top:8px"><span>自动出售(每次 ${def.market.perCycle * b.level} 件 · 价格 ×${(0.8 + 0.1 * b.level).toFixed(1)})</span></div>`);
-      h.push(`<div class="sellgrid">${seen.map((k) => `<label title="单价 ${RESOURCES[k].price}"><input type="checkbox" data-sell="${k}" ${b.sell.has(k) ? 'checked' : ''}>${RESOURCES[k].icon}${RESOURCES[k].name}</label>`).join('') || '<span class="desc">仓库里还没有货物</span>'}</div>`);
+      const mk = g.market;
+      h.push(`<div class="sellgrid">${seen.map((k) => {
+        const m = mk.mult[k];
+        const arrow = mk.trend[k] > 0.05 ? '↑' : mk.trend[k] < -0.05 ? '↓' : '';
+        return `<label title="当前单价 ${mk.price(k).toFixed(1)}(基准 ${RESOURCES[k].price})"><input type="checkbox" data-sell="${k}" ${b.sell.has(k) ? 'checked' : ''}>${RESOURCES[k].icon}<span style="color:${m >= 1 ? 'var(--good)' : 'var(--bad)'}">${mk.price(k).toFixed(1)}${arrow}</span></label>`;
+      }).join('') || '<span class="desc">仓库里还没有货物</span>'}</div>`);
+      h.push('<div class="desc">大量抛售会压低价格,价格会随时间回升;留意商队与需求波动。</div>');
     }
 
     if (def.trains && b.state === 'active') {

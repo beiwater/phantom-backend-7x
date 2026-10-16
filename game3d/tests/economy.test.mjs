@@ -14,7 +14,7 @@ function fresh() {
 }
 
 function run(e, seconds, step = 0.1) {
-  for (let t = 0; t < seconds; t += step) e.update(step);
+  for (let t = 0; t < seconds; t += step) { e.game.time += step; e.step(step); }
 }
 
 /** 在指挥中心附近找一个可放置且紧贴起始道路的位置。 */
@@ -186,4 +186,94 @@ test('地图:起始区有森林/岩石/水,地面单位可经浅滩从玩家基�
     }
   }
   assert.ok(seen[m.idx(44, 18)], '敌军基地附近应可达');
+});
+
+test('命令总线 + 固定步长:同一命令日志回放得到完全相同的状态校验和', async () => {
+  const { SimLoop } = await import('../src/sim/loop.js');
+  const { ReplayTransport } = await import('../src/net/transport.js');
+  const play = () => {
+    const g = new Game(11);
+    g.setupStart();
+    return { g, loop: new SimLoop(g, new Economy(g), null) };
+  };
+  const a = play();
+  a.g.res.money = 5000;
+  a.g.res.wood = 200;
+  for (let i = 0; i < 400; i++) {
+    if (i === 3) {
+      const s = spotNear(a.g, 'farm');
+      assert.ok(a.g.dispatch({ type: 'build', building: 'farm', x: s.x, z: s.z }).ok);
+    }
+    if (i === 50) {
+      const s = spotNear(a.g, 'house');
+      assert.ok(a.g.dispatch({ type: 'build', building: 'house', x: s.x, z: s.z }).ok);
+    }
+    if (i === 60) assert.equal(a.g.dispatch({ type: 'build', building: 'farm', x: 60, z: 2 }).ok, false);
+    a.loop.stepTick();
+  }
+  const log = a.g.transport.log;
+  assert.equal(log.length, 2, '只有成功的命令进入日志');
+  const b = play();
+  b.g.res.money = 5000;
+  b.g.res.wood = 200;
+  b.g.transport = new ReplayTransport(b.g, log);
+  for (let i = 0; i < 400; i++) b.loop.stepTick();
+  assert.equal(b.g.checksum(), a.g.checksum());
+  assert.equal(b.g.dispatch({ type: 'build', building: 'farm', x: 1, z: 1 }).ok, false, '回放中拒绝本地操作');
+});
+
+test('命令校验:不能操作他人建筑,未知命令被拒绝', () => {
+  const { g } = fresh();
+  const hq = g.playerHQ();
+  assert.equal(g.transport.send({ type: 'upgrade', p: 'enemy', uid: hq.uid }).ok, false);
+  assert.equal(g.dispatch({ type: 'teleport' }).ok, false);
+  assert.equal(g.dispatch({ type: 'build', building: 'nope', x: 1, z: 1 }).ok, false);
+});
+
+test('相邻协同:农场紧贴水泵站获得 +10%,不相邻无加成', async () => {
+  const { synergyAt } = await import('../src/sim/synergy.js');
+  const { g } = fresh();
+  g.res.money = 9999;
+  g.res.wood = 999;
+  const s = spotNear(g, 'farm');
+  g.placeBuilding('farm', s.x, s.z, 'player', { instant: true });
+  const before = synergyAt(g, 'pump', s.x + 2, s.z, 1, 1);
+  assert.equal(before.bonus, 0.1);
+  assert.deepEqual(before.partners, ['farm']);
+  assert.equal(synergyAt(g, 'pump', s.x + 5, s.z + 5, 1, 1).bonus, 0);
+});
+
+test('动态市场:抛售压低价格,随时间回升', () => {
+  const { g, e } = fresh();
+  const m = e.market;
+  const first = m.sell('planks', 20);
+  const second = m.sell('planks', 20);
+  assert.ok(second < first, '连续抛售收入应下降');
+  const low = m.mult.planks;
+  m.shockT = 1e9;
+  run(e, 60);
+  assert.ok(m.mult.planks > low, '价格应回升');
+  void g;
+});
+
+test('民心:民居被污染源包围时下降,断粮更低', () => {
+  const { g, e } = fresh();
+  g.res.money = 99999;
+  const s = spotNear(g, 'house');
+  g.placeBuilding('house', s.x, s.z, 'player', { instant: true });
+  e.recomputeStats();
+  for (let i = 0; i < 30; i++) e.society.recompute();
+  const clean = e.society.happiness;
+  g.techs.add('gunpowder');
+  g.res.steel = 999;
+  g.res.concrete = 999;
+  let placed = 0;
+  for (let z = s.z - 3; z <= s.z + 2 && placed < 2; z++) {
+    for (let x = s.x - 3; x <= s.x + 2 && placed < 2; x++) {
+      if (g.placeBuilding('munitions', x, z, 'player', { instant: true }).ok) placed++;
+    }
+  }
+  assert.ok(placed > 0, '应能在民居旁放置污染源');
+  for (let i = 0; i < 30; i++) e.society.recompute();
+  assert.ok(e.society.happiness < clean, `污染后民心应下降 ${clean} → ${e.society.happiness}`);
 });

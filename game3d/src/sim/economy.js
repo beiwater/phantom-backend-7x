@@ -3,6 +3,10 @@ import { BUILDINGS, levelSpeed, storageOf, housingOf } from '../data/buildings.j
 import { RESOURCES } from '../data/resources.js';
 import { TECHS } from '../data/tech.js';
 import { MAP_W, MAP_H } from '../world/map.js';
+import { synergyAt } from './synergy.js';
+import { Market } from './market.js';
+import { Stats } from './stats.js';
+import { Society } from './society.js';
 
 const RAW = new Set(['farm', 'lumber', 'quarry', 'pump', 'ironMine', 'coalMine', 'oilWell']);
 
@@ -22,13 +26,17 @@ export class Economy {
     /** 道路到物流枢纽的 BFS 距离,-1 = 不连通。卡车沿梯度下降行驶。 */
     this.roadDist = new Int16Array(MAP_W * MAP_H).fill(-1);
     this.lastMapVersion = -1;
+    this.market = new Market(game);
+    this.stats = new Stats();
+    this.society = new Society(game);
+    game.market = this.market;
+    game.society = this.society;
+    game.econStats = this.stats;
   }
 
-  update(dt) {
+  /** 固定步长推进(由 sim/loop.js 以 TICK 调用)。 */
+  step(gdt) {
     const g = this.game;
-    if (g.paused || g.over) return;
-    const gdt = dt * g.speed;
-    g.time += gdt;
     this.statT -= gdt;
     if (this.statT <= 0 || this.lastMapVersion !== g.map.version) {
       this.recomputeStats();
@@ -39,6 +47,9 @@ export class Economy {
       this.updateBuilding(b, gdt);
     }
     this.updateResearch(gdt);
+    this.market.step(gdt);
+    this.stats.step(gdt);
+    this.society.step(gdt);
   }
 
   recomputeStats() {
@@ -56,6 +67,7 @@ export class Economy {
       const lvl = b.level;
       storage += storageOf(b.type, lvl);
       housing += housingOf(b.type, lvl) * (b.fed ? 1 : 0.5);
+      b.synergy = synergyAt(g, b.type, b.x, b.z, b.w, b.d, b.team, b.uid);
       if (b.state !== 'active') continue;
       if (def.recipe || def.market || def.trains) need += workersOf(def, lvl);
       const p = powerOf(def, lvl);
@@ -64,11 +76,12 @@ export class Economy {
     }
     const s = g.stats;
     s.storageCap = Math.floor(storage * (1 + g.effect('storage')));
-    s.housing = Math.floor(housing);
+    s.housing = Math.floor(housing * (1 + g.effect('housing')));
     s.workersNeeded = need;
     s.powerSupply = supply;
     s.powerDemand = demand;
-    s.workerRatio = need === 0 ? 1 : Math.min(1, housing / need);
+    s.workerRatio = need === 0 ? 1 : Math.min(1, s.housing / need);
+    this.society.recompute();
     s.powerRatio = demand === 0 ? 1 : Math.min(1, supply / demand);
   }
 
@@ -158,8 +171,9 @@ export class Economy {
     let e = s.workerRatio;
     if (def.power < 0) e *= s.powerRatio;
     if (def.recipe) {
-      const bonus = RAW.has(b.type) ? this.game.effect('raw') : this.game.effect('process');
-      e *= 1 + bonus;
+      const g = this.game;
+      const bonus = (RAW.has(b.type) ? g.effect('raw') : g.effect('process')) + g.effect(b.type) + g.effect('prod');
+      e *= Math.max(0.1, 1 + bonus + (b.synergy?.bonus ?? 0)) * this.society.productivity();
     }
     return e * levelSpeed(b.level);
   }
@@ -203,8 +217,9 @@ export class Economy {
       b.status = '征税中';
       if (b.cycle >= 1) {
         b.cycle -= 1;
-        const amount = def.income.money * b.level + Math.floor(g.stats.housing / 4);
+        const amount = Math.round((def.income.money * b.level + Math.floor(g.stats.housing / 4)) * this.society.taxMult());
         g.addRes('money', amount);
+        this.stats.made('money', amount);
         g.events.emit('produce', { b, out: { money: amount }, noTruck: true });
       }
     }
@@ -223,6 +238,7 @@ export class Economy {
       const need = def.upkeep.food * b.level;
       if (g.res.food >= need) {
         g.res.food -= need;
+        this.stats.used('food', need);
         b.fed = true;
       } else {
         b.fed = false;
@@ -250,6 +266,7 @@ export class Economy {
         return;
       }
       g.spend(r.in);
+      for (const [k, v] of Object.entries(r.in)) this.stats.used(k, v);
       b.cycle = 0.0001;
     }
     const eff = this.efficiency(b, def);
@@ -260,7 +277,10 @@ export class Economy {
     if (b.cycle >= 1) {
       b.cycle = 0;
       const got = {};
-      for (const [k, v] of Object.entries(r.out)) got[k] = g.addRes(k, v);
+      for (const [k, v] of Object.entries(r.out)) {
+        got[k] = g.addRes(k, v);
+        this.stats.made(k, got[k]);
+      }
       if (Object.keys(got).length) g.events.emit('produce', { b, out: got });
       g.events.emit('res');
     }
@@ -291,11 +311,13 @@ export class Economy {
       const n = Math.min(per, Math.floor(g.res[k]));
       if (n <= 0) continue;
       g.res[k] -= n;
-      earned += Math.round(n * RESOURCES[k].price * (0.8 + 0.1 * b.level));
+      earned += this.market.sell(k, n, 0.8 + 0.1 * b.level);
+      this.stats.used(k, n);
       g.counters.sold += n;
     }
     if (earned > 0) {
       g.addRes('money', earned);
+      this.stats.made('money', earned);
       g.events.emit('produce', { b, out: { money: earned }, noTruck: true });
       g.events.emit('res');
     } else {

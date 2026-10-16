@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Voxel Gallery</title>
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #cfe3ea; font-family: system-ui, sans-serif; }
+    #labels { position: absolute; inset: 0; pointer-events: none; }
+    .lbl { position: absolute; transform: translate(-50%, 0); font-size: 11px; color: #1f2a33; white-space: nowrap;
+      background: rgba(255, 255, 255, 0.72); padding: 1px 4px; border-radius: 3px; }
+    .row { font-weight: 700; font-size: 13px; background: rgba(30, 50, 70, 0.8); color: #fff; transform: translate(-100%, -50%); }
+    #hud { position: absolute; top: 8px; left: 8px; font-size: 12px; background: rgba(255, 255, 255, 0.85); padding: 6px 8px; border-radius: 4px; }
+    #hud a { margin-right: 6px; }
+  </style>
+  <script type="importmap">{"imports":{"three":"./vendor/three.module.min.js"}}</script>
+</head>
+<body>
+  <div id="labels"></div>
+  <div id="hud">
+    <a href="?section=buildings">buildings</a><a href="?section=military">military</a><a href="?section=infra">roads/walls</a>
+    <a href="?section=units">units</a><a href="?section=props">props</a> · <span id="stats"></span>
+  </div>
+  <script type="module" src="./src/gallery.js"></script>
+</body>
+</html>

@@ -1,21 +1,30 @@
 // 游戏状态与所有状态变更入口。渲染/UI/RTS 只通过这里改状态,保证校验(地块归属、成本、地形)集中一处。
 import { BUILDINGS, upgradeCost } from '../data/buildings.js';
 import { TECHS } from '../data/tech.js';
+import { DIFFICULTIES } from '../data/difficulty.js';
 import { RESOURCE_IDS } from '../data/resources.js';
-import { Emitter } from '../engine/util.js';
+import { Emitter, Rng } from '../engine/util.js';
+import { LocalTransport } from '../net/transport.js';
 import { GameMap, OWNER, T, PLAYER_HQ } from '../world/map.js';
 
 export const START_RES = { money: 800, research: 0, wood: 30, stone: 20, food: 24, planks: 12, grain: 0, water: 0 };
 
 export class Game {
-  constructor(seed = 7) {
+  constructor(seed = 7, difficulty = 'normal') {
     this.events = new Emitter();
     this.map = new GameMap(seed);
+    this.localPlayer = 'player';
+    this.tick = 0;
+    this.random = new Rng(seed * 2654435761);
+    this.rng = () => this.random.next();
+    this.transport = new LocalTransport(this);
     this.time = 0;
     this.speed = 1;
     this.paused = false;
     this.res = Object.fromEntries(['money', 'research', ...RESOURCE_IDS].map((k) => [k, 0]));
-    Object.assign(this.res, START_RES);
+    this.difficultyId = DIFFICULTIES[difficulty] ? difficulty : 'normal';
+    this.difficulty = DIFFICULTIES[this.difficultyId];
+    for (const [k, v] of Object.entries(START_RES)) this.res[k] = Math.round(v * this.difficulty.startMult);
     /** @type {Map<number, object>} */
     this.buildings = new Map();
     this.nextUid = 1;
@@ -26,8 +35,25 @@ export class Game {
     this.produced = Object.fromEntries(RESOURCE_IDS.map((k) => [k, 0]));
     this.counters = { unitsTrained: 0, enemyKilled: 0, wavesSurvived: 0, sold: 0 };
     this.mission = 0;
+    this.buffs = [];
     this.over = null; // 'win' | 'lose'
     this.unitSystem = null; // RTS 注入
+  }
+
+  /** 玩家意图的唯一入口(UI/输入/AI 都经此),见 net/commands.js。 */
+  dispatch(cmd) {
+    return this.transport.send({ p: this.localPlayer, ...cmd });
+  }
+
+  /** 状态校验和:锁步联机时各端定期比对以检测不同步;回放测试也用它断言一致。 */
+  checksum() {
+    let h = 2166136261;
+    const mix = (n) => { h = Math.imul(h ^ (Math.round(n * 1000) | 0), 16777619) >>> 0; };
+    mix(this.tick);
+    for (const v of Object.values(this.res)) mix(v);
+    for (const b of this.buildings.values()) { mix(b.uid); mix(b.x); mix(b.z); mix(b.level); mix(b.hp); mix(b.cycle); mix(b.progress); }
+    for (const u of this.unitSystem?.units ?? []) { mix(u.id); mix(u.x); mix(u.z); mix(u.hp); }
+    return h.toString(16);
   }
 
   // ---------- 资源 ----------
@@ -282,9 +308,11 @@ export class Game {
     this.events.emit('tech', id);
   }
 
+  /** 科技永久加成 + 随机事件临时加成(society.js 的 buffs)。 */
   effect(key) {
     let v = 0;
     for (const id of this.techs) v += TECHS[id].effect?.[key] ?? 0;
+    for (const b of this.buffs) v += b.effects[key] ?? 0;
     return v;
   }
 

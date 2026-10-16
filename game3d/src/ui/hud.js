@@ -52,8 +52,16 @@ export class Hud {
       ['👷', `${workersUsed}/${s.housing}`, `工人(需求 ${s.workersNeeded})`, s.workersNeeded > s.housing],
       ['⚡', `${s.powerDemand}/${s.powerSupply}`, '耗电/发电', s.powerDemand > s.powerSupply],
       ['📦', fmtNum(s.storageCap), '每种货物仓储上限', false],
-      ['⚔️', `${g.unitSystem?.units.filter((u) => u.team === 'player').length ?? 0}`, '我方部队', false],
+      ['⚔️', `${g.unitSystem?.units.filter((u) => u.team === g.localPlayer).length ?? 0}`, '我方部队', false],
     ];
+    const soc = g.society;
+    if (soc) {
+      const h = Math.round(soc.happiness);
+      const face = h >= 75 ? '😄' : h >= 50 ? '🙂' : h >= 30 ? '😐' : '😠';
+      const parts = Object.entries(soc.parts).map(([k, v]) => `${({ base: '基础', food: '口粮', pollution: '污染', services: '服务', education: '教育', war: '战争', events: '事件' })[k]} ${v >= 0 ? '+' : ''}${v}`).join('\n');
+      items.push([face, `${h}`, `民心(税收 ×${soc.taxMult().toFixed(2)})\n${parts}`, h < 30]);
+    }
+    for (const b of g.buffs) items.push(['✨', `${b.name} ${Math.ceil(b.until - g.time)}s`, '临时事件', !!b.effects.prod && b.effects.prod < 0]);
     this.stats.innerHTML = items.map(([i, v, t, w]) => `<span class="stat${w ? ' warn' : ''}" title="${t}">${i}<b>${v}</b></span>`).join('');
     this.clock.textContent = `⏱ ${fmtTime(g.time)}`;
     this.renderSpeed();

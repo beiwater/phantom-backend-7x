@@ -74,7 +74,7 @@ export class TechTree {
   onClick(e) {
     const n = e.target.closest('[data-tech]');
     if (!n) return false;
-    const r = this.game.startResearch(n.dataset.tech);
+    const r = this.game.dispatch({ type: 'research', tech: n.dataset.tech });
     if (!r.ok) this.ui.toast(r.reason, 'bad');
     else this.ui.toast(`开始研究「${TECHS[n.dataset.tech].name}」`, 'good');
     return true;

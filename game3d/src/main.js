@@ -4,20 +4,21 @@ import { createStage } from './engine/scene.js';
 import { CameraRig } from './engine/camera.js';
 import { Game } from './sim/state.js';
 import { Economy } from './sim/economy.js';
+import { SimLoop } from './sim/loop.js';
 import { TerrainView } from './world/terrain.js';
 import { WorldView } from './world/view.js';
 import { MAP_W, MAP_H, PLAYER_HQ } from './world/map.js';
 import { createRTS } from './rts/index.js';
 import { UI } from './ui/ui.js';
 import { Input } from './ui/input.js';
-import { loadGame, hasSave } from './save.js';
+import { loadGame, hasSave, savedMeta } from './save.js';
 
 const params = new URLSearchParams(location.search);
 const viewport = document.getElementById('viewport');
 const stage = createStage(viewport);
 const rig = new CameraRig(stage.renderer.domElement, { minX: 0, maxX: MAP_W, minZ: 0, maxZ: MAP_H });
 
-const game = new Game(Number(params.get('seed') ?? 7));
+const game = new Game(Number(params.get('seed') ?? savedMeta()?.seed ?? 7), params.get('diff') ?? savedMeta()?.difficulty ?? 'normal');
 const economy = new Economy(game);
 const terrain = new TerrainView(stage.scene, game.map);
 const view = new WorldView(stage.scene, game, economy);
@@ -33,6 +34,7 @@ if (resumed) {
   rts.setupEnemy();
 }
 
+const sim = new SimLoop(game, economy, rts);
 const ui = new UI({ game, economy, rig, rts, view, terrain });
 const input = new Input({ game, rig, scene: stage.scene, rts, ui, view, dom: stage.renderer.domElement });
 ui.input = input;
@@ -58,8 +60,7 @@ function frame(now) {
   const dt = Math.min(0.05, (now - last) / 1000);
   last = now;
   t += dt;
-  economy.update(dt);
-  if (!game.paused && !game.over) rts.update(dt * game.speed);
+  sim.advance(dt);
   rts.render(dt);
   if (terrainDirty.tiles) terrain.rebuildTiles();
   if (terrainDirty.props) terrain.rebuildProps();

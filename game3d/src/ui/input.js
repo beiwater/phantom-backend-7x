@@ -5,6 +5,7 @@ import { BUILDINGS } from '../data/buildings.js';
 import { CHUNK, OWNER } from '../world/map.js';
 import { buildingGeo } from '../models/cache.js';
 import { Game } from '../sim/state.js';
+import { synergyAt, SYNERGY } from '../sim/synergy.js';
 
 const CLICK_PX = 6;
 
@@ -141,7 +142,7 @@ export class Input {
   tryBuild(c, keep) {
     const type = this.mode.type;
     const a = this.anchor(type, c);
-    const r = this.game.placeBuilding(type, a.x, a.z);
+    const r = this.game.dispatch({ type: 'build', building: type, x: a.x, z: a.z });
     if (!r.ok) { this.ui.toast(r.reason, 'bad'); return; }
     this.ui.sound?.('place');
     // Shift 连续放置;资源不足时自动退出
@@ -152,19 +153,19 @@ export class Input {
   tryDemolish(c) {
     const b = this.game.buildingAt(c.x, c.z);
     if (b) {
-      const r = this.game.demolish(b.uid);
+      const r = this.game.dispatch({ type: 'demolish', uid: b.uid });
       if (!r.ok) this.ui.toast(r.reason, 'bad');
       else this.ui.select(null);
       return;
     }
-    if (this.game.removeRoad(c.x, c.z).ok) return;
+    if (this.game.dispatch({ type: 'removeRoad', x: c.x, z: c.z }).ok) return;
     this.ui.toast('这里没有可拆除的东西', 'bad');
   }
 
   tryExpand(c) {
     const cx = Math.floor(c.x / CHUNK);
     const cz = Math.floor(c.z / CHUNK);
-    const r = this.game.buyChunk(cx, cz);
+    const r = this.game.dispatch({ type: 'buyChunk', cx, cz });
     if (!r.ok) this.ui.toast(r.reason, 'bad');
     else this.ui.toast('🗺️ 领地扩张!', 'good');
   }
@@ -202,12 +203,8 @@ export class Input {
 
   commitDrag() {
     const isRoad = this.mode.kind === 'road';
-    let n = 0;
-    for (const [x, z] of this.dragCells()) {
-      const r = isRoad ? this.game.placeRoad(x, z) : this.game.placeBuilding('wall', x, z);
-      if (r.ok) n++;
-    }
-    if (n === 0) this.ui.toast(isRoad ? '无法在此铺路' : '无法在此建墙', 'bad');
+    const r = this.game.dispatch({ type: isRoad ? 'roads' : 'walls', cells: this.dragCells() });
+    if (!r.ok) this.ui.toast(r.reason, 'bad');
     this.dragPath = null;
     this.preview.clear();
   }
@@ -232,7 +229,16 @@ export class Input {
       const chk = this.game.canPlace(type, a.x, a.z);
       this.ghostPad.material.color.set(chk.ok ? 0x55ff77 : 0xff5544);
       this.ghost.visible = true;
-      this.showTip(chk.ok ? `${def.name} · 左键放置${def.drag ? '(可拖拽)' : ''} · Shift 连续 · 右键取消` : chk.reason, !chk.ok);
+      let extra = '';
+      if (chk.ok && SYNERGY[type]) {
+        const syn = synergyAt(this.game, type, a.x, a.z, w, d);
+        extra = syn.bonus ? ` · 🔗 协同 +${Math.round(syn.bonus * 100)}%` : ' · 🔗 紧贴上下游可获协同加成';
+      }
+      if (chk.ok && type === 'house') {
+        const pol = this.game.society?.pollutionAt(a.x, a.z) ?? 0;
+        if (pol) extra += ` · 🏭 ${pol} 处污染`;
+      }
+      this.showTip(chk.ok ? `${def.name}${extra} · 左键放置${def.drag ? '(可拖拽)' : ''} · Shift 连续 · 右键取消` : chk.reason, !chk.ok);
       return;
     }
     this.ghost.visible = false;

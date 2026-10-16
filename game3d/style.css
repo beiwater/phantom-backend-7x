@@ -210,3 +210,10 @@ button { font: inherit; color: inherit; cursor: pointer; }
   .stats { gap: 8px; font-size: 12px; }
   .brand { display: none; }
 }
+
+.stats-table { border-collapse: collapse; width: 100%; font-size: 13px; font-variant-numeric: tabular-nums; }
+.stats-table th { text-align: left; color: var(--muted); font-weight: 600; padding: 4px 8px; border-bottom: 1px solid var(--line); }
+.stats-table td { padding: 3px 8px; border-bottom: 1px solid rgba(255,255,255,0.04); }
+.diff { display: grid; grid-template-columns: auto auto 1fr; gap: 8px; align-items: center; background: rgba(255,255,255,0.05); padding: 8px 10px; border-radius: 8px; cursor: pointer; }
+.diff span { color: var(--muted); font-size: 12px; }
+.diff input[type=number] { background: #111a24; color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; }

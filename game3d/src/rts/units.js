@@ -8,7 +8,7 @@ const STAND_R = 0.2;
 const REPATH_MIN = 0.6; // 追击时重寻路的最小间隔(秒)
 export const PATHS_PER_TICK = 10; // 每帧寻路预算,大波次出兵时分摊到多帧
 
-export function makeUnit(id, type, team, x, z, hpMult = 1) {
+export function makeUnit(id, type, team, x, z, hpMult = 1, rng = Math.random) {
   const def = UNITS[type];
   const maxHp = Math.round(def.hp * hpMult);
   return {
@@ -19,9 +19,9 @@ export function makeUnit(id, type, team, x, z, hpMult = 1) {
     aimYaw: null,
     order: { kind: 'idle' },
     target: null, forced: false, alerted: false,
-    cd: Math.random() * def.cooldown, scanT: Math.random() * 0.4,
+    cd: rng() * def.cooldown, scanT: rng() * 0.4,
     path: null, pathI: 0, rawCells: null, goalKey: '', pathVer: -1, pathT: -99, breach: null,
-    stuckT: 0, stuckN: 0, moving: false, lastX: x, lastZ: z,
+    stuckT: 0, stuckN: 0, moving: false, lastX: x, lastZ: z, returning: false,
     anchor: { x, z }, home: null, guard: false, wave: null,
     lastAttacker: null, hitT: -99, fireT: -99, dead: false,
   };

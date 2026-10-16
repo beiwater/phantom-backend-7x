@@ -8,8 +8,11 @@ import { Missions } from './missions.js';
 import { TechTree } from './tech.js';
 import { ERAS, TECHS } from '../data/tech.js';
 import { BUILDINGS } from '../data/buildings.js';
+import { RESOURCES } from '../data/resources.js';
+import { StatsPanel } from './stats.js';
 import { saveGame, clearSave } from '../save.js';
 import { fmtTime } from '../engine/util.js';
+import { DIFFICULTIES } from '../data/difficulty.js';
 
 const AUTOSAVE_SEC = 30;
 
@@ -27,11 +30,13 @@ export class UI {
     this.minimap = new Minimap(game, rig);
     this.missions = new Missions(game, this);
     this.tech = new TechTree(game, this);
+    this.statsPanel = new StatsPanel(game, economy);
     this.saveT = AUTOSAVE_SEC;
     this.modalT = 0;
     this.hitT = 0;
 
     document.getElementById('btn-tech').addEventListener('click', () => this.openTech());
+    document.getElementById('btn-stats').addEventListener('click', () => this.openStats());
     document.getElementById('btn-menu').addEventListener('click', () => this.openMenu());
     this.modal.addEventListener('click', (e) => this.onModalClick(e));
     this.bindEvents();
@@ -61,6 +66,8 @@ export class UI {
       if (destroyed && b.team === 'enemy' && b.type !== 'wall') this.toast(`💥 摧毁敌方${BUILDINGS[b.type].name}`, 'good');
     });
     ev.on('gameover', (r) => this.openGameOver(r));
+    ev.on('event', ({ msg, kind }) => this.toast(msg, kind));
+    ev.on('market:shock', ({ res, up }) => this.toast(`📈 市场:${RESOURCES[res].name}${up ? '需求旺盛,价格上涨' : '供过于求,价格下跌'}`));
   }
 
   // ---------- 选中 ----------
@@ -122,6 +129,11 @@ export class UI {
     if (bar && this.game.researching) bar.style.width = `${this.game.researching.progress * 100}%`;
   }
 
+  openStats() {
+    if (this.modalKind === 'stats') { this.closeModal(); return; }
+    this.openModal('stats', this.statsPanel.html());
+  }
+
   openHelp(first = false) {
     this.openModal('help', `<div class="dialog" style="max-width:640px">
       <h2><span>🧱 体素纪元</span><button class="btn primary" data-close>${first ? '开始游戏' : '关闭'}</button></h2>
@@ -134,6 +146,7 @@ export class UI {
         <kbd>左键</kbd><span>放置 / 选择 · 拖拽框选部队 · Shift 连续放置</span>
         <kbd>右键</kbd><span>取消建造 · 部队移动/攻击 · 兵营集结点</span>
         <kbd>A</kbd><span>攻击移动 · <kbd>H</kbd> 停止 · <kbd>F</kbd> 全选部队 · <kbd>Ctrl+数字</kbd> 编队</span>
+        <kbd>O</kbd><span>经济统计(产销/价格/民心)</span>
         <kbd>T</kbd><span>科技树 · <kbd>P</kbd> 暂停 · <kbd>L</kbd> 开关标签 · <kbd>Esc</kbd> 取消/关闭</span>
       </div>
       <p>敌军第一波进攻约在 ${fmtTime(300)} 后到来。进度每 ${AUTOSAVE_SEC} 秒自动保存到本机浏览器。</p>
@@ -146,7 +159,17 @@ export class UI {
         <button class="btn" data-menu="save">💾 立即保存</button>
         <button class="btn" data-menu="help">❓ 操作说明</button>
         <button class="btn" data-menu="labels">🏷️ 开关建筑标签 (L)</button>
-        <button class="btn danger" data-menu="new">🆕 新游戏(清除存档)</button>
+        <button class="btn danger" data-menu="setup">🆕 新游戏…</button>
+      </div></div>`);
+  }
+
+  openSetup() {
+    const opts = Object.entries(DIFFICULTIES).map(([id, d]) => `<label class="diff"><input type="radio" name="diff" value="${id}" ${id === this.game.difficultyId ? 'checked' : ''}>
+      <b>${d.name}</b><span>${d.desc}</span></label>`).join('');
+    this.openModal('setup', `<div class="dialog" style="max-width:520px"><h2><span>🆕 新游戏</span><button class="btn" data-close>取消</button></h2>
+      <div class="menu-list">${opts}
+        <label class="diff"><b>地图种子</b><input id="seed-input" type="number" value="${Math.floor(Math.random() * 9999)}" style="width:110px"></label>
+        <button class="btn primary" data-menu="start">开始(将覆盖当前存档)</button>
       </div></div>`);
   }
 
@@ -158,7 +181,7 @@ export class UI {
       <h2 style="justify-content:center">${win ? '🏆 胜利!' : '💀 指挥中心陷落'}</h2>
       <p>${win ? '敌军指挥中心已被摧毁,你的文明统一了这片土地。' : '敌军摧毁了你的指挥中心。'}<br>
       用时 ${fmtTime(this.game.time)} · 训练单位 ${c.unitsTrained} · 歼敌 ${c.enemyKilled} · 击退 ${c.wavesSurvived} 波</p>
-      <button class="btn primary" data-menu="new">再来一局</button></div>`);
+      <button class="btn primary" data-menu="setup">再来一局</button></div>`);
   }
 
   onModalClick(e) {
@@ -168,10 +191,13 @@ export class UI {
     if (m === 'save') { saveGame(this); this.toast('💾 已保存', 'good'); this.closeModal(); }
     if (m === 'help') this.openHelp();
     if (m === 'labels') { this.labels.enabled = !this.labels.enabled; this.closeModal(); }
-    if (m === 'new') {
+    if (m === 'setup') this.openSetup();
+    if (m === 'start') {
+      const diff = this.modal.querySelector('input[name="diff"]:checked')?.value ?? 'normal';
+      const seed = Number(this.modal.querySelector('#seed-input')?.value) || 7;
       clearSave();
       this.skipSave = true;
-      location.href = `${location.pathname}?new=1`;
+      location.href = `${location.pathname}?new=1&seed=${seed}&diff=${diff}`;
     }
     if (this.modalKind === 'tech' && this.tech.onClick(e)) this.refreshTech();
   }
@@ -190,6 +216,7 @@ export class UI {
     if (k === 'KeyG') input.setMode({ kind: 'expand' });
     if (k === 'KeyV') input.setMode({ kind: 'select' });
     if (k === 'KeyT') this.openTech();
+    if (k === 'KeyO') this.openStats();
     if (k === 'KeyP') this.hud.setSpeed(0);
     if (k === 'KeyL') this.labels.enabled = !this.labels.enabled;
   }
@@ -203,6 +230,10 @@ export class UI {
     this.missions.update(dt);
     this.hitT -= dt;
     this.modalT -= dt;
+    if (this.modalKind === 'stats' && this.modalT <= 0) {
+      this.modalT = 1;
+      this.openModal('stats', this.statsPanel.html());
+    }
     if (this.modalKind === 'tech' && this.modalT <= 0) {
       this.modalT = 0.25;
       this.refreshTech();

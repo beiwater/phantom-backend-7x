@@ -5,14 +5,28 @@ export function hasSave() {
   try { return !!localStorage.getItem(KEY); } catch { return false; }
 }
 
+/** 读取存档的种子与难度,让 Game 以相同参数构造后再恢复。 */
+export function savedMeta() {
+  try {
+    const d = JSON.parse(localStorage.getItem(KEY) ?? 'null');
+    return d ? { seed: d.map?.seed, difficulty: d.difficulty } : null;
+  } catch {
+    return null;
+  }
+}
+
 export function clearSave() {
   try { localStorage.removeItem(KEY); } catch { /* 存储不可用 */ }
 }
 
-export function saveGame({ game, rts }) {
+export function saveGame({ game, rts, economy }) {
   const data = {
     v: 1,
+    difficulty: game.difficultyId,
     time: game.time,
+    tick: game.tick,
+    rng: game.random.s,
+    log: game.transport.log.slice(-5000),
     speed: game.speed,
     res: game.res,
     era: game.era,
@@ -25,6 +39,8 @@ export function saveGame({ game, rts }) {
     map: game.map.serialize(),
     buildings: [...game.buildings.values()].map((b) => ({ ...b, sell: [...b.sell] })),
     rts: rts.serialize(),
+    buffs: game.buffs,
+    econ: { market: economy.market.serialize(), stats: economy.stats.serialize(), society: economy.society.serialize() },
   };
   try {
     localStorage.setItem(KEY, JSON.stringify(data));
@@ -35,11 +51,14 @@ export function saveGame({ game, rts }) {
 }
 
 /** 恢复状态;不触发 building:add 事件,调用方负责 view.rebuildAll()。失败返回 false 并开新局。 */
-export function loadGame({ game, rts }) {
+export function loadGame({ game, rts, economy }) {
   let data;
   try { data = JSON.parse(localStorage.getItem(KEY) ?? 'null'); } catch { return false; }
   if (!data || data.v !== 1 || data.map?.seed !== game.map.seed) return false;
   game.time = data.time;
+  game.tick = data.tick ?? 0;
+  if (data.rng !== undefined) game.random.s = data.rng;
+  game.transport.log = data.log ?? [];
   game.speed = data.speed ?? 1;
   Object.assign(game.res, data.res);
   game.era = data.era;
@@ -59,6 +78,10 @@ export function loadGame({ game, rts }) {
     }
   }
   game.map.version++;
+  game.buffs = data.buffs ?? [];
+  economy.market.load(data.econ?.market);
+  economy.stats.load(data.econ?.stats);
+  economy.society.load(data.econ?.society);
   rts.load(data.rts ?? {});
   return true;
 }
