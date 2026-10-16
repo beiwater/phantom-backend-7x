@@ -1,5 +1,6 @@
 // 敌军 AI:开局要塞布置 + 驻军 + 定时进攻波次。波次强度随波数与玩家时代增长,由存活的敌方兵营/战车工厂出兵。
 // 被摧毁的兵营/工厂/防御塔会在 REBUILD_DELAY 后、附近无我方部队时重建;敌军指挥中心随玩家时代升级。
+import { BUILDINGS } from '../data/buildings.js';
 import { ENEMY_HQ, PLAYER_HQ, ENEMY_CHUNKS, CHUNK, CHUNKS_X, CHUNKS_Z, OWNER } from '../world/map.js';
 import { nearestWalkable, ringCells } from './path.js';
 import { orderAMove } from './units.js';
@@ -12,6 +13,7 @@ const ENEMY_CAP = 60;
 const WAVE_MAX = 40;
 const GARRISON = ['militia', 'militia', 'militia', 'militia', 'rifleman', 'rifleman'];
 const REBUILD_DELAY = 180;
+const RAID_GAP = 240;
 const ENEMY_ECON = ['farm', 'farm', 'lumber', 'ironMine'];
 const REBUILD_TYPES = new Set(['barracks', 'vehicleFactory', 'turret', 'farm', 'lumber', 'ironMine']);
 const REBUILD_CLEAR_R = 8;
@@ -131,9 +133,40 @@ export class EnemyAI {
     }
   }
 
+  /** 流寇:工业时代起每 4 分钟从地图边缘出现一小股部队,袭击离指挥中心最远的我方建筑。 */
+  raid() {
+    const g = this.game;
+    if (g.difficulty?.peaceful || g.era < 2) return;
+    if (this.raidAt === undefined) this.raidAt = g.time + RAID_GAP;
+    if (g.time < this.raidAt) return;
+    this.raidAt = g.time + RAID_GAP;
+    const hq = g.playerHQ();
+    if (!hq) return;
+    const targets = [...g.buildings.values()].filter((b) => b.team === 'player' && b.type !== 'wall');
+    if (!targets.length) return;
+    let far = targets[0];
+    let best = -1;
+    for (const b of targets) {
+      const d = Math.abs(b.x - hq.x) + Math.abs(b.z - hq.z);
+      if (d > best) { best = d; far = b; }
+    }
+    // 从离目标最近的地图边缘进入
+    const edges = [[far.x, 0], [far.x, 63], [0, far.z], [63, far.z]];
+    edges.sort((a, b) => Math.abs(a[0] - far.x) + Math.abs(a[1] - far.z) - (Math.abs(b[0] - far.x) + Math.abs(b[1] - far.z)));
+    const c = nearestWalkable(g.map, edges[0][0] + 0.5, edges[0][1] + 0.5, 6, () => true);
+    if (!c) return;
+    const n = 3 + Math.floor(g.rng() * 3) + g.era;
+    for (let i = 0; i < n; i++) {
+      const u = this.rts.spawnUnit(i % 3 === 0 ? 'militia' : 'rifleman', ENEMY, c.x + 0.5 + (i % 3) * 0.4, c.z + 0.5 + Math.floor(i / 3) * 0.4, this.diff.enemyHp);
+      orderAMove(u, far.x + far.w / 2, far.z + far.d / 2, false);
+    }
+    this.rts.ui?.toast?.(`🏴 一伙流寇(${n} 人)出现在地图边缘,正扑向你的${BUILDINGS[far.type].name}!`, 'bad', { x: c.x, z: c.z });
+  }
+
   /** 重建与时代升级;只读模拟状态(时间/单位位置),保持确定性。 */
   maintain() {
     const g = this.game;
+    this.raid();
     this.expand();
     this.reclaim();
     const hq = [...g.buildings.values()].find((b) => b.type === 'hq' && b.team === ENEMY);
@@ -390,7 +423,7 @@ export class EnemyAI {
   }
 
   serialize() {
-    return { nextWave: this.nextWave, wave: this.wave, warned: this.warned, stopped: this.stopped, damageMult: this.damageMult, rebuild: this.rebuild, tributedWave: this.tributedWave ?? 0, expandAt: this.expandAt, route: this.route ?? null };
+    return { nextWave: this.nextWave, wave: this.wave, warned: this.warned, stopped: this.stopped, damageMult: this.damageMult, rebuild: this.rebuild, tributedWave: this.tributedWave ?? 0, expandAt: this.expandAt, route: this.route ?? null, raidAt: this.raidAt };
   }
 
   load(d, units) {
@@ -403,6 +436,7 @@ export class EnemyAI {
     this.tributedWave = d?.tributedWave ?? 0;
     this.expandAt = d?.expandAt;
     this.route = d?.route ?? null;
+    this.raidAt = d?.raidAt;
     this.waves.clear();
     for (const u of units) {
       if (!u.wave) continue;
