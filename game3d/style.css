@@ -240,3 +240,5 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .victory { background: rgba(255,255,255,0.05); border-radius: 8px; padding: 8px 10px; font-size: 12px; }
 .victory .desc { display: block; margin: 3px 0; }
 @media (max-width: 760px) { .victories { grid-template-columns: 1fr; } }
+#replay-bar { position: absolute; top: 58px; left: 50%; transform: translateX(-50%); background: rgba(90, 30, 120, 0.9); border: 1px solid #c08aff; border-radius: 8px; padding: 4px 14px; font-size: 13px; font-weight: 700; z-index: 5; }
+#replay-bar a { color: #ffe066; }

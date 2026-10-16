@@ -18,14 +18,18 @@ import { MAP_W, MAP_H, PLAYER_HQ } from './world/map.js';
 import { createRTS } from './rts/index.js';
 import { UI } from './ui/ui.js';
 import { Input } from './ui/input.js';
-import { loadGame, hasSave, savedMeta } from './save.js';
+import { loadGame, hasSave, savedMeta, loadReplay } from './save.js';
+import { ReplayTransport } from './net/transport.js';
 
 const params = new URLSearchParams(location.search);
 const viewport = document.getElementById('viewport');
 const stage = createStage(viewport);
 const rig = new CameraRig(stage.renderer.domElement, { minX: 0, maxX: MAP_W, minZ: 0, maxZ: MAP_H });
 
-const game = new Game(Number(params.get('seed') ?? savedMeta()?.seed ?? 7), params.get('diff') ?? savedMeta()?.difficulty ?? 'normal');
+const replay = params.has('replay') ? loadReplay() : null;
+const game = replay
+  ? new Game(replay.seed, replay.difficulty)
+  : new Game(Number(params.get('seed') ?? savedMeta()?.seed ?? 7), params.get('diff') ?? savedMeta()?.difficulty ?? 'normal');
 const economy = new Economy(game);
 const terrain = new TerrainView(stage.scene, game.map);
 const view = new WorldView(stage.scene, game, economy);
@@ -33,13 +37,17 @@ const rts = createRTS({ game, scene: stage.scene, rig, view, overlay: document.g
 game.unitSystem = rts;
 
 let resumedFog = null;
-const resumed = !params.has('new') && hasSave() && loadGame({ game, rts, economy, onFog: (f) => { resumedFog = f; } });
+const resumed = !replay && !params.has('new') && hasSave() && loadGame({ game, rts, economy, onFog: (f) => { resumedFog = f; } });
 if (resumed) {
   view.rebuildAll();
   terrain.rebuild();
 } else {
   game.setupStart();
   rts.setupEnemy();
+}
+if (replay) {
+  game.transport = new ReplayTransport(game, replay.log);
+  game.replay = replay;
 }
 
 const sim = new SimLoop(game, economy, rts);

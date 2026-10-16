@@ -13,7 +13,7 @@ import { StatsPanel } from './stats.js';
 import { GovPanel } from './gov.js';
 import { Alerts } from './alerts.js';
 import { Codex } from './codex.js';
-import { saveGame, clearSave } from '../save.js';
+import { saveGame, clearSave, storeReplay } from '../save.js';
 import { fmtTime } from '../engine/util.js';
 import { DIFFICULTIES } from '../data/difficulty.js';
 import { QUALITY } from '../engine/quality.js';
@@ -51,7 +51,35 @@ export class UI {
     document.getElementById('btn-menu').addEventListener('click', () => this.openMenu());
     this.modal.addEventListener('click', (e) => this.onModalClick(e));
     this.bindEvents();
-    if (game.time < 1) this.openHelp(true);
+    if (game.replay) this.initReplay();
+    else if (game.time < 1) this.openHelp(true);
+  }
+
+  /** 回放模式:禁止存档,显示横幅,到达录制终点时比对校验和以证明确定性。 */
+  initReplay() {
+    this.skipSave = true;
+    const r = this.game.replay;
+    const bar = document.createElement('div');
+    bar.id = 'replay-bar';
+    bar.innerHTML = `🎬 回放中 · <span data-k="p"></span> · <a href="${location.pathname}">返回游戏</a>`;
+    document.getElementById('app').appendChild(bar);
+    this.replayBar = bar.querySelector('[data-k="p"]');
+    this.game.speed = 4;
+    this.toast(`🎬 回放 ${r.log.length} 条命令,共 ${fmtTime(r.endTick * 0.05)}`, 'big');
+  }
+
+  updateReplay() {
+    const g = this.game;
+    const r = g.replay;
+    if (!r || !this.replayBar) return;
+    this.replayBar.textContent = `${fmtTime(g.time)} / ${fmtTime(r.endTick * 0.05)}`;
+    if (!r.verified && g.tick >= r.endTick) {
+      r.verified = true;
+      const same = g.checksum() === r.checksum;
+      g.paused = true;
+      const why = r.reloaded ? '(本局中途读过档,存档取整会造成偏差)' : '';
+      this.toast(same ? `✅ 回放终点校验一致(${r.checksum}):模拟完全确定` : `⚠️ 回放校验不一致${why}:${g.checksum()} ≠ ${r.checksum}`, same ? 'good' : 'bad');
+    }
   }
 
   bindEvents() {
@@ -187,6 +215,7 @@ export class UI {
     this.openModal('menu', `<div class="dialog"><h2><span>☰ 菜单</span><button class="btn" data-close>关闭</button></h2>
       <div class="menu-list">
         <button class="btn" data-menu="save">💾 立即保存</button>
+        <button class="btn" data-menu="replay">🎬 观看本局回放(验证确定性)</button>
         <button class="btn" data-menu="help">❓ 操作说明</button>
         <button class="btn" data-menu="codex">📖 百科(建筑与产业链)B</button>
         <button class="btn" data-menu="labels">🏷️ 开关建筑标签 (L)</button>
@@ -225,6 +254,12 @@ export class UI {
     const m = e.target.closest('[data-menu]')?.dataset.menu;
     if (m === 'save') { saveGame(this); this.toast('💾 已保存', 'good'); this.closeModal(); }
     if (m === 'help') this.openHelp();
+    if (m === 'replay') {
+      if (this.game.replay) { this.toast('已在回放中', 'bad'); return; }
+      saveGame(this);
+      if (storeReplay(this.game)) location.href = `${location.pathname}?replay=1`;
+      else this.toast('录像保存失败(浏览器存储不可用)', 'bad');
+    }
     if (m === 'codex') this.openCodex();
     if (m === 'labels') { this.labels.enabled = !this.labels.enabled; this.closeModal(); }
     if (m === 'mute') { this.toast(this.audio.toggleMute() ? '🔇 已静音' : '🔊 音效已开启'); this.closeModal(); }
@@ -275,6 +310,7 @@ export class UI {
     this.minimap.update(dt);
     this.missions.update(dt);
     this.alerts.update(dt);
+    this.updateReplay();
     this.hitT -= dt;
     this.modalT -= dt;
     if (this.modalKind === 'gov' && this.modalT <= 0) {

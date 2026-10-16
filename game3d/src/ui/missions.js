@@ -8,6 +8,11 @@ export class Missions {
     this.ui = ui;
     this.el = document.getElementById('missions');
     this.t = 0;
+    // 奖励发放在模拟内(sim/economy.js checkMission),这里只负责提示
+    game.events.on('mission:done', (m) => {
+      const rw = Object.entries(m.reward).filter(([, v]) => v).map(([k, v]) => `${resIcon(k)}${v}`).join(' ');
+      this.ui.toast(`🎯 目标完成:${m.title}${rw ? ` 奖励 ${rw}` : ''}`, 'good');
+    });
     this.el.addEventListener('click', (e) => {
       if (e.target.closest('[data-toggle]')) this.el.classList.toggle('collapsed');
     });
@@ -17,14 +22,6 @@ export class Missions {
     this.t -= dt;
     if (this.t > 0) return;
     this.t = 0.4;
-    const g = this.game;
-    const m = MISSIONS[g.mission];
-    if (m && m.progress(g) >= 1) {
-      for (const [k, v] of Object.entries(m.reward)) if (v) g.addRes(k, v);
-      const rw = Object.entries(m.reward).filter(([, v]) => v).map(([k, v]) => `${resIcon(k)}${v}`).join(' ');
-      this.ui.toast(`🎯 目标完成:${m.title}${rw ? ` 奖励 ${rw}` : ''}`, 'good');
-      g.mission++;
-    }
     this.render();
   }
 

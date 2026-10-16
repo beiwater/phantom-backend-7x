@@ -9,6 +9,7 @@ import { Stats } from './stats.js';
 import { Society } from './society.js';
 import { Contracts } from './contracts.js';
 import { Victory } from './victory.js';
+import { MISSIONS } from '../data/missions.js';
 
 const RAW = new Set(['farm', 'lumber', 'quarry', 'pump', 'ironMine', 'coalMine', 'oilWell']);
 
@@ -57,7 +58,19 @@ export class Economy {
     this.society.step(gdt);
     this.contracts.step(gdt);
     this.victory.step(gdt);
+    this.missionT = (this.missionT ?? 0) - gdt;
+    if (this.missionT <= 0) { this.missionT = 0.5; this.checkMission(); }
     g.ruins.step(gdt);
+  }
+
+  /** 主线目标在模拟内结算(按 tick 计时),保证回放/锁步时奖励发放时机一致。 */
+  checkMission() {
+    const g = this.game;
+    const m = MISSIONS[g.mission];
+    if (!m || m.progress(g) < 1) return;
+    for (const [k, v] of Object.entries(m.reward)) if (v) g.addRes(k, v);
+    g.mission++;
+    g.events.emit('mission:done', m);
   }
 
   recomputeStats() {

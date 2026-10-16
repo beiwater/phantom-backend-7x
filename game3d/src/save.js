@@ -1,6 +1,23 @@
 // 本地存档(localStorage)。所有读写包在 try/catch:隐私模式或存储被禁用时游戏照常运行,只是不保存。
 const KEY = 'voxel-era-save-v1';
 
+const REPLAY_KEY = 'voxel-era-replay-v1';
+
+/** 录像 = 种子 + 难度 + 命令日志 + 终点校验和;固定步长 + 种子随机数保证可复现。 */
+export function storeReplay(game) {
+  const data = { seed: game.map.seed, difficulty: game.difficultyId, log: game.transport.log, endTick: game.tick, checksum: game.checksum(), reloaded: !!game.reloaded };
+  try {
+    localStorage.setItem(REPLAY_KEY, JSON.stringify(data));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function loadReplay() {
+  try { return JSON.parse(localStorage.getItem(REPLAY_KEY) ?? 'null'); } catch { return null; }
+}
+
 export function hasSave() {
   try { return !!localStorage.getItem(KEY); } catch { return false; }
 }
@@ -93,5 +110,7 @@ export function loadGame({ game, rts, economy, onFog }) {
   economy.stats.load(data.econ?.stats);
   economy.society.load(data.econ?.society);
   rts.load(data.rts ?? {});
+  // 读档会对单位坐标等取整,之后的模拟与「不间断」的原局不再逐位一致,回放校验需知晓
+  game.reloaded = true;
   return true;
 }
