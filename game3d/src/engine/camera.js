@@ -56,7 +56,49 @@ export class CameraRig {
     this.dom.addEventListener('pointerup', end);
     this.dom.addEventListener('pointercancel', end);
     window.addEventListener('resize', () => this.resize());
+    this.bindTouch();
   }
+
+  /** 触屏:双指平移 + 捏合缩放;第二根手指按下时通过 onGestureStart 让输入层放弃单指操作。 */
+  bindTouch() {
+    this.touches = new Map();
+    this.dom.style.touchAction = 'none';
+    this.dom.addEventListener('pointerdown', (e) => {
+      if (e.pointerType !== 'touch') return;
+      this.touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (this.touches.size === 2) {
+        this.gesture = this.gestureState();
+        this.onGestureStart?.();
+      }
+    });
+    this.dom.addEventListener('pointermove', (e) => {
+      if (e.pointerType !== 'touch' || !this.touches.has(e.pointerId)) return;
+      this.touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (this.touches.size !== 2 || !this.gesture) return;
+      const now = this.gestureState();
+      const k = (this.view * 2) / this.dom.clientHeight;
+      this.panScreen(-(now.cx - this.gesture.cx) * k, -(now.cy - this.gesture.cy) * k / Math.sin(PITCH));
+      if (this.gesture.dist > 10) {
+        this.viewGoal = clamp(this.viewGoal * (this.gesture.dist / now.dist), 4, 36);
+        this.view = this.viewGoal;
+      }
+      this.gesture = now;
+    });
+    const end = (e) => {
+      if (e.pointerType !== 'touch') return;
+      this.touches.delete(e.pointerId);
+      if (this.touches.size < 2) this.gesture = null;
+    };
+    this.dom.addEventListener('pointerup', end);
+    this.dom.addEventListener('pointercancel', end);
+  }
+
+  gestureState() {
+    const [a, b] = [...this.touches.values()];
+    return { cx: (a.x + b.x) / 2, cy: (a.y + b.y) / 2, dist: Math.hypot(a.x - b.x, a.y - b.y) };
+  }
+
+  get gesturing() { return this.touches?.size >= 2; }
 
   get dragging() { return !!this.drag; }
 

@@ -125,7 +125,8 @@ export class UI {
 
   // ---------- 选中 ----------
   select(sel, fromRts = false) {
-    if (sel?.building && !fromRts) this.rts.clearSelection?.();
+    // 选中建筑或主动清空(关闭面板/点空地)时同时取消部队选择
+    if (!fromRts && (sel?.building || sel === null)) this.rts.clearSelection?.();
     this.selection = sel;
     this.view.showSelection(sel?.building ?? null);
     this.panel.show(sel);

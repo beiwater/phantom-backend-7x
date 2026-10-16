@@ -49,8 +49,28 @@ export class Input {
     this.badMat = new THREE.MeshBasicMaterial({ color: 0xff5544, transparent: true, opacity: 0.45, depthWrite: false });
   }
 
+  nearOwnUnit(sx, sy) {
+    const me = this.game.localPlayer;
+    return (this.rts?.units ?? []).some((u) => {
+      if (u.team !== me) return false;
+      const p = this.rig.toScreen(new THREE.Vector3(u.x, 0.3, u.z));
+      return Math.hypot(p.x - sx, p.y - sy) < 26;
+    });
+  }
+
+  /** 双指手势开始:放弃当前单指的点击/框选/拖拽铺路。 */
+  cancelPointer() {
+    this.down = null;
+    this.dragPath = null;
+    this.preview.clear();
+    if (this.rts?.sel) this.rts.sel.box = null;
+    const box = document.getElementById('dragbox');
+    if (box) box.style.display = 'none';
+  }
+
   bind() {
     const d = this.dom;
+    this.rig.onGestureStart = () => this.cancelPointer();
     d.addEventListener('contextmenu', (e) => e.preventDefault());
     d.addEventListener('pointerdown', (e) => this.onDown(e));
     window.addEventListener('pointermove', (e) => this.onMove(e));
@@ -70,9 +90,9 @@ export class Input {
   }
 
   onDown(e) {
-    if (this.rig.dragging || e.button === 1) return;
+    if (this.rig.dragging || this.rig.gesturing || e.button === 1) return;
     const c = this.cellAt(e);
-    this.down = { x: e.clientX, y: e.clientY, button: e.button, cell: c, moved: false };
+    this.down = { x: e.clientX, y: e.clientY, button: e.button, cell: c, moved: false, touch: e.pointerType === 'touch', hadSel: (this.rts?.selected?.length ?? 0) > 0 };
     const k = this.mode.kind;
     if (e.button === 2) {
       if (k !== 'select') { this.setMode({ kind: 'select' }); this.down = null; return; }
@@ -90,6 +110,7 @@ export class Input {
   }
 
   onMove(e) {
+    if (this.rig.gesturing) return;
     if (e.target !== this.rig.dom && !this.down && !this.dragPath) {
       this.tip.style.display = 'none';
       return;
@@ -108,6 +129,7 @@ export class Input {
   }
 
   onUp(e) {
+    if (this.rig.gesturing) return;
     const down = this.down;
     this.down = null;
     if (this.dragPath) {
@@ -118,6 +140,11 @@ export class Input {
     const c = this.cellAt(e);
     const k = this.mode.kind;
     if (k === 'select') {
+      // 触屏没有右键:已选中部队时轻点地面/敌人即下达命令,轻点己方单位仍为选择
+      if (down.touch && down.hadSel && !down.moved && c && !this.nearOwnUnit(e.clientX, e.clientY)) {
+        this.rts?.command?.(e, c);
+        return;
+      }
       const handled = this.rts?.pointerUp?.(e, c, down);
       if (!handled && !down.moved && c) {
         const b = this.game.buildingAt(c.x, c.z);
