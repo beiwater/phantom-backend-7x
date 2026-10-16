@@ -1,6 +1,7 @@
 // 建筑/道路/城墙/工地/烟雾/物流卡车的可视化,订阅 Game 事件保持与状态同步。
 import * as THREE from 'three';
 import { MAP_W } from './map.js';
+import { MODULES } from '../data/modules.js';
 import { voxelMaterial } from '../engine/voxel.js';
 import { buildingGeo, roadGeo, wallGeo, scaffoldGeo, turretHeadGeo, truckGeo, rubbleGeo } from '../models/cache.js';
 
@@ -83,6 +84,7 @@ export class WorldView {
         v.group.add(v.head);
       }
     }
+    this.syncModule(b, v);
     const building = b.state === 'construct' || b.state === 'upgrade';
     if (building && !v.scaffold) {
       v.scaffold = new THREE.Mesh(scaffoldGeo(b.w, b.d), voxelMaterial());
@@ -94,6 +96,24 @@ export class WorldView {
       v.mesh.scale.y = 1;
       this.pop(v.group);
     }
+  }
+
+  /** 专精模块旗:占地右前角一根细旗杆 + 模块色旗面(不与建筑主体重叠)。 */
+  syncModule(b, v) {
+    if (v.moduleKey === b.module) return;
+    v.moduleKey = b.module;
+    if (v.flag) { v.group.remove(v.flag); v.flag = null; }
+    if (!b.module) return;
+    const flag = new THREE.Group();
+    const pole = new THREE.Mesh(new THREE.BoxGeometry(0.05, 1.3, 0.05), new THREE.MeshLambertMaterial({ color: 0xdddddd }));
+    pole.position.y = 0.65;
+    const cloth = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.2, 0.03), new THREE.MeshLambertMaterial({ color: MODULES[b.module].color }));
+    cloth.position.set(0.18, 1.18, 0);
+    flag.add(pole, cloth);
+    flag.position.set(b.w / 2 - 0.08, 0, b.d / 2 - 0.08);
+    flag.traverse((o) => { o.castShadow = true; });
+    v.flag = flag;
+    v.group.add(flag);
   }
 
   removeBuilding(b, destroyed) {

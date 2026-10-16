@@ -350,3 +350,19 @@ test('古代遗迹:按种子确定性生成于无主地块;单位靠近只领取
   assert.equal(g.counters.ruins, 1, '不可重复领取');
   assert.equal(g.canPlace('house', g.ruins.list[1].x, g.ruins.list[1].z, 'enemy').reason, '古代遗迹(派单位探索)');
 });
+
+test('专精模块:未满 3 级拒绝;环保模块消除污染;重复安装不重复扣费', async () => {
+  const { g, e } = fresh();
+  g.res.money = 99999; g.res.concrete = 99; g.res.steel = 99; g.res.planks = 99; g.res.stone = 99;
+  g.techs.add('metallurgy');
+  let mill = null;
+  for (let z = 40; z < 56 && !mill; z++) for (let x = 8; x < 24 && !mill; x++) { const p = g.placeBuilding('cement', x, z, 'player', { instant: true }); if (p.ok) mill = p.building; }
+  assert.equal(g.dispatch({ type: 'setModule', uid: mill.uid, module: 'eco' }).ok, false);
+  mill.level = 3;
+  const before = g.res.money;
+  assert.ok(g.dispatch({ type: 'setModule', uid: mill.uid, module: 'eco' }).ok);
+  assert.equal(g.res.money, before - 250);
+  assert.equal(g.dispatch({ type: 'setModule', uid: mill.uid, module: 'eco' }).ok, false);
+  assert.equal(g.res.money, before - 250);
+  assert.equal(e.society.pollutionAt(mill.x - 1, mill.z), 0);
+});

@@ -90,7 +90,8 @@ export class Economy {
       housing += housingOf(b.type, lvl) * (b.fed ? 1 : 0.5);
       b.synergy = synergyAt(g, b.type, b.x, b.z, b.w, b.d, b.team, b.uid);
       if (b.state !== 'active' || b.paused) continue;
-      if (def.recipe || def.market || def.trains) need += workersOf(def, lvl);
+      if (def.recipe || def.market || def.trains) need += Math.ceil(workersOf(def, lvl) * (b.module === 'eco' ? 0.7 : 1));
+      if (b.module === 'storage') storage += 150;
       const p = powerOf(def, lvl);
       if (p > 0 && b.working) supply += p;
       if (p < 0) demand -= p;
@@ -194,7 +195,7 @@ export class Economy {
     if (def.recipe) {
       const g = this.game;
       const bonus = (RAW.has(b.type) ? g.effect('raw') : g.effect('process')) + g.effect(b.type) + g.effect('prod');
-      e *= Math.max(0.1, 1 + bonus + (b.synergy?.bonus ?? 0)) * this.society.productivity();
+      e *= Math.max(0.1, 1 + bonus + (b.synergy?.bonus ?? 0) + (b.module === 'speed' ? 0.25 : 0)) * this.society.productivity();
     }
     return e * levelSpeed(b.level);
   }

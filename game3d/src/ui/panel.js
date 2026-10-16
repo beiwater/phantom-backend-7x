@@ -8,6 +8,7 @@ import { workersOf, powerOf } from '../sim/economy.js';
 import { fmtTime } from '../engine/util.js';
 import { BUILDING_ICONS } from './toolbar.js';
 import { SYNERGY } from '../sim/synergy.js';
+import { MODULES, MODULE_MIN_LEVEL } from '../data/modules.js';
 
 const UNIT_ICONS = { militia: '🗡️', rifleman: '🔫', tank: '🛡️', artillery: '💣', helicopter: '🚁' };
 
@@ -44,6 +45,7 @@ export class Panel {
     if (act === 'upgrade') r = g.dispatch({ type: 'upgrade', uid: b.uid });
     if (act === 'repair') r = g.dispatch({ type: 'repair', uid: b.uid });
     if (act === 'pause') r = g.dispatch({ type: 'togglePause', uid: b.uid });
+    if (act === 'module') r = g.dispatch({ type: 'setModule', uid: b.uid, module: t.dataset.module });
     if (act === 'demolish') {
       r = g.dispatch({ type: 'demolish', uid: b.uid });
       if (r.ok) { this.ui.select(null); return; }
@@ -80,7 +82,7 @@ export class Panel {
   buildingSig(b) {
     const g = this.game;
     const def = BUILDINGS[b.type];
-    const parts = [b.uid, b.level, b.state, b.trainQueue.join(','), g.era, [...g.techs].length, b.paused, Math.ceil(b.hp / 20)];
+    const parts = [b.uid, b.level, b.state, b.trainQueue.join(','), g.era, [...g.techs].length, b.paused, Math.ceil(b.hp / 20), b.module, ...Object.values(MODULES).map((m) => g.canAfford(m.cost))];
     if (b.level < def.maxLevel) parts.push(g.canAfford(upgradeCost(b.type, b.level + 1)));
     for (const u of def.trains ?? []) parts.push(g.canAfford(UNITS[u].cost));
     if (def.market) parts.push(RESOURCE_IDS.filter((k) => g.res[k] > 0 || b.sell.has(k)).join(), RESOURCE_IDS.map((k) => g.market.price(k).toFixed(1)).join());
@@ -124,6 +126,17 @@ export class Panel {
       const names = (list) => list.map((t) => BUILDINGS[t].name).join('、');
       h.push(`<div class="row"><span>🔗 相邻协同</span><b style="color:${syn.bonus ? 'var(--good)' : 'var(--muted)'}">+${Math.round(syn.bonus * 100)}%</b></div>`);
       h.push(`<div class="desc" style="margin:0 0 4px">紧贴:${names(SYNERGY[b.type])}(每种 +10%,最多 +30%)${syn.partners.length ? `<br>已连接:${names(syn.partners)}` : ''}</div>`);
+    }
+    if ((def.recipe || def.market) && b.state === 'active') {
+      if (b.level >= MODULE_MIN_LEVEL) {
+        h.push(`<div class="row" style="margin-top:6px"><span>🧩 专精模块</span><b>${b.module ? `${MODULES[b.module].icon} ${MODULES[b.module].name}` : '未安装'}</b></div><div class="btns">`);
+        for (const [id, m] of Object.entries(MODULES)) {
+          h.push(`<button class="btn${b.module === id ? ' primary' : ''}" data-act="module" data-module="${id}" title="${m.desc}" ${b.module === id || !g.canAfford(m.cost) ? 'disabled' : ''}>${m.icon} ${m.name} ${chips(m.cost)}</button>`);
+        }
+        h.push('</div>');
+      } else {
+        h.push(`<div class="desc">🧩 ${MODULE_MIN_LEVEL} 级后可安装专精模块(效率 / 环保 / 仓储)。</div>`);
+      }
     }
     if (b.type === 'house' && b.pollution) h.push(`<div class="status bad">🏭 附近有 ${b.pollution} 处污染源,降低民心</div>`);
 

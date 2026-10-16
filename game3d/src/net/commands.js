@@ -3,6 +3,7 @@
 // 命令格式:{ type, p: 玩家 id, ...参数 };返回 { ok, reason?, ...附加结果 }。
 import { BUILDINGS } from '../data/buildings.js';
 import { RESOURCES } from '../data/resources.js';
+import { MODULES, MODULE_MIN_LEVEL } from '../data/modules.js';
 
 const RTS_TYPES = new Set(['move', 'attack', 'stop', 'rally', 'train', 'cancelTrain']);
 
@@ -53,6 +54,22 @@ const HANDLERS = {
   },
   deliver(game, cmd) {
     return game.contracts?.deliver(cmd.id) ?? { ok: false, reason: '合同系统未就绪' };
+  },
+  /** 专精模块:3 级以上的生产/集市建筑;全量预检扣费,选同一模块拒绝(防重复扣费)。 */
+  setModule(game, cmd) {
+    const b = owned(game, cmd);
+    const def = b && BUILDINGS[b.type];
+    if (!b || !(def.recipe || def.market)) return { ok: false, reason: '该建筑不能安装模块' };
+    if (b.state !== 'active') return { ok: false, reason: '建筑忙碌中' };
+    if (b.level < MODULE_MIN_LEVEL) return { ok: false, reason: `需 ${MODULE_MIN_LEVEL} 级` };
+    const m = MODULES[cmd.module];
+    if (!m) return { ok: false, reason: '未知模块' };
+    if (b.module === cmd.module) return { ok: false, reason: '已安装该模块' };
+    if (!game.spend(m.cost)) return { ok: false, reason: '资源不足' };
+    b.module = cmd.module;
+    game.map.version++;
+    game.events.emit('building:change', b);
+    return { ok: true };
   },
   tribute(game) {
     return game.unitSystem?.ai?.tribute() ?? { ok: false, reason: '外交不可用' };

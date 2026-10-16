@@ -23,7 +23,7 @@ export class Society {
     for (let zz = z - POLLUTION_R; zz < z + d + POLLUTION_R; zz++) {
       for (let xx = x - POLLUTION_R; xx < x + w + POLLUTION_R; xx++) {
         const o = this.game.buildingAt(xx, zz);
-        if (o && o.team === 'player' && POLLUTERS.has(o.type) && o.state !== 'construct') seen.add(o.uid);
+        if (o && o.team === 'player' && POLLUTERS.has(o.type) && o.state !== 'construct' && o.module !== 'eco') seen.add(o.uid);
       }
     }
     return seen.size;
