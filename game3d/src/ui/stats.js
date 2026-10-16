@@ -2,6 +2,7 @@
 import { RESOURCES, RESOURCE_IDS } from '../data/resources.js';
 import { BUILDINGS } from '../data/buildings.js';
 import { fmtNum } from '../engine/util.js';
+import { civScore } from '../sim/score.js';
 
 function spark(values, w = 90, h = 22, color = '#5aa8ff', center = null) {
   if (values.length < 2) return '<span style="color:var(--muted)">—</span>';
@@ -17,6 +18,30 @@ export class StatsPanel {
   constructor(game, economy) {
     this.game = game;
     this.economy = economy;
+    /** 发展曲线:每 20 游戏秒采样一次(本地视图数据,不进存档) */
+    this.history = [];
+    this.nextSample = 0;
+  }
+
+  sample() {
+    const g = this.game;
+    if (g.time < this.nextSample) return;
+    this.nextSample = g.time + 20;
+    this.history.push({
+      t: g.time,
+      score: civScore(g).total,
+      money: g.res.money,
+      army: (g.unitSystem?.units ?? []).filter((u) => u.team === g.localPlayer).length,
+      pop: g.stats.housing,
+    });
+    if (this.history.length > 360) this.history.shift();
+  }
+
+  curves() {
+    const h = this.history;
+    if (h.length < 2) return '<div class="desc">游戏进行一段时间后显示发展曲线。</div>';
+    const row = (name, key, color) => `<div class="row"><span>${name} ${fmtNum(h[h.length - 1][key])}</span>${spark(h.map((p) => p[key]), 260, 26, color)}</div>`;
+    return `<div class="curves">${row('🏅 评分', 'score', '#ffd34d')}${row('💰 金币', 'money', '#e8c252')}${row('👷 人口', 'pop', '#6fd36f')}${row('⚔️ 部队', 'army', '#5aa8ff')}</div>`;
   }
 
   html() {
@@ -47,6 +72,7 @@ export class StatsPanel {
         <thead><tr><th>货物</th><th>库存</th><th>产出/分</th><th>消耗/分</th><th>净流量</th><th>净流量走势</th><th>市价</th><th>价格走势</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
+      <h3 style="margin:14px 0 6px;font-size:14px">发展曲线</h3>${this.curves()}
       <h3 style="margin:14px 0 6px;font-size:14px">民心 ${Math.round(soc.happiness)} · 税收 ×${soc.taxMult().toFixed(2)} · 生产 ×${soc.productivity().toFixed(2)}</h3>
       <div>${parts}</div>
       <h3 style="margin:14px 0 6px;font-size:14px">建筑(${[...counts.values()].reduce((s, n) => s + n, 0)})</h3>

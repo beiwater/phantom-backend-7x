@@ -451,6 +451,7 @@ export class UI {
     this.minimap.update(dt);
     this.missions.update(dt);
     this.alerts.update(dt);
+    this.statsPanel.sample();
     this.achievements.update(dt);
     this.updateReplay();
     this.updateCoop();

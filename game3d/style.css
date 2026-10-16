@@ -281,3 +281,4 @@ button { font: inherit; color: inherit; cursor: pointer; }
   #alerts { top: 110px; }
   #toasts { top: 110px; width: calc(100% - 16px); }
 }
+.curves .row { display: flex; justify-content: space-between; align-items: center; padding: 2px 0; font-size: 13px; }
