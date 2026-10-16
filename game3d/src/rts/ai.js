@@ -261,8 +261,11 @@ export class EnemyAI {
       if (!this.production().length) { this.stop(); return; }
       const size = this.plan(n).length;
       const eta = Math.max(0, Math.round(this.nextWave - g.time));
-      g.events.emit('wave:incoming', { eta, size, wave: n });
-      this.rts.ui?.toast?.(`⚠️ 敌军第 ${n} 波进攻将在 ${eta} 秒后抵达!(约 ${size} 个单位)`, 'big');
+      // 路线在预警时决定并告知玩家,给出布防时间
+      this.route = n >= 2 ? Math.floor(g.rng() * WAVE_ROUTES.length) : null;
+      const r = this.route === null ? null : WAVE_ROUTES[this.route];
+      g.events.emit('wave:incoming', { eta, size, wave: n, route: r?.name });
+      this.rts.ui?.toast?.(`⚠️ 敌军第 ${n} 波进攻将在 ${eta} 秒后抵达!(约 ${size} 个单位${r ? `,侦察显示走${r.name}路渡口` : ''})`, 'big', r ? { x: r.x, z: r.z } : null);
     }
     if (g.time >= this.nextWave) this.launch(n);
   }
@@ -307,7 +310,8 @@ export class EnemyAI {
     // 后期波次单位更结实
     const hpMult = Math.min(1.8, 1 + 0.04 * (n - 1)) * this.diff.enemyHp;
     // 第 2 波起随机选择进攻路线(北/中/南三处渡口),让单点防守不再万无一失
-    const via = n >= 2 ? WAVE_ROUTES[Math.floor(g.rng() * WAVE_ROUTES.length)] : null;
+    const via = n >= 2 ? WAVE_ROUTES[this.route ?? 1] : null;
+    this.route = null;
     this.damageMult = Math.min(1.5, 1 + 0.025 * (n - 1));
     for (const { type, b } of plan) {
       const c = this.spawnCell(b, used);
@@ -362,7 +366,7 @@ export class EnemyAI {
   }
 
   serialize() {
-    return { nextWave: this.nextWave, wave: this.wave, warned: this.warned, stopped: this.stopped, damageMult: this.damageMult, rebuild: this.rebuild, tributedWave: this.tributedWave ?? 0, expandAt: this.expandAt };
+    return { nextWave: this.nextWave, wave: this.wave, warned: this.warned, stopped: this.stopped, damageMult: this.damageMult, rebuild: this.rebuild, tributedWave: this.tributedWave ?? 0, expandAt: this.expandAt, route: this.route ?? null };
   }
 
   load(d, units) {
@@ -374,6 +378,7 @@ export class EnemyAI {
     this.rebuild = d?.rebuild ?? [];
     this.tributedWave = d?.tributedWave ?? 0;
     this.expandAt = d?.expandAt;
+    this.route = d?.route ?? null;
     this.waves.clear();
     for (const u of units) {
       if (!u.wave) continue;
