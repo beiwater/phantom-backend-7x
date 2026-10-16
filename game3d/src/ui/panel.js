@@ -4,7 +4,7 @@ import { BUILDINGS, upgradeCost, levelSpeed, storageOf, housingOf } from '../dat
 import { RESOURCES, RESOURCE_IDS, resIcon, resName } from '../data/resources.js';
 import { UNITS, COUNTERS, CLASS_NAMES } from '../data/units.js';
 import { TECHS } from '../data/tech.js';
-import { workersOf, powerOf, MARKET_RESERVE } from '../sim/economy.js';
+import { workersOf, powerOf, MARKET_RESERVE, rushCost } from '../sim/economy.js';
 import { fmtTime } from '../engine/util.js';
 import { BUILDING_ICONS } from './toolbar.js';
 import { SYNERGY } from '../sim/synergy.js';
@@ -61,6 +61,7 @@ export class Panel {
     if (act === 'upgrade') r = g.dispatch({ type: 'upgrade', uid: b.uid });
     if (act === 'repair') r = g.dispatch({ type: 'repair', uid: b.uid });
     if (act === 'pause') r = g.dispatch({ type: 'togglePause', uid: b.uid });
+    if (act === 'rush') r = g.dispatch({ type: 'rush', uid: b.uid });
     if (act === 'reserve') r = g.dispatch({ type: 'setReserve', uid: b.uid, n: Number(t.dataset.n) });
     if (act === 'upgradeUnits') r = g.dispatch({ type: 'upgradeUnits', ids: (this.sel?.units ?? []).map((u) => u.id) });
     if (act === 'module') r = g.dispatch({ type: 'setModule', uid: b.uid, module: t.dataset.module });
@@ -190,6 +191,7 @@ export class Panel {
     }
 
     h.push('<div class="btns">');
+    if (b.state === 'construct' || b.state === 'upgrade') h.push(`<button class="btn primary" data-act="rush">⚡ 立即完成 💰<span data-k="rush">${rushCost(b)}</span></button>`);
     if (b.level < def.maxLevel) {
       const cost = upgradeCost(b.type, b.level + 1);
       const eraBlock = b.type === 'hq' && b.level + 1 > g.era;
@@ -206,6 +208,8 @@ export class Panel {
 
   live(b) {
     const q = (k) => this.el.querySelector(`[data-k="${k}"]`);
+    const rush = q('rush');
+    if (rush && (b.state === 'construct' || b.state === 'upgrade')) rush.textContent = rushCost(b);
     const hp = q('hp');
     if (hp) hp.textContent = `${Math.ceil(b.hp)} / ${Math.ceil(b.maxHp)}`;
     const hpbar = q('hpbar');

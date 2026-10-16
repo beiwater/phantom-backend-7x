@@ -527,3 +527,18 @@ test('研究队列:排队需前置已规划,完成后自动开始下一项(科�
   assert.equal(g.researching?.id, 'metallurgy');
   assert.deepEqual(g.researchQueue, ['industry']);
 });
+
+test('加速:按剩余时间收费,下一 tick 完工;已完工建筑不可加速', async () => {
+  const { rushCost } = await import('../src/sim/economy.js');
+  const { g, e } = fresh();
+  const s = spotNear(g, 'farm');
+  const r = g.placeBuilding('farm', s.x, s.z);
+  const cost = rushCost(r.building);
+  assert.equal(cost, 24, '8 秒 × 3 × 1 级');
+  const m0 = g.res.money;
+  assert.ok(g.dispatch({ type: 'rush', uid: r.building.uid }).ok);
+  assert.equal(g.res.money, m0 - 24);
+  run(e, 0.1);
+  assert.equal(r.building.state, 'active');
+  assert.equal(g.dispatch({ type: 'rush', uid: r.building.uid }).ok, false);
+});

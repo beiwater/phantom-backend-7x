@@ -5,6 +5,7 @@ import { BUILDINGS } from '../data/buildings.js';
 import { RESOURCES } from '../data/resources.js';
 import { MODULES, MODULE_MIN_LEVEL } from '../data/modules.js';
 import { planRoad } from '../sim/autoroad.js';
+import { rushCost } from '../sim/economy.js';
 import { Game } from '../sim/state.js';
 
 const RTS_TYPES = new Set(['move', 'attack', 'stop', 'rally', 'train', 'cancelTrain', 'upgradeUnits']);
@@ -105,6 +106,15 @@ const HANDLERS = {
     if (!b || !(def.recipe || def.market || def.trains)) return { ok: false, reason: '该建筑不能暂停' };
     b.paused = !b.paused;
     return { ok: true, paused: b.paused };
+  },
+  /** 加速(仿等距经营游戏的 RUSH):按剩余时间付金币,下一 tick 完工。 */
+  rush(game, cmd) {
+    const b = owned(game, cmd);
+    if (!b || (b.state !== 'construct' && b.state !== 'upgrade')) return { ok: false, reason: '没有可加速的工程' };
+    const cost = rushCost(b);
+    if (!game.spend({ money: cost })) return { ok: false, reason: `加速需要 ${cost} 金币` };
+    b.progress = 1;
+    return { ok: true, cost };
   },
   setReserve(game, cmd) {
     const b = owned(game, cmd);

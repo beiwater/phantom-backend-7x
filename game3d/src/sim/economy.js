@@ -375,6 +375,19 @@ export class Economy {
   }
 }
 
+/** 建造/升级剩余游戏秒数(用于加速报价与标签倒计时)。 */
+export function remainingBuild(b) {
+  const def = BUILDINGS[b.type];
+  if (b.state === 'construct') return (1 - b.progress) * def.buildTime;
+  if (b.state === 'upgrade') return (1 - b.progress) * (def.buildTime * 0.6 * b.level + 4);
+  return 0;
+}
+
+/** 加速报价:每剩余 1 秒 3 金币 × 等级,至少 10。 */
+export function rushCost(b) {
+  return Math.max(10, Math.ceil(remainingBuild(b) * 3 * b.level));
+}
+
 export function researchDuration(id) {
   return 6 + TECHS[id].cost / 10;
 }
