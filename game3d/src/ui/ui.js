@@ -22,8 +22,8 @@ import { VICTORIES } from '../sim/victory.js';
 const AUTOSAVE_SEC = 30;
 
 export class UI {
-  constructor({ game, economy, rig, rts, view, terrain, quality, dayNight }) {
-    Object.assign(this, { game, economy, rig, rts, view, terrain, quality, dayNight });
+  constructor({ game, economy, rig, rts, view, terrain, quality, dayNight, audio }) {
+    Object.assign(this, { game, economy, rig, rts, view, terrain, quality, dayNight, audio });
     this.selection = null;
     this.toasts = document.getElementById('toasts');
     this.modal = document.getElementById('modal');
@@ -97,6 +97,7 @@ export class UI {
 
   // ---------- 提示 ----------
   toast(text, kind = '') {
+    if (kind === 'bad') this.audio?.play('error');
     const el = document.createElement('div');
     el.className = `toast ${kind}`;
     el.textContent = text;
@@ -171,7 +172,7 @@ export class UI {
         <kbd>右键</kbd><span>取消建造 · 部队移动/攻击 · 兵营集结点</span>
         <kbd>A</kbd><span>攻击移动 · <kbd>H</kbd> 停止 · <kbd>F</kbd> 全选部队 · <kbd>Ctrl+数字</kbd> 编队</span>
         <kbd>O</kbd><span>经济统计 · <kbd>J</kbd> 政务(政策/合同) · <kbd>B</kbd> 百科</span>
-        <kbd>T</kbd><span>科技树 · <kbd>P</kbd> 暂停 · <kbd>L</kbd> 开关标签 · <kbd>Esc</kbd> 取消/关闭</span>
+        <kbd>T</kbd><span>科技树 · <kbd>P</kbd> 暂停 · <kbd>L</kbd> 标签 · <kbd>M</kbd> 静音 · <kbd>Esc</kbd> 取消/关闭</span>
       </div>
       <p>敌军第一波进攻约在 ${fmtTime(300)} 后到来。进度每 ${AUTOSAVE_SEC} 秒自动保存到本机浏览器。</p>
     </div>`);
@@ -186,6 +187,7 @@ export class UI {
         <button class="btn" data-menu="labels">🏷️ 开关建筑标签 (L)</button>
         <button class="btn" data-menu="fog">🌫️ 开关战争迷雾</button>
         <button class="btn" data-menu="daynight">🌙 开关昼夜循环</button>
+        <button class="btn" data-menu="mute">🔇 开关音效 (M)</button>
         <div class="btns">画质:${Object.entries(QUALITY).map(([id, q]) => `<button class="btn${this.quality?.level === id ? ' primary' : ''}" data-quality="${id}">${q.name}</button>`).join('')}</div>
         <button class="btn danger" data-menu="setup">🆕 新游戏…</button>
       </div></div>`);
@@ -220,6 +222,7 @@ export class UI {
     if (m === 'help') this.openHelp();
     if (m === 'codex') this.openCodex();
     if (m === 'labels') { this.labels.enabled = !this.labels.enabled; this.closeModal(); }
+    if (m === 'mute') { this.toast(this.audio.toggleMute() ? '🔇 已静音' : '🔊 音效已开启'); this.closeModal(); }
     if (m === 'daynight' && this.dayNight) { this.dayNight.enabled = !this.dayNight.enabled; this.closeModal(); }
     if (m === 'fog' && this.game.fog) { this.game.fog.enabled = !this.game.fog.enabled; this.closeModal(); }
     const q = e.target.closest('[data-quality]')?.dataset.quality;
@@ -254,6 +257,7 @@ export class UI {
     if (k === 'KeyO') this.openStats();
     if (k === 'KeyJ') this.openGov();
     if (k === 'KeyB') this.openCodex();
+    if (k === 'KeyM') this.toast(this.audio.toggleMute() ? '🔇 已静音' : '🔊 音效已开启');
     if (k === 'KeyP') this.hud.setSpeed(0);
     if (k === 'KeyL') this.labels.enabled = !this.labels.enabled;
   }
