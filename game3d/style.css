@@ -258,3 +258,8 @@ button { font: inherit; color: inherit; cursor: pointer; }
 @media (max-width: 760px) { .victories.four { grid-template-columns: 1fr 1fr; } }
 .toast.loc { pointer-events: auto; cursor: pointer; }
 .toast.loc:hover { filter: brightness(1.25); }
+.title-screen { text-align: center; min-width: min(420px, 92vw); padding: 28px; }
+.title-screen .logo { font-size: 38px; font-weight: 900; letter-spacing: 4px; background: linear-gradient(90deg, #ffd34d, #7cc46a, #50a8e8); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.title-screen .sub { color: var(--muted); margin: 6px 0 20px; letter-spacing: 6px; }
+.title-screen .btn { font-size: 15px; padding: 10px; }
+.title-screen small { display: block; font-weight: 500; font-size: 12px; opacity: 0.8; }

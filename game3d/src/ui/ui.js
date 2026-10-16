@@ -57,6 +57,24 @@ export class UI {
     this.bindEvents();
     if (game.replay) this.initReplay();
     else if (game.time < 1) this.openHelp(true);
+    else this.openTitle();
+  }
+
+  /** 读档启动时的标题界面:暂停模拟直到玩家选择继续。 */
+  openTitle() {
+    const g = this.game;
+    this.titlePaused = !g.paused;
+    g.paused = true;
+    const era = ERAS[g.era - 1];
+    this.openModal('title', `<div class="dialog title-screen">
+      <div class="logo">🧱 体素纪元</div>
+      <div class="sub">经营 · 文明 · 战争</div>
+      <div class="menu-list">
+        <button class="btn primary" data-menu="continue">▶ 继续游戏 <small>${era.name} · ${fmtTime(g.time)} · ${DIFFICULTIES[g.difficultyId].name}</small></button>
+        <button class="btn" data-menu="setup">🆕 新游戏</button>
+        <button class="btn" data-menu="help">❓ 操作说明</button>
+        <button class="btn" data-menu="ach">🏆 成就</button>
+      </div></div>`);
   }
 
   /** 回放模式:禁止存档,显示横幅,到达录制终点时比对校验和以证明确定性。 */
@@ -180,6 +198,7 @@ export class UI {
   closeModal() {
     if (this.modal.hidden) return false;
     if (this.modalKind === 'gameover') return true;
+    if (this.titlePaused) { this.game.paused = false; this.titlePaused = false; }
     this.modal.hidden = true;
     this.modalKind = null;
     return true;
@@ -297,6 +316,7 @@ export class UI {
       this.toast(ok ? '💾 已保存' : '当前状态不可保存(回放中或对局已结束)', ok ? 'good' : 'bad');
       this.closeModal();
     }
+    if (m === 'continue') this.closeModal();
     if (m === 'help') this.openHelp();
     if (m === 'export') {
       const text = exportSave(this);
