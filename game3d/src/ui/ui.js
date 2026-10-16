@@ -295,7 +295,7 @@ export class UI {
         <kbd>U</kbd><span>规划视图(污染/物流) · <kbd>C</kbd> 复制选中建筑类型 · <kbd>Z</kbd> 跳到最近警报(📍提示可点击)</span>
         <kbd>T</kbd><span>科技树 · <kbd>P</kbd> 暂停 · <kbd>L</kbd> 标签 · <kbd>M</kbd> 静音 · <kbd>Esc</kbd> 取消/关闭</span>
       </div>
-      <p>敌军第一波进攻约在 ${fmtTime(300)} 后到来。进度每 ${AUTOSAVE_SEC} 秒自动保存到本机浏览器。</p>
+      <p>${this.game.difficulty.peaceful ? '和平沙盒:敌军不会进攻。' : `敌军第一波进攻约在 ${fmtTime(this.game.difficulty.firstWave)} 后到来。`}进度每 ${AUTOSAVE_SEC} 秒自动保存到本机浏览器。</p>
     </div>`);
   }
 

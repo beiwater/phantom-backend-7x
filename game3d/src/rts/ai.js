@@ -53,6 +53,7 @@ export class EnemyAI {
   expand() {
     const g = this.game;
     const m = g.map;
+    if (this.game.difficulty?.peaceful) return;
     if (this.expandAt === undefined) this.expandAt = EXPAND_FIRST;
     if (g.time < this.expandAt) return;
     this.expandAt = g.time + EXPAND_GAP;
@@ -271,6 +272,7 @@ export class EnemyAI {
 
   tribute() {
     const g = this.game;
+    if (g.difficulty?.peaceful) return { ok: false, reason: '和平沙盒中敌军不会进攻' };
     if (this.stopped) return { ok: false, reason: '敌军目前没有进攻能力' };
     if (this.tributedWave === this.wave + 1) return { ok: false, reason: '本波已进贡过,敌军不再接受' };
     if (this.nextWave - g.time < 10) return { ok: false, reason: '敌军已在进军途中' };

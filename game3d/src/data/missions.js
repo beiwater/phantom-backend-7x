@@ -80,7 +80,8 @@ export const MISSIONS = [
   {
     title: '击退来犯', goal: '击退 1 波敌军进攻',
     hint: '框选部队后右键移动或攻击。筑城术可解锁城墙与防御塔。',
-    progress: (g) => ratio(g.counters.wavesSurvived, 1),
+    // 和平沙盒没有进攻波次,自动视为完成以免卡住后续目标
+    progress: (g) => (g.difficulty?.peaceful ? 1 : ratio(g.counters.wavesSurvived, 1)),
     reward: { money: 500 },
   },
   {

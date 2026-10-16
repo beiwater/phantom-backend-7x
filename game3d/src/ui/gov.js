@@ -86,6 +86,7 @@ export class GovPanel {
     const g = this.game;
     const ai = g.unitSystem?.ai;
     if (!ai) return '';
+    if (g.difficulty?.peaceful) return '<h3 class="sub">外交 · 铁锈军团</h3><div class="desc">和平沙盒:双方签有永久停战协定。</div>';
     const eta = Math.max(0, Math.round(ai.nextWave - g.time));
     const used = ai.tributedWave === ai.wave + 1;
     const cost = ai.tributeCost();
