@@ -73,6 +73,7 @@ export function saveGame({ game, rts, economy }) {
     rts: rts.serialize(),
     fog: game.fog?.serialize(),
     ruins: game.ruins.serialize(),
+    weather: game.weather.serialize(),
     buffs: game.buffs,
     policies: game.policies,
     policyReadyAt: game.policyReadyAt,
@@ -117,6 +118,7 @@ export function loadGame({ game, rts, economy, onFog }) {
   game.map.version++;
   game.buffs = data.buffs ?? [];
   game.ruins.load(data.ruins);
+  game.weather.load(data.weather);
   game.policies = data.policies ?? [];
   game.policyReadyAt = data.policyReadyAt ?? 0;
   economy.contracts.load(data.contracts);

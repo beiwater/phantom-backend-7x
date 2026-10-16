@@ -61,6 +61,8 @@ export class Hud {
       const parts = Object.entries(soc.parts).map(([k, v]) => `${({ base: '基础', food: '口粮', pollution: '污染', services: '服务', education: '教育', war: '战争', events: '事件' })[k]} ${v >= 0 ? '+' : ''}${v}`).join('\n');
       items.push([face, `${h}`, `民心(税收 ×${soc.taxMult().toFixed(2)})\n${parts}`, h < 30]);
     }
+    const w = g.weather?.current;
+    if (w) items.push([w.icon, w.name, `天气:${w.desc ?? '无影响'}`, false]);
     for (const b of g.buffs) items.push(['✨', `${b.name} ${Math.ceil(b.until - g.time)}s`, '临时事件', !!b.effects.prod && b.effects.prod < 0]);
     this.stats.innerHTML = items.map(([i, v, t, w]) => `<span class="stat${w ? ' warn' : ''}" title="${t}">${i}<b>${v}</b></span>`).join('');
     this.clock.textContent = `⏱ ${fmtTime(g.time)}`;

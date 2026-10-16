@@ -61,6 +61,7 @@ export class Economy {
     this.missionT = (this.missionT ?? 0) - gdt;
     if (this.missionT <= 0) { this.missionT = 0.5; this.checkMission(); }
     g.ruins.step(gdt);
+    g.weather.step(gdt);
   }
 
   /** 主线目标在模拟内结算(按 tick 计时),保证回放/锁步时奖励发放时机一致。 */

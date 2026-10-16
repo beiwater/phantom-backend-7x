@@ -107,6 +107,10 @@ export class UI {
     ev.on('gameover', ({ result, kind }) => this.openGameOver(result, kind));
     ev.on('event', ({ msg, kind }) => this.toast(msg, kind));
     ev.on('ruins:claim', ({ msg }) => this.toast(`🏛️ ${msg}`, 'good'));
+    ev.on('weather', () => {
+      const w = this.game.weather.current;
+      this.toast(`${w.icon} 天气转为「${w.name}」${w.desc ? `:${w.desc}` : ''}`);
+    });
     ev.on('tribute', ({ wave, cost }) => this.toast(`🕊️ 向铁锈军团进贡 💰${cost},第 ${wave} 波推迟 2 分钟`, 'good'));
     ev.on('unit:promoted', ({ unit, rank }) => {
       if (unit.team === this.game.localPlayer) this.toast(`🎖️ ${UNITS[unit.type].name}晋升为「${RANK_NAMES[rank]}」${'★'.repeat(rank)}`, 'good');

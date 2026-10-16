@@ -51,8 +51,9 @@ export class FogOfWar {
     for (const b of g.buildings.values()) {
       if (b.team === me) this.reveal(b.x + b.w / 2, b.z + b.d / 2, BUILDING_SIGHT + Math.max(b.w, b.d) / 2 + (b.type === 'turret' ? 3 : 0));
     }
+    const sight = Math.max(0.4, 1 + g.effect('sight'));
     for (const u of g.unitSystem?.units ?? []) {
-      if (u.team === me) this.reveal(u.x, u.z, UNIT_SIGHT[u.type] ?? 5);
+      if (u.team === me) this.reveal(u.x, u.z, (UNIT_SIGHT[u.type] ?? 5) * sight);
     }
   }
 
