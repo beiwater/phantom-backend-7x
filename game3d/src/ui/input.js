@@ -2,6 +2,7 @@
 // 工具:build(放置建筑,城墙可拖拽)、road(拖拽 L 形铺路)、demolish、expand(购买地块)。
 import * as THREE from 'three';
 import { BUILDINGS } from '../data/buildings.js';
+import { resIcon } from '../data/resources.js';
 import { CHUNK, OWNER } from '../world/map.js';
 import { buildingGeo } from '../models/cache.js';
 import { Game } from '../sim/state.js';
@@ -215,20 +216,24 @@ export class Input {
   refreshDrag() {
     this.preview.clear();
     const isRoad = this.mode.kind === 'road';
-    let money = this.game.res.money;
-    let stone = this.game.res.stone;
-    const cost = isRoad ? Game.ROAD_COST : BUILDINGS.wall.cost;
+    const left = { ...this.game.res };
+    const total = {};
     let n = 0;
     for (const [x, z] of this.dragCells()) {
+      const cost = isRoad ? this.game.roadCost(x, z) : BUILDINGS.wall.cost;
       const ok = isRoad ? this.game.canRoad(x, z).ok : this.game.canPlace('wall', x, z).ok;
-      const afford = money >= cost.money && stone >= cost.stone;
+      const afford = Object.entries(cost).every(([k, v]) => (left[k] ?? 0) >= v);
       const good = ok && afford;
-      if (good) { money -= cost.money; stone -= cost.stone; n++; }
+      if (good) {
+        for (const [k, v] of Object.entries(cost)) { left[k] -= v; total[k] = (total[k] ?? 0) + v; }
+        n++;
+      }
       const m = new THREE.Mesh(this.padGeo, good ? this.okMat : this.badMat);
       m.position.set(x + 0.5, 0.04, z + 0.5);
       this.preview.add(m);
     }
-    this.showTip(`${isRoad ? '道路' : '城墙'} ×${n}  💰${n * cost.money} 🪨${n * cost.stone}`, n === 0);
+    const costText = Object.entries(total).map(([k, v]) => `${resIcon(k)}${v}`).join(' ');
+    this.showTip(`${isRoad ? '道路/桥梁' : '城墙'} ×${n}  ${costText}`, n === 0);
   }
 
   commitDrag() {
@@ -286,7 +291,8 @@ export class Input {
     this.ghost.visible = false;
     if (k === 'road') {
       const chk = this.game.canRoad(c.x, c.z);
-      this.showTip(chk.ok ? '道路 · 按住拖拽铺设 · 💰5 🪨1' : chk.reason, !chk.ok);
+      const water = this.game.map.t(c.x, c.z) === 6;
+      this.showTip(chk.ok ? (water ? '桥梁 · 💰30 🔩2 · 地面单位(含敌军)可通行' : '道路 · 按住拖拽铺设 · 💰5 🪨1') : chk.reason, !chk.ok);
       this.highlightCells([[c.x, c.z]], chk.ok);
     } else if (k === 'demolish') {
       const b = this.game.buildingAt(c.x, c.z);

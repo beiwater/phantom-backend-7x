@@ -8,6 +8,8 @@ import { buildingGeo, roadGeo, wallGeo, scaffoldGeo, turretHeadGeo, truckGeo, ru
 const SMOKE_MAX = 400;
 const TRUCK_MAX = 40;
 const FIRE_MAX = 300;
+const PIER_GEO = new THREE.BoxGeometry(0.12, 0.4, 0.5);
+const PIER_MAT = new THREE.MeshLambertMaterial({ color: 0x8a8478 });
 
 export class WorldView {
   constructor(scene, game, economy) {
@@ -176,6 +178,14 @@ export class WorldView {
     const mesh = new THREE.Mesh(geo, voxelMaterial());
     mesh.receiveShadow = true;
     mesh.position.set(x + 0.5, 0, z + 0.5);
+    if (m.t(x, z) === 6) {
+      // 桥墩:水面下的两根柱子
+      for (const dx of [-0.3, 0.3]) {
+        const pier = new THREE.Mesh(PIER_GEO, PIER_MAT);
+        pier.position.set(dx, -0.2, 0);
+        mesh.add(pier);
+      }
+    }
     this.root.add(mesh);
     this.roads.set(i, mesh);
   }

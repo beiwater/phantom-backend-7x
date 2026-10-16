@@ -43,11 +43,11 @@ export class GameMap {
   chunkOwnerAt(cx, cz) { return this.chunkOwner[cz * CHUNKS_X + cx]; }
   setChunkOwner(cx, cz, o) { this.chunkOwner[cz * CHUNKS_X + cx] = o; this.version++; }
 
-  /** 地面单位可通行:非水、非建筑(城墙也算建筑)。道路可走。 */
+  /** 地面单位可通行:非水(桥梁 = 水上道路可走)、非建筑(城墙也算建筑)。 */
   walkable(x, z) {
     if (!this.inside(x, z)) return false;
     const i = this.idx(x, z);
-    return this.terrain[i] !== T.water && this.building[i] === 0;
+    return (this.terrain[i] !== T.water || this.road[i] !== 0) && this.building[i] === 0;
   }
 
   generate() {

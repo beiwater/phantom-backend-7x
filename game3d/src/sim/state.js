@@ -250,6 +250,12 @@ export class Game {
 
   // ---------- 道路 ----------
   static ROAD_COST = { money: 5, stone: 1 };
+  // 桥梁:水面上的道路,地面单位(含敌军)可通行
+  static BRIDGE_COST = { money: 30, steel: 2 };
+
+  roadCost(x, z) {
+    return this.map.t(x, z) === T.water ? Game.BRIDGE_COST : Game.ROAD_COST;
+  }
 
   canRoad(x, z) {
     const m = this.map;
@@ -258,15 +264,15 @@ export class Game {
     if (m.ownerAt(x, z) !== OWNER.player) return { ok: false, reason: '需先购买该地块' };
     if (m.road[i]) return { ok: false, reason: '已有道路' };
     if (m.building[i]) return { ok: false, reason: '已被占用' };
-    if (m.terrain[i] === T.water) return { ok: false, reason: '不能建在水上' };
-    if (!this.canAfford(Game.ROAD_COST)) return { ok: false, reason: '资源不足' };
+    if (m.terrain[i] === T.water && !this.techs.has('industry')) return { ok: false, reason: '架桥需要科技「工业革命」' };
+    if (!this.canAfford(this.roadCost(x, z))) return { ok: false, reason: '资源不足' };
     return { ok: true };
   }
 
   placeRoad(x, z, free = false) {
     const c = this.canRoad(x, z);
     if (!c.ok && !(free && c.reason === '资源不足')) return c;
-    if (!free && !this.spend(Game.ROAD_COST)) return { ok: false, reason: '资源不足' };
+    if (!free && !this.spend(this.roadCost(x, z))) return { ok: false, reason: '资源不足' };
     const i = this.map.idx(x, z);
     if (this.map.terrain[i] === T.forest) this.map.terrain[i] = T.grass;
     // 2 = 免费起始道路,拆除不退款(避免无中生有)
@@ -282,7 +288,7 @@ export class Game {
     const paid = m.road[m.idx(x, z)] === 1;
     m.road[m.idx(x, z)] = 0;
     m.version++;
-    if (paid) this.refund(Game.ROAD_COST, 0.5);
+    if (paid) this.refund(this.roadCost(x, z), 0.5);
     this.events.emit('road', { x, z });
     return { ok: true };
   }
