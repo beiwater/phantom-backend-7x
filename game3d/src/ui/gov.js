@@ -13,12 +13,13 @@ export class GovPanel {
     this.game = game;
     this.ui = ui;
     this.pickSlot = null;
+    this.tab = 'overview';
   }
 
   sig() {
     const g = this.game;
     const c = g.contracts;
-    return [Object.keys(PROJECTS).map((id) => g.projects.progress(id).toFixed(3)).join(), g.great?.ready.join(), ...Object.keys(GREAT).map((k) => Math.floor((g.great?.points(k) ?? 0) / 10)), g.unitSystem?.ai?.wave, g.unitSystem?.ai?.tributedWave, Math.floor(((g.unitSystem?.ai?.nextWave ?? 0) - g.time) / 5), g.era, g.techs.size, Math.floor(g.res.money / 1000), g.policies.join(), this.pickSlot, c.offers.map((o) => `${o.id}:${g.res[o.res] >= o.qty}`).join(), c.reputation, Math.floor(g.res.money / 150)].join('|');
+    return [this.tab, Object.keys(PROJECTS).map((id) => g.projects.progress(id).toFixed(3)).join(), g.great?.ready.join(), ...Object.keys(GREAT).map((k) => Math.floor((g.great?.points(k) ?? 0) / 10)), g.unitSystem?.ai?.wave, g.unitSystem?.ai?.tributedWave, Math.floor(((g.unitSystem?.ai?.nextWave ?? 0) - g.time) / 5), g.era, g.techs.size, Math.floor(g.res.money / 1000), g.policies.join(), this.pickSlot, c.offers.map((o) => `${o.id}:${g.res[o.res] >= o.qty}`).join(), c.reputation, Math.floor(g.res.money / 150)].join('|');
   }
 
   html() {
@@ -59,17 +60,18 @@ export class GovPanel {
       const p = v.progress(g);
       return `<div class="victory"><b>${v.icon} ${v.name}</b> <span class="desc">${v.desc}</span><div class="pbar"><i style="width:${p * 100}%"></i></div><small>${Math.floor(p * 100)}%</small></div>`;
     }).join('');
-    return `<div class="dialog" data-modal="gov" style="max-width:760px">
-      <h2><span>🏛️ 政务</span><button class="btn" data-close>关闭 Esc</button></h2>
-      <h3 class="sub">胜利进度</h3><div class="victories">${vic}</div>
-      ${this.projectsHtml()}
-      ${this.greatHtml()}
-      ${this.diplomacy()}
-      <h3 class="sub">政策(每个时代多一个槽)</h3>
-      <div class="slots">${slotHtml.join('')}</div>${picker}
-      <h3 class="sub">贸易合同 <small>声望 ${c.reputation >= 0 ? '+' : ''}${c.reputation}(声望越高报价越好;合同过期会损失声望)</small></h3>
-      ${offers}
-    </div>`;
+    const tabs = [['overview', '🏆 胜利与工程'], ['policy', '📜 政策与外交'], ['trade', `🤝 贸易合同${c.offers.length ? ` (${c.offers.length})` : ''}`]];
+    const tabBar = `<div class="btns" style="margin-bottom:6px">${tabs.map(([id, n]) => `<button class="btn${this.tab === id ? ' primary' : ''}" data-govtab="${id}">${n}</button>`).join('')}</div>`;
+    let body;
+    if (this.tab === 'policy') {
+      body = `${this.diplomacy()}<h3 class="sub">政策(每个时代多一个槽)</h3><div class="slots">${slotHtml.join('')}</div>${picker}`;
+    } else if (this.tab === 'trade') {
+      body = `<h3 class="sub">贸易合同 <small>声望 ${c.reputation >= 0 ? '+' : ''}${c.reputation}(声望越高报价越好;合同过期会损失声望)</small></h3>${offers}`;
+    } else {
+      body = `<h3 class="sub">胜利进度</h3><div class="victories">${vic}</div>${this.projectsHtml()}${this.greatHtml()}`;
+    }
+    return `<div class="dialog" data-modal="gov" style="max-width:820px;min-width:min(760px,94vw)">
+      <h2><span>🏛️ 政务</span><button class="btn" data-close>关闭 Esc</button></h2>${tabBar}${body}</div>`;
   }
 
   projectsHtml() {
@@ -117,6 +119,8 @@ export class GovPanel {
   /** 处理弹窗内点击;返回 true 表示需要重绘。 */
   onClick(e) {
     const g = this.game;
+    const tab = e.target.closest('[data-govtab]');
+    if (tab) { this.tab = tab.dataset.govtab; return true; }
     const slot = e.target.closest('[data-slot]');
     if (slot) {
       const i = Number(slot.dataset.slot);
