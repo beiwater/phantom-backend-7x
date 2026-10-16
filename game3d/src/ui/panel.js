@@ -4,7 +4,7 @@ import { BUILDINGS, upgradeCost, levelSpeed, storageOf, housingOf } from '../dat
 import { RESOURCES, RESOURCE_IDS, resIcon, resName } from '../data/resources.js';
 import { UNITS } from '../data/units.js';
 import { TECHS } from '../data/tech.js';
-import { workersOf, powerOf } from '../sim/economy.js';
+import { workersOf, powerOf, MARKET_RESERVE } from '../sim/economy.js';
 import { fmtTime } from '../engine/util.js';
 import { BUILDING_ICONS } from './toolbar.js';
 import { SYNERGY } from '../sim/synergy.js';
@@ -149,7 +149,7 @@ export class Panel {
         const arrow = mk.trend[k] > 0.05 ? '↑' : mk.trend[k] < -0.05 ? '↓' : '';
         return `<label title="当前单价 ${mk.price(k).toFixed(1)}(基准 ${RESOURCES[k].price})"><input type="checkbox" data-sell="${k}" ${b.sell.has(k) ? 'checked' : ''}>${RESOURCES[k].icon}<span style="color:${m >= 1 ? 'var(--good)' : 'var(--bad)'}">${mk.price(k).toFixed(1)}${arrow}</span></label>`;
       }).join('') || '<span class="desc">仓库里还没有货物</span>'}</div>`);
-      h.push('<div class="desc">大量抛售会压低价格,价格会随时间回升;留意商队与需求波动。</div>');
+      h.push(`<div class="desc">每种货物至少保留 ${MARKET_RESERVE} 件不卖。大量抛售会压低价格,价格会随时间回升;留意商队与需求波动。</div>`);
     }
 
     if (def.trains && b.state === 'active') {

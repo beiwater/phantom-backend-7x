@@ -35,7 +35,8 @@ export const BUILDINGS = {
   lumber: {
     name: '伐木场', category: 'raw', size: [2, 2], era: 1, maxLevel: 5, hp: 400, near: 'forest',
     cost: { money: 40 }, buildTime: 6, workers: 2,
-    recipe: { in: {}, out: { wood: 2 }, time: 8 },
+    // 3/周期:木材是拓荒期主要建材,2/周期时锯木厂会吃光全部原木导致无法建造(平衡机器人发现)
+    recipe: { in: {}, out: { wood: 3 }, time: 8 },
     desc: '需建在森林附近(2 格内)。',
   },
   quarry: {

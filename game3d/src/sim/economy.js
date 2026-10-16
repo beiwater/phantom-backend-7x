@@ -11,6 +11,7 @@ import { Contracts } from './contracts.js';
 import { Victory } from './victory.js';
 import { MISSIONS } from '../data/missions.js';
 
+export const MARKET_RESERVE = 20;
 const RAW = new Set(['farm', 'lumber', 'quarry', 'pump', 'ironMine', 'coalMine', 'oilWell']);
 
 export function workersOf(def, level) {
@@ -336,7 +337,8 @@ export class Economy {
     let earned = 0;
     const per = def.market.perCycle * b.level;
     for (const k of b.sell) {
-      const n = Math.min(per, Math.floor(g.res[k]));
+      // 保留库存:集市不会把货卖空,避免建材/口粮被卖光(平衡机器人发现的卡死)
+      const n = Math.min(per, Math.floor(g.res[k] - MARKET_RESERVE));
       if (n <= 0) continue;
       g.res[k] -= n;
       earned += this.market.sell(k, n, (0.8 + 0.1 * b.level) * Math.max(0.2, 1 + g.effect('marketPrice')));
