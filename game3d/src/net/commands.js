@@ -103,6 +103,13 @@ const HANDLERS = {
     b.paused = !b.paused;
     return { ok: true, paused: b.paused };
   },
+  setReserve(game, cmd) {
+    const b = owned(game, cmd);
+    if (!b || !BUILDINGS[b.type].market) return { ok: false, reason: '不是你的集市' };
+    if (![20, 50, 100, 200].includes(cmd.n)) return { ok: false, reason: '无效的保留量' };
+    b.reserve = cmd.n;
+    return { ok: true };
+  },
   setSell(game, cmd) {
     const b = owned(game, cmd);
     if (!b || !BUILDINGS[b.type].market) return { ok: false, reason: '不是你的集市' };

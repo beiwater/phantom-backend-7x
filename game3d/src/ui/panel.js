@@ -61,6 +61,7 @@ export class Panel {
     if (act === 'upgrade') r = g.dispatch({ type: 'upgrade', uid: b.uid });
     if (act === 'repair') r = g.dispatch({ type: 'repair', uid: b.uid });
     if (act === 'pause') r = g.dispatch({ type: 'togglePause', uid: b.uid });
+    if (act === 'reserve') r = g.dispatch({ type: 'setReserve', uid: b.uid, n: Number(t.dataset.n) });
     if (act === 'upgradeUnits') r = g.dispatch({ type: 'upgradeUnits', ids: (this.sel?.units ?? []).map((u) => u.id) });
     if (act === 'module') r = g.dispatch({ type: 'setModule', uid: b.uid, module: t.dataset.module });
     if (act === 'demolish') {
@@ -103,7 +104,7 @@ export class Panel {
     if (b.level < def.maxLevel) parts.push(g.canAfford(upgradeCost(b.type, b.level + 1)));
     for (const u of def.trains ?? []) parts.push(g.canAfford(UNITS[u].cost, g.unitCostMult()));
     if (def.market) parts.push(RESOURCE_IDS.filter((k) => g.res[k] > 0 || b.sell.has(k)).join(), RESOURCE_IDS.map((k) => g.market.price(k).toFixed(1)).join());
-    parts.push(b.synergy?.bonus, b.pollution);
+    parts.push(b.synergy?.bonus, b.pollution, b.reserve);
     return parts.join('|');
   }
 
@@ -166,7 +167,9 @@ export class Panel {
         const arrow = mk.trend[k] > 0.05 ? '↑' : mk.trend[k] < -0.05 ? '↓' : '';
         return `<label title="当前单价 ${mk.price(k).toFixed(1)}(基准 ${RESOURCES[k].price})"><input type="checkbox" data-sell="${k}" ${b.sell.has(k) ? 'checked' : ''}>${RESOURCES[k].icon}<span style="color:${m >= 1 ? 'var(--good)' : 'var(--bad)'}">${mk.price(k).toFixed(1)}${arrow}</span></label>`;
       }).join('') || '<span class="desc">仓库里还没有货物</span>'}</div>`);
-      h.push(`<div class="desc">每种货物至少保留 ${MARKET_RESERVE} 件不卖。大量抛售会压低价格,价格会随时间回升;留意商队与需求波动。</div>`);
+      const rsv = b.reserve ?? MARKET_RESERVE;
+      h.push(`<div class="row" style="margin-top:6px"><span>每种货物保留</span><span class="btns" style="margin:0">${[20, 50, 100, 200].map((n) => `<button class="btn${n === rsv ? ' primary' : ''}" data-act="reserve" data-n="${n}">${n}</button>`).join('')}</span></div>`);
+      h.push('<div class="desc">库存高于保留量的部分才会出售。大量抛售会压低价格,价格会随时间回升;留意商队与需求波动。</div>');
     }
 
     if (def.trains && b.state === 'active') {

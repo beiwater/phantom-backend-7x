@@ -347,7 +347,7 @@ export class Economy {
     const per = def.market.perCycle * b.level;
     for (const k of b.sell) {
       // 保留库存:集市不会把货卖空,避免建材/口粮被卖光(平衡机器人发现的卡死)
-      const n = Math.min(per, Math.floor(g.res[k] - MARKET_RESERVE));
+      const n = Math.min(per, Math.floor(g.res[k] - (b.reserve ?? MARKET_RESERVE)));
       if (n <= 0) continue;
       g.res[k] -= n;
       earned += this.market.sell(k, n, (0.8 + 0.1 * b.level) * Math.max(0.2, 1 + g.effect('marketPrice')));
