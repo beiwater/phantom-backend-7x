@@ -17,6 +17,8 @@ const REBUILD_CLEAR_R = 8;
 const EXPAND_FIRST = 480;
 const EXPAND_GAP = 300;
 const MAX_OUTPOSTS = 4;
+// 河道浅滩附近的三条路线(x=z 对角线上 along = -18/0/+18 处)
+const WAVE_ROUTES = [{ x: 14.5, z: 14.5, name: '北' }, { x: 32.5, z: 32.5, name: '中' }, { x: 50.5, z: 50.5, name: '南' }];
 const isBaseChunk = (cx, cz) => ENEMY_CHUNKS.some(([a, b]) => a === cx && b === cz);
 
 // 要塞布局(相对 ENEMY_HQ 偏移)。城墙环 x∈[-6,7]、z∈[-5,8],西侧/南侧/西南角留 3 个缺口朝向玩家
@@ -304,6 +306,8 @@ export class EnemyAI {
     const used = new Map();
     // 后期波次单位更结实
     const hpMult = Math.min(1.8, 1 + 0.04 * (n - 1)) * this.diff.enemyHp;
+    // 第 2 波起随机选择进攻路线(北/中/南三处渡口),让单点防守不再万无一失
+    const via = n >= 2 ? WAVE_ROUTES[Math.floor(g.rng() * WAVE_ROUTES.length)] : null;
     this.damageMult = Math.min(1.5, 1 + 0.025 * (n - 1));
     for (const { type, b } of plan) {
       const c = this.spawnCell(b, used);
@@ -311,7 +315,10 @@ export class EnemyAI {
       const u = this.rts.spawnUnit(type, ENEMY, c.x + 0.5, c.z + 0.5, hpMult);
       u.wave = n;
       ids.add(u.id);
-      if (hq) orderAMove(u, hq.x + hq.w / 2, hq.z + hq.d / 2, true);
+      if (hq) {
+        orderAMove(u, hq.x + hq.w / 2, hq.z + hq.d / 2, true);
+        if (via && !u.air) u.order.via = { x: via.x + (g.rng() - 0.5) * 2, z: via.z + (g.rng() - 0.5) * 2 };
+      }
     }
     if (ids.size) this.waves.set(n, ids);
     // 提示由 UI 监听 wave:start 发出(带位置,可点击跳转)

@@ -501,7 +501,10 @@ class RTS {
   restoreOrder(u, o) {
     if (!o) return;
     if (o.kind === 'move' && Number.isFinite(o.x)) orderMove(u, o.x, o.z);
-    else if (o.kind === 'amove' && Number.isFinite(o.x)) orderAMove(u, o.x, o.z, !!o.hq);
+    else if (o.kind === 'amove' && Number.isFinite(o.x)) {
+      orderAMove(u, o.x, o.z, !!o.hq);
+      if (o.via && Number.isFinite(o.via.x)) u.order.via = { x: o.via.x, z: o.via.z };
+    }
     else if (o.kind === 'hold') orderHold(u);
     else if (o.kind === 'attack') {
       // 建筑已由 save.js 先行恢复;单位目标若在本次读入顺序之后则先待命
@@ -513,7 +516,7 @@ class RTS {
 }
 
 function saveOrder(o) {
-  if (o.kind === 'move' || o.kind === 'amove') return { kind: o.kind, x: o.x, z: o.z, hq: o.hq || undefined };
+  if (o.kind === 'move' || o.kind === 'amove') return { kind: o.kind, x: o.x, z: o.z, hq: o.hq || undefined, via: o.via || undefined };
   if (o.kind === 'attack') return { kind: 'attack', target: o.t?.kind === 'unit' ? { kind: 'unit', id: o.t.id } : { kind: 'building', id: o.t?.uid } };
   return { kind: o.kind };
 }

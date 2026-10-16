@@ -1,6 +1,6 @@
 // 战斗:单位命令状态机(待命/移动/攻击/攻击移动/固守)、索敌、开火、伤害、防御塔与炮弹。
 import { BUILDINGS } from '../data/buildings.js';
-import { isUnit, navigate, stopNav, orderIdle, AIR_Y } from './units.js';
+import { isUnit, navigate, stopNav, orderIdle, AIR_Y, resetNav as resetNavOf } from './units.js';
 import { supplied, SUPPLY_PENALTY } from '../sim/upkeep.js';
 import { counterMult } from '../data/units.js';
 
@@ -118,6 +118,11 @@ function thinkAMove(rts, u, o, dt) {
   if (u.target) {
     if (!u.forced && distTo(u, u.target) > R + 4) u.target = null;
     else { engage(rts, u, u.target, dt); return; }
+  }
+  // 进攻路线的途经点(敌军波次选择不同渡口);到达附近后移除,继续主目标
+  if (o.via) {
+    if (Math.hypot(u.x - o.via.x, u.z - o.via.z) < 2.5 || u.air) { o.via = null; resetNavOf(u); }
+    else { navigate(rts, u, o.via.x, o.via.z, dt); return; }
   }
   if (o.hq) {
     const hq = rts.game.playerHQ();

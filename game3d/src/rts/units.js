@@ -69,7 +69,7 @@ export class SpatialGrid {
 }
 
 // ---------- 命令 ----------
-function resetNav(u) {
+export function resetNav(u) {
   u.path = null;
   u.goalKey = '';
   u.breach = null;
