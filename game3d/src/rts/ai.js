@@ -1,6 +1,6 @@
 // 敌军 AI:开局要塞布置 + 驻军 + 定时进攻波次。波次强度随波数与玩家时代增长,由存活的敌方兵营/战车工厂出兵。
 // 被摧毁的兵营/工厂/防御塔会在 REBUILD_DELAY 后、附近无我方部队时重建;敌军指挥中心随玩家时代升级。
-import { ENEMY_HQ, PLAYER_HQ } from '../world/map.js';
+import { ENEMY_HQ, PLAYER_HQ, ENEMY_CHUNKS, CHUNK, CHUNKS_X, CHUNKS_Z, OWNER } from '../world/map.js';
 import { nearestWalkable, ringCells } from './path.js';
 import { orderAMove } from './units.js';
 
@@ -14,6 +14,10 @@ const GARRISON = ['militia', 'militia', 'militia', 'militia', 'rifleman', 'rifle
 const REBUILD_DELAY = 180;
 const REBUILD_TYPES = new Set(['barracks', 'vehicleFactory', 'turret']);
 const REBUILD_CLEAR_R = 8;
+const EXPAND_FIRST = 480;
+const EXPAND_GAP = 300;
+const MAX_OUTPOSTS = 4;
+const isBaseChunk = (cx, cz) => ENEMY_CHUNKS.some(([a, b]) => a === cx && b === cz);
 
 // 要塞布局(相对 ENEMY_HQ 偏移)。城墙环 x∈[-6,7]、z∈[-5,8],西侧/南侧/西南角留 3 个缺口朝向玩家
 const LAYOUT = {
@@ -37,15 +41,97 @@ export class EnemyAI {
     /** @type {{type:string,x:number,z:number,at:number}[]} */
     this.rebuild = [];
     rts.game.events.on('building:remove', ({ b, destroyed }) => {
-      if (destroyed && b.team === ENEMY && REBUILD_TYPES.has(b.type)) {
+      // 只重建要塞内的建筑;前哨被拔除后不再重建,地块随之回归中立(见 expand/reclaim)
+      const [cx, cz] = this.game.map.chunkOf(b.x, b.z);
+      if (destroyed && b.team === ENEMY && REBUILD_TYPES.has(b.type) && isBaseChunk(cx, cz)) {
         this.rebuild.push({ type: b.type, x: b.x, z: b.z, at: this.game.time + REBUILD_DELAY });
       }
     });
   }
 
+  /** 领土扩张:在与敌方领地相邻、离玩家最近的中立地块建立前哨(兵营 + 防御塔)。 */
+  expand() {
+    const g = this.game;
+    const m = g.map;
+    if (this.expandAt === undefined) this.expandAt = EXPAND_FIRST;
+    if (g.time < this.expandAt) return;
+    this.expandAt = g.time + EXPAND_GAP;
+    let outposts = 0;
+    for (let cz = 0; cz < CHUNKS_Z; cz++) for (let cx = 0; cx < CHUNKS_X; cx++) if (m.chunkOwnerAt(cx, cz) === OWNER.enemy && !isBaseChunk(cx, cz)) outposts++;
+    if (outposts >= MAX_OUTPOSTS) return;
+    const cands = [];
+    for (let cz = 0; cz < CHUNKS_Z; cz++) {
+      for (let cx = 0; cx < CHUNKS_X; cx++) {
+        if (m.chunkOwnerAt(cx, cz) !== OWNER.none) continue;
+        const adj = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dz]) => {
+          const nx = cx + dx;
+          const nz = cz + dz;
+          return nx >= 0 && nz >= 0 && nx < CHUNKS_X && nz < CHUNKS_Z && m.chunkOwnerAt(nx, nz) === OWNER.enemy;
+        });
+        if (!adj) continue;
+        const d = Math.abs(cx * CHUNK + 4 - PLAYER_HQ.x) + Math.abs(cz * CHUNK + 4 - PLAYER_HQ.z);
+        cands.push({ cx, cz, d });
+      }
+    }
+    cands.sort((a, b) => a.d - b.d || a.cx - b.cx || a.cz - b.cz);
+    for (const c of cands) {
+      const spots = this.outpostSpots(c.cx, c.cz);
+      if (!spots) continue;
+      for (const [type, x, z] of spots) {
+        const r = g.placeBuilding(type, x, z, ENEMY, { instant: true, level: type === 'turret' ? Math.min(4, g.era + 1) : 1 });
+        if (r.ok) r.building.outpost = true;
+      }
+      m.setChunkOwner(c.cx, c.cz, OWNER.enemy);
+      g.events.emit('chunk', { cx: c.cx, cz: c.cz });
+      this.rts.ui?.toast?.('🚩 铁锈军团建立了新的前哨基地,领土向你逼近!', 'bad');
+      return;
+    }
+  }
+
+  /** 在地块内找兵营(2×2)与防御塔(1×1)的位置;放不下返回 null。 */
+  outpostSpots(cx, cz) {
+    const g = this.game;
+    const x0 = cx * CHUNK;
+    const z0 = cz * CHUNK;
+    let bar = null;
+    for (let z = z0 + 2; z < z0 + 6 && !bar; z++) for (let x = x0 + 2; x < x0 + 6 && !bar; x++) if (g.canPlace('barracks', x, z, ENEMY).ok) bar = [x, z];
+    if (!bar) return null;
+    let tur = null;
+    for (const [dx, dz] of [[-1, -1], [2, -1], [-1, 2], [2, 2], [3, 0], [0, 3]]) {
+      const x = bar[0] + dx;
+      const z = bar[1] + dz;
+      if (!tur && x >= x0 && z >= z0 && x < x0 + CHUNK && z < z0 + CHUNK && g.canPlace('turret', x, z, ENEMY).ok) tur = [x, z];
+    }
+    return tur ? [['barracks', bar[0], bar[1]], ['turret', tur[0], tur[1]]] : [['barracks', bar[0], bar[1]]];
+  }
+
+  /** 前哨地块内已无敌方建筑 → 回归中立,玩家可购买。 */
+  reclaim() {
+    const g = this.game;
+    const m = g.map;
+    for (let cz = 0; cz < CHUNKS_Z; cz++) {
+      for (let cx = 0; cx < CHUNKS_X; cx++) {
+        if (m.chunkOwnerAt(cx, cz) !== OWNER.enemy || isBaseChunk(cx, cz)) continue;
+        let any = false;
+        for (let z = cz * CHUNK; z < (cz + 1) * CHUNK && !any; z++) {
+          for (let x = cx * CHUNK; x < (cx + 1) * CHUNK && !any; x++) {
+            const b = g.buildingAt(x, z);
+            if (b && b.team === ENEMY) any = true;
+          }
+        }
+        if (any) continue;
+        m.setChunkOwner(cx, cz, OWNER.none);
+        g.events.emit('chunk', { cx, cz });
+        this.rts.ui?.toast?.('🏳️ 敌军前哨已被拔除,该地块恢复中立,可以购买', 'good');
+      }
+    }
+  }
+
   /** 重建与时代升级;只读模拟状态(时间/单位位置),保持确定性。 */
   maintain() {
     const g = this.game;
+    this.expand();
+    this.reclaim();
     const hq = [...g.buildings.values()].find((b) => b.type === 'hq' && b.team === ENEMY);
     if (!hq) return;
     if (hq.level < Math.min(3, g.era)) {
@@ -267,7 +353,7 @@ export class EnemyAI {
   }
 
   serialize() {
-    return { nextWave: this.nextWave, wave: this.wave, warned: this.warned, stopped: this.stopped, damageMult: this.damageMult, rebuild: this.rebuild, tributedWave: this.tributedWave ?? 0 };
+    return { nextWave: this.nextWave, wave: this.wave, warned: this.warned, stopped: this.stopped, damageMult: this.damageMult, rebuild: this.rebuild, tributedWave: this.tributedWave ?? 0, expandAt: this.expandAt };
   }
 
   load(d, units) {
@@ -278,6 +364,7 @@ export class EnemyAI {
     this.damageMult = d?.damageMult ?? 1;
     this.rebuild = d?.rebuild ?? [];
     this.tributedWave = d?.tributedWave ?? 0;
+    this.expandAt = d?.expandAt;
     this.waves.clear();
     for (const u of units) {
       if (!u.wave) continue;
