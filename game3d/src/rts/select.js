@@ -110,7 +110,7 @@ export class Selector {
       return false;
     }
     if (!this.mine(u)) return true; // 点到敌军单位:不当作点击建筑
-    const now = performance.now();
+    const now = e.timeStamp; // 用事件时间戳:主线程繁忙时处理延迟不影响双击判定
     if (now - this.lastClick.t < DBL_MS && this.lastClick.id === u.id) {
       // 双击:选中屏幕内所有同类单位
       this.set(this.rts.units.filter((o) => this.mine(o) && o.type === u.type && this.onScreen(this.screenOf(o))));
@@ -216,7 +216,7 @@ export class Selector {
     const idSet = new Set(ids);
     const us = rts.units.filter((u) => idSet.has(u.id) && this.mine(u));
     if (!us.length) return;
-    const now = performance.now();
+    const now = e.timeStamp; // 用事件时间戳:主线程繁忙时处理延迟不影响双击判定
     if (this.lastDigit.d === d && now - this.lastDigit.t < DBL_MS) {
       const cx = us.reduce((s, u) => s + u.x, 0) / us.length;
       const cz = us.reduce((s, u) => s + u.z, 0) / us.length;

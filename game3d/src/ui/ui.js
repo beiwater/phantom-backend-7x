@@ -11,6 +11,8 @@ import { BUILDINGS } from '../data/buildings.js';
 import { RESOURCES } from '../data/resources.js';
 import { StatsPanel } from './stats.js';
 import { GovPanel } from './gov.js';
+import { Alerts } from './alerts.js';
+import { Codex } from './codex.js';
 import { saveGame, clearSave } from '../save.js';
 import { fmtTime } from '../engine/util.js';
 import { DIFFICULTIES } from '../data/difficulty.js';
@@ -34,6 +36,8 @@ export class UI {
     this.tech = new TechTree(game, this);
     this.statsPanel = new StatsPanel(game, economy);
     this.gov = new GovPanel(game, this);
+    this.alerts = new Alerts(game, this);
+    this.codex = new Codex(game);
     this.saveT = AUTOSAVE_SEC;
     this.modalT = 0;
     this.hitT = 0;
@@ -142,6 +146,11 @@ export class UI {
     this.openModal('gov', this.gov.html());
   }
 
+  openCodex() {
+    if (this.modalKind === 'codex') { this.closeModal(); return; }
+    this.openModal('codex', this.codex.html());
+  }
+
   openStats() {
     if (this.modalKind === 'stats') { this.closeModal(); return; }
     this.openModal('stats', this.statsPanel.html());
@@ -159,7 +168,7 @@ export class UI {
         <kbd>左键</kbd><span>放置 / 选择 · 拖拽框选部队 · Shift 连续放置</span>
         <kbd>右键</kbd><span>取消建造 · 部队移动/攻击 · 兵营集结点</span>
         <kbd>A</kbd><span>攻击移动 · <kbd>H</kbd> 停止 · <kbd>F</kbd> 全选部队 · <kbd>Ctrl+数字</kbd> 编队</span>
-        <kbd>O</kbd><span>经济统计(产销/价格/民心) · <kbd>J</kbd> 政务(政策/贸易合同)</span>
+        <kbd>O</kbd><span>经济统计 · <kbd>J</kbd> 政务(政策/合同) · <kbd>B</kbd> 百科</span>
         <kbd>T</kbd><span>科技树 · <kbd>P</kbd> 暂停 · <kbd>L</kbd> 开关标签 · <kbd>Esc</kbd> 取消/关闭</span>
       </div>
       <p>敌军第一波进攻约在 ${fmtTime(300)} 后到来。进度每 ${AUTOSAVE_SEC} 秒自动保存到本机浏览器。</p>
@@ -171,6 +180,7 @@ export class UI {
       <div class="menu-list">
         <button class="btn" data-menu="save">💾 立即保存</button>
         <button class="btn" data-menu="help">❓ 操作说明</button>
+        <button class="btn" data-menu="codex">📖 百科(建筑与产业链)B</button>
         <button class="btn" data-menu="labels">🏷️ 开关建筑标签 (L)</button>
         <button class="btn" data-menu="fog">🌫️ 开关战争迷雾</button>
         <div class="btns">画质:${Object.entries(QUALITY).map(([id, q]) => `<button class="btn${this.quality?.level === id ? ' primary' : ''}" data-quality="${id}">${q.name}</button>`).join('')}</div>
@@ -205,6 +215,7 @@ export class UI {
     const m = e.target.closest('[data-menu]')?.dataset.menu;
     if (m === 'save') { saveGame(this); this.toast('💾 已保存', 'good'); this.closeModal(); }
     if (m === 'help') this.openHelp();
+    if (m === 'codex') this.openCodex();
     if (m === 'labels') { this.labels.enabled = !this.labels.enabled; this.closeModal(); }
     if (m === 'fog' && this.game.fog) { this.game.fog.enabled = !this.game.fog.enabled; this.closeModal(); }
     const q = e.target.closest('[data-quality]')?.dataset.quality;
@@ -218,6 +229,7 @@ export class UI {
       location.href = `${location.pathname}?new=1&seed=${seed}&diff=${diff}`;
     }
     if (this.modalKind === 'tech' && this.tech.onClick(e)) this.refreshTech();
+    if (this.modalKind === 'codex' && this.codex.onClick(e)) this.openModal('codex', this.codex.html());
     if (this.modalKind === 'gov' && this.gov.onClick(e)) { this.govSig = this.gov.sig(); this.openModal('gov', this.gov.html()); }
   }
 
@@ -237,6 +249,7 @@ export class UI {
     if (k === 'KeyT') this.openTech();
     if (k === 'KeyO') this.openStats();
     if (k === 'KeyJ') this.openGov();
+    if (k === 'KeyB') this.openCodex();
     if (k === 'KeyP') this.hud.setSpeed(0);
     if (k === 'KeyL') this.labels.enabled = !this.labels.enabled;
   }
@@ -248,6 +261,7 @@ export class UI {
     this.labels.update();
     this.minimap.update(dt);
     this.missions.update(dt);
+    this.alerts.update(dt);
     this.hitT -= dt;
     this.modalT -= dt;
     if (this.modalKind === 'gov' && this.modalT <= 0) {
