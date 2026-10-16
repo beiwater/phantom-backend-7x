@@ -368,12 +368,12 @@ test('专精模块:未满 3 级拒绝;环保模块消除污染;重复安装不�
 });
 
 test('多种子地图:起始区资源齐全,地面可达敌军基地,矿/煤/油总量足够', () => {
-  for (const seed of [1, 2, 3, 42, 99, 1234, 31337]) {
-    const g = new Game(seed);
+  for (const [seed, type] of [1, 2, 3, 42, 99, 1234, 31337].flatMap((sd) => ['river', 'lakes', 'highlands'].map((t) => [sd, t]))) {
+    const g = new Game(seed, 'normal', type);
     g.setupStart();
     const m = g.map;
     const count = (t) => m.terrain.reduce((s, v) => s + (v === t ? 1 : 0), 0);
-    for (const t of [T.ore, T.coal, T.oil]) assert.ok(count(t) >= 15, `seed ${seed} 资源 ${t} 太少`);
+    for (const t of [T.ore, T.coal, T.oil]) assert.ok(count(t) >= 15, `seed ${seed}/${type} 资源 ${t} 太少`);
     const seen = new Uint8Array(64 * 64);
     const q = [[PLAYER_HQ.x + 1, PLAYER_HQ.z + 4]];
     seen[m.idx(...q[0])] = 1;
@@ -385,7 +385,9 @@ test('多种子地图:起始区资源齐全,地面可达敌军基地,矿/煤/油
         if (m.inside(nx, nz) && !seen[m.idx(nx, nz)] && m.t(nx, nz) !== T.water) { seen[m.idx(nx, nz)] = 1; q.push([nx, nz]); }
       }
     }
-    assert.ok(seen[m.idx(44, 18)], `seed ${seed} 敌军基地不可达`);
+    assert.ok(seen[m.idx(44, 18)], `seed ${seed}/${type} 敌军基地不可达`);
+    if (type === 'lakes') assert.ok(count(T.water) > 60, '湖泽应有大量水域');
+    if (type === 'highlands') assert.ok(count(T.rock) > 300, '高地应有大量岩石');
   }
 });
 

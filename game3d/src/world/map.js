@@ -12,14 +12,21 @@ export const T = { grass: 0, forest: 1, rock: 2, ore: 3, coal: 4, oil: 5, water:
 export const T_NAMES = ['草地', '森林', '岩石', '铁矿脉', '煤层', '油田', '水域', '沙地'];
 export const OWNER = { none: 0, player: 1, enemy: 2 };
 
+export const MAP_TYPES = {
+  river: { name: '大河', desc: '对角大河分隔两岸,三处浅滩是兵家必争之地' },
+  lakes: { name: '湖泽', desc: '多个湖泊散布中部,通路多、战线分散' },
+  highlands: { name: '高地', desc: '岩石山脊纵横,山口狭窄易守难攻,矿产丰富' },
+};
+
 export const PLAYER_CHUNKS = [[1, 5], [2, 5], [1, 6], [2, 6]];
 export const ENEMY_CHUNKS = [[5, 1], [6, 1], [5, 2], [6, 2]];
 export const PLAYER_HQ = { x: 14, z: 46 };
 export const ENEMY_HQ = { x: 47, z: 14 };
 
 export class GameMap {
-  constructor(seed = 7) {
+  constructor(seed = 7, type = 'river') {
     this.seed = seed;
+    this.type = Object.hasOwn(MAP_TYPES, type) ? type : 'river';
     this.terrain = new Uint8Array(MAP_W * MAP_H);
     this.chunkOwner = new Uint8Array(CHUNKS_X * CHUNKS_Z);
     /** 占用该格的建筑 uid,0 = 空 */
@@ -68,7 +75,7 @@ export class GameMap {
     }
 
     // 河流:自西北向东南的对角蜿蜒带(x=z 线),把西南玩家区与东北敌区隔开,留 3 处浅滩
-    for (let z = 0; z < MAP_H; z++) {
+    for (let z = 0; z < MAP_H && this.type === 'river'; z++) {
       for (let x = 0; x < MAP_W; x++) {
         const along = (x + z) / 2 - 32;
         const off = Math.sin(along / 5) * 2.2 + (n1(x / 6, z / 6) - 0.5) * 2;
@@ -93,6 +100,30 @@ export class GameMap {
     blob(20, 52, 1.8, T.water, 0.2);
     blob(10, 42, 2.4, T.forest);
     blob(21, 42, 1.6, T.rock);
+    if (this.type === 'lakes') {
+      // 中部对角带上散布 5 个湖,湖之间天然形成多条通路
+      for (let i = 0; i < 5; i++) {
+        const along = -22 + i * 11 + (rnd() - 0.5) * 4;
+        const cx = 32 + along + (rnd() - 0.5) * 6;
+        const cz = 32 + along + (rnd() - 0.5) * 6;
+        blob(cx + (rnd() - 0.5) * 8, cz - (rnd() - 0.5) * 8, 2.5 + rnd() * 1.8, T.water, 0.3);
+      }
+    } else if (this.type === 'highlands') {
+      // 三条垂直于主对角线的岩石山脊,各留一个山口
+      for (let i = 0; i < 3; i++) {
+        const along = -16 + i * 16;
+        const gap = (rnd() - 0.5) * 16;
+        // 山脊沿 x+z = 64+2·along(垂直于主对角线),t = x−z 为脊上位置
+        for (let t = -60; t <= 60; t++) {
+          if (Math.abs(t - gap) < 2.5) continue;
+          const x = Math.round((64 + 2 * along + t) / 2);
+          const z = Math.round((64 + 2 * along - t) / 2);
+          for (const [dx, dz] of [[0, 0], [1, 0], [0, 1]]) if (this.inside(x + dx, z + dz)) this.terrain[this.idx(x + dx, z + dz)] = T.rock;
+        }
+      }
+      for (let i = 0; i < 4; i++) blob(10 + rnd() * 44, 10 + rnd() * 44, 1.6, i % 2 ? T.ore : T.coal);
+    }
+
     // 起始区外的矿脉/油田:基准位置按种子抖动 ±3 格,再随机追加若干,保证每张图布局不同但资源总量相近
     const jit = () => (rnd() - 0.5) * 6;
     const far = [
@@ -173,6 +204,7 @@ export class GameMap {
   serialize() {
     return {
       seed: this.seed,
+      type: this.type,
       terrain: Array.from(this.terrain),
       chunkOwner: Array.from(this.chunkOwner),
       road: Array.from(this.road),

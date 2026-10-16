@@ -31,8 +31,8 @@ const rig = new CameraRig(stage.renderer.domElement, { minX: 0, maxX: MAP_W, min
 
 const replay = params.has('replay') ? loadReplay() : null;
 const game = replay
-  ? new Game(replay.seed, replay.difficulty)
-  : new Game(Number(params.get('seed') ?? savedMeta()?.seed ?? 7), params.get('diff') ?? savedMeta()?.difficulty ?? 'normal');
+  ? new Game(replay.seed, replay.difficulty, replay.mapType)
+  : new Game(Number(params.get('seed') ?? savedMeta()?.seed ?? 7), params.get('diff') ?? savedMeta()?.difficulty ?? 'normal', params.get('map') ?? savedMeta()?.mapType ?? 'river');
 const economy = new Economy(game);
 const terrain = new TerrainView(stage.scene, game.map);
 const view = new WorldView(stage.scene, game, economy);

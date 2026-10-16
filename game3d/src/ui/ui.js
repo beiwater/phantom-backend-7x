@@ -17,6 +17,7 @@ import { Achievements } from './achievements.js';
 import { saveGame, clearSave, storeReplay, exportSave, importSave } from '../save.js';
 import { fmtTime } from '../engine/util.js';
 import { DIFFICULTIES } from '../data/difficulty.js';
+import { MAP_TYPES } from '../world/map.js';
 import { QUALITY } from '../engine/quality.js';
 import { VICTORIES } from '../sim/victory.js';
 import { UNITS } from '../data/units.js';
@@ -320,6 +321,7 @@ export class UI {
       <b>${d.name}</b><span>${d.desc}</span></label>`).join('');
     this.openModal('setup', `<div class="dialog" style="max-width:520px"><h2><span>🆕 新游戏</span><button class="btn" data-close>取消</button></h2>
       <div class="menu-list">${opts}
+        <div class="btns">${Object.entries(MAP_TYPES).map(([id, t]) => `<label class="diff" style="flex:1"><input type="radio" name="maptype" value="${id}" ${id === this.game.map.type ? 'checked' : ''}><b>${t.name}</b><span>${t.desc}</span></label>`).join('')}</div>
         <label class="diff"><b>地图种子</b><input id="seed-input" type="number" value="${Math.floor(Math.random() * 9999)}" style="width:110px"></label>
         <button class="btn primary" data-menu="start">开始(将覆盖当前存档)</button>
       </div></div>`);
@@ -393,9 +395,10 @@ export class UI {
     if (m === 'start') {
       const diff = this.modal.querySelector('input[name="diff"]:checked')?.value ?? 'normal';
       const seed = Number(this.modal.querySelector('#seed-input')?.value) || 7;
+      const map = this.modal.querySelector('input[name="maptype"]:checked')?.value ?? 'river';
       clearSave();
       this.skipSave = true;
-      location.href = `${location.pathname}?new=1&seed=${seed}&diff=${diff}`;
+      location.href = `${location.pathname}?new=1&seed=${seed}&diff=${diff}&map=${map}`;
     }
     if (this.modalKind === 'tech' && this.tech.onClick(e)) this.refreshTech();
     if (this.modalKind === 'codex' && this.codex.onClick(e)) this.openModal('codex', this.codex.html());

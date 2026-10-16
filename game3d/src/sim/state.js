@@ -14,9 +14,9 @@ import { GameMap, OWNER, T, PLAYER_HQ } from '../world/map.js';
 export const START_RES = { money: 800, research: 0, wood: 30, stone: 20, food: 24, planks: 12, grain: 0, water: 0 };
 
 export class Game {
-  constructor(seed = 7, difficulty = 'normal') {
+  constructor(seed = 7, difficulty = 'normal', mapType = 'river') {
     this.events = new Emitter();
-    this.map = new GameMap(seed);
+    this.map = new GameMap(seed, mapType);
     // localPlayer = 本地阵营(模拟与视图里用它判断「我方」);localId = 本机玩家身份(命令发送者)。
     // 合作模式下各端 localId 不同但 localPlayer 相同,所以模拟逻辑只能用阵营,保证各端一致。
     this.localPlayer = 'player';

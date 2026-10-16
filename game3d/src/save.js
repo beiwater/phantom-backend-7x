@@ -5,7 +5,7 @@ const REPLAY_KEY = 'voxel-era-replay-v1';
 
 /** 录像 = 种子 + 难度 + 命令日志 + 终点校验和;固定步长 + 种子随机数保证可复现。 */
 export function storeReplay(game) {
-  const data = { seed: game.map.seed, difficulty: game.difficultyId, log: game.transport.log, endTick: game.tick, checksum: game.checksum(), reloaded: !!game.reloaded };
+  const data = { seed: game.map.seed, difficulty: game.difficultyId, mapType: game.map.type, log: game.transport.log, endTick: game.tick, checksum: game.checksum(), reloaded: !!game.reloaded };
   try {
     localStorage.setItem(REPLAY_KEY, JSON.stringify(data));
     return true;
@@ -45,7 +45,7 @@ export function importSave(text) {
 export function savedMeta() {
   try {
     const d = JSON.parse(localStorage.getItem(KEY) ?? 'null');
-    return d ? { seed: d.map?.seed, difficulty: d.difficulty } : null;
+    return d ? { seed: d.map?.seed, difficulty: d.difficulty, mapType: d.map?.type } : null;
   } catch {
     return null;
   }
