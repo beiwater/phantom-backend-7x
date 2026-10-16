@@ -211,6 +211,7 @@ export class UI {
     el.textContent = loc ? `${text} 📍` : text;
     if (loc) {
       this.lastLoc = loc;
+      this.minimap.ping(loc, kind === 'bad' ? '#ff4030' : kind === 'good' ? '#6fd36f' : '#ffd34d');
       el.addEventListener('click', () => this.rig.lookAt(loc.x, loc.z));
     }
     this.toasts.appendChild(el);

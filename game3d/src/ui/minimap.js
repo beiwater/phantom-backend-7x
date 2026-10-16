@@ -16,6 +16,7 @@ export class Minimap {
     this.base.width = MAP_W;
     this.base.height = MAP_H;
     this.baseVersion = -1;
+    this.pings = [];
     this.t = 0;
     const jump = (e) => {
       const r = this.canvas.getBoundingClientRect();
@@ -24,6 +25,12 @@ export class Minimap {
     this.canvas.addEventListener('pointerdown', (e) => { this.drag = true; jump(e); });
     window.addEventListener('pointermove', (e) => { if (this.drag) jump(e); });
     window.addEventListener('pointerup', () => { this.drag = false; });
+  }
+
+  /** 警报位置在小地图上闪烁 6 秒。 */
+  ping(loc, color) {
+    this.pings.push({ x: loc.x, z: loc.z, color, t: performance.now() });
+    if (this.pings.length > 6) this.pings.shift();
   }
 
   drawBase() {
@@ -48,7 +55,7 @@ export class Minimap {
   update(dt) {
     this.t -= dt;
     if (this.t > 0) return;
-    this.t = 0.2;
+    this.t = this.pings.length ? 0.08 : 0.2;
     if (this.baseVersion !== this.game.map.version) this.drawBase();
     const ctx = this.ctx;
     const W = this.canvas.width;
@@ -75,6 +82,18 @@ export class Minimap {
       if (fog && u.team !== this.game.localPlayer && !fog.visible(u.x, u.z)) continue;
       ctx.fillStyle = u.team === 'player' ? '#3a8bff' : '#ff3020';
       ctx.fillRect(u.x * s - 1.5, u.z * s - 1.5, 3, 3);
+    }
+    const now = performance.now();
+    this.pings = this.pings.filter((p) => now - p.t < 6000);
+    for (const p of this.pings) {
+      const k = ((now - p.t) % 1000) / 1000;
+      ctx.strokeStyle = p.color;
+      ctx.globalAlpha = 1 - k;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(p.x * s, p.z * s, 3 + k * 10, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
     }
     // 镜头视野:四角投射到地面
     const pts = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([x, y]) => {
