@@ -336,6 +336,7 @@ export class WorldView {
     this.selExtras ??= new THREE.Group();
     if (!this.selExtras.parent) this.root.add(this.selExtras);
     this.selExtras.clear();
+    this.selExtras.userData = {};
     if (!b) { this.selBox.visible = false; return; }
     this.selBox.visible = true;
     this.selBox.scale.set(b.w + 0.1, 1, b.d + 0.1);
@@ -358,7 +359,6 @@ export class WorldView {
         }
       }
     }
-    this.selExtras.userData = {};
     if (POLLUTERS.has(b.type) && b.module !== 'eco') outline(b.x - 3, b.z - 3, b.w + 6, b.d + 6, 0xff5544);
   }
 
