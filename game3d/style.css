@@ -282,3 +282,4 @@ button { font: inherit; color: inherit; cursor: pointer; }
   #toasts { top: 110px; width: calc(100% - 16px); }
 }
 .curves .row { display: flex; justify-content: space-between; align-items: center; padding: 2px 0; font-size: 13px; }
+.tech.queued { border-color: #c08aff; box-shadow: 0 0 0 2px rgba(192, 138, 255, 0.35); }

@@ -74,6 +74,7 @@ export function saveGame({ game, rts, economy }) {
     era: game.era,
     techs: [...game.techs],
     researching: game.researching,
+    researchQueue: game.researchQueue,
     mission: game.mission,
     counters: game.counters,
     produced: game.produced,
@@ -133,6 +134,7 @@ export function applySnapshot({ game, rts, economy, onFog }, data) {
   game.era = data.era;
   game.techs = new Set(data.techs);
   game.researching = data.researching;
+  game.researchQueue = Array.isArray(data.researchQueue) ? data.researchQueue : [];
   game.mission = data.mission ?? 0;
   Object.assign(game.counters, data.counters);
   Object.assign(game.produced, data.produced);

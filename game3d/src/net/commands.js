@@ -64,6 +64,9 @@ const HANDLERS = {
   research(game, cmd) {
     return game.startResearch(cmd.tech);
   },
+  queueResearch(game, cmd) {
+    return game.queueResearch(cmd.tech);
+  },
   policy(game, cmd) {
     return game.setPolicy(cmd.slot, cmd.id ?? null);
   },

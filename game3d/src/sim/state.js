@@ -39,6 +39,7 @@ export class Game {
     this.nextUid = 1;
     this.techs = new Set();
     this.researching = null; // { id, progress }
+    this.researchQueue = [];
     this.era = 1;
     this.stats = { storageCap: 400, housing: 6, workersNeeded: 0, powerSupply: 0, powerDemand: 0, workerRatio: 1, powerRatio: 1 };
     this.produced = Object.fromEntries(RESOURCE_IDS.map((k) => [k, 0]));
@@ -323,6 +324,30 @@ export class Game {
     if (this.researching) return { ok: false, reason: '正在研究其他科技' };
     if (this.res.research < t.cost) return { ok: false, reason: `需要 ${t.cost} 科研点` };
     return { ok: true };
+  }
+
+  /** 研究队列:前置科技已完成、在研或已在队列中的科技才可排队(最多 4 项)。 */
+  queueResearch(id) {
+    if (!Object.hasOwn(TECHS, id)) return { ok: false, reason: '未知科技' };
+    if (this.techs.has(id) || this.researching?.id === id) return { ok: false, reason: '已研究或正在研究' };
+    const i = this.researchQueue.indexOf(id);
+    if (i >= 0) { this.researchQueue.splice(i, 1); return { ok: true, removed: true }; }
+    if (this.researchQueue.length >= 4) return { ok: false, reason: '研究队列已满(4 项)' };
+    const planned = new Set([...this.techs, this.researching?.id, ...this.researchQueue]);
+    if (!TECHS[id].req.every((r) => planned.has(r))) return { ok: false, reason: '前置科技未完成或未排队' };
+    this.researchQueue.push(id);
+    this.events.emit('tech');
+    return { ok: true };
+  }
+
+  /** 空闲时自动开始队首科技(科研点不足则等待)。 */
+  pumpResearchQueue() {
+    if (this.researching || !this.researchQueue.length) return;
+    const id = this.researchQueue[0];
+    if (this.canResearch(id).ok) {
+      this.researchQueue.shift();
+      this.startResearch(id);
+    }
   }
 
   /** 科研点在开始时一次性扣除,随后按时长完成(见 economy.researchDuration)。 */

@@ -367,6 +367,7 @@ export class Economy {
 
   updateResearch(gdt) {
     const g = this.game;
+    g.pumpResearchQueue();
     const r = g.researching;
     if (!r) return;
     r.progress += gdt / researchDuration(r.id);

@@ -511,3 +511,19 @@ test('国家工程:按需投入(只扣实际需要的部分),完工后永久加�
   assert.equal(g.victoryKind, 'science');
   assert.equal(g.dispatch({ type: 'fund', id: 'nope' }).ok, false);
 });
+
+test('研究队列:排队需前置已规划,完成后自动开始下一项(科研点不足时等待)', () => {
+  const { g, e } = fresh();
+  g.res.research = 15;
+  assert.ok(g.dispatch({ type: 'research', tech: 'mining' }).ok);
+  assert.ok(g.dispatch({ type: 'queueResearch', tech: 'metallurgy' }).ok, '前置在研即可排队');
+  assert.equal(g.dispatch({ type: 'queueResearch', tech: 'industry' }).ok, true, '前置已在队列中');
+  assert.equal(g.dispatch({ type: 'queueResearch', tech: 'aviation' }).ok, false);
+  run(e, 10);
+  assert.ok(g.techs.has('mining'));
+  assert.equal(g.researching, null, '科研点不足时等待');
+  g.res.research = 35;
+  run(e, 0.2);
+  assert.equal(g.researching?.id, 'metallurgy');
+  assert.deepEqual(g.researchQueue, ['industry']);
+});

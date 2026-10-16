@@ -21,7 +21,7 @@ export class TechTree {
 
   sig() {
     const g = this.game;
-    return [[...g.techs].join(), g.researching?.id, ...TECH_IDS.map((id) => g.canResearch(id).ok)].join('|');
+    return [[...g.techs].join(), g.researching?.id, g.researchQueue.join(), ...TECH_IDS.map((id) => g.canResearch(id).ok)].join('|');
   }
 
   html() {
@@ -53,10 +53,11 @@ export class TechTree {
       const active = g.researching?.id === id;
       const reqOk = t.req.every((r) => g.techs.has(r));
       const can = g.canResearch(id).ok;
-      const cls = done ? 'done' : active ? 'active' : can ? 'avail' : reqOk ? '' : 'locked';
+      const qi = g.researchQueue.indexOf(id);
+      const cls = done ? 'done' : active ? 'active' : qi >= 0 ? 'queued' : can ? 'avail' : reqOk ? '' : 'locked';
       const un = unlocksOf(id);
       return `<button class="tech ${cls}" data-tech="${id}" style="left:${t.col * CW}px;top:${t.row * RH + 24}px" title="${t.desc}${un.length ? `\n解锁:${un.join('、')}` : ''}">
-        <div class="tn"><span>${t.name}</span><span>${done ? '✅' : `🔬${t.cost}`}</span></div>
+        <div class="tn"><span>${t.name}</span><span>${done ? '✅' : qi >= 0 ? `⏳${qi + 1}` : `🔬${t.cost}`}</span></div>
         <div class="td">${t.desc}</div>
         ${active ? `<div class="pbar"><i style="width:${g.researching.progress * 100}%"></i></div>` : ''}
       </button>`;
@@ -67,16 +68,25 @@ export class TechTree {
       <div class="techgrid" style="width:${W}px;height:${H}px">
         <svg width="${W}" height="${H}">${lines.join('')}</svg>${eraHeads}${nodes}
       </div>
-      <p>学院(食物+木板)与研究所(电子元件)产出科研点。开始研究时一次性扣除科研点,研究约需 ${researchDuration('mining').toFixed(0)}–${researchDuration('precision').toFixed(0)} 秒。</p>
+      <p>学院(食物+木板)与研究所(电子元件)产出科研点。研究进行中点击其他科技可加入队列(最多 4 项,再点移出)。开始研究时一次性扣除科研点,研究约需 ${researchDuration('mining').toFixed(0)}–${researchDuration('precision').toFixed(0)} 秒。</p>
     </div>`;
   }
 
   onClick(e) {
     const n = e.target.closest('[data-tech]');
     if (!n) return false;
-    const r = this.game.dispatch({ type: 'research', tech: n.dataset.tech });
+    const id = n.dataset.tech;
+    const g = this.game;
+    // 正在研究时点击其他科技 = 加入/移出队列
+    if (g.researching || g.researchQueue.includes(id)) {
+      const r = g.dispatch({ type: 'queueResearch', tech: id });
+      if (!r.ok) this.ui.toast(r.reason, 'bad');
+      else this.ui.toast(r.removed ? `已移出队列「${TECHS[id].name}」` : `已加入研究队列「${TECHS[id].name}」`, 'good');
+      return true;
+    }
+    const r = g.dispatch({ type: 'research', tech: id });
     if (!r.ok) this.ui.toast(r.reason, 'bad');
-    else this.ui.toast(`开始研究「${TECHS[n.dataset.tech].name}」`, 'good');
+    else this.ui.toast(`开始研究「${TECHS[id].name}」`, 'good');
     return true;
   }
 }
