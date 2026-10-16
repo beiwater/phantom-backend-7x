@@ -28,7 +28,7 @@
 2. **对抗模式需按玩家拆分经济**(合作模式已可用):目前 `game.res / techs / policies / era` 只有一份(本地玩家)。需改为 `game.players[p].{res, techs, policies, era, stats}`,`applyCommand` 中经济命令已对非本地玩家返回拒绝,改造时把 `game.res` 访问换成 `game.players[cmd.p].res` 即可。
 3. **大厅与开局参数**:主机广播 `{ seed, difficulty, players: [{ id, team, spawn }] }`;各端 `new Game(seed, difficulty)` 后按玩家列表调用 `setupStart(p)`(需参数化起始地块与指挥中心位置,见 `world/map.js` 的 `PLAYER_CHUNKS/PLAYER_HQ`)。
 4. **不同步检测**:每 N tick 交换 `checksum()`;不一致时上报命令日志与双方存档以便排查。
-5. **断线重连**:用 `save.js` 的序列化作为快照 + 快照之后的命令日志追帧(注意存档会对单位坐标取整,快照需改为无损序列化)。
+5. **断线重连**:`save.js` 的 `applySnapshot` + 快照之后的命令日志即可追帧——「读档后回放」已验证这条路径逐位一致;联机时由主机下发快照,重连端应用后用锁步日志追到当前 tick。
 
 ## 约束(写新代码时请遵守)
 
