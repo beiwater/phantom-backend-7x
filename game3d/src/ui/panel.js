@@ -72,7 +72,7 @@ export class Panel {
     const sel = this.sel;
     if (!sel) { this.el.hidden = true; return; }
     if (sel.building && !this.game.buildings.has(sel.building.uid)) { this.ui.select(null); return; }
-    if (sel.units && sel.units.length === 0) { this.ui.select(null); return; }
+    if ((sel.units && sel.units.length === 0) || (!sel.building && !sel.units)) { this.ui.select(null); return; }
     this.el.hidden = false;
     const sig = sel.building ? this.buildingSig(sel.building) : this.unitsSig(sel.units);
     if (force || sig !== this.sig) {

@@ -263,3 +263,4 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .title-screen .sub { color: var(--muted); margin: 6px 0 20px; letter-spacing: 6px; }
 .title-screen .btn { font-size: 15px; padding: 10px; }
 .title-screen small { display: block; font-weight: 500; font-size: 12px; opacity: 0.8; }
+#replay-bar.coop { background: rgba(20, 90, 60, 0.9); border-color: #6fd36f; }

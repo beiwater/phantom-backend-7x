@@ -22,6 +22,7 @@ import { UI } from './ui/ui.js';
 import { Input } from './ui/input.js';
 import { loadGame, hasSave, savedMeta, loadReplay } from './save.js';
 import { ReplayTransport } from './net/transport.js';
+import { LockstepTransport, broadcastChannel } from './net/lockstep.js';
 
 const params = new URLSearchParams(location.search);
 const viewport = document.getElementById('viewport');
@@ -39,7 +40,8 @@ const rts = createRTS({ game, scene: stage.scene, rig, view, overlay: document.g
 game.unitSystem = rts;
 
 let resumedFog = null;
-const resumed = !replay && !params.has('new') && hasSave() && loadGame({ game, rts, economy, onFog: (f) => { resumedFog = f; } });
+const coopId = params.get('coop');
+const resumed = !replay && !coopId && !params.has('new') && hasSave() && loadGame({ game, rts, economy, onFog: (f) => { resumedFog = f; } });
 if (resumed) {
   view.rebuildAll();
   terrain.rebuild();
@@ -50,6 +52,14 @@ if (resumed) {
 if (replay) {
   game.transport = new ReplayTransport(game, replay.log);
   game.replay = replay;
+}
+if (coopId) {
+  // 本机多标签页合作:所有标签页需同种子、同时开局;任一方暂停或落后时其他方会等待
+  game.players = (params.get('peers') ?? 'p1,p2').split(',').filter(Boolean);
+  if (!game.players.includes(coopId)) game.players.push(coopId);
+  game.localId = coopId;
+  game.transport = new LockstepTransport(game, broadcastChannel(`voxel-coop-${game.map.seed}`));
+  game.coop = true;
 }
 
 const sim = new SimLoop(game, economy, rts);

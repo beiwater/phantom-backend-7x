@@ -55,6 +55,7 @@ export class UI {
     document.getElementById('btn-menu').addEventListener('click', () => this.openMenu());
     this.modal.addEventListener('click', (e) => this.onModalClick(e));
     this.bindEvents();
+    if (game.coop) this.initCoop();
     if (game.replay) this.initReplay();
     else if (game.time < 1) this.openHelp(true);
     else this.openTitle();
@@ -75,6 +76,25 @@ export class UI {
         <button class="btn" data-menu="help">❓ 操作说明</button>
         <button class="btn" data-menu="ach">🏆 成就</button>
       </div></div>`);
+  }
+
+  /** 合作模式:不写本地存档(各端状态以锁步同步为准),显示队友与等待状态。 */
+  initCoop() {
+    this.skipSave = true;
+    const g = this.game;
+    const bar = document.createElement('div');
+    bar.id = 'replay-bar';
+    bar.className = 'coop';
+    document.getElementById('app').appendChild(bar);
+    this.coopBar = bar;
+    this.toast(`🤝 合作模式:你是 ${g.localId},队友 ${g.players.filter((p) => p !== g.localId).join('、')}`, 'big');
+  }
+
+  updateCoop() {
+    const g = this.game;
+    if (!this.coopBar) return;
+    const waiting = g.transport.ready && !g.transport.ready(g.tick) && !g.paused;
+    this.coopBar.textContent = `🤝 合作 · ${g.localId} · tick ${g.tick}${waiting ? ' · ⏳ 等待队友…' : ''}`;
   }
 
   /** 回放模式:禁止存档,显示横幅,到达录制终点时比对校验和以证明确定性。 */
@@ -137,6 +157,7 @@ export class UI {
     });
     ev.on('gameover', ({ result, kind }) => this.openGameOver(result, kind));
     ev.on('event', ({ msg, kind }) => this.toast(msg, kind));
+    ev.on('command:rejected', ({ reason }) => this.toast(reason ?? '操作失败', 'bad'));
     ev.on('ruins:claim', ({ msg, ruin }) => this.toast(`🏛️ ${msg}`, 'good', { x: ruin.x + 0.5, z: ruin.z + 0.5 }));
     ev.on('weather', () => {
       const w = this.game.weather.current;
@@ -415,6 +436,7 @@ export class UI {
     this.alerts.update(dt);
     this.achievements.update(dt);
     this.updateReplay();
+    this.updateCoop();
     this.hitT -= dt;
     this.modalT -= dt;
     if (this.modalKind === 'gov' && this.modalT <= 0) {

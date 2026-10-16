@@ -18,7 +18,11 @@ export class SimLoop {
     const g = this.game;
     g.transport.flush?.(g.tick);
     if (g.transport.ready && !g.transport.ready(g.tick)) return false;
-    for (const cmd of g.transport.commandsFor(g.tick)) applyCommand(g, cmd);
+    for (const cmd of g.transport.commandsFor(g.tick)) {
+      const r = applyCommand(g, cmd);
+      // 锁步下命令延迟执行,失败原因只能在执行时告知发送者本人
+      if (!r.ok && cmd.p === g.localId) g.events.emit('command:rejected', { cmd, reason: r.reason });
+    }
     this.economy.step(TICK);
     this.rts?.update(TICK);
     g.time += TICK;

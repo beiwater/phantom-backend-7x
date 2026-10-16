@@ -57,6 +57,15 @@ export class LockstepTransport {
   }
 }
 
+/** 浏览器同源多标签页通道(本机双开合作演示):?coop=p1 与 ?coop=p2 两个标签页即可一起玩。 */
+export function broadcastChannel(name) {
+  const bc = new BroadcastChannel(name);
+  return {
+    post: (msg) => bc.postMessage(msg),
+    onMessage: (fn) => bc.addEventListener('message', (e) => fn(e.data)),
+  };
+}
+
 /** 进程内的成对通道(测试与本地双开演示用),可模拟网络延迟(以投递轮次计)。 */
 export function memoryChannelPair() {
   const make = () => ({ handlers: [], queue: [], peer: null });

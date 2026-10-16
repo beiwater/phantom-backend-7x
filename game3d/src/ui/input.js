@@ -178,7 +178,7 @@ export class Input {
     this.ui.sound?.('place');
     // Shift 连续放置;资源不足时自动退出
     if (!keep || !this.game.canAfford(BUILDINGS[type].cost)) this.setMode({ kind: 'select' });
-    this.ui.select({ building: r.building });
+    if (r.building) this.ui.select({ building: r.building });
   }
 
   tryDemolish(c) {
