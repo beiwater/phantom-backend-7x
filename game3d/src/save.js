@@ -39,7 +39,11 @@ export function saveGame({ game, rts, economy }) {
     map: game.map.serialize(),
     buildings: [...game.buildings.values()].map((b) => ({ ...b, sell: [...b.sell] })),
     rts: rts.serialize(),
+    fog: game.fog?.serialize(),
     buffs: game.buffs,
+    policies: game.policies,
+    policyReadyAt: game.policyReadyAt,
+    contracts: economy.contracts.serialize(),
     econ: { market: economy.market.serialize(), stats: economy.stats.serialize(), society: economy.society.serialize() },
   };
   try {
@@ -51,7 +55,7 @@ export function saveGame({ game, rts, economy }) {
 }
 
 /** 恢复状态;不触发 building:add 事件,调用方负责 view.rebuildAll()。失败返回 false 并开新局。 */
-export function loadGame({ game, rts, economy }) {
+export function loadGame({ game, rts, economy, onFog }) {
   let data;
   try { data = JSON.parse(localStorage.getItem(KEY) ?? 'null'); } catch { return false; }
   if (!data || data.v !== 1 || data.map?.seed !== game.map.seed) return false;
@@ -79,6 +83,10 @@ export function loadGame({ game, rts, economy }) {
   }
   game.map.version++;
   game.buffs = data.buffs ?? [];
+  game.policies = data.policies ?? [];
+  game.policyReadyAt = data.policyReadyAt ?? 0;
+  economy.contracts.load(data.contracts);
+  onFog?.(data.fog);
   economy.market.load(data.econ?.market);
   economy.stats.load(data.econ?.stats);
   economy.society.load(data.econ?.society);

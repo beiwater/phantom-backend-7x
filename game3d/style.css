@@ -217,3 +217,18 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .diff { display: grid; grid-template-columns: auto auto 1fr; gap: 8px; align-items: center; background: rgba(255,255,255,0.05); padding: 8px 10px; border-radius: 8px; cursor: pointer; }
 .diff span { color: var(--muted); font-size: 12px; }
 .diff input[type=number] { background: #111a24; color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; }
+.dialog h3.sub { font-size: 14px; margin: 14px 0 8px; }
+.dialog h3.sub small { color: var(--muted); font-weight: 500; font-size: 12px; }
+.slots { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.slot { text-align: left; background: #253141; border: 1px solid var(--line); border-radius: 9px; padding: 8px 10px; min-height: 64px; }
+.slot.on { border-color: var(--accent); }
+.slot.locked { opacity: 0.45; cursor: not-allowed; }
+.slot .tn { font-weight: 800; }
+.slot .td { color: var(--muted); font-size: 12px; margin-top: 4px; }
+.policy-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 6px; }
+.policy { text-align: left; background: rgba(255,255,255,0.06); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; font-size: 12px; display: flex; flex-direction: column; gap: 2px; }
+.policy span { color: var(--muted); }
+.policy:hover:not(:disabled) { border-color: var(--accent); }
+.policy:disabled { opacity: 0.45; cursor: not-allowed; }
+.contract { display: flex; justify-content: space-between; align-items: center; gap: 10px; background: rgba(255,255,255,0.05); border-radius: 8px; padding: 8px 10px; margin-bottom: 6px; }
+@media (max-width: 760px) { .slots { grid-template-columns: 1fr; } }

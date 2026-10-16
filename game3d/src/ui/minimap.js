@@ -55,11 +55,24 @@ export class Minimap {
     const s = W / MAP_W;
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(this.base, 0, 0, W, W);
+    const fog = this.game.fog;
+    if (fog?.enabled) {
+      for (let z = 0; z < MAP_H; z++) {
+        for (let x = 0; x < MAP_W; x++) {
+          const i = z * MAP_W + x;
+          if (fog.visibleNow[i]) continue;
+          ctx.fillStyle = fog.explored[i] ? 'rgba(10,14,20,0.45)' : '#0b0f15';
+          ctx.fillRect(x * s, z * s, s + 0.5, s + 0.5);
+        }
+      }
+    }
     for (const b of this.game.buildings.values()) {
+      if (fog && b.team !== this.game.localPlayer && !fog.isExplored(b.x, b.z)) continue;
       ctx.fillStyle = b.team === 'player' ? '#f4f4f4' : '#e04030';
       ctx.fillRect(b.x * s, b.z * s, b.w * s, b.d * s);
     }
     for (const u of this.game.unitSystem?.units ?? []) {
+      if (fog && u.team !== this.game.localPlayer && !fog.visible(u.x, u.z)) continue;
       ctx.fillStyle = u.team === 'player' ? '#3a8bff' : '#ff3020';
       ctx.fillRect(u.x * s - 1.5, u.z * s - 1.5, 3, 3);
     }

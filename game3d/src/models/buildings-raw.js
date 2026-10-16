@@ -1,6 +1,6 @@
 // 采集类建筑:农场、伐木场、采石场、水泵站、铁矿、煤矿、油井。每级追加一个可见模块。
 import {
-  C, shade, vary, hash, pad, ring, block, chimney, stack, crate, cylX, cylZ, tank, lattice, pipeX, pipeZ, pipeY,
+  C, shade, vary, hash, pad, ring, block, chimney, stack, crate, cylX, cylZ, tank, lattice, ellipsoid, pipeX, pipeZ, pipeY,
   finish, newModel,
 } from './common.js';
 
@@ -12,6 +12,7 @@ function wheatField(m, x0, z0, w, d, crop = 'wheat') {
       if (crop === 'wheat') {
         m.set(x, 2, z, C.wheatDark);
         m.set(x, 3, z, hash(x, 3, z) > 0.5 ? C.wheat : 0xf2d468);
+        if (hash(z, 4, x) > 0.7) m.set(x, 4, z, 0xf6e08a);
       } else if (z % 2 === 0) {
         m.set(x, 2, z, hash(x, 2, z) > 0.5 ? C.leaf : 0x7cc85a);
         if (hash(z, x, 1) > 0.6) m.set(x, 3, z, 0x8ad06a);
@@ -20,10 +21,10 @@ function wheatField(m, x0, z0, w, d, crop = 'wheat') {
   }
 }
 
-function silo(m, cx, cz) {
-  m.cylinder(cx, 1, cz, 1.7, 11, (x, y) => (y % 3 === 0 ? 0xb8c0c8 : 0xd8dde2));
-  m.cylinder(cx, 12, cz, 1.2, 1, 0xc8402e);
-  m.set(Math.floor(cx), 13, Math.floor(cz), 0xc8402e);
+function silo(m, cx, cz, r, h) {
+  m.cylinder(cx, 1, cz, r, h, (x, y) => (y % 3 === 0 ? 0xb8c0c8 : 0xd8dde2));
+  m.cylinder(cx, h + 1, cz, r - 0.4, 1, 0xc8402e);
+  m.set(Math.floor(cx), h + 2, Math.floor(cz), 0xc8402e);
 }
 
 export function farm(L) {
@@ -41,10 +42,10 @@ export function farm(L) {
   m.box(10, 5, 4, 3, 1, 1, 0x5a7ad0);
   m.set(11, 6, 4, C.wheat);
   if (L >= 2) wheatField(m, 8, 9, 7, 6);
-  if (L >= 3) silo(m, 6.5, 2.5);
+  if (L >= 3) silo(m, 6.5, 2.5, 1.6, 11);
   if (L >= 4) wheatField(m, 1, 9, 6, 6, 'veg');
   if (L >= 5) {
-    silo(m, 6.5, 5.5);
+    silo(m, 6.5, 6, 1.3, 14);
     // 拖拉机停在田间小路
     m.box(6, 1, 11, 3, 2, 3, 0xc8402e);
     m.box(7, 3, 11, 2, 2, 2, 0xd85a3a);
@@ -56,11 +57,15 @@ export function farm(L) {
 }
 
 // ---------- 伐木场:L1 木屋+原木堆 / L2 第二堆 / L3 树苗圃 / L4 装木吊臂 / L5 瞭望塔 ----------
-function logPile(m, x0, z0, len, rows = 3) {
+const logC = (x0, len) => (x, y, z) => {
+  if (x !== x0 + len - 1) return (y + z) % 3 ? C.log : shade(C.log, 0.85);
+  return hash(x, y, z) > 0.5 ? C.logEnd : 0xc8955a;
+};
+
+/** 原木金字塔堆,原木沿 x,截面端头朝 +x(等距视角可见)。 */
+function logPile(m, x0, z0, len, rows) {
   for (let r = 0; r < rows; r++) {
-    for (let i = 0; i < rows - r; i++) {
-      cylX(m, x0, len, 2 + r * 1.8, z0 + 1 + i * 2 + r, 1, (x) => (x === x0 || x === x0 + len - 1 ? C.logEnd : C.log));
-    }
+    for (let i = 0; i < rows - r; i++) cylX(m, x0, len, 2.5 + r * 2.6, z0 + 1.5 + i * 3 + r * 1.5, 1.5, logC(x0, len));
   }
 }
 
@@ -76,10 +81,10 @@ export function lumber(L) {
   m.cylinder(6, 1, 7.5, 1, 1, C.logEnd);
   m.box(5, 2, 7, 1, 2, 1, C.woodDark);
   m.set(5, 3, 6, C.steel);
-  logPile(m, 9, 0, 6, 3);
-  if (L >= 2) logPile(m, 9, 6, 6, 2);
+  logPile(m, 9, 0, 6, 2);
+  if (L >= 2) logPile(m, 9, 7, 6, 2);
   if (L >= 3) {
-    for (let x = 1; x <= 6; x += 2) {
+    for (let x = 4; x <= 7; x += 2) {
       for (let z = 10; z <= 14; z += 2) {
         m.set(x, 1, z, C.woodDark);
         m.set(x, 2, z, C.leafDark);
@@ -88,18 +93,19 @@ export function lumber(L) {
     }
   }
   if (L >= 4) {
-    m.box(9, 1, 11, 2, 2, 2, C.steelDark);
-    m.box(9, 3, 11, 1, 8, 1, C.yellow);
-    for (let i = 0; i < 6; i++) m.set(9 + i, 10 - Math.floor(i / 2), 11 - Math.floor(i / 3), C.yellow);
-    m.box(14, 4, 9, 1, 4, 1, C.iron);
-    cylX(m, 12, 4, 3.5, 9.5, 0.8, C.log);
+    m.box(7, 1, 7, 2, 2, 2, C.steelDark);
+    m.box(7, 3, 7, 1, 9, 1, C.yellow);
+    for (let i = 0; i < 6; i++) m.set(8 + i, 11 - Math.floor(i / 3), 7, C.yellow);
+    m.box(13, 6, 7, 1, 4, 1, C.iron);
+    cylX(m, 11, 5, 5.5, 7.5, 0.8, logC(11, 5));
   }
   if (L >= 5) {
-    for (const [x, z] of [[12, 12], [14, 12], [12, 14], [14, 14]]) m.box(x, 1, z, 1, 11, 1, C.woodDark);
-    m.box(11, 12, 11, 5, 1, 5, C.woodLight);
-    ring(m, 11, 13, 11, 5, 5, C.wood);
-    m.gableRoof(11, 15, 11, 5, 5, 0x6a8a3a);
-    for (let y = 2; y < 12; y += 3) m.box(12, y, 14, 3, 1, 1, C.wood);
+    for (const [x, z] of [[1, 11], [3, 11], [1, 13], [3, 13]]) m.box(x, 1, z, 1, 11, 1, C.woodDark);
+    m.box(0, 12, 10, 5, 1, 5, C.woodLight);
+    ring(m, 0, 13, 10, 5, 5, C.wood);
+    m.gableRoof(0, 15, 10, 5, 5, 0x6a8a3a);
+    for (let y = 3; y < 12; y += 3) m.box(1, y, 13, 3, 1, 1, C.wood);
+    m.set(2, 14, 14, C.lamp, true);
   }
   return finish(m, []);
 }
@@ -162,8 +168,9 @@ export function pump(L) {
     m.box(2, 2, 6, 2, 1, 1, 0x7ac8f8, true);
   }
   if (L >= 4) {
-    for (const [x, z] of [[5, 4], [7, 4], [5, 7], [7, 7]]) m.box(x, 1, z, 1, 10, 1, C.steelDark);
-    m.cylinder(6.5, 10, 5.5, 2, 4, (x, y) => (y === 12 ? C.white : C.water));
+    for (const [x, z] of [[5, 4], [7, 4], [5, 7], [7, 7]]) m.box(x, 1, z, 1, 10, 1, C.steel);
+    for (const y of [4, 7]) ring(m, 5, y, 4, 3, 4, C.steelDark);
+    m.cylinder(6.5, 10, 5.5, 1.9, 4, (x, y) => (y === 12 ? C.white : C.water));
     m.cylinder(6.5, 14, 5.5, 1.2, 1, C.steel);
     pipeY(m, 1, 9, 6, 5, C.steel);
   }
@@ -194,22 +201,26 @@ export function ironMine(L) {
   const ore = 0xa8502e;
   pad(m, 16, 16, { edge: 0x8a5a44, inner: (x, z) => vary(0xb87a5a, 0.1)(x, 0, z) });
   // 红土山丘 + 坑道口
-  for (let y = 1; y <= 7; y++) {
-    const s = y - 1;
-    m.box(1 + Math.floor(s / 2), y, 1, 9 - s, 1, 7 - Math.floor(s / 2), (x, j, z) => vary(ore, 0.15)(x, j, z));
-  }
-  m.box(3, 1, 7, 4, 4, 1, C.woodDark);
-  m.box(4, 1, 7, 2, 3, 1, C.black);
+  ellipsoid(m, 5, 0, 3.5, 5.5, 8, 4.5, (x, y, z) => (hash(x, y, z) > 0.93 ? 0xffa040 : vary(ore, 0.15)(x, y, z)));
+  m.carve(4, 1, 5, 2, 3, 4);
+  m.box(4, 1, 5, 2, 3, 1, C.black);
+  m.box(3, 1, 7, 1, 4, 1, C.woodDark);
+  m.box(6, 1, 7, 1, 4, 1, C.woodDark);
+  m.box(3, 4, 7, 4, 1, 1, C.woodDark);
   rails(m, 4, 8, 14);
   m.box(4, 2, 11, 2, 2, 3, C.rustDark);
   m.box(4, 4, 11, 2, 1, 3, (x, y, z) => (hash(x, y, z) > 0.6 ? C.orange : ore));
   if (L >= 2) orePile(m, 12, 12, 3.2, ore, 0xffa040, true);
   if (L >= 3) {
-    m.box(11, 1, 2, 4, 2, 4, C.black);
-    m.box(11, 3, 2, 4, 3, 3, C.yellow);
-    m.set(14, 5, 4, C.winCool, true);
-    for (let i = 0; i < 5; i++) m.set(10 - i, 6 - Math.abs(i - 2), 3, C.yellow);
-    m.box(5, 4, 3, 2, 2, 2, C.steelDark);
+    // 挖掘机:履带 + 驾驶室 + 动臂/斗杆 + 铲斗
+    for (const z of [2, 5]) m.box(11, 1, z, 4, 1, 1, C.black);
+    m.box(11, 2, 2, 4, 1, 4, C.iron);
+    m.box(12, 3, 2, 3, 3, 4, C.yellow);
+    m.box(14, 4, 4, 1, 2, 1, C.winCool, true);
+    m.box(12, 6, 2, 3, 1, 4, shade(C.yellow, 0.85));
+    for (let i = 0; i < 4; i++) m.box(11 - i, 5 + i, 3, 1, 1, 2, C.yellow);
+    for (let i = 0; i < 4; i++) m.box(7 - Math.floor(i / 2), 8 - i, 3, 1, 1, 2, C.yellow);
+    m.box(5, 3, 3, 2, 2, 2, C.iron);
   }
   if (L >= 4) {
     for (const [x, z] of [[8, 9], [10, 9]]) m.box(x, 1, z, 1, 7, 1, C.rustDark);
@@ -225,36 +236,45 @@ export function ironMine(L) {
   return finish(m, smoke);
 }
 
-// ---------- 煤矿:L1 木井架+绞车房 / L2 煤堆 / L3 砖砌锅炉房+烟囱 / L4 煤车 / L5 第二煤堆+输送带 ----------
+// ---------- 煤矿:L1 木井架+绞车房 / L2 煤堆 / L3 砖砌锅炉房+烟囱 / L4 铁轨煤车 / L5 输送带+第二煤堆 ----------
 export function coalMine(L) {
   const m = newModel();
   const smoke = [];
-  pad(m, 16, 16, { edge: 0x3a3a40, inner: (x, z) => vary(0x5a5a60, 0.12)(x, 0, z) });
-  // 井口 + 木制井架(A 字形)
-  m.box(5, 1, 5, 4, 1, 4, C.stoneDark);
-  m.box(6, 1, 6, 2, 1, 2, C.black);
-  for (const [x, z] of [[5, 5], [8, 5], [5, 8], [8, 8]]) m.box(x, 2, z, 1, 12, 1, C.woodDark);
-  for (let y = 4; y < 14; y += 4) ring(m, 5, y, 5, 4, 4, C.wood);
-  for (let i = 0; i < 8; i++) m.set(9 + Math.floor(i / 2), 2 + i, 6, C.wood);
-  cylZ(m, 6, 2, 7, 14.5, 1.8, (x, y) => (Math.abs(x + 0.5 - 7) < 0.6 || Math.abs(y + 0.5 - 14.5) < 0.6 ? C.iron : C.steelDark));
-  block(m, 10, 1, 2, 5, 5, 4, { wall: (i, j) => ((i + j) % 3 ? C.woodLight : C.wood), sx: 2, sy: 4, oy: 2 });
-  m.gableRoof(10, 6, 1, 5, 6, C.slate);
-  if (L >= 2) orePile(m, 3.5, 12, 3, 0x2a2a30, 0x8a9ab8, false);
+  const coal = (x, y, z) => (hash(x, y, z) > 0.85 ? 0x8a9ab8 : shade(0x2a2a30, 0.85 + hash(z, y, x) * 0.3));
+  pad(m, 16, 16, { edge: 0x4a4a50, inner: (x, z) => vary(0x8a8a8e, 0.1)(x, 0, z) });
+  // 井口 + 木制井架 + 天轮
+  m.box(3, 1, 3, 5, 1, 5, C.stoneDark);
+  m.box(4, 1, 4, 3, 1, 3, C.black);
+  for (const [x, z] of [[3, 3], [7, 3], [3, 7], [7, 7]]) m.box(x, 2, z, 1, 12, 1, C.woodDark);
+  for (let y = 4; y < 14; y += 4) ring(m, 3, y, 3, 5, 5, C.wood);
+  for (let i = 0; i < 10; i++) m.set(8 + Math.floor(i / 2), 2 + i, 5, C.wood);
+  m.box(3, 14, 3, 5, 1, 5, C.woodDark);
+  cylZ(m, 4, 3, 5.5, 16.5, 2.2, (x, y) => (Math.abs(x + 0.5 - 5.5) < 0.6 || Math.abs(y + 0.5 - 16.5) < 0.6 || Math.hypot(x + 0.5 - 5.5, y + 0.5 - 16.5) > 1.6 ? C.red : null));
+  for (let i = 0; i < 7; i++) m.set(6 + i, 16 - Math.floor(i * 1.3), 5, C.iron);
+  // 绞车房
+  block(m, 10, 1, 1, 5, 5, 5, { wall: (i, j) => ((i + j) % 3 ? C.woodLight : C.wood), sx: 2, sy: 4, oy: 2 });
+  m.gableRoof(10, 6, 0, 5, 7, C.slate);
+  if (L >= 2) ellipsoid(m, 3.5, 0.5, 12, 3.2, 4, 3, coal);
   if (L >= 3) {
-    block(m, 1, 1, 1, 3, 6, 4, { wall: (i, j) => ((i + j) % 3 ? C.brick : C.brickDark), sx: 2, sy: 3, oy: 2, ox: 0 });
-    chimney(m, 1, 7, 1, 2, 10, C.brickDark, null, smoke);
+    block(m, 10, 1, 7, 5, 6, 3, { wall: (i, j) => ((i + j) % 3 ? C.brick : C.brickDark), sx: 2, sy: 3, oy: 2 });
+    m.box(10, 7, 7, 5, 1, 3, C.slate);
+    chimney(m, 13, 1, 7, 2, 17, C.brickDark, C.white, smoke);
   }
   if (L >= 4) {
-    rails(m, 11, 7, 14);
-    for (const z of [8, 12]) {
-      m.box(11, 2, z, 2, 2, 3, C.rustDark);
-      m.box(11, 4, z, 2, 1, 3, (x, y, k) => (hash(x, y, k) > 0.7 ? 0x6a7a90 : 0x26262b));
+    for (let x = 7; x <= 14; x++) {
+      if (x % 2) m.box(x, 1, 12, 1, 1, 4, C.woodDark);
+      m.set(x, 1, 13, C.steel);
+      m.set(x, 1, 14, C.steel);
+    }
+    for (const x of [8, 11]) {
+      m.box(x, 2, 12, 2, 2, 4, C.rustDark);
+      m.box(x, 4, 12, 2, 1, 4, coal);
     }
   }
   if (L >= 5) {
-    orePile(m, 8, 12.5, 2.2, 0x2a2a30, 0x8a9ab8, false);
-    for (let i = 0; i < 6; i++) m.set(8, 2 + i, 11 - i, C.iron);
-    for (let i = 0; i < 6; i += 2) m.box(8, 1, 11 - i, 1, 1 + i, 1, C.steelDark);
+    for (let i = 0; i < 6; i++) m.box(8, 6 - i, 6 + i, 1, 1, 1, C.iron);
+    m.box(8, 1, 9, 1, 3, 1, C.steelDark);
+    ellipsoid(m, 8.5, 0.5, 10, 1.8, 2.4, 1.6, coal);
   }
   return finish(m, smoke);
 }
@@ -274,7 +294,7 @@ function pumpJack(m, x0, z0) {
 
 export function oilWell(L) {
   const m = newModel();
-  pad(m, 16, 16, { edge: 0x4a3a50, inner: (x, z) => (hash(x, 1, z) > 0.8 ? 0x4a3a58 : vary(0x8a7a82, 0.08)(x, 0, z)) });
+  pad(m, 16, 16, { edge: 0x5a4a60, inner: (x, z) => (hash(x, 1, z) > 0.9 ? 0x5a4a68 : vary(0x8e8088, 0.05)(x, 0, z)) });
   pumpJack(m, 1, 1);
   m.box(9, 1, 2, 1, 1, 1, C.black);
   if (L >= 2) tank(m, 12.5, 1, 12.5, 2.7, 6, C.white, C.red, [4]);

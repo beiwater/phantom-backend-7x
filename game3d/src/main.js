@@ -7,6 +7,8 @@ import { Economy } from './sim/economy.js';
 import { SimLoop } from './sim/loop.js';
 import { TerrainView } from './world/terrain.js';
 import { WorldView } from './world/view.js';
+import { FogOfWar } from './world/fog.js';
+import { voxelMaterial } from './engine/voxel.js';
 import { MAP_W, MAP_H, PLAYER_HQ } from './world/map.js';
 import { createRTS } from './rts/index.js';
 import { UI } from './ui/ui.js';
@@ -25,7 +27,8 @@ const view = new WorldView(stage.scene, game, economy);
 const rts = createRTS({ game, scene: stage.scene, rig, view, overlay: document.getElementById('dragbox') });
 game.unitSystem = rts;
 
-const resumed = !params.has('new') && hasSave() && loadGame({ game, rts, economy });
+let resumedFog = null;
+const resumed = !params.has('new') && hasSave() && loadGame({ game, rts, economy, onFog: (f) => { resumedFog = f; } });
 if (resumed) {
   view.rebuildAll();
   terrain.rebuild();
@@ -35,6 +38,10 @@ if (resumed) {
 }
 
 const sim = new SimLoop(game, economy, rts);
+const fog = new FogOfWar(game);
+game.fog = fog;
+if (resumed) fog.load(resumedFog);
+for (const mat of [voxelMaterial(), terrain.tiles.material, terrain.water.material, terrain.base.material]) fog.apply(mat);
 const ui = new UI({ game, economy, rig, rts, view, terrain });
 const input = new Input({ game, rig, scene: stage.scene, rts, ui, view, dom: stage.renderer.domElement });
 ui.input = input;
@@ -67,6 +74,7 @@ function frame(now) {
   if (terrainDirty.borders) terrain.rebuildBorders();
   terrainDirty = { tiles: false, props: false, borders: false };
   terrain.update(t);
+  fog.update(dt);
   view.update(dt);
   rig.update(dt);
   stage.followSun(rig.target, rig.view);

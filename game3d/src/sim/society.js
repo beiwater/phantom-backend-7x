@@ -50,7 +50,7 @@ export class Society {
         h.pollution = this.pollutionAt(h.x, h.z);
         pol += h.pollution;
       }
-      p.pollution = -Math.min(30, Math.round((pol / houses.length) * 8));
+      p.pollution = -Math.min(30, Math.round((pol / houses.length) * 8 * Math.max(0, 1 + g.effect('pollution'))));
     } else {
       p.food = 0;
       p.pollution = 0;
@@ -60,14 +60,14 @@ export class Society {
     const hq = g.playerHQ();
     const threat = hq && (g.unitSystem?.units ?? []).some((u) => u.team !== g.localPlayer && Math.abs(u.x - hq.x) + Math.abs(u.z - hq.z) < 14);
     p.war = threat ? -12 : 0;
-    p.events = g.buffs.reduce((s, b) => s + (b.effects.happy ?? 0), 0);
+    p.events = g.effect('happy');
     this.parts = p;
     const target = Math.max(0, Math.min(100, Object.values(p).reduce((s, v) => s + v, 0)));
     // 民心缓慢变化,避免瞬时跳变
     this.happiness += (target - this.happiness) * 0.15;
   }
 
-  taxMult() { return 0.5 + this.happiness / 100; }
+  taxMult() { return (0.5 + this.happiness / 100) * Math.max(0.2, 1 + this.game.effect('tax')); }
 
   productivity() {
     if (this.happiness < 30) return 0.8;

@@ -2,6 +2,7 @@
 import { BUILDINGS, upgradeCost } from '../data/buildings.js';
 import { TECHS } from '../data/tech.js';
 import { DIFFICULTIES } from '../data/difficulty.js';
+import { POLICIES, POLICY_SWITCH_COST, POLICY_COOLDOWN, policySlots } from '../data/policies.js';
 import { RESOURCE_IDS } from '../data/resources.js';
 import { Emitter, Rng } from '../engine/util.js';
 import { LocalTransport } from '../net/transport.js';
@@ -36,6 +37,8 @@ export class Game {
     this.counters = { unitsTrained: 0, enemyKilled: 0, wavesSurvived: 0, sold: 0 };
     this.mission = 0;
     this.buffs = [];
+    this.policies = [];
+    this.policyReadyAt = 0;
     this.over = null; // 'win' | 'lose'
     this.unitSystem = null; // RTS 注入
   }
@@ -313,7 +316,29 @@ export class Game {
     let v = 0;
     for (const id of this.techs) v += TECHS[id].effect?.[key] ?? 0;
     for (const b of this.buffs) v += b.effects[key] ?? 0;
+    for (const p of this.policies) if (p) v += POLICIES[p].effects[key] ?? 0;
     return v;
+  }
+
+  /** 设置政策槽:空槽首次采纳免费;替换/撤销需金币且有冷却。 */
+  setPolicy(slot, id) {
+    if (!Number.isInteger(slot) || slot < 0 || slot >= policySlots(this.era)) return { ok: false, reason: '政策槽未解锁' };
+    if (id !== null) {
+      const p = POLICIES[id];
+      if (!p) return { ok: false, reason: '未知政策' };
+      if (p.era > this.era) return { ok: false, reason: '时代不足' };
+      if (this.policies.includes(id)) return { ok: false, reason: '已采纳该政策' };
+    }
+    const current = this.policies[slot] ?? null;
+    if (current === id) return { ok: false, reason: '无变化' };
+    if (current) {
+      if (this.time < this.policyReadyAt) return { ok: false, reason: `政策冷却中(${Math.ceil(this.policyReadyAt - this.time)} 秒)` };
+      if (!this.spend({ money: POLICY_SWITCH_COST })) return { ok: false, reason: `更换政策需 ${POLICY_SWITCH_COST} 金币` };
+    }
+    this.policies[slot] = id;
+    this.policyReadyAt = this.time + POLICY_COOLDOWN;
+    this.events.emit('policy');
+    return { ok: true };
   }
 
   endGame(result) {

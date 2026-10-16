@@ -1,21 +1,5 @@
 // 场景道具:树、岩石、资源矿脉、施工脚手架、废墟。1 格 = 8 体素。
-import { C, shade, hash, ring, crate, lattice, finish, newModel } from './common.js';
-
-function ellipsoid(m, cx, cy, cz, rx, ry, rz, color) {
-  for (let x = Math.floor(cx - rx); x <= Math.ceil(cx + rx); x++) {
-    for (let y = Math.max(0, Math.floor(cy - ry)); y <= Math.ceil(cy + ry); y++) {
-      for (let z = Math.floor(cz - rz); z <= Math.ceil(cz + rz); z++) {
-        const dx = (x + 0.5 - cx) / rx;
-        const dy = (y + 0.5 - cy) / ry;
-        const dz = (z + 0.5 - cz) / rz;
-        if (dx * dx + dy * dy + dz * dz > 1) continue;
-        const c = typeof color === 'function' ? color(x, y, z) : color;
-        if (c !== null) m.set(x, y, z, c);
-      }
-    }
-  }
-  return m;
-}
+import { C, shade, hash, ring, crate, lattice, ellipsoid, finish, newModel } from './common.js';
 
 const leafFn = (base, light) => (x, y, z) => {
   const h = hash(x, y, z);

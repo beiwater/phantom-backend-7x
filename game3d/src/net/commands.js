@@ -48,6 +48,12 @@ const HANDLERS = {
   research(game, cmd) {
     return game.startResearch(cmd.tech);
   },
+  policy(game, cmd) {
+    return game.setPolicy(cmd.slot, cmd.id ?? null);
+  },
+  deliver(game, cmd) {
+    return game.contracts?.deliver(cmd.id) ?? { ok: false, reason: '合同系统未就绪' };
+  },
   setSell(game, cmd) {
     const b = owned(game, cmd);
     if (!b || !BUILDINGS[b.type].market) return { ok: false, reason: '不是你的集市' };

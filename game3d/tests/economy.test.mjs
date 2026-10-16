@@ -277,3 +277,35 @@ test('民心:民居被污染源包围时下降,断粮更低', () => {
   for (let i = 0; i < 30; i++) e.society.recompute();
   assert.ok(e.society.happiness < clean, `污染后民心应下降 ${clean} → ${e.society.happiness}`);
 });
+
+test('政策:时代限制槽数,首次免费,替换收费且有冷却,效果计入 effect()', () => {
+  const { g } = fresh();
+  assert.equal(g.dispatch({ type: 'policy', slot: 1, id: 'levy' }).ok, false, '拓荒时代只有 1 个槽');
+  assert.equal(g.dispatch({ type: 'policy', slot: 0, id: 'welfare' }).ok, false, '工业时代政策不可用');
+  const money = g.res.money;
+  assert.ok(g.dispatch({ type: 'policy', slot: 0, id: 'freeMarket' }).ok);
+  assert.equal(g.res.money, money);
+  assert.ok(Math.abs(g.effect('marketPrice') - 0.2) < 1e-9);
+  assert.equal(g.dispatch({ type: 'policy', slot: 0, id: 'planned' }).ok, false, '冷却中');
+  g.time += 61;
+  assert.ok(g.dispatch({ type: 'policy', slot: 0, id: 'planned' }).ok);
+  assert.equal(g.res.money, money - 150);
+});
+
+test('贸易合同:库存不足拒绝且不扣货;交付后发奖并移除(重复交付被拒)', () => {
+  const { g, e } = fresh();
+  const c = e.contracts;
+  c.spawnT = 0;
+  run(e, 0.2);
+  assert.equal(c.offers.length, 1);
+  const o = c.offers[0];
+  g.res[o.res] = o.qty - 1;
+  assert.equal(g.dispatch({ type: 'deliver', id: o.id }).ok, false);
+  assert.equal(g.res[o.res], o.qty - 1);
+  g.res[o.res] = o.qty;
+  const money = g.res.money;
+  assert.ok(g.dispatch({ type: 'deliver', id: o.id }).ok);
+  assert.equal(g.res[o.res], 0);
+  assert.equal(g.res.money, money + o.reward.money);
+  assert.equal(g.dispatch({ type: 'deliver', id: o.id }).ok, false);
+});

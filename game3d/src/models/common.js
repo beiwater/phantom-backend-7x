@@ -128,9 +128,10 @@ export function stack(m, cx, y, cz, r, h, color, band, smoke) {
 /** 立式储罐:圆柱 + 拱顶 + 可选色带。 */
 export function tank(m, cx, y, cz, r, h, color, stripe = null, stripeAt = []) {
   m.cylinder(cx, y, cz, r, h, (i, j) => (stripe && stripeAt.includes(j - y) ? stripe : color));
-  m.cylinder(cx, y + h, cz, r - 0.8, 1, shade(color, 0.95));
-  if (r > 2) m.cylinder(cx, y + h + 1, cz, r - 2, 1, shade(color, 0.9));
-  return y + h + (r > 2 ? 2 : 1);
+  // 小罐只加一层平顶,避免十字形凸起
+  m.cylinder(cx, y + h, cz, r > 2.6 ? r - 0.8 : r - 0.5, 1, shade(color, 0.95));
+  if (r > 2.6) m.cylinder(cx, y + h + 1, cz, r - 2, 1, shade(color, 0.9));
+  return y + h + (r > 2.6 ? 2 : 1);
 }
 
 /** 旗杆 + 旗面(沿 +x 飘)。 */
@@ -179,6 +180,23 @@ export function cylZ(m, z0, len, cx, cy, r, color) {
       const dy = j + 0.5 - cy;
       if (dx * dx + dy * dy > r2) continue;
       for (let k = z0; k < z0 + len; k++) m.set(i, j, k, typeof color === 'function' ? color(i, j, k) : color);
+    }
+  }
+  return m;
+}
+
+/** 椭球(山丘、树冠、石块);color 函数返回 null 时跳过。 */
+export function ellipsoid(m, cx, cy, cz, rx, ry, rz, color) {
+  for (let x = Math.floor(cx - rx); x <= Math.ceil(cx + rx); x++) {
+    for (let y = Math.max(0, Math.floor(cy - ry)); y <= Math.ceil(cy + ry); y++) {
+      for (let z = Math.floor(cz - rz); z <= Math.ceil(cz + rz); z++) {
+        const dx = (x + 0.5 - cx) / rx;
+        const dy = (y + 0.5 - cy) / ry;
+        const dz = (z + 0.5 - cz) / rz;
+        if (dx * dx + dy * dy + dz * dz > 1) continue;
+        const c = typeof color === 'function' ? color(x, y, z) : color;
+        if (c !== null && c !== undefined) m.set(x, y, z, c);
+      }
     }
   }
   return m;

@@ -34,7 +34,7 @@ export class TerrainView {
     this.tiles.instanceMatrix.setUsage(THREE.StaticDrawUsage);
     scene.add(this.tiles);
 
-    const base = new THREE.Mesh(
+    const base = this.base = new THREE.Mesh(
       new THREE.BoxGeometry(MAP_W + 0.6, 3, MAP_H + 0.6),
       new THREE.MeshLambertMaterial({ color: 0x6b4f36 }),
     );

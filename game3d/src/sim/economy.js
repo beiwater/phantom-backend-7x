@@ -7,6 +7,7 @@ import { synergyAt } from './synergy.js';
 import { Market } from './market.js';
 import { Stats } from './stats.js';
 import { Society } from './society.js';
+import { Contracts } from './contracts.js';
 
 const RAW = new Set(['farm', 'lumber', 'quarry', 'pump', 'ironMine', 'coalMine', 'oilWell']);
 
@@ -29,6 +30,8 @@ export class Economy {
     this.market = new Market(game);
     this.stats = new Stats();
     this.society = new Society(game);
+    this.contracts = new Contracts(game);
+    game.contracts = this.contracts;
     game.market = this.market;
     game.society = this.society;
     game.econStats = this.stats;
@@ -50,6 +53,7 @@ export class Economy {
     this.market.step(gdt);
     this.stats.step(gdt);
     this.society.step(gdt);
+    this.contracts.step(gdt);
   }
 
   recomputeStats() {
@@ -278,7 +282,7 @@ export class Economy {
       b.cycle = 0;
       const got = {};
       for (const [k, v] of Object.entries(r.out)) {
-        got[k] = g.addRes(k, v);
+        got[k] = g.addRes(k, k === 'research' ? Math.round(v * (1 + g.effect('research'))) : v);
         this.stats.made(k, got[k]);
       }
       if (Object.keys(got).length) g.events.emit('produce', { b, out: got });
@@ -311,7 +315,7 @@ export class Economy {
       const n = Math.min(per, Math.floor(g.res[k]));
       if (n <= 0) continue;
       g.res[k] -= n;
-      earned += this.market.sell(k, n, 0.8 + 0.1 * b.level);
+      earned += this.market.sell(k, n, (0.8 + 0.1 * b.level) * Math.max(0.2, 1 + g.effect('marketPrice')));
       this.stats.used(k, n);
       g.counters.sold += n;
     }

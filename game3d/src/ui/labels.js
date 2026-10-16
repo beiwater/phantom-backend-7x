@@ -40,7 +40,10 @@ export class Labels {
   }
 
   text(b, def) {
-    if (b.team !== 'player') return { s: def.name, cls: 'enemy', p: b.hp / b.maxHp, hp: true };
+    if (b.team !== this.game.localPlayer) {
+      if (this.game.fog && !this.game.fog.isExplored(b.x + b.w / 2, b.z + b.d / 2)) return null;
+      return { s: def.name, cls: 'enemy', p: b.hp / b.maxHp, hp: true };
+    }
     if (b.state === 'construct') return { s: `🏗️ 建造中 ${fmtTime((1 - b.progress) * def.buildTime)}`, p: b.progress };
     if (b.state === 'upgrade') return { s: `⬆ 升级至 ${b.level + 1} 级`, p: b.progress };
     if (b.hp < b.maxHp * 0.999) return { s: `${def.name} ${Math.ceil((b.hp / b.maxHp) * 100)}%`, cls: b.hp < b.maxHp * 0.4 ? 'bad' : '', p: b.hp / b.maxHp, hp: true };
