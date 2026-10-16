@@ -256,7 +256,7 @@ export class UI {
       <div class="keys">
         <kbd>WASD / 方向键</kbd><span>平移镜头(中键或空格+左键拖动)</span>
         <kbd>滚轮</kbd><span>缩放 · <kbd>Q</kbd>/<kbd>E</kbd> 旋转视角</span>
-        <kbd>F1–F6</kbd><span>建筑分类 · <kbd>R</kbd> 道路 · <kbd>X</kbd> 拆除 · <kbd>G</kbd> 扩地 · <kbd>V</kbd> 选择</span>
+        <kbd>F1–F6</kbd><span>建筑分类 · <kbd>R</kbd> 道路(工业时代可在水面架桥) · <kbd>X</kbd> 拆除 · <kbd>G</kbd> 扩地 · <kbd>V</kbd> 选择</span>
         <kbd>左键</kbd><span>放置 / 选择 · 拖拽框选部队 · Shift 连续放置</span>
         <kbd>右键</kbd><span>取消建造 · 部队移动/攻击 · 兵营集结点</span>
         <kbd>A</kbd><span>攻击移动 · <kbd>H</kbd> 停止 · <kbd>F</kbd> 全选部队 · <kbd>Ctrl+数字</kbd> 编队</span>
