@@ -93,18 +93,26 @@ export class GameMap {
     blob(20, 52, 1.8, T.water, 0.2);
     blob(10, 42, 2.4, T.forest);
     blob(21, 42, 1.6, T.rock);
-    blob(5, 51, 1.6, T.ore);
-    blob(27, 54, 1.6, T.coal);
-    blob(12, 33, 1.7, T.ore);
-    blob(28, 46, 1.4, T.coal);
-    blob(6, 58, 2.2, T.forest);
-    blob(36, 52, 2.0, T.oil, 0.2);
-    blob(14, 22, 2.0, T.oil, 0.2);
-    blob(40, 36, 1.8, T.ore);
-    blob(30, 12, 2.0, T.coal);
-    blob(54, 40, 2.2, T.oil, 0.2);
-    blob(46, 50, 2.4, T.forest);
-    blob(52, 30, 1.6, T.rock);
+    // 起始区外的矿脉/油田:基准位置按种子抖动 ±3 格,再随机追加若干,保证每张图布局不同但资源总量相近
+    const jit = () => (rnd() - 0.5) * 6;
+    const far = [
+      [5, 51, 1.6, T.ore], [27, 54, 1.6, T.coal], [12, 33, 1.7, T.ore], [28, 46, 1.4, T.coal],
+      [6, 58, 2.2, T.forest], [36, 52, 2.0, T.oil, 0.2], [14, 22, 2.0, T.oil, 0.2], [40, 36, 1.8, T.ore],
+      [30, 12, 2.0, T.coal], [54, 40, 2.2, T.oil, 0.2], [46, 50, 2.4, T.forest], [52, 30, 1.6, T.rock],
+    ];
+    for (const [x, z, r, t, jag] of far) blob(x + jit(), z + jit(), r, t, jag);
+    const extras = [T.ore, T.coal, T.oil, T.forest, T.forest, T.rock];
+    for (const t of extras) {
+      for (let tries = 0; tries < 30; tries++) {
+        const x = 4 + rnd() * 56;
+        const z = 4 + rnd() * 56;
+        const [cx, cz] = this.chunkOf(Math.floor(x), Math.floor(z));
+        const reserved = [...PLAYER_CHUNKS, ...ENEMY_CHUNKS].some(([a, b]) => a === cx && b === cz);
+        if (reserved || Math.abs(x - z) < 5) continue;
+        blob(x, z, 1.4 + rnd() * 0.8, t, t === T.oil ? 0.2 : 0.35);
+        break;
+      }
+    }
 
     // 指挥中心周围清空为草地,避免开局无地可建
     const clear = (hx, hz, r) => {
