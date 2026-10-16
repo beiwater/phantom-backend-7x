@@ -56,6 +56,9 @@ export class CameraRig {
     this.dom.addEventListener('pointerup', end);
     this.dom.addEventListener('pointercancel', end);
     window.addEventListener('resize', () => this.resize());
+    window.addEventListener('pointermove', (e) => { if (e.pointerType === 'mouse') this.mouse = { x: e.clientX, y: e.clientY }; });
+    document.addEventListener('mouseleave', () => { this.mouse = null; });
+    try { this.edgePan = localStorage.getItem('voxel-era-edgepan') === '1'; } catch { this.edgePan = false; }
     this.bindTouch();
   }
 
@@ -145,6 +148,14 @@ export class CameraRig {
     if (this.keys.has('KeyS') || this.keys.has('ArrowDown')) dz += 1;
     if (this.keys.has('KeyA') || this.keys.has('ArrowLeft')) dx -= 1;
     if (this.keys.has('KeyD') || this.keys.has('ArrowRight')) dx += 1;
+    // 屏幕边缘滚动(可在菜单开关);鼠标离开窗口时停止
+    if (this.edgePan && this.mouse && !this.drag) {
+      const m = 14;
+      if (this.mouse.x < m) dx -= 1;
+      if (this.mouse.x > window.innerWidth - m) dx += 1;
+      if (this.mouse.y < m) dz -= 1;
+      if (this.mouse.y > window.innerHeight - m) dz += 1;
+    }
     if (dx || dz) this.panScreen(dx * speed, dz * speed);
 
     const k = 1 - Math.exp(-dt * 10);

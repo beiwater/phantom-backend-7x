@@ -313,6 +313,7 @@ export class UI {
         <button class="btn" data-menu="fog">🌫️ 开关战争迷雾</button>
         <button class="btn" data-menu="daynight">🌙 开关昼夜循环</button>
         <button class="btn" data-menu="mute">🔇 开关音效 (M)</button>
+        <button class="btn" data-menu="edgepan">🖱️ 屏幕边缘滚动:${this.rig.edgePan ? '开' : '关'}</button>
         <div class="btns">画质:${Object.entries(QUALITY).map(([id, q]) => `<button class="btn${this.quality?.level === id ? ' primary' : ''}" data-quality="${id}">${q.name}</button>`).join('')}</div>
         <button class="btn danger" data-menu="setup">🆕 新游戏…</button>
       </div></div>`);
@@ -388,6 +389,11 @@ export class UI {
     if (m === 'codex') this.openCodex();
     if (m === 'ach') this.openModal('ach', this.achievements.html());
     if (m === 'labels') { this.labels.enabled = !this.labels.enabled; this.closeModal(); }
+    if (m === 'edgepan') {
+      this.rig.edgePan = !this.rig.edgePan;
+      try { localStorage.setItem('voxel-era-edgepan', this.rig.edgePan ? '1' : '0'); } catch { /* 存储不可用 */ }
+      this.openMenu();
+    }
     if (m === 'mute') { this.toast(this.audio.toggleMute() ? '🔇 已静音' : '🔊 音效已开启'); this.closeModal(); }
     if (m === 'daynight' && this.dayNight) { this.dayNight.enabled = !this.dayNight.enabled; this.closeModal(); }
     if (m === 'fog' && this.game.fog) { this.game.fog.enabled = !this.game.fog.enabled; this.closeModal(); }
