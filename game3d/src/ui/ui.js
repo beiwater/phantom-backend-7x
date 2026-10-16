@@ -113,6 +113,7 @@ export class UI {
       const w = this.game.weather.current;
       this.toast(`${w.icon} 天气转为「${w.name}」${w.desc ? `:${w.desc}` : ''}`);
     });
+    ev.on('supply', ({ res, ok }) => this.toast(ok ? `✅ 部队${res === 'food' ? '口粮' : '燃油'}补给恢复` : `⚠️ 部队${res === 'food' ? '口粮' : '燃油'}补给不足,伤害 -30%!`, ok ? 'good' : 'bad'));
     ev.on('tribute', ({ wave, cost }) => this.toast(`🕊️ 向铁锈军团进贡 💰${cost},第 ${wave} 波推迟 2 分钟`, 'good'));
     ev.on('unit:promoted', ({ unit, rank }) => {
       if (unit.team === this.game.localPlayer) this.toast(`🎖️ ${UNITS[unit.type].name}晋升为「${RANK_NAMES[rank]}」${'★'.repeat(rank)}`, 'good');

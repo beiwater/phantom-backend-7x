@@ -10,6 +10,7 @@ import { Society } from './society.js';
 import { Contracts } from './contracts.js';
 import { Victory } from './victory.js';
 import { MISSIONS } from '../data/missions.js';
+import { Upkeep } from './upkeep.js';
 
 export const MARKET_RESERVE = 20;
 const RAW = new Set(['farm', 'lumber', 'quarry', 'pump', 'ironMine', 'coalMine', 'oilWell']);
@@ -36,6 +37,7 @@ export class Economy {
     this.contracts = new Contracts(game);
     game.contracts = this.contracts;
     this.victory = new Victory(game);
+    this.upkeep = new Upkeep(game);
     game.market = this.market;
     game.society = this.society;
     game.econStats = this.stats;
@@ -63,6 +65,7 @@ export class Economy {
     if (this.missionT <= 0) { this.missionT = 0.5; this.checkMission(); }
     g.ruins.step(gdt);
     g.weather.step(gdt);
+    this.upkeep.step(gdt);
   }
 
   /** 主线目标在模拟内结算(按 tick 计时),保证回放/锁步时奖励发放时机一致。 */

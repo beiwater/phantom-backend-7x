@@ -1,6 +1,7 @@
 // 战斗:单位命令状态机(待命/移动/攻击/攻击移动/固守)、索敌、开火、伤害、防御塔与炮弹。
 import { BUILDINGS } from '../data/buildings.js';
 import { isUnit, navigate, stopNav, orderIdle, AIR_Y } from './units.js';
+import { supplied, SUPPLY_PENALTY } from '../sim/upkeep.js';
 
 const SCAN = 0.4; // 索敌间隔(秒),错峰降低开销
 const HQ_GUN = { range: 6, damage: 8, cooldown: 1.2 }; // 双方指挥中心的自卫火力(较弱,随等级提升),保证新手能扛住首波
@@ -217,7 +218,8 @@ function hitY(t) {
 function fire(rts, u, t, p) {
   const g = rts.game;
   // 老兵军衔:每颗星 +15% 伤害(见 hurt 中的击杀计数)
-  const dmg = u.def.damage * (u.team === 'player' ? 1 + g.effect('unitDamage') : rts.ai.damageMult) * (1 + 0.15 * (u.rank ?? 0));
+  const dmg = u.def.damage * (u.team === 'player' ? 1 + g.effect('unitDamage') : rts.ai.damageMult) * (1 + 0.15 * (u.rank ?? 0))
+    * (supplied(g, u) ? 1 : SUPPLY_PENALTY);
   const m = muzzle(u);
   const enemy = u.team === 'enemy';
   u.fireT = g.time;

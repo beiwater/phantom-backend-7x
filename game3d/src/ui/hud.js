@@ -61,6 +61,8 @@ export class Hud {
       const parts = Object.entries(soc.parts).map(([k, v]) => `${({ base: '基础', food: '口粮', pollution: '污染', services: '服务', education: '教育', war: '战争', events: '事件' })[k]} ${v >= 0 ? '+' : ''}${v}`).join('\n');
       items.push([face, `${h}`, `民心(税收 ×${soc.taxMult().toFixed(2)})\n${parts}`, h < 30]);
     }
+    const sup = g.supply;
+    if (sup && (!sup.food || !sup.fuel)) items.push(['🍖', '补给不足', `部队补给不足,相应单位伤害 -30%(${!sup.food ? '食物' : ''}${!sup.food && !sup.fuel ? '、' : ''}${!sup.fuel ? '燃油' : ''})`, true]);
     const w = g.weather?.current;
     if (w) items.push([w.icon, w.name, `天气:${w.desc ?? '无影响'}`, false]);
     for (const b of g.buffs) items.push(['✨', `${b.name} ${Math.ceil(b.until - g.time)}s`, '临时事件', !!b.effects.prod && b.effects.prod < 0]);

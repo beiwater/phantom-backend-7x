@@ -223,6 +223,7 @@ export class Panel {
       <div class="hpbar"><i style="width:${(hp / max) * 100}%"></i></div>
       <div class="sellgrid">${[...by].map(([t, n]) => `<span class="chip">${UNIT_ICONS[t]} ${UNITS[t].name} ×${n}</span>`).join('')}</div>
       ${vets ? `<div class="desc">🎖️ 老兵 ${vets} 名(每颗星伤害 +15%):${units.filter((u) => u.rank).slice(0, 8).map((u) => `${UNITS[u.type].name}${'★'.repeat(u.rank)}`).join(' ')}</div>` : ''}
+      <div class="desc">补给:步兵每 30 秒 1 食物,坦克/火炮 1 燃油,直升机 2 燃油;不足时伤害 -30%。</div>
       <div class="desc" style="margin-top:10px">右键地面:移动 · 右键敌人:攻击<br>A + 点击:攻击移动 · H:停止<br>Ctrl+数字:编队 · 数字:选择编队 · F:全选部队</div>`;
   }
 }

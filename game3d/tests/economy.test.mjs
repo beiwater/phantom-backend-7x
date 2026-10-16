@@ -431,3 +431,22 @@ test('评审修复:不能冒充他人下令;未知 id 不崩溃;免费道路拆�
   assert.ok(g.demolish(bar.uid).ok);
   assert.equal(g.res.money, before + 40 + 60, '退还 2 个民兵 + 50% 建筑金币');
 });
+
+test('军队补给:按单位扣食物/燃油;不足时标记补给不足并清零,恢复后解除', async () => {
+  const { supplied } = await import('../src/sim/upkeep.js');
+  const { g, e } = fresh();
+  const units = [{ team: 'player', type: 'militia' }, { team: 'player', type: 'rifleman' }, { team: 'player', type: 'tank' }, { team: 'enemy', type: 'tank' }];
+  g.unitSystem = { units };
+  g.res.food = 10;
+  g.res.fuel = 0;
+  run(e, 30.1);
+  assert.equal(g.res.food, 8, '两名步兵各消耗 1 食物');
+  assert.equal(g.supply.food, true);
+  assert.equal(g.supply.fuel, false);
+  assert.equal(supplied(g, units[2]), false);
+  assert.equal(supplied(g, units[0]), true);
+  assert.equal(supplied(g, units[3]), true, '敌军不受玩家补给影响');
+  g.res.fuel = 5;
+  run(e, 30);
+  assert.equal(g.supply.fuel, true);
+});
