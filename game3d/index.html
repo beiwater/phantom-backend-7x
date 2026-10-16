@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>体素纪元</title>
+  <link rel="stylesheet" href="./style.css">
+  <script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js" } }</script>
+</head>
+<body>
+  <div id="app">
+    <div id="viewport"></div>
+    <div id="labels"></div>
+    <div id="dragbox"></div>
+    <div id="cursor-tip"></div>
+
+    <header id="topbar">
+      <div class="brand">体素纪元 <span id="era-badge" class="era"></span></div>
+      <div id="stats" class="stats"></div>
+      <div class="spacer"></div>
+      <div id="clock" class="clock"></div>
+      <div class="speed" id="speed">
+        <button data-speed="0" title="暂停 (P)">⏸</button>
+        <button data-speed="1" title="1 倍速">▶</button>
+        <button data-speed="2" title="2 倍速">▶▶</button>
+        <button data-speed="4" title="4 倍速">▶▶▶</button>
+      </div>
+      <button id="btn-tech" class="pill" title="科技树 (T)">🔬 科技</button>
+      <button id="btn-menu" class="pill" title="菜单">☰</button>
+    </header>
+    <div id="resbar"></div>
+
+    <aside id="missions"></aside>
+    <aside id="panel" hidden></aside>
+
+    <footer id="toolbar">
+      <div id="tools"></div>
+      <div id="cats"></div>
+      <div id="cards"></div>
+    </footer>
+
+    <canvas id="minimap" width="176" height="176"></canvas>
+    <div id="toasts"></div>
+    <div id="modal" hidden></div>
+  </div>
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>

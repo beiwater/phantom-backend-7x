@@ -1,0 +1,285 @@
+// 建筑/道路/城墙/工地/烟雾/物流卡车的可视化,订阅 Game 事件保持与状态同步。
+import * as THREE from 'three';
+import { MAP_W } from './map.js';
+import { voxelMaterial } from '../engine/voxel.js';
+import { buildingGeo, roadGeo, wallGeo, scaffoldGeo, turretHeadGeo, truckGeo, rubbleGeo } from '../models/cache.js';
+
+const SMOKE_MAX = 400;
+const TRUCK_MAX = 40;
+
+export class WorldView {
+  constructor(scene, game, economy) {
+    this.scene = scene;
+    this.game = game;
+    this.economy = economy;
+    this.root = new THREE.Group();
+    scene.add(this.root);
+    /** @type {Map<number, {group: THREE.Group, mesh: THREE.Mesh, scaffold: THREE.Mesh|null, head: THREE.Mesh|null, info: object, key: string}>} */
+    this.bviews = new Map();
+    /** @type {Map<number, THREE.Mesh>} */
+    this.roads = new Map();
+    this.rubble = [];
+    this.trucks = [];
+    this.initSmoke();
+    this.initSelection();
+
+    const ev = game.events;
+    ev.on('building:add', (b) => { this.addBuilding(b); this.refreshWalls(b); });
+    ev.on('building:remove', ({ b, destroyed }) => { this.removeBuilding(b, destroyed); this.refreshWalls(b); });
+    ev.on('building:change', (b) => this.syncBuilding(b));
+    ev.on('road', ({ x, z }) => this.refreshRoadsAround(x, z));
+    ev.on('produce', (p) => { if (!p.noTruck) this.spawnTruck(p.b); });
+  }
+
+  rebuildAll() {
+    for (const v of this.bviews.values()) this.root.remove(v.group);
+    this.bviews.clear();
+    for (const r of this.roads.values()) this.root.remove(r);
+    this.roads.clear();
+    for (const b of this.game.buildings.values()) this.addBuilding(b);
+    const m = this.game.map;
+    for (let i = 0; i < m.road.length; i++) if (m.road[i]) this.refreshRoad(i % MAP_W, Math.floor(i / MAP_W));
+  }
+
+  // ---------- 建筑 ----------
+  addBuilding(b) {
+    const group = new THREE.Group();
+    group.position.set(b.x + b.w / 2, 0, b.z + b.d / 2);
+    const mesh = new THREE.Mesh(undefined, voxelMaterial());
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    group.add(mesh);
+    const v = { group, mesh, scaffold: null, head: null, info: null, key: '' };
+    group.userData.uid = b.uid;
+    this.bviews.set(b.uid, v);
+    this.root.add(group);
+    this.syncBuilding(b);
+  }
+
+  geoKey(b) {
+    if (b.type === 'wall') return `wall:${this.wallMask(b)}:${b.level}:${b.team}`;
+    return `${b.type}:${b.level}:${b.team}`;
+  }
+
+  syncBuilding(b) {
+    const v = this.bviews.get(b.uid);
+    if (!v) return;
+    const key = this.geoKey(b);
+    if (key !== v.key) {
+      v.key = key;
+      if (b.type === 'wall') {
+        v.mesh.geometry = wallGeo(this.wallMask(b), b.level, b.team);
+        v.info = { smoke: [], labelY: 1.6 };
+      } else {
+        v.info = buildingGeo(b.type, b.level, b.team);
+        v.mesh.geometry = v.info.geo;
+      }
+      if (b.type === 'turret') {
+        if (v.head) v.group.remove(v.head);
+        const h = turretHeadGeo(b.level, b.team);
+        v.head = new THREE.Mesh(h.geo, voxelMaterial());
+        v.head.castShadow = true;
+        v.head.position.y = h.pivotY;
+        v.group.add(v.head);
+      }
+    }
+    const building = b.state === 'construct' || b.state === 'upgrade';
+    if (building && !v.scaffold) {
+      v.scaffold = new THREE.Mesh(scaffoldGeo(b.w, b.d), voxelMaterial());
+      v.scaffold.castShadow = true;
+      v.group.add(v.scaffold);
+    } else if (!building && v.scaffold) {
+      v.group.remove(v.scaffold);
+      v.scaffold = null;
+      v.mesh.scale.y = 1;
+      this.pop(v.group);
+    }
+  }
+
+  removeBuilding(b, destroyed) {
+    const v = this.bviews.get(b.uid);
+    if (!v) return;
+    this.root.remove(v.group);
+    this.bviews.delete(b.uid);
+    if (destroyed && b.type !== 'wall') {
+      const r = new THREE.Mesh(rubbleGeo(b.w, b.d), voxelMaterial());
+      r.position.copy(v.group.position);
+      r.receiveShadow = true;
+      this.root.add(r);
+      this.rubble.push({ mesh: r, life: 25 });
+    }
+  }
+
+  pop(group) {
+    group.userData.pop = 0.35;
+  }
+
+  // ---------- 城墙自动拼接 ----------
+  wallMask(b) {
+    const g = this.game;
+    const isWall = (x, z) => {
+      const o = g.buildingAt(x, z);
+      return o && o.type === 'wall' && o.team === b.team ? 1 : 0;
+    };
+    return isWall(b.x, b.z - 1) * 1 + isWall(b.x + 1, b.z) * 2 + isWall(b.x, b.z + 1) * 4 + isWall(b.x - 1, b.z) * 8;
+  }
+
+  refreshWalls(b) {
+    if (b.type !== 'wall') return;
+    for (const [dx, dz] of [[0, -1], [1, 0], [0, 1], [-1, 0]]) {
+      const o = this.game.buildingAt(b.x + dx, b.z + dz);
+      if (o && o.type === 'wall') this.syncBuilding(o);
+    }
+  }
+
+  // ---------- 道路自动拼接 ----------
+  refreshRoadsAround(x, z) {
+    for (const [dx, dz] of [[0, 0], [0, -1], [1, 0], [0, 1], [-1, 0]]) this.refreshRoad(x + dx, z + dz);
+  }
+
+  refreshRoad(x, z) {
+    const m = this.game.map;
+    if (!m.inside(x, z)) return;
+    const i = m.idx(x, z);
+    const existing = this.roads.get(i);
+    if (!m.road[i]) {
+      if (existing) { this.root.remove(existing); this.roads.delete(i); }
+      return;
+    }
+    const geo = roadGeo(m.roadMask(x, z));
+    if (existing) {
+      existing.geometry = geo;
+      return;
+    }
+    const mesh = new THREE.Mesh(geo, voxelMaterial());
+    mesh.receiveShadow = true;
+    mesh.position.set(x + 0.5, 0, z + 0.5);
+    this.root.add(mesh);
+    this.roads.set(i, mesh);
+  }
+
+  // ---------- 烟雾粒子 ----------
+  initSmoke() {
+    const geo = new THREE.BoxGeometry(0.12, 0.12, 0.12);
+    this.smoke = new THREE.InstancedMesh(geo, new THREE.MeshLambertMaterial({ color: 0xeeeeee, transparent: true, opacity: 0.8 }), SMOKE_MAX);
+    this.smoke.count = 0;
+    this.smoke.frustumCulled = false;
+    this.root.add(this.smoke);
+    this.smokeParts = [];
+    this.smokeT = 0;
+  }
+
+  emitSmoke(dt) {
+    this.smokeT += dt;
+    if (this.smokeT < 0.18) return;
+    this.smokeT = 0;
+    for (const [uid, v] of this.bviews) {
+      const b = this.game.buildings.get(uid);
+      if (!b || !b.working || b.state !== 'active' || !v.info?.smoke?.length) continue;
+      for (const [sx, sy, sz] of v.info.smoke) {
+        if (this.smokeParts.length >= SMOKE_MAX) return;
+        this.smokeParts.push({
+          x: v.group.position.x + sx + (Math.random() - 0.5) * 0.05,
+          y: sy,
+          z: v.group.position.z + sz + (Math.random() - 0.5) * 0.05,
+          life: 0, max: 2.2 + Math.random(),
+        });
+      }
+    }
+  }
+
+  updateSmoke(dt) {
+    const mat = new THREE.Matrix4();
+    const gdt = this.game.paused ? 0 : dt;
+    this.emitSmoke(gdt);
+    let n = 0;
+    this.smokeParts = this.smokeParts.filter((p) => (p.life += gdt) < p.max);
+    for (const p of this.smokeParts) {
+      const k = p.life / p.max;
+      const s = 0.6 + k * 2.2;
+      mat.makeScale(s * (1 - k * 0.6), s * (1 - k * 0.6), s * (1 - k * 0.6));
+      mat.setPosition(p.x + k * 0.6, p.y + p.life * 0.55, p.z - k * 0.3);
+      this.smoke.setMatrixAt(n++, mat);
+    }
+    this.smoke.count = n;
+    this.smoke.instanceMatrix.needsUpdate = true;
+  }
+
+  // ---------- 物流卡车 ----------
+  spawnTruck(b) {
+    if (this.trucks.length >= TRUCK_MAX) return;
+    const path = this.economy.pathToHub(b);
+    if (!path || path.length < 2) return;
+    const mesh = new THREE.Mesh(truckGeo('player'), voxelMaterial());
+    mesh.castShadow = true;
+    this.root.add(mesh);
+    this.trucks.push({ mesh, path, seg: 0, t: 0 });
+  }
+
+  updateTrucks(dt) {
+    const gdt = this.game.paused ? 0 : dt * this.game.speed;
+    this.trucks = this.trucks.filter((tr) => {
+      tr.t += gdt * 3;
+      while (tr.t >= 1 && tr.seg < tr.path.length - 1) { tr.t -= 1; tr.seg++; }
+      if (tr.seg >= tr.path.length - 1) {
+        this.root.remove(tr.mesh);
+        return false;
+      }
+      const [ax, az] = tr.path[tr.seg];
+      const [bx, bz] = tr.path[tr.seg + 1];
+      // 靠右行驶:沿行进方向右侧偏移 0.18
+      const dx = bx - ax;
+      const dz = bz - az;
+      const ox = -dz * 0.18;
+      const oz = dx * 0.18;
+      tr.mesh.position.set(ax + 0.5 + dx * tr.t + ox, 0.06, az + 0.5 + dz * tr.t + oz);
+      tr.mesh.rotation.y = Math.atan2(dx, dz);
+      return true;
+    });
+  }
+
+  // ---------- 选中框 ----------
+  initSelection() {
+    this.selBox = new THREE.LineSegments(
+      new THREE.EdgesGeometry(new THREE.BoxGeometry(1, 0.05, 1)),
+      new THREE.LineBasicMaterial({ color: 0xffe066 }),
+    );
+    this.selBox.visible = false;
+    this.root.add(this.selBox);
+  }
+
+  showSelection(b) {
+    if (!b) { this.selBox.visible = false; return; }
+    this.selBox.visible = true;
+    this.selBox.scale.set(b.w + 0.1, 1, b.d + 0.1);
+    this.selBox.position.set(b.x + b.w / 2, 0.04, b.z + b.d / 2);
+  }
+
+  // ---------- 每帧 ----------
+  update(dt) {
+    for (const [uid, v] of this.bviews) {
+      const b = this.game.buildings.get(uid);
+      if (!b) continue;
+      if (v.scaffold) {
+        // 工地:建筑随进度自下而上「长」出来
+        v.mesh.scale.y = b.state === 'construct' ? Math.max(0.04, b.progress) : 1;
+      }
+      const pop = v.group.userData.pop;
+      if (pop > 0) {
+        v.group.userData.pop = pop - dt;
+        const s = 1 + Math.sin((pop / 0.35) * Math.PI) * 0.08;
+        v.group.scale.set(s, s, s);
+      } else if (v.group.scale.x !== 1) v.group.scale.set(1, 1, 1);
+      if (v.head && !b.aim && b.state === 'active') v.head.rotation.y += dt * 0.3;
+      if (v.head && b.aim !== undefined && b.aim !== null) v.head.rotation.y = b.aim;
+    }
+    this.rubble = this.rubble.filter((r) => {
+      r.life -= dt;
+      if (r.life <= 0) { this.root.remove(r.mesh); return false; }
+      if (r.life < 2) r.mesh.position.y = -(2 - r.life) * 0.15;
+      return true;
+    });
+    this.updateSmoke(dt);
+    this.updateTrucks(dt);
+  }
+}

@@ -1,0 +1,64 @@
+// 本地存档(localStorage)。所有读写包在 try/catch:隐私模式或存储被禁用时游戏照常运行,只是不保存。
+const KEY = 'voxel-era-save-v1';
+
+export function hasSave() {
+  try { return !!localStorage.getItem(KEY); } catch { return false; }
+}
+
+export function clearSave() {
+  try { localStorage.removeItem(KEY); } catch { /* 存储不可用 */ }
+}
+
+export function saveGame({ game, rts }) {
+  const data = {
+    v: 1,
+    time: game.time,
+    speed: game.speed,
+    res: game.res,
+    era: game.era,
+    techs: [...game.techs],
+    researching: game.researching,
+    mission: game.mission,
+    counters: game.counters,
+    produced: game.produced,
+    nextUid: game.nextUid,
+    map: game.map.serialize(),
+    buildings: [...game.buildings.values()].map((b) => ({ ...b, sell: [...b.sell] })),
+    rts: rts.serialize(),
+  };
+  try {
+    localStorage.setItem(KEY, JSON.stringify(data));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** 恢复状态;不触发 building:add 事件,调用方负责 view.rebuildAll()。失败返回 false 并开新局。 */
+export function loadGame({ game, rts }) {
+  let data;
+  try { data = JSON.parse(localStorage.getItem(KEY) ?? 'null'); } catch { return false; }
+  if (!data || data.v !== 1 || data.map?.seed !== game.map.seed) return false;
+  game.time = data.time;
+  game.speed = data.speed ?? 1;
+  Object.assign(game.res, data.res);
+  game.era = data.era;
+  game.techs = new Set(data.techs);
+  game.researching = data.researching;
+  game.mission = data.mission ?? 0;
+  Object.assign(game.counters, data.counters);
+  Object.assign(game.produced, data.produced);
+  game.nextUid = data.nextUid;
+  game.map.load(data.map);
+  game.buildings.clear();
+  for (const raw of data.buildings) {
+    const b = { ...raw, sell: new Set(raw.sell) };
+    game.buildings.set(b.uid, b);
+    for (let z = b.z; z < b.z + b.d; z++) {
+      for (let x = b.x; x < b.x + b.w; x++) game.map.building[game.map.idx(x, z)] = b.uid;
+    }
+  }
+  game.map.version++;
+  rts.load(data.rts ?? {});
+  return true;
+}
