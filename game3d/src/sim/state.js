@@ -9,6 +9,7 @@ import { Emitter, Rng } from '../engine/util.js';
 import { LocalTransport } from '../net/transport.js';
 import { Ruins } from './ruins.js';
 import { Weather } from './weather.js';
+import { Projects } from './projects.js';
 import { GameMap, OWNER, T, PLAYER_HQ } from '../world/map.js';
 
 export const START_RES = { money: 800, research: 0, wood: 30, stone: 20, food: 24, planks: 12, grain: 0, water: 0 };
@@ -50,6 +51,7 @@ export class Game {
     this.unitSystem = null; // RTS 注入
     this.ruins = new Ruins(this);
     this.weather = new Weather(this);
+    this.projects = new Projects(this);
   }
 
   /** 玩家意图的唯一入口(UI/输入/AI 都经此),见 net/commands.js。 */
@@ -351,6 +353,7 @@ export class Game {
     for (const b of this.buffs) v += b.effects[key] ?? 0;
     for (const p of this.policies) if (p) v += POLICIES[p].effects[key] ?? 0;
     v += this.weather?.current.effects[key] ?? 0;
+    v += this.projects?.effect(key) ?? 0;
     return v;
   }
 

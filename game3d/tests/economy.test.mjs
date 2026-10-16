@@ -489,3 +489,25 @@ test('桥梁:工程学前不可架桥;架桥收钢材且使水面可通行,拆�
   assert.equal(g.res.money, m0 - 15);
   assert.equal(g.res.steel, 9);
 });
+
+test('国家工程:按需投入(只扣实际需要的部分),完工后永久加成且不能再投,太空计划直接科技胜利', () => {
+  const { g } = fresh();
+  g.res.food = 100; g.res.planks = 500; g.res.money = 5000;
+  assert.ok(g.dispatch({ type: 'fund', id: 'granary' }).ok);
+  assert.equal(g.res.planks, 400, '木板只扣 100');
+  assert.equal(g.res.food, 0);
+  assert.equal(g.projects.done.has('granary'), false);
+  g.res.food = 80;
+  assert.ok(g.dispatch({ type: 'fund', id: 'granary' }).ok);
+  assert.equal(g.res.food, 30);
+  assert.ok(g.projects.done.has('granary'));
+  assert.ok(g.effect('housing') >= 0.1);
+  assert.equal(g.dispatch({ type: 'fund', id: 'granary' }).ok, false);
+  assert.equal(g.dispatch({ type: 'fund', id: 'spaceport' }).reason, '时代不足');
+  g.era = 3;
+  Object.assign(g.res, { electronics: 200, steel: 400, fuel: 200, money: 9000 });
+  assert.ok(g.dispatch({ type: 'fund', id: 'spaceport' }).ok);
+  assert.equal(g.over, 'win');
+  assert.equal(g.victoryKind, 'science');
+  assert.equal(g.dispatch({ type: 'fund', id: 'nope' }).ok, false);
+});

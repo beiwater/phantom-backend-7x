@@ -5,6 +5,8 @@ import { RESOURCES, resIcon } from '../data/resources.js';
 import { fmtTime } from '../engine/util.js';
 import { VICTORIES } from '../sim/victory.js';
 import { GREAT } from '../sim/greatpeople.js';
+import { PROJECTS } from '../sim/projects.js';
+import { resIcon as rIcon } from '../data/resources.js';
 
 export class GovPanel {
   constructor(game, ui) {
@@ -16,7 +18,7 @@ export class GovPanel {
   sig() {
     const g = this.game;
     const c = g.contracts;
-    return [g.great?.ready.join(), ...Object.keys(GREAT).map((k) => Math.floor((g.great?.points(k) ?? 0) / 10)), g.unitSystem?.ai?.wave, g.unitSystem?.ai?.tributedWave, Math.floor(((g.unitSystem?.ai?.nextWave ?? 0) - g.time) / 5), g.era, g.techs.size, Math.floor(g.res.money / 1000), g.policies.join(), this.pickSlot, c.offers.map((o) => `${o.id}:${g.res[o.res] >= o.qty}`).join(), c.reputation, Math.floor(g.res.money / 150)].join('|');
+    return [Object.keys(PROJECTS).map((id) => g.projects.progress(id).toFixed(3)).join(), g.great?.ready.join(), ...Object.keys(GREAT).map((k) => Math.floor((g.great?.points(k) ?? 0) / 10)), g.unitSystem?.ai?.wave, g.unitSystem?.ai?.tributedWave, Math.floor(((g.unitSystem?.ai?.nextWave ?? 0) - g.time) / 5), g.era, g.techs.size, Math.floor(g.res.money / 1000), g.policies.join(), this.pickSlot, c.offers.map((o) => `${o.id}:${g.res[o.res] >= o.qty}`).join(), c.reputation, Math.floor(g.res.money / 150)].join('|');
   }
 
   html() {
@@ -60,6 +62,7 @@ export class GovPanel {
     return `<div class="dialog" data-modal="gov" style="max-width:760px">
       <h2><span>🏛️ 政务</span><button class="btn" data-close>关闭 Esc</button></h2>
       <h3 class="sub">胜利进度</h3><div class="victories">${vic}</div>
+      ${this.projectsHtml()}
       ${this.greatHtml()}
       ${this.diplomacy()}
       <h3 class="sub">政策(每个时代多一个槽)</h3>
@@ -67,6 +70,21 @@ export class GovPanel {
       <h3 class="sub">贸易合同 <small>声望 ${c.reputation >= 0 ? '+' : ''}${c.reputation}(声望越高报价越好;合同过期会损失声望)</small></h3>
       ${offers}
     </div>`;
+  }
+
+  projectsHtml() {
+    const g = this.game;
+    const pj = g.projects;
+    const cards = Object.entries(PROJECTS).map(([id, p]) => {
+      const done = pj.done.has(id);
+      const lock = p.era > g.era;
+      const needs = Object.entries(p.need).map(([k, v]) => `${rIcon(k)}${Math.min(v, pj.paid[id][k] ?? 0)}/${v}`).join(' ');
+      return `<div class="victory"><b>${p.icon} ${p.name}</b> ${done ? '✅' : lock ? `🔒${ERAS[p.era - 1].name}` : ''}
+        <span class="desc">${p.desc}</span><span class="desc">${needs}</span>
+        <div class="pbar"><i style="width:${pj.progress(id) * 100}%"></i></div>
+        ${done || lock ? '' : `<button class="btn" data-fund="${id}">投入材料</button>`}</div>`;
+    }).join('');
+    return `<h3 class="sub">国家工程(分批投入,完工永久生效)</h3><div class="victories four">${cards}</div>`;
   }
 
   greatHtml() {
@@ -111,6 +129,12 @@ export class GovPanel {
       const r = g.dispatch({ type: 'policy', slot: this.pickSlot, id });
       if (!r.ok) this.ui.toast(r.reason, 'bad');
       else { this.ui.toast(id ? `📜 采纳政策「${POLICIES[id].name}」` : '已撤销政策', 'good'); this.pickSlot = null; }
+      return true;
+    }
+    const fb = e.target.closest('[data-fund]');
+    if (fb) {
+      const r = g.dispatch({ type: 'fund', id: fb.dataset.fund });
+      if (!r.ok) this.ui.toast(r.reason, 'bad');
       return true;
     }
     const gb = e.target.closest('[data-great]');
