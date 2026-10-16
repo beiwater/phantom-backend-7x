@@ -17,6 +17,7 @@ import { UnitViews } from './unitview.js';
 
 const QUEUE_MAX = 5;
 const UNIT_CAP = 120; // 单个玩家的部队上限(含排队),保证大规模混战帧率
+const HEAL_POSTS = new Set(['hq', 'barracks', 'vehicleFactory', 'airfield']);
 
 class RTS {
   constructor({ game, scene, rig, view, overlay }) {
@@ -214,7 +215,22 @@ class RTS {
     separate(this, gdt);
     updateTurrets(this, gdt);
     updateShells(this, gdt);
+    this.heal(gdt);
     this.cleanup();
+  }
+
+  /** 战地休整:脱战 5 秒以上、位于己方指挥中心/兵营/战车工厂/机场 5 格内的单位每秒回复 3% 生命。 */
+  heal(gdt) {
+    const g = this.game;
+    this.healT = (this.healT ?? 0) - gdt;
+    if (this.healT > 0) return;
+    this.healT = 1;
+    const posts = [...g.buildings.values()].filter((b) => b.state === 'active' && HEAL_POSTS.has(b.type));
+    for (const u of this.units) {
+      if (u.dead || u.hp >= u.maxHp || g.time - (u.hitT ?? -99) < 5) continue;
+      const near = posts.some((b) => b.team === u.team && Math.abs(u.x - (b.x + b.w / 2)) < 5 + b.w / 2 && Math.abs(u.z - (b.z + b.d / 2)) < 5 + b.d / 2);
+      if (near) u.hp = Math.min(u.maxHp, u.hp + u.maxHp * 0.03);
+    }
   }
 
   /** 科技(复合装甲)提升生命上限时,按比例同步现有单位。 */
