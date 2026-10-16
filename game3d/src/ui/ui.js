@@ -129,8 +129,7 @@ export class UI {
       r.verified = true;
       const same = g.checksum() === r.checksum;
       g.paused = true;
-      const why = r.reloaded ? '(本局中途读过档,存档取整会造成偏差)' : '';
-      this.toast(same ? `✅ 回放终点校验一致(${r.checksum}):模拟完全确定` : `⚠️ 回放校验不一致${why}:${g.checksum()} ≠ ${r.checksum}`, same ? 'good' : 'bad');
+      this.toast(same ? `✅ 回放终点校验一致(${r.checksum}):模拟完全确定` : `⚠️ 回放校验不一致:${g.checksum()} ≠ ${r.checksum}`, same ? 'good' : 'bad');
     }
   }
 

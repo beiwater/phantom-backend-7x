@@ -5,7 +5,11 @@ const REPLAY_KEY = 'voxel-era-replay-v1';
 
 /** 录像 = 种子 + 难度 + 命令日志 + 终点校验和;固定步长 + 种子随机数保证可复现。 */
 export function storeReplay(game) {
-  const data = { seed: game.map.seed, difficulty: game.difficultyId, mapType: game.map.type, log: game.transport.log, endTick: game.tick, checksum: game.checksum(), reloaded: !!game.reloaded };
+  // 读过档的对局从读档快照开始回放(快照之后的命令即可完全复现);新局从 tick 0 开始
+  const base = game.loadedSnapshot ?? null;
+  const fromTick = base?.tick ?? 0;
+  const log = game.transport.log.filter((l) => l.tick >= fromTick);
+  const data = { seed: game.map.seed, difficulty: game.difficultyId, mapType: game.map.type, log, endTick: game.tick, checksum: game.checksum(), base };
   try {
     localStorage.setItem(REPLAY_KEY, JSON.stringify(data));
     return true;
@@ -109,9 +113,16 @@ export function loadGame(ctx) {
   }
 }
 
-function restore({ game, rts, economy, onFog }) {
+function restore(ctx) {
   let data;
   try { data = JSON.parse(localStorage.getItem(KEY) ?? 'null'); } catch { return false; }
+  if (!applySnapshot(ctx, data)) return false;
+  ctx.game.loadedSnapshot = data;
+  return true;
+}
+
+/** 把存档数据应用到新建的 Game(读档与「从快照回放」共用)。 */
+export function applySnapshot({ game, rts, economy, onFog }, data) {
   if (!data || data.v !== 1 || data.map?.seed !== game.map.seed || data.over) return false;
   game.time = data.time;
   game.tick = data.tick ?? 0;
@@ -153,7 +164,5 @@ function restore({ game, rts, economy, onFog }) {
   const rngState = game.random.s;
   rts.load(data.rts ?? {});
   game.random.s = rngState;
-  // 读档会对单位坐标等取整,之后的模拟与「不间断」的原局不再逐位一致,回放校验需知晓
-  game.reloaded = true;
   return true;
 }

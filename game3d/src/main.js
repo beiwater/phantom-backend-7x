@@ -20,7 +20,7 @@ import { MAP_W, MAP_H, PLAYER_HQ } from './world/map.js';
 import { createRTS } from './rts/index.js';
 import { UI } from './ui/ui.js';
 import { Input } from './ui/input.js';
-import { loadGame, hasSave, savedMeta, loadReplay } from './save.js';
+import { loadGame, hasSave, savedMeta, loadReplay, applySnapshot } from './save.js';
 import { ReplayTransport } from './net/transport.js';
 import { LockstepTransport, broadcastChannel } from './net/lockstep.js';
 
@@ -42,7 +42,8 @@ game.unitSystem = rts;
 let resumedFog = null;
 const coopId = params.get('coop');
 const resumed = !replay && !coopId && !params.has('new') && hasSave() && loadGame({ game, rts, economy, onFog: (f) => { resumedFog = f; } });
-if (resumed) {
+const replayFromSnapshot = !!replay?.base && applySnapshot({ game, rts, economy, onFog: (f) => { resumedFog = f; } }, replay.base);
+if (resumed || replayFromSnapshot) {
   view.rebuildAll();
   terrain.rebuild();
 } else {
@@ -65,7 +66,7 @@ if (coopId) {
 const sim = new SimLoop(game, economy, rts);
 const fog = new FogOfWar(game);
 game.fog = fog;
-if (resumed) fog.load(resumedFog);
+if (resumed || replayFromSnapshot) fog.load(resumedFog);
 const ruinsView = new RuinsView(stage.scene, game);
 game.events.on('ruins:map', ({ x, z, radius }) => fog.reveal(x, z, radius));
 const dayNight = new DayNight(stage);
