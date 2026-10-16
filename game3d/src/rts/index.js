@@ -401,7 +401,7 @@ class RTS {
       v: 1,
       nextId: this.nextId,
       units: this.units.filter((u) => !u.dead).map((u) => ({
-        id: u.id, type: u.type, team: u.team, x: r3(u.x), z: r3(u.z), hp: r3(u.hp), baseHp: u.baseHp,
+        id: u.id, type: u.type, team: u.team, x: r3(u.x), z: r3(u.z), hp: r3(u.hp), baseHp: u.baseHp, kills: u.kills ?? 0, rank: u.rank ?? 0,
         heading: r3(u.heading), order: saveOrder(u.order), guard: u.guard || undefined,
         home: u.home ?? undefined, wave: u.wave ?? undefined,
       })),
@@ -432,6 +432,8 @@ class RTS {
       u.guard = !!s.guard;
       u.home = s.home ?? null;
       u.wave = s.wave ?? null;
+      u.kills = s.kills ?? 0;
+      u.rank = s.rank ?? 0;
       unstick(map, u);
       this.restoreOrder(u, s.order);
       this.units.push(u);

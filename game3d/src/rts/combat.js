@@ -216,7 +216,8 @@ function hitY(t) {
 
 function fire(rts, u, t, p) {
   const g = rts.game;
-  const dmg = u.def.damage * (u.team === 'player' ? 1 + g.effect('unitDamage') : rts.ai.damageMult);
+  // 老兵军衔:每颗星 +15% 伤害(见 hurt 中的击杀计数)
+  const dmg = u.def.damage * (u.team === 'player' ? 1 + g.effect('unitDamage') : rts.ai.damageMult) * (1 + 0.15 * (u.rank ?? 0));
   const m = muzzle(u);
   const enemy = u.team === 'enemy';
   u.fireT = g.time;
@@ -248,11 +249,30 @@ export function hurt(rts, t, dmg, src) {
     t.hp -= dmg;
     t.hitT = rts.game.time;
     t.lastAttacker = src;
-    if (t.hp <= 0) { t.hp = 0; t.dead = true; return; }
+    if (t.hp <= 0) {
+      t.hp = 0;
+      t.dead = true;
+      if (src && isUnit(src) && !src.dead) promote(rts, src);
+      return;
+    }
   } else {
     rts.game.damageBuilding(t, dmg);
   }
   if (src && alive(rts, src)) alertAround(rts, targetPos(t), t.team, src, t);
+}
+
+const RANK_KILLS = [2, 5, 10];
+export const RANK_NAMES = ['新兵', '老兵', '精锐', '王牌'];
+
+/** 击杀计数 → 军衔(最多 3 星);晋升时回复 20% 生命。 */
+function promote(rts, u) {
+  u.kills = (u.kills ?? 0) + 1;
+  const rank = RANK_KILLS.filter((k) => u.kills >= k).length;
+  if (rank > (u.rank ?? 0)) {
+    u.rank = rank;
+    u.hp = Math.min(u.maxHp, u.hp + u.maxHp * 0.2);
+    rts.game.events.emit('unit:promoted', { unit: u, rank });
+  }
 }
 
 /** 受击呼救:附近待命友军(含受击者本身)若能打到攻击者,就去反击。 */

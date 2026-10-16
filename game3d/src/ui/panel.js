@@ -199,12 +199,14 @@ export class Panel {
   unitsHTML(units) {
     const by = new Map();
     for (const u of units) by.set(u.type, (by.get(u.type) ?? 0) + 1);
+    const vets = units.filter((u) => u.rank).length;
     const hp = units.reduce((s, u) => s + u.hp, 0);
     const max = units.reduce((s, u) => s + u.maxHp, 0);
     return `<button class="close" data-act="close">✕</button>
       <h2>⚔️ 部队 <small>${units.length} 个单位</small></h2>
       <div class="hpbar"><i style="width:${(hp / max) * 100}%"></i></div>
       <div class="sellgrid">${[...by].map(([t, n]) => `<span class="chip">${UNIT_ICONS[t]} ${UNITS[t].name} ×${n}</span>`).join('')}</div>
+      ${vets ? `<div class="desc">🎖️ 老兵 ${vets} 名(每颗星伤害 +15%):${units.filter((u) => u.rank).slice(0, 8).map((u) => `${UNITS[u.type].name}${'★'.repeat(u.rank)}`).join(' ')}</div>` : ''}
       <div class="desc" style="margin-top:10px">右键地面:移动 · 右键敌人:攻击<br>A + 点击:攻击移动 · H:停止<br>Ctrl+数字:编队 · 数字:选择编队 · F:全选部队</div>`;
   }
 }

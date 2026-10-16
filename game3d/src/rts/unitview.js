@@ -63,7 +63,11 @@ export class UnitViews {
     this.rallyLine.visible = false;
     this.rallyLine.frustumCulled = false;
 
-    this.root.add(this.rings, this.barBg, this.barFg, this.rally, this.rallyLine);
+    // 老兵军衔星(每颗星一个小金色八面体)
+    this.stars = new THREE.InstancedMesh(new THREE.OctahedronGeometry(0.07), new THREE.MeshBasicMaterial({ color: 0xffd34d }), RING_MAX);
+    this.stars.frustumCulled = false;
+    this.stars.count = 0;
+    this.root.add(this.rings, this.barBg, this.barFg, this.rally, this.rallyLine, this.stars);
   }
 
   add(u) {
@@ -117,6 +121,7 @@ export class UnitViews {
     const selected = new Set(rts.selected);
     let nr = 0;
     let nb = 0;
+    let ns = 0;
     right.set(1, 0, 0).applyQuaternion(camera.quaternion);
 
     for (const u of rts.units) {
@@ -155,6 +160,14 @@ export class UnitViews {
         v.top.rotation.y = v.topYaw;
       }
 
+      if (u.rank) {
+        for (let k = 0; k < u.rank && ns < RING_MAX; k++) {
+          pos.set(x + (k - (u.rank - 1) / 2) * 0.16, y + v.height + 0.4, z);
+          scl.set(1, 1, 1);
+          m4.compose(pos, qId, scl);
+          this.stars.setMatrixAt(ns++, m4);
+        }
+      }
       const sel = selected.has(u);
       if (sel && nr < RING_MAX) {
         const r = Math.max(0.3, u.r * 1.35);
@@ -178,6 +191,8 @@ export class UnitViews {
     }
 
     this.rings.count = nr;
+    this.stars.count = ns;
+    this.stars.instanceMatrix.needsUpdate = true;
     this.rings.instanceMatrix.needsUpdate = true;
     this.barBg.count = nb;
     this.barFg.count = nb;

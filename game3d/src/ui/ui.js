@@ -18,6 +18,8 @@ import { fmtTime } from '../engine/util.js';
 import { DIFFICULTIES } from '../data/difficulty.js';
 import { QUALITY } from '../engine/quality.js';
 import { VICTORIES } from '../sim/victory.js';
+import { UNITS } from '../data/units.js';
+import { RANK_NAMES } from '../rts/combat.js';
 
 const AUTOSAVE_SEC = 30;
 
@@ -77,6 +79,9 @@ export class UI {
     ev.on('gameover', ({ result, kind }) => this.openGameOver(result, kind));
     ev.on('event', ({ msg, kind }) => this.toast(msg, kind));
     ev.on('ruins:claim', ({ msg }) => this.toast(`🏛️ ${msg}`, 'good'));
+    ev.on('unit:promoted', ({ unit, rank }) => {
+      if (unit.team === this.game.localPlayer) this.toast(`🎖️ ${UNITS[unit.type].name}晋升为「${RANK_NAMES[rank]}」${'★'.repeat(rank)}`, 'good');
+    });
     ev.on('contract:new', (o) => this.toast(`📜 新合同:${o.client}求购 ${RESOURCES[o.res].name} ×${o.qty}(J 打开政务)`));
     ev.on('contract:done', (o) => this.toast(`🤝 合同完成:${o.client} 支付 💰${o.reward.money}`, 'good'));
     ev.on('contract:expired', (o) => this.toast(`⌛ ${o.client}的合同已过期,声望 -1`, 'bad'));
