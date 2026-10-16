@@ -103,14 +103,23 @@ export class UI {
     ev.on('building:hit', (b) => {
       if (b.team !== 'player' || this.hitT > 0) return;
       this.hitT = 12;
-      this.toast(`⚠️ ${BUILDINGS[b.type].name}遭到攻击!`, 'bad');
+      this.toast(`⚠️ ${BUILDINGS[b.type].name}遭到攻击!`, 'bad', { x: b.x + b.w / 2, z: b.z + b.d / 2 });
+    });
+    ev.on('wave:start', ({ wave }) => {
+      const us = this.rts.units.filter((u) => u.wave === wave);
+      if (!us.length) return;
+      const x = us.reduce((s, u) => s + u.x, 0) / us.length;
+      const z = us.reduce((s, u) => s + u.z, 0) / us.length;
+      this.toast(`⚔️ 第 ${wave} 波敌军出动(${us.length} 个单位)`, 'bad', { x, z });
     });
     ev.on('building:remove', ({ b, destroyed }) => {
-      if (destroyed && b.team === 'enemy' && b.type !== 'wall') this.toast(`💥 摧毁敌方${BUILDINGS[b.type].name}`, 'good');
+      const loc = { x: b.x + b.w / 2, z: b.z + b.d / 2 };
+      if (destroyed && b.team === 'enemy' && b.type !== 'wall') this.toast(`💥 摧毁敌方${BUILDINGS[b.type].name}`, 'good', loc);
+      if (destroyed && b.team === this.game.localPlayer && b.type !== 'wall') this.toast(`🔥 我方${BUILDINGS[b.type].name}被摧毁!`, 'bad', loc);
     });
     ev.on('gameover', ({ result, kind }) => this.openGameOver(result, kind));
     ev.on('event', ({ msg, kind }) => this.toast(msg, kind));
-    ev.on('ruins:claim', ({ msg }) => this.toast(`🏛️ ${msg}`, 'good'));
+    ev.on('ruins:claim', ({ msg, ruin }) => this.toast(`🏛️ ${msg}`, 'good', { x: ruin.x + 0.5, z: ruin.z + 0.5 }));
     ev.on('weather', () => {
       const w = this.game.weather.current;
       this.toast(`${w.icon} 天气转为「${w.name}」${w.desc ? `:${w.desc}` : ''}`);
@@ -141,14 +150,19 @@ export class UI {
   }
 
   // ---------- 提示 ----------
-  toast(text, kind = '') {
+  /** loc={x,z} 时提示可点击跳转镜头,并记为最近警报位置(Z 键跳转)。 */
+  toast(text, kind = '', loc = null) {
     if (kind === 'bad') this.audio?.play('error');
     this.history = this.history ?? [];
     this.history.push({ text, kind, t: this.game.time });
     if (this.history.length > 80) this.history.shift();
     const el = document.createElement('div');
-    el.className = `toast ${kind}`;
-    el.textContent = text;
+    el.className = `toast ${kind}${loc ? ' loc' : ''}`;
+    el.textContent = loc ? `${text} 📍` : text;
+    if (loc) {
+      this.lastLoc = loc;
+      el.addEventListener('click', () => this.rig.lookAt(loc.x, loc.z));
+    }
     this.toasts.appendChild(el);
     while (this.toasts.children.length > 5) this.toasts.firstChild.remove();
     setTimeout(() => el.remove(), kind === 'big' ? 5000 : 2800);
@@ -228,7 +242,7 @@ export class UI {
         <kbd>右键</kbd><span>取消建造 · 部队移动/攻击 · 兵营集结点</span>
         <kbd>A</kbd><span>攻击移动 · <kbd>H</kbd> 停止 · <kbd>F</kbd> 全选部队 · <kbd>Ctrl+数字</kbd> 编队</span>
         <kbd>O</kbd><span>经济统计 · <kbd>J</kbd> 政务(伟人/外交/政策/合同) · <kbd>B</kbd> 百科 · <kbd>N</kbd> 消息 · <kbd>Home</kbd> 回到总部</span>
-        <kbd>U</kbd><span>规划视图(污染/物流) · <kbd>C</kbd> 复制选中建筑类型</span>
+        <kbd>U</kbd><span>规划视图(污染/物流) · <kbd>C</kbd> 复制选中建筑类型 · <kbd>Z</kbd> 跳到最近警报(📍提示可点击)</span>
         <kbd>T</kbd><span>科技树 · <kbd>P</kbd> 暂停 · <kbd>L</kbd> 标签 · <kbd>M</kbd> 静音 · <kbd>Esc</kbd> 取消/关闭</span>
       </div>
       <p>敌军第一波进攻约在 ${fmtTime(300)} 后到来。进度每 ${AUTOSAVE_SEC} 秒自动保存到本机浏览器。</p>
@@ -353,6 +367,7 @@ export class UI {
     if (k === 'KeyJ') this.openGov();
     if (k === 'KeyB') this.openCodex();
     if (k === 'KeyN') this.openLog();
+    if (k === 'KeyZ' && this.lastLoc) this.rig.lookAt(this.lastLoc.x, this.lastLoc.z);
     if (k === 'KeyU' && this.overlay) {
       const mode = this.overlay.cycle();
       this.toast(mode ? `视图:${OVERLAY_NAMES[mode]}(U 切换)` : '视图:关闭');

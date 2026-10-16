@@ -7,6 +7,7 @@ import { buildingGeo, roadGeo, wallGeo, scaffoldGeo, turretHeadGeo, truckGeo, ru
 
 const SMOKE_MAX = 400;
 const TRUCK_MAX = 40;
+const FIRE_MAX = 300;
 
 export class WorldView {
   constructor(scene, game, economy) {
@@ -22,6 +23,7 @@ export class WorldView {
     this.rubble = [];
     this.trucks = [];
     this.initSmoke();
+    this.initFire();
     this.initSelection();
 
     const ev = game.events;
@@ -189,10 +191,60 @@ export class WorldView {
     this.smokeT = 0;
   }
 
+  // ---------- 受损建筑起火(耐久 < 40%):橙色火苗 + 黑烟,纯视觉 ----------
+  initFire() {
+    const geo = new THREE.BoxGeometry(0.14, 0.14, 0.14);
+    this.fire = new THREE.InstancedMesh(geo, new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9 }), FIRE_MAX);
+    this.fire.count = 0;
+    this.fire.frustumCulled = false;
+    this.fire.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(FIRE_MAX * 3), 3);
+    this.root.add(this.fire);
+    this.fireParts = [];
+  }
+
+  emitFire() {
+    for (const [uid, v] of this.bviews) {
+      const b = this.game.buildings.get(uid);
+      if (!b || b.hp >= b.maxHp * 0.4 || b.type === 'wall') continue;
+      const n = b.hp < b.maxHp * 0.2 ? 3 : 1;
+      for (let i = 0; i < n && this.fireParts.length < FIRE_MAX; i++) {
+        const flame = Math.random() < 0.45;
+        this.fireParts.push({
+          x: v.group.position.x + (Math.random() - 0.5) * b.w * 0.7,
+          y: (v.info?.labelY ?? 1.5) * (0.35 + Math.random() * 0.3),
+          z: v.group.position.z + (Math.random() - 0.5) * b.d * 0.7,
+          life: 0, max: flame ? 0.6 : 2 + Math.random(), flame,
+        });
+      }
+    }
+  }
+
+  updateFire(dt) {
+    const mat = new THREE.Matrix4();
+    const col = new THREE.Color();
+    this.fireParts = this.fireParts.filter((p) => (p.life += dt) < p.max);
+    let n = 0;
+    for (const p of this.fireParts) {
+      const k = p.life / p.max;
+      const s = p.flame ? 1.1 - k : 0.8 + k * 2.4;
+      mat.makeScale(s, s, s);
+      mat.setPosition(p.x, p.y + p.life * (p.flame ? 0.9 : 0.6), p.z);
+      this.fire.setMatrixAt(n, mat);
+      if (p.flame) col.setHex(k < 0.5 ? 0xffd040 : 0xff6a20);
+      else col.setRGB(0.18 + k * 0.25, 0.17 + k * 0.25, 0.17 + k * 0.25);
+      this.fire.setColorAt(n, col);
+      n++;
+    }
+    this.fire.count = n;
+    this.fire.instanceMatrix.needsUpdate = true;
+    this.fire.instanceColor.needsUpdate = true;
+  }
+
   emitSmoke(dt) {
     this.smokeT += dt;
     if (this.smokeT < 0.18) return;
     this.smokeT = 0;
+    this.emitFire();
     for (const [uid, v] of this.bviews) {
       const b = this.game.buildings.get(uid);
       if (!b || !b.working || b.state !== 'active' || !v.info?.smoke?.length) continue;
@@ -300,6 +352,7 @@ export class WorldView {
       return true;
     });
     this.updateSmoke(dt);
+    this.updateFire(this.game.paused ? 0 : dt);
     this.updateTrucks(dt);
   }
 }

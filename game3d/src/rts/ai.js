@@ -83,7 +83,7 @@ export class EnemyAI {
       }
       m.setChunkOwner(c.cx, c.cz, OWNER.enemy);
       g.events.emit('chunk', { cx: c.cx, cz: c.cz });
-      this.rts.ui?.toast?.('🚩 铁锈军团建立了新的前哨基地,领土向你逼近!', 'bad');
+      this.rts.ui?.toast?.('🚩 铁锈军团建立了新的前哨基地,领土向你逼近!', 'bad', { x: c.cx * CHUNK + 4, z: c.cz * CHUNK + 4 });
       return;
     }
   }
@@ -312,8 +312,8 @@ export class EnemyAI {
       if (hq) orderAMove(u, hq.x + hq.w / 2, hq.z + hq.d / 2, true);
     }
     if (ids.size) this.waves.set(n, ids);
+    // 提示由 UI 监听 wave:start 发出(带位置,可点击跳转)
     g.events.emit('wave:start', { wave: n, size: ids.size });
-    this.rts.ui?.toast?.(`⚔️ 敌军第 ${n} 波进攻开始!`, 'bad');
     // 补充驻军
     if (this.production().some((b) => b.type === 'barracks')) {
       const have = this.rts.units.filter((u) => u.team === ENEMY && u.guard).length;

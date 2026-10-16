@@ -256,3 +256,5 @@ button { font: inherit; color: inherit; cursor: pointer; }
 @media (max-width: 760px) { .ach-grid { grid-template-columns: 1fr; } }
 .victories.four { grid-template-columns: repeat(4, 1fr); }
 @media (max-width: 760px) { .victories.four { grid-template-columns: 1fr 1fr; } }
+.toast.loc { pointer-events: auto; cursor: pointer; }
+.toast.loc:hover { filter: brightness(1.25); }
