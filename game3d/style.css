@@ -266,3 +266,18 @@ button { font: inherit; color: inherit; cursor: pointer; }
 #replay-bar.coop { background: rgba(20, 90, 60, 0.9); border-color: #6fd36f; }
 .board { margin-top: 14px; text-align: left; font-size: 12px; background: rgba(255,255,255,0.04); border-radius: 8px; padding: 8px 10px; }
 .board .row { display: flex; justify-content: space-between; gap: 10px; color: var(--muted); padding: 2px 0; }
+@media (max-width: 760px) {
+  #topbar { height: auto; flex-wrap: wrap; padding: 4px 6px; gap: 4px 6px; }
+  #topbar .spacer, #topbar .clock { display: none; }
+  .stats { flex-wrap: wrap; overflow: visible; gap: 4px 8px; width: 100%; order: 3; }
+  .pill { padding: 4px 8px; white-space: nowrap; }
+  .pill .lbl { display: none; }
+  .speed button { padding: 4px 6px; }
+  #resbar { top: auto; position: absolute; left: 8px; right: 8px; bottom: 214px; }
+  #toolbar { padding: 6px; }
+  .tool, .cat { padding: 4px 7px; font-size: 12px; }
+  .tool kbd, .cat kbd { display: none; }
+  .card { width: 104px; }
+  #alerts { top: 110px; }
+  #toasts { top: 110px; width: calc(100% - 16px); }
+}
