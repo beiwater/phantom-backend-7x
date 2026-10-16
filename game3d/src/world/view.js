@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import { MAP_W } from './map.js';
 import { MODULES } from '../data/modules.js';
+import { POLLUTERS } from '../sim/society.js';
 import { voxelMaterial } from '../engine/voxel.js';
 import { buildingGeo, roadGeo, wallGeo, scaffoldGeo, turretHeadGeo, truckGeo, rubbleGeo } from '../models/cache.js';
 
@@ -330,11 +331,35 @@ export class WorldView {
     this.root.add(this.selBox);
   }
 
+  /** 选中框 + 规划辅助:协同伙伴绿框、污染源的影响范围红框。 */
   showSelection(b) {
+    this.selExtras ??= new THREE.Group();
+    if (!this.selExtras.parent) this.root.add(this.selExtras);
+    this.selExtras.clear();
     if (!b) { this.selBox.visible = false; return; }
     this.selBox.visible = true;
     this.selBox.scale.set(b.w + 0.1, 1, b.d + 0.1);
     this.selBox.position.set(b.x + b.w / 2, 0.04, b.z + b.d / 2);
+    if (b.team !== this.game.localPlayer) return;
+    const outline = (x, z, w, d, color) => {
+      const box = new THREE.LineSegments(this.selBox.geometry, new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.9 }));
+      box.scale.set(w, 1, d);
+      box.position.set(x + w / 2, 0.05, z + d / 2);
+      this.selExtras.add(box);
+    };
+    for (const t of b.synergy?.partners ?? []) {
+      for (let z = b.z - 1; z <= b.z + b.d; z++) {
+        for (let x = b.x - 1; x <= b.x + b.w; x++) {
+          const o = this.game.buildingAt(x, z);
+          if (o && o.type === t && o.team === b.team && !this.selExtras.userData[o.uid]) {
+            this.selExtras.userData[o.uid] = true;
+            outline(o.x, o.z, o.w, o.d, 0x55ff77);
+          }
+        }
+      }
+    }
+    this.selExtras.userData = {};
+    if (POLLUTERS.has(b.type) && b.module !== 'eco') outline(b.x - 3, b.z - 3, b.w + 6, b.d + 6, 0xff5544);
   }
 
   // ---------- 每帧 ----------
