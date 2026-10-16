@@ -2,6 +2,7 @@
 import { BUILDINGS } from '../data/buildings.js';
 import { isUnit, navigate, stopNav, orderIdle, AIR_Y } from './units.js';
 import { supplied, SUPPLY_PENALTY } from '../sim/upkeep.js';
+import { counterMult } from '../data/units.js';
 
 const SCAN = 0.4; // 索敌间隔(秒),错峰降低开销
 const HQ_GUN = { range: 6, damage: 8, cooldown: 1.2 }; // 双方指挥中心的自卫火力(较弱,随等级提升),保证新手能扛住首波
@@ -226,13 +227,13 @@ function fire(rts, u, t, p) {
   if (u.def.splash) {
     const dist = Math.hypot(p.x - u.x, p.z - u.z);
     const dur = 0.7 + dist * 0.07;
-    rts.shells.push({ x: p.x, z: p.z, t: dur, dmg, team: u.team, splash: u.def.splash, src: u });
+    rts.shells.push({ x: p.x, z: p.z, t: dur, dmg, team: u.team, splash: u.def.splash, src: u, srcType: u.type });
     rts.fx.projectile(m, { x: p.x, y: 0.1, z: p.z }, dur, 1.2 + dist * 0.22, 0xffb040, 0.14);
     rts.fx.flash(m.x, m.y, m.z, 0.5, 0xffc060);
     return;
   }
   const ty = hitY(t);
-  hurt(rts, t, dmg, u);
+  hurt(rts, t, dmg * counterMult(u.type, t), u);
   if (u.type === 'tank') {
     rts.fx.projectile(m, { x: p.x, y: ty, z: p.z }, 0.12, 0, 0xffe0a0, 0.1);
     rts.fx.flash(m.x, m.y, m.z, 0.45, 0xffd070);
@@ -313,7 +314,7 @@ export function updateShells(rts, dt) {
       const d = rectDist(s.x, s.z, b);
       if (d <= s.splash) hits.push([b, d]);
     }
-    for (const [t, d] of hits) hurt(rts, t, s.dmg * (1 - 0.5 * (d / s.splash)), src);
+    for (const [t, d] of hits) hurt(rts, t, s.dmg * (1 - 0.5 * (d / s.splash)) * counterMult(s.srcType, t), src);
     rts.fx.explode(s.x, 0.15, s.z, 14, [0x5a4a3a, 0x8a7a5a, 0xffa040], 2.6);
     rts.fx.flash(s.x, 0.4, s.z, 1.2, 0xffa040);
     return false;

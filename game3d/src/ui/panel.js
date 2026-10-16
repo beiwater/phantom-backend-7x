@@ -2,7 +2,7 @@
 // 结构按签名重建,进度/状态/血量每帧原地更新,避免按钮在点击过程中被替换。
 import { BUILDINGS, upgradeCost, levelSpeed, storageOf, housingOf } from '../data/buildings.js';
 import { RESOURCES, RESOURCE_IDS, resIcon, resName } from '../data/resources.js';
-import { UNITS } from '../data/units.js';
+import { UNITS, COUNTERS, CLASS_NAMES } from '../data/units.js';
 import { TECHS } from '../data/tech.js';
 import { workersOf, powerOf, MARKET_RESERVE } from '../sim/economy.js';
 import { fmtTime } from '../engine/util.js';
@@ -18,6 +18,13 @@ function chips(cost, game, mult = 1) {
       const v = Math.ceil(raw * mult);
       return `<span class="chip${game && (game.res[k] ?? 0) < v ? ' lack' : ''}" title="${resName(k)}">${resIcon(k)} ${v}</span>`;
     }).join(' ');
+}
+
+function counterText(u) {
+  const c = Object.entries(COUNTERS[u] ?? {});
+  const strong = c.filter(([, v]) => v > 1).map(([k]) => CLASS_NAMES[k]).join('、');
+  const weak = c.filter(([, v]) => v < 1).map(([k]) => CLASS_NAMES[k]).join('、');
+  return `${strong ? `克制 ${strong}` : ''}${strong && weak ? ' · ' : ''}${weak ? `不擅长 ${weak}` : ''}`;
 }
 
 export class Panel {
@@ -162,7 +169,7 @@ export class Panel {
         const unlocked = g.techs.has(ud.tech);
         h.push(`<div class="unitcard"><div class="top"><b>${UNIT_ICONS[u]} ${ud.name}</b>
           <button class="btn primary" data-act="train" data-unit="${u}" ${unlocked && g.canAfford(ud.cost, g.unitCostMult()) ? '' : 'disabled'}>训练</button></div>
-          <div class="desc" style="margin:3px 0">${unlocked ? `${ud.desc} 生命 ${ud.hp} · 伤害 ${ud.damage} · 射程 ${ud.range}` : `🔒 需要科技「${TECHS[ud.tech].name}」`}</div>
+          <div class="desc" style="margin:3px 0">${unlocked ? `${ud.desc} 生命 ${ud.hp} · 伤害 ${ud.damage} · 射程 ${ud.range}<br>${counterText(u)}` : `🔒 需要科技「${TECHS[ud.tech].name}」`}</div>
           <div>${chips(ud.cost, g, g.unitCostMult())} <span class="chip">⏱ ${ud.time}s</span></div></div>`);
       }
       h.push('</div>');

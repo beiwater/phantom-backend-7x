@@ -35,6 +35,27 @@ export const UNITS = {
 
 export const UNIT_IDS = Object.keys(UNITS);
 
+// 兵种克制:攻击方 → 目标类别(infantry/vehicle/air/building)的伤害倍率,未列出为 1
+export const COUNTERS = {
+  militia: { vehicle: 0.5, building: 0.6, infantry: 1.2 },
+  scout: { vehicle: 0.3, building: 0.3 },
+  rifleman: { infantry: 1.25, vehicle: 0.6, air: 1.3, building: 0.7 },
+  tank: { vehicle: 1.3, building: 1.5 },
+  artillery: { building: 1.6, infantry: 1.2, vehicle: 0.8 },
+  helicopter: { vehicle: 1.6, building: 0.8, infantry: 0.9 },
+};
+const CLASS = { militia: 'infantry', scout: 'infantry', rifleman: 'infantry', tank: 'vehicle', artillery: 'vehicle', helicopter: 'air' };
+export const CLASS_NAMES = { infantry: '步兵', vehicle: '载具', air: '空中', building: '建筑' };
+
+/** 目标类别:单位按兵种,建筑统一为 building。 */
+export function targetClass(t) {
+  return t.type && CLASS[t.type] && t.def ? CLASS[t.type] : 'building';
+}
+
+export function counterMult(attacker, target) {
+  return COUNTERS[attacker]?.[targetClass(target)] ?? 1;
+}
+
 export const TEAM_COLORS = {
   player: { primary: 0x3a7bd5, secondary: 0xe8eef8, dark: 0x1d3f72 },
   enemy: { primary: 0xc8402e, secondary: 0x2a2a2e, dark: 0x6a1a12 },
