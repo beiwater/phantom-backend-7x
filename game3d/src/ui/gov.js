@@ -15,7 +15,7 @@ export class GovPanel {
   sig() {
     const g = this.game;
     const c = g.contracts;
-    return [g.era, g.techs.size, Math.floor(g.res.money / 1000), g.policies.join(), this.pickSlot, c.offers.map((o) => `${o.id}:${g.res[o.res] >= o.qty}`).join(), c.reputation, Math.floor(g.res.money / 150)].join('|');
+    return [g.unitSystem?.ai?.wave, g.unitSystem?.ai?.tributedWave, Math.floor(((g.unitSystem?.ai?.nextWave ?? 0) - g.time) / 5), g.era, g.techs.size, Math.floor(g.res.money / 1000), g.policies.join(), this.pickSlot, c.offers.map((o) => `${o.id}:${g.res[o.res] >= o.qty}`).join(), c.reputation, Math.floor(g.res.money / 150)].join('|');
   }
 
   html() {
@@ -59,11 +59,25 @@ export class GovPanel {
     return `<div class="dialog" data-modal="gov" style="max-width:760px">
       <h2><span>🏛️ 政务</span><button class="btn" data-close>关闭 Esc</button></h2>
       <h3 class="sub">胜利进度</h3><div class="victories">${vic}</div>
+      ${this.diplomacy()}
       <h3 class="sub">政策(每个时代多一个槽)</h3>
       <div class="slots">${slotHtml.join('')}</div>${picker}
       <h3 class="sub">贸易合同 <small>声望 ${c.reputation >= 0 ? '+' : ''}${c.reputation}(声望越高报价越好;合同过期会损失声望)</small></h3>
       ${offers}
     </div>`;
+  }
+
+  diplomacy() {
+    const g = this.game;
+    const ai = g.unitSystem?.ai;
+    if (!ai) return '';
+    const eta = Math.max(0, Math.round(ai.nextWave - g.time));
+    const used = ai.tributedWave === ai.wave + 1;
+    const cost = ai.tributeCost();
+    return `<h3 class="sub">外交 · 铁锈军团</h3>
+      <div class="contract"><div>${ai.stopped ? '敌军暂时失去进攻能力' : `下一波(第 ${ai.wave + 1} 波)约 ${fmtTime(eta)} 后抵达`}
+        <div class="desc">进贡 💰${cost} 可让敌军推迟 2 分钟进攻(每波限一次,价格随波次与时代上涨)</div></div>
+        <button class="btn" data-tribute ${ai.stopped || used || g.res.money < cost ? 'disabled' : ''}>${used ? '已进贡' : '进贡'}</button></div>`;
   }
 
   /** 处理弹窗内点击;返回 true 表示需要重绘。 */
@@ -81,6 +95,11 @@ export class GovPanel {
       const r = g.dispatch({ type: 'policy', slot: this.pickSlot, id });
       if (!r.ok) this.ui.toast(r.reason, 'bad');
       else { this.ui.toast(id ? `📜 采纳政策「${POLICIES[id].name}」` : '已撤销政策', 'good'); this.pickSlot = null; }
+      return true;
+    }
+    if (e.target.closest('[data-tribute]')) {
+      const r = g.dispatch({ type: 'tribute' });
+      if (!r.ok) this.ui.toast(r.reason, 'bad');
       return true;
     }
     const d = e.target.closest('[data-deliver]');

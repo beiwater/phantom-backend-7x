@@ -107,6 +107,7 @@ export class UI {
     ev.on('gameover', ({ result, kind }) => this.openGameOver(result, kind));
     ev.on('event', ({ msg, kind }) => this.toast(msg, kind));
     ev.on('ruins:claim', ({ msg }) => this.toast(`🏛️ ${msg}`, 'good'));
+    ev.on('tribute', ({ wave, cost }) => this.toast(`🕊️ 向铁锈军团进贡 💰${cost},第 ${wave} 波推迟 2 分钟`, 'good'));
     ev.on('unit:promoted', ({ unit, rank }) => {
       if (unit.team === this.game.localPlayer) this.toast(`🎖️ ${UNITS[unit.type].name}晋升为「${RANK_NAMES[rank]}」${'★'.repeat(rank)}`, 'good');
     });
@@ -131,6 +132,9 @@ export class UI {
   // ---------- 提示 ----------
   toast(text, kind = '') {
     if (kind === 'bad') this.audio?.play('error');
+    this.history = this.history ?? [];
+    this.history.push({ text, kind, t: this.game.time });
+    if (this.history.length > 80) this.history.shift();
     const el = document.createElement('div');
     el.className = `toast ${kind}`;
     el.textContent = text;
@@ -182,6 +186,12 @@ export class UI {
     this.openModal('gov', this.gov.html());
   }
 
+  openLog() {
+    if (this.modalKind === 'log') { this.closeModal(); return; }
+    const rows = [...(this.history ?? [])].reverse().map((h) => `<div class="logrow ${h.kind}"><span>${fmtTime(h.t)}</span>${h.text}</div>`).join('') || '<p>暂无消息</p>';
+    this.openModal('log', `<div class="dialog" style="max-width:640px;min-width:min(520px,92vw)"><h2><span>📨 消息记录</span><button class="btn" data-close>关闭 Esc</button></h2>${rows}</div>`);
+  }
+
   openCodex() {
     if (this.modalKind === 'codex') { this.closeModal(); return; }
     this.openModal('codex', this.codex.html());
@@ -204,7 +214,7 @@ export class UI {
         <kbd>左键</kbd><span>放置 / 选择 · 拖拽框选部队 · Shift 连续放置</span>
         <kbd>右键</kbd><span>取消建造 · 部队移动/攻击 · 兵营集结点</span>
         <kbd>A</kbd><span>攻击移动 · <kbd>H</kbd> 停止 · <kbd>F</kbd> 全选部队 · <kbd>Ctrl+数字</kbd> 编队</span>
-        <kbd>O</kbd><span>经济统计 · <kbd>J</kbd> 政务(政策/合同) · <kbd>B</kbd> 百科</span>
+        <kbd>O</kbd><span>经济统计 · <kbd>J</kbd> 政务(外交/政策/合同) · <kbd>B</kbd> 百科 · <kbd>N</kbd> 消息 · <kbd>Home</kbd> 回到总部</span>
         <kbd>T</kbd><span>科技树 · <kbd>P</kbd> 暂停 · <kbd>L</kbd> 标签 · <kbd>M</kbd> 静音 · <kbd>Esc</kbd> 取消/关闭</span>
       </div>
       <p>敌军第一波进攻约在 ${fmtTime(300)} 后到来。进度每 ${AUTOSAVE_SEC} 秒自动保存到本机浏览器。</p>
@@ -297,6 +307,11 @@ export class UI {
     if (k === 'KeyO') this.openStats();
     if (k === 'KeyJ') this.openGov();
     if (k === 'KeyB') this.openCodex();
+    if (k === 'KeyN') this.openLog();
+    if (k === 'Home') {
+      const hq = this.game.playerHQ();
+      if (hq) this.rig.lookAt(hq.x + 1.5, hq.z + 1.5);
+    }
     if (k === 'KeyM') this.toast(this.audio.toggleMute() ? '🔇 已静音' : '🔊 音效已开启');
     if (k === 'KeyP') this.hud.setSpeed(0);
     if (k === 'KeyL') this.labels.enabled = !this.labels.enabled;

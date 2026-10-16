@@ -2,6 +2,7 @@
 import { BUILDINGS, BUILDING_IDS, CATEGORIES } from '../data/buildings.js';
 import { TECHS } from '../data/tech.js';
 import { resIcon } from '../data/resources.js';
+import { MISSIONS } from '../data/missions.js';
 
 export const BUILDING_ICONS = {
   hq: '🏛️', house: '🏠', farm: '🌾', lumber: '🪓', quarry: '⛏️', pump: '💧', ironMine: '⛰️', coalMine: '⚫',
@@ -61,7 +62,11 @@ export class Toolbar {
     const g = this.game;
     const mode = this.ui.input?.mode ?? { kind: 'select' };
     const ids = BUILDING_IDS.filter((id) => BUILDINGS[id].category === this.cat);
-    const sig = [this.cat, mode.kind, mode.type, ...ids.map((id) => `${g.isUnlocked(id)}${Object.entries(BUILDINGS[id].cost).map(([k, v]) => (g.res[k] ?? 0) >= v).join('')}`)].join('|');
+    const focus = new Set(MISSIONS[g.mission]?.focus ?? []);
+    for (const b of this.cats.querySelectorAll('.cat')) {
+      b.classList.toggle('hint', BUILDING_IDS.some((id) => focus.has(id) && BUILDINGS[id].category === b.dataset.cat && b.dataset.cat !== this.cat));
+    }
+    const sig = [g.mission, this.cat, mode.kind, mode.type, ...ids.map((id) => `${g.isUnlocked(id)}${Object.entries(BUILDINGS[id].cost).map(([k, v]) => (g.res[k] ?? 0) >= v).join('')}`)].join('|');
     if (sig === this.sig) return;
     this.sig = sig;
     for (const b of this.tools.querySelectorAll('.tool')) b.classList.toggle('on', b.dataset.tool === mode.kind);
@@ -72,7 +77,7 @@ export class Toolbar {
       const cost = Object.entries(d.cost).filter(([, v]) => v > 0)
         .map(([k, v]) => `<span class="${(g.res[k] ?? 0) < v ? 'lack' : ''}">${resIcon(k)}${v}</span>`).join('');
       const on = mode.kind === 'build' && mode.type === id;
-      return `<button class="card${unlocked ? '' : ' locked'}${on ? ' on' : ''}" data-type="${id}" title="${d.desc}">
+      return `<button class="card${unlocked ? '' : ' locked'}${on ? ' on' : ''}${focus.has(id) ? ' hint' : ''}" data-type="${id}" title="${d.desc}">
         <div class="nm"><span>${BUILDING_ICONS[id]} ${d.name}</span></div>
         <div class="sz">${d.size[0]}×${d.size[1]} · 最高 ${d.maxLevel} 级</div>
         <div class="cost">${cost}</div>

@@ -242,3 +242,10 @@ button { font: inherit; color: inherit; cursor: pointer; }
 @media (max-width: 760px) { .victories { grid-template-columns: 1fr; } }
 #replay-bar { position: absolute; top: 58px; left: 50%; transform: translateX(-50%); background: rgba(90, 30, 120, 0.9); border: 1px solid #c08aff; border-radius: 8px; padding: 4px 14px; font-size: 13px; font-weight: 700; z-index: 5; }
 #replay-bar a { color: #ffe066; }
+.card.hint, .cat.hint { animation: pulse 1.4s ease-in-out infinite; }
+@keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(255, 211, 77, 0.0); } 50% { box-shadow: 0 0 0 3px rgba(255, 211, 77, 0.75); } }
+.logrow { display: flex; gap: 10px; padding: 4px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
+.logrow span { color: var(--muted); font-variant-numeric: tabular-nums; }
+.logrow.bad { color: #ffb4aa; }
+.logrow.good { color: #b8f0b8; }
+.logrow.big { color: var(--accent); font-weight: 700; }

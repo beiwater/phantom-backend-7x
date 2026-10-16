@@ -6,37 +6,37 @@ const ratio = (n, goal) => Math.min(1, n / goal);
 
 export const MISSIONS = [
   {
-    title: '扎根', goal: '建造农场与水泵站',
+    title: '扎根', goal: '建造农场与水泵站', focus: ['farm', 'pump'],
     hint: '在「采集」分类中选择农场放在草地上,水泵站需靠近池塘。建筑必须邻接连通指挥中心的道路才能运转。',
     progress: (g) => (Math.min(1, count(g, 'farm')) + Math.min(1, count(g, 'pump'))) / 2,
     reward: { money: 150 },
   },
   {
-    title: '第一口面包', goal: '建造食品厂,累计生产 10 食物',
+    title: '第一口面包', goal: '建造食品厂,累计生产 10 食物', focus: ['foodFactory'],
     hint: '食品厂把谷物和净水加工成食物;民居需要食物维持工人数量。',
     progress: (g) => ratio(g.produced.food, 10),
     reward: { money: 200, planks: 10 },
   },
   {
-    title: '木与石', goal: '建造伐木场、锯木厂与采石场',
+    title: '木与石', goal: '建造伐木场、锯木厂与采石场', focus: ['lumber', 'sawmill', 'quarry'],
     hint: '伐木场要贴近森林,采石场要覆盖灰色岩石。木板与石料是大部分建筑的材料。',
     progress: (g) => (Math.min(1, count(g, 'lumber')) + Math.min(1, count(g, 'sawmill')) + Math.min(1, count(g, 'quarry'))) / 3,
     reward: { money: 200 },
   },
   {
-    title: '人丁兴旺', goal: '建造 4 座民居',
+    title: '人丁兴旺', goal: '建造 4 座民居', focus: ['house'],
     hint: '每座民居提供 4 名工人。工人不足时所有生产减速。',
     progress: (g) => ratio(count(g, 'house'), 4),
     reward: { money: 150, food: 10 },
   },
   {
-    title: '开市大吉', goal: '建造集市,卖出 20 件货物',
+    title: '开市大吉', goal: '建造集市,卖出 20 件货物', focus: ['market'],
     hint: '选中集市,在面板中勾选要自动出售的货物。',
     progress: (g) => ratio(g.counters.sold, 20),
     reward: { money: 250 },
   },
   {
-    title: '启蒙', goal: '建造学院并研究「采矿」',
+    title: '启蒙', goal: '建造学院并研究「采矿」', focus: ['academy'],
     hint: '学院消耗食物与木板产出科研点。点击顶栏「科技」打开科技树。',
     progress: (g) => (g.techs.has('mining') ? 1 : count(g, 'academy') ? 0.5 : 0),
     reward: { money: 200, research: 10 },

@@ -161,6 +161,25 @@ export class EnemyAI {
     if (g.time >= this.nextWave) this.launch(n);
   }
 
+  /** 外交:进贡推迟下一波。价格随波次与时代上涨,每波只能进贡一次。 */
+  tributeCost() {
+    return Math.round(250 * (this.wave + 1) * this.game.era);
+  }
+
+  tribute() {
+    const g = this.game;
+    if (this.stopped) return { ok: false, reason: '敌军目前没有进攻能力' };
+    if (this.tributedWave === this.wave + 1) return { ok: false, reason: '本波已进贡过,敌军不再接受' };
+    if (this.nextWave - g.time < 10) return { ok: false, reason: '敌军已在进军途中' };
+    const cost = this.tributeCost();
+    if (!g.spend({ money: cost })) return { ok: false, reason: `需要 ${cost} 金币` };
+    this.tributedWave = this.wave + 1;
+    this.nextWave += 120;
+    this.warned = false;
+    g.events.emit('tribute', { wave: this.wave + 1, delay: 120, cost });
+    return { ok: true };
+  }
+
   stop() {
     this.stopped = true;
     const rebuilding = this.rebuild.some((j) => j.type !== 'turret');
@@ -231,7 +250,7 @@ export class EnemyAI {
   }
 
   serialize() {
-    return { nextWave: this.nextWave, wave: this.wave, warned: this.warned, stopped: this.stopped, damageMult: this.damageMult, rebuild: this.rebuild };
+    return { nextWave: this.nextWave, wave: this.wave, warned: this.warned, stopped: this.stopped, damageMult: this.damageMult, rebuild: this.rebuild, tributedWave: this.tributedWave ?? 0 };
   }
 
   load(d, units) {
@@ -241,6 +260,7 @@ export class EnemyAI {
     this.stopped = !!d?.stopped;
     this.damageMult = d?.damageMult ?? 1;
     this.rebuild = d?.rebuild ?? [];
+    this.tributedWave = d?.tributedWave ?? 0;
     this.waves.clear();
     for (const u of units) {
       if (!u.wave) continue;

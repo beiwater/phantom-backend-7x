@@ -54,6 +54,9 @@ const HANDLERS = {
   deliver(game, cmd) {
     return game.contracts?.deliver(cmd.id) ?? { ok: false, reason: '合同系统未就绪' };
   },
+  tribute(game) {
+    return game.unitSystem?.ai?.tribute() ?? { ok: false, reason: '外交不可用' };
+  },
   /** 暂停/恢复生产:暂停后不占工人与电力,也不消耗原料。 */
   togglePause(game, cmd) {
     const b = owned(game, cmd);
